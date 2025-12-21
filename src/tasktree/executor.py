@@ -112,6 +112,17 @@ class Executor:
                 last_run=datetime.fromtimestamp(cached_state.last_run),
             )
 
+        # Check if declared outputs are missing
+        missing_outputs = self._check_outputs_missing(task)
+        if missing_outputs:
+            return TaskStatus(
+                task_name=task.name,
+                will_run=True,
+                reason="outputs_missing",
+                changed_files=missing_outputs,
+                last_run=datetime.fromtimestamp(cached_state.last_run),
+            )
+
         # Task is fresh
         return TaskStatus(
             task_name=task.name,
@@ -166,6 +177,14 @@ class Executor:
         for name in execution_order:
             status = statuses[name]
             if status.will_run:
+                # Warn if re-running due to missing outputs
+                if status.reason == "outputs_missing":
+                    import sys
+                    print(
+                        f"Warning: Re-running task '{name}' because declared outputs are missing",
+                        file=sys.stderr,
+                    )
+
                 task = self.recipe.tasks[name]
                 task_args = args_dict if name == task_name else {}
                 self._run_task(task, task_args)
@@ -265,6 +284,29 @@ class Executor:
                 changed_files.append(file_path)
 
         return changed_files
+
+    def _check_outputs_missing(self, task: Task) -> list[str]:
+        """Check if any declared outputs are missing.
+
+        Args:
+            task: Task to check
+
+        Returns:
+            List of output patterns that have no matching files
+        """
+        if not task.outputs:
+            return []
+
+        missing_patterns = []
+        base_path = self.recipe.project_root / task.working_dir
+
+        for pattern in task.outputs:
+            # Check if pattern has any matches
+            matches = list(base_path.glob(pattern))
+            if not matches:
+                missing_patterns.append(pattern)
+
+        return missing_patterns
 
     def _expand_globs(self, patterns: list[str], working_dir: str) -> list[str]:
         """Expand glob patterns to actual file paths.

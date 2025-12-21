@@ -47,6 +47,10 @@ class TestTaskStatus(unittest.TestCase):
             input_file = project_root / "input.txt"
             input_file.write_text("hello")
 
+            # Create output file (task has run successfully before)
+            output_file = project_root / "output.txt"
+            output_file.write_text("output")
+
             # Create state with old mtime
             state_manager = StateManager(project_root)
             from tasktree.hasher import hash_task, make_cache_key
@@ -135,6 +139,219 @@ class TestExecutor(unittest.TestCase):
             # Verify command had arguments substituted
             call_args = mock_run.call_args
             self.assertEqual(call_args[0][0], "echo Deploying to production")
+
+
+class TestMissingOutputs(unittest.TestCase):
+    def test_fresh_task_with_all_outputs_present(self):
+        """Test that fresh task with all outputs present should skip."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create output file
+            output_file = project_root / "output.txt"
+            output_file.write_text("output")
+
+            # Create state
+            state_manager = StateManager(project_root)
+            from tasktree.hasher import hash_task, make_cache_key
+
+            task = Task(
+                name="build",
+                cmd="echo test > output.txt",
+                outputs=["output.txt"],
+            )
+            task_hash = hash_task(task.cmd, task.outputs, task.working_dir, task.args)
+            cache_key = make_cache_key(task_hash)
+
+            # Set state with recent run
+            state_manager.set(
+                cache_key,
+                TaskState(last_run=time.time(), input_state={}),
+            )
+
+            tasks = {"build": task}
+            recipe = Recipe(tasks=tasks, project_root=project_root)
+            executor = Executor(recipe, state_manager)
+
+            status = executor.check_task_status(task, {}, {})
+            self.assertFalse(status.will_run)
+            self.assertEqual(status.reason, "fresh")
+
+    def test_fresh_task_with_missing_output(self):
+        """Test that fresh task with missing output should run with outputs_missing reason."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Do NOT create output file - it's missing
+
+            # Create state (task ran before)
+            state_manager = StateManager(project_root)
+            from tasktree.hasher import hash_task, make_cache_key
+
+            task = Task(
+                name="build",
+                cmd="echo test > output.txt",
+                outputs=["output.txt"],
+            )
+            task_hash = hash_task(task.cmd, task.outputs, task.working_dir, task.args)
+            cache_key = make_cache_key(task_hash)
+
+            # Set state with recent run
+            state_manager.set(
+                cache_key,
+                TaskState(last_run=time.time(), input_state={}),
+            )
+
+            tasks = {"build": task}
+            recipe = Recipe(tasks=tasks, project_root=project_root)
+            executor = Executor(recipe, state_manager)
+
+            status = executor.check_task_status(task, {}, {})
+            self.assertTrue(status.will_run)
+            self.assertEqual(status.reason, "outputs_missing")
+            self.assertEqual(status.changed_files, ["output.txt"])
+
+    def test_fresh_task_with_partial_outputs(self):
+        """Test that task with some outputs present but not all should run."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create only one of two outputs
+            output1 = project_root / "output1.txt"
+            output1.write_text("output1")
+            # output2.txt is missing
+
+            state_manager = StateManager(project_root)
+            from tasktree.hasher import hash_task, make_cache_key
+
+            task = Task(
+                name="build",
+                cmd="echo test",
+                outputs=["output1.txt", "output2.txt"],
+            )
+            task_hash = hash_task(task.cmd, task.outputs, task.working_dir, task.args)
+            cache_key = make_cache_key(task_hash)
+
+            state_manager.set(
+                cache_key,
+                TaskState(last_run=time.time(), input_state={}),
+            )
+
+            tasks = {"build": task}
+            recipe = Recipe(tasks=tasks, project_root=project_root)
+            executor = Executor(recipe, state_manager)
+
+            status = executor.check_task_status(task, {}, {})
+            self.assertTrue(status.will_run)
+            self.assertEqual(status.reason, "outputs_missing")
+            self.assertIn("output2.txt", status.changed_files)
+
+    def test_task_with_no_state_should_not_warn_about_outputs(self):
+        """Test that first run (no state) uses never_run reason, not outputs_missing."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+
+            task = Task(
+                name="build",
+                cmd="echo test > output.txt",
+                outputs=["output.txt"],
+            )
+
+            tasks = {"build": task}
+            recipe = Recipe(tasks=tasks, project_root=project_root)
+            executor = Executor(recipe, state_manager)
+
+            status = executor.check_task_status(task, {}, {})
+            self.assertTrue(status.will_run)
+            self.assertEqual(status.reason, "never_run")  # Not outputs_missing
+
+    def test_task_with_no_outputs_unaffected(self):
+        """Test that tasks with no outputs declared are unaffected."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+
+            task = Task(name="test", cmd="echo test")  # No outputs
+
+            tasks = {"test": task}
+            recipe = Recipe(tasks=tasks, project_root=project_root)
+            executor = Executor(recipe, state_manager)
+
+            status = executor.check_task_status(task, {}, {})
+            self.assertTrue(status.will_run)
+            self.assertEqual(status.reason, "no_outputs")  # Always runs
+
+    def test_output_glob_pattern_with_working_dir(self):
+        """Test that output patterns resolve correctly with working_dir."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create subdirectory
+            subdir = project_root / "subdir"
+            subdir.mkdir()
+
+            # Create output in subdirectory
+            output_file = subdir / "output.txt"
+            output_file.write_text("output")
+
+            state_manager = StateManager(project_root)
+            from tasktree.hasher import hash_task, make_cache_key
+
+            task = Task(
+                name="build",
+                cmd="echo test > output.txt",
+                working_dir="subdir",
+                outputs=["output.txt"],
+            )
+            task_hash = hash_task(task.cmd, task.outputs, task.working_dir, task.args)
+            cache_key = make_cache_key(task_hash)
+
+            state_manager.set(
+                cache_key,
+                TaskState(last_run=time.time(), input_state={}),
+            )
+
+            tasks = {"build": task}
+            recipe = Recipe(tasks=tasks, project_root=project_root)
+            executor = Executor(recipe, state_manager)
+
+            status = executor.check_task_status(task, {}, {})
+            self.assertFalse(status.will_run)
+            self.assertEqual(status.reason, "fresh")
+
+    def test_output_glob_pattern_no_matches(self):
+        """Test that glob pattern with zero matches triggers re-run."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create dist directory but no .deb files
+            dist_dir = project_root / "dist"
+            dist_dir.mkdir()
+
+            state_manager = StateManager(project_root)
+            from tasktree.hasher import hash_task, make_cache_key
+
+            task = Task(
+                name="package",
+                cmd="create-deb",
+                outputs=["dist/*.deb"],
+            )
+            task_hash = hash_task(task.cmd, task.outputs, task.working_dir, task.args)
+            cache_key = make_cache_key(task_hash)
+
+            state_manager.set(
+                cache_key,
+                TaskState(last_run=time.time(), input_state={}),
+            )
+
+            tasks = {"package": task}
+            recipe = Recipe(tasks=tasks, project_root=project_root)
+            executor = Executor(recipe, state_manager)
+
+            status = executor.check_task_status(task, {}, {})
+            self.assertTrue(status.will_run)
+            self.assertEqual(status.reason, "outputs_missing")
 
 
 if __name__ == "__main__":

@@ -21,7 +21,7 @@ build:
 install-dev:
   desc: Install package in editable mode for development
   deps: [dev-setup]
-  cmd: uv pip install -e .
+  cmd: uv sync
 
 clean:
   desc: Remove build artifacts and cache files
