@@ -1,6 +1,7 @@
 """Integration tests for --clean-state option and its aliases."""
 
 import subprocess
+import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -25,7 +26,7 @@ build:
 
             # Run a task to create state file
             result = subprocess.run(
-                ["python3", "-m", "tasktree.cli", "build"],
+                [sys.executable, "-m", "tasktree.cli", "build"],
                 cwd=project_root,
                 capture_output=True,
                 text=True,
@@ -38,7 +39,7 @@ build:
 
             # Run --clean-state
             result = subprocess.run(
-                ["python3", "-m", "tasktree.cli", "--clean-state"],
+                [sys.executable, "-m", "tasktree.cli", "--clean-state"],
                 cwd=project_root,
                 capture_output=True,
                 text=True,
@@ -65,7 +66,7 @@ build:
 
             # Run a task to create state file
             result = subprocess.run(
-                ["python3", "-m", "tasktree.cli", "build"],
+                [sys.executable, "-m", "tasktree.cli", "build"],
                 cwd=project_root,
                 capture_output=True,
                 text=True,
@@ -78,7 +79,7 @@ build:
 
             # Run --clean (short alias)
             result = subprocess.run(
-                ["python3", "-m", "tasktree.cli", "--clean"],
+                [sys.executable, "-m", "tasktree.cli", "--clean"],
                 cwd=project_root,
                 capture_output=True,
                 text=True,
@@ -105,7 +106,7 @@ build:
 
             # Run a task to create state file
             result = subprocess.run(
-                ["python3", "-m", "tasktree.cli", "build"],
+                [sys.executable, "-m", "tasktree.cli", "build"],
                 cwd=project_root,
                 capture_output=True,
                 text=True,
@@ -118,7 +119,7 @@ build:
 
             # Run --reset
             result = subprocess.run(
-                ["python3", "-m", "tasktree.cli", "--reset"],
+                [sys.executable, "-m", "tasktree.cli", "--reset"],
                 cwd=project_root,
                 capture_output=True,
                 text=True,
@@ -148,7 +149,7 @@ build:
 
             # Run --clean-state
             result = subprocess.run(
-                ["python3", "-m", "tasktree.cli", "--clean-state"],
+                [sys.executable, "-m", "tasktree.cli", "--clean-state"],
                 cwd=project_root,
                 capture_output=True,
                 text=True,

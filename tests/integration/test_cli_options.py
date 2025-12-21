@@ -1,6 +1,7 @@
 """Integration tests for CLI options vs user task names."""
 
 import subprocess
+import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -40,7 +41,7 @@ list:
 
             # Test 1: User tasks can be executed
             result = subprocess.run(
-                ["python3", "-m", "tasktree.cli", "show"],
+                [sys.executable, "-m", "tasktree.cli", "show"],
                 cwd=project_root,
                 capture_output=True,
                 text=True,
@@ -49,7 +50,7 @@ list:
             self.assertIn("Running user's show task", result.stdout)
 
             result = subprocess.run(
-                ["python3", "-m", "tasktree.cli", "tree"],
+                [sys.executable, "-m", "tasktree.cli", "tree"],
                 cwd=project_root,
                 capture_output=True,
                 text=True,
@@ -58,7 +59,7 @@ list:
             self.assertIn("Running user's tree task", result.stdout)
 
             result = subprocess.run(
-                ["python3", "-m", "tasktree.cli", "init"],
+                [sys.executable, "-m", "tasktree.cli", "init"],
                 cwd=project_root,
                 capture_output=True,
                 text=True,
@@ -67,7 +68,7 @@ list:
             self.assertIn("Running user's init task", result.stdout)
 
             result = subprocess.run(
-                ["python3", "-m", "tasktree.cli", "list"],
+                [sys.executable, "-m", "tasktree.cli", "list"],
                 cwd=project_root,
                 capture_output=True,
                 text=True,
@@ -95,7 +96,7 @@ build:
 
             # Test that --show (built-in option) still works
             result = subprocess.run(
-                ["python3", "-m", "tasktree.cli", "--show", "build"],
+                [sys.executable, "-m", "tasktree.cli", "--show", "build"],
                 cwd=project_root,
                 capture_output=True,
                 text=True,
@@ -108,7 +109,7 @@ build:
 
             # Test that --list (built-in option) still works
             result = subprocess.run(
-                ["python3", "-m", "tasktree.cli", "--list"],
+                [sys.executable, "-m", "tasktree.cli", "--list"],
                 cwd=project_root,
                 capture_output=True,
                 text=True,
@@ -120,7 +121,7 @@ build:
 
             # Test that --tree (built-in option) still works
             result = subprocess.run(
-                ["python3", "-m", "tasktree.cli", "--tree", "build"],
+                [sys.executable, "-m", "tasktree.cli", "--tree", "build"],
                 cwd=project_root,
                 capture_output=True,
                 text=True,
@@ -134,7 +135,7 @@ build:
             init_dir = project_root / "subdir"
             init_dir.mkdir()
             result = subprocess.run(
-                ["python3", "-m", "tasktree.cli", "--init"],
+                [sys.executable, "-m", "tasktree.cli", "--init"],
                 cwd=init_dir,
                 capture_output=True,
                 text=True,
@@ -157,7 +158,7 @@ build:
 
             # Single word "show" should be treated as a task name (and fail)
             result = subprocess.run(
-                ["python3", "-m", "tasktree.cli", "show", "build"],
+                [sys.executable, "-m", "tasktree.cli", "show", "build"],
                 cwd=project_root,
                 capture_output=True,
                 text=True,
@@ -168,7 +169,7 @@ build:
 
             # But --show should work
             result = subprocess.run(
-                ["python3", "-m", "tasktree.cli", "--show", "build"],
+                [sys.executable, "-m", "tasktree.cli", "--show", "build"],
                 cwd=project_root,
                 capture_output=True,
                 text=True,
@@ -192,7 +193,7 @@ build:
 
             # Test --help
             result = subprocess.run(
-                ["python3", "-m", "tasktree.cli", "--help"],
+                [sys.executable, "-m", "tasktree.cli", "--help"],
                 cwd=project_root,
                 capture_output=True,
                 text=True,
