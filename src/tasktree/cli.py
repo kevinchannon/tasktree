@@ -496,5 +496,10 @@ def _build_rich_tree(dep_tree: dict, statuses: dict) -> Tree:
     return tree
 
 
+def cli():
+    """Entry point for the CLI."""
+    app()
+
+
 if __name__ == "__main__":
     app()

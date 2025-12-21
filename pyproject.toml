@@ -18,7 +18,7 @@ dev = [
 ]
 
 [project.scripts]
-tt = "tasktree.cli:main"
+tt = "tasktree.cli:cli"
 
 [build-system]
 requires = ["hatchling"]
