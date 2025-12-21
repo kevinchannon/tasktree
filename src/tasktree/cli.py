@@ -223,7 +223,7 @@ def main():
         recipe = _get_recipe()
         if recipe is None:
             console.print("[red]No recipe file found (tasktree.yaml or tt.yaml)[/red]")
-            console.print("Run [cyan]tt init[/cyan] to create a blank recipe file")
+            console.print("Run [cyan]tt --init[/cyan] to create a blank recipe file")
             raise typer.Exit(1)
 
         console.print("[bold]Available tasks:[/bold]")
@@ -241,13 +241,36 @@ def main():
         _clean_state()
         return
 
-    if args[0] in ["list", "show", "tree", "dry-run", "init"]:
-        # Let Typer handle these commands
-        app()
-        return
-
     if args[0] in ["--list", "-l"]:
         list_tasks()
+        return
+
+    if args[0] in ["--init"]:
+        init_recipe()
+        return
+
+    if args[0] in ["--show"]:
+        if len(args) < 2:
+            console.print("[red]Error: --show requires a task name[/red]")
+            console.print("Usage: tt --show <task-name>")
+            raise typer.Exit(1)
+        show_task(args[1])
+        return
+
+    if args[0] in ["--tree"]:
+        if len(args) < 2:
+            console.print("[red]Error: --tree requires a task name[/red]")
+            console.print("Usage: tt --tree <task-name>")
+            raise typer.Exit(1)
+        show_tree(args[1])
+        return
+
+    if args[0] in ["--dry-run"]:
+        if len(args) < 2:
+            console.print("[red]Error: --dry-run requires a task name[/red]")
+            console.print("Usage: tt --dry-run <task-name>")
+            raise typer.Exit(1)
+        dry_run(args[1])
         return
 
     # Otherwise, treat first arg as a task name
