@@ -237,6 +237,10 @@ def main():
         app()
         return
 
+    if args[0] in ["--clean-state", "--reset"]:
+        _clean_state()
+        return
+
     if args[0] in ["list", "show", "tree", "dry-run", "init"]:
         # Let Typer handle these commands
         app()
@@ -248,6 +252,25 @@ def main():
 
     # Otherwise, treat first arg as a task name
     _execute_dynamic_task(args)
+
+
+def _clean_state() -> None:
+    """Remove the .tasktree-state file to reset task execution state."""
+    recipe_path = find_recipe_file()
+    if recipe_path is None:
+        console.print("[yellow]No recipe file found[/yellow]")
+        console.print("State file location depends on recipe file location")
+        raise typer.Exit(1)
+
+    project_root = recipe_path.parent
+    state_path = project_root / ".tasktree-state"
+
+    if state_path.exists():
+        state_path.unlink()
+        console.print(f"[green]✓ Removed {state_path}[/green]")
+        console.print("All tasks will run fresh on next execution")
+    else:
+        console.print(f"[yellow]No state file found at {state_path}[/yellow]")
 
 
 def _get_recipe() -> Recipe | None:
