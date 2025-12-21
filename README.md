@@ -1,5 +1,7 @@
 # Task Tree (tt)
 
+[![Tests](https://github.com/kevinchannon/tasktree/actions/workflows/test.yml/badge.svg)](https://github.com/YOUR_USERNAME/tasktree/actions/workflows/test.yml)
+
 A task automation tool that combines simple command execution with intelligent dependency tracking and incremental execution.
 
 ## Installation
