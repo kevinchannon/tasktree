@@ -29,8 +29,7 @@ app = typer.Typer(
 console = Console()
 
 
-@app.command("list", help="List all available tasks")
-def list_tasks():
+def _list_tasks():
     """List all available tasks with descriptions."""
     recipe = _get_recipe()
     if recipe is None:
@@ -49,10 +48,7 @@ def list_tasks():
     console.print(table)
 
 
-@app.command("show", help="Display task definition with syntax highlighting")
-def show_task(
-    task_name: str = typer.Argument(..., help="Name of task to show"),
-):
+def _show_task(task_name: str):
     """Show task definition with syntax highlighting."""
     recipe = _get_recipe()
     if recipe is None:
@@ -92,10 +88,7 @@ def show_task(
     console.print(syntax)
 
 
-@app.command("tree", help="Show dependency tree with freshness status")
-def show_tree(
-    task_name: str = typer.Argument(..., help="Name of task to show tree for"),
-):
+def _show_tree(task_name: str):
     """Show dependency tree with freshness indicators."""
     recipe = _get_recipe()
     if recipe is None:
@@ -125,10 +118,7 @@ def show_tree(
     console.print(tree)
 
 
-@app.command("dry-run", help="Show execution plan without running tasks")
-def dry_run(
-    task_name: str = typer.Argument(..., help="Name of task to dry-run"),
-):
+def _dry_run(task_name: str):
     """Show what would be executed without actually running."""
     recipe = _get_recipe()
     if recipe is None:
@@ -170,8 +160,7 @@ def dry_run(
             console.print(f"  - {name} (fresh{last_run_str})")
 
 
-@app.command("init", help="Create a blank tasktree.yaml with examples")
-def init_recipe():
+def _init_recipe():
     """Create a blank recipe file with commented examples."""
     recipe_path = Path("tasktree.yaml")
     if recipe_path.exists():
@@ -240,16 +229,16 @@ def main():
         console.print(f"task-tree version {__version__}")
         return
 
-    if args[0] in ["--clean-state", "--reset"]:
+    if args[0] in ["--clean-state", "--clean", "--reset"]:
         _clean_state()
         return
 
     if args[0] in ["--list", "-l"]:
-        list_tasks()
+        _list_tasks()
         return
 
     if args[0] in ["--init"]:
-        init_recipe()
+        _init_recipe()
         return
 
     if args[0] in ["--show"]:
@@ -257,7 +246,7 @@ def main():
             console.print("[red]Error: --show requires a task name[/red]")
             console.print("Usage: tt --show <task-name>")
             raise typer.Exit(1)
-        show_task(args[1])
+        _show_task(args[1])
         return
 
     if args[0] in ["--tree"]:
@@ -265,7 +254,7 @@ def main():
             console.print("[red]Error: --tree requires a task name[/red]")
             console.print("Usage: tt --tree <task-name>")
             raise typer.Exit(1)
-        show_tree(args[1])
+        _show_tree(args[1])
         return
 
     if args[0] in ["--dry-run"]:
@@ -273,7 +262,7 @@ def main():
             console.print("[red]Error: --dry-run requires a task name[/red]")
             console.print("Usage: tt --dry-run <task-name>")
             raise typer.Exit(1)
-        dry_run(args[1])
+        _dry_run(args[1])
         return
 
     # Otherwise, treat first arg as a task name
