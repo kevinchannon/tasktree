@@ -99,6 +99,10 @@ def get_implicit_inputs(recipe: Recipe, task: Task) -> list[str]:
 def build_dependency_tree(recipe: Recipe, target_task: str) -> dict:
     """Build a tree structure representing dependencies for visualization.
 
+    Note: This builds a true tree representation where shared dependencies may
+    appear multiple times. Each dependency is shown in the context of its parent,
+    allowing the full dependency path to be visible from any node.
+
     Args:
         recipe: Parsed recipe containing all tasks
         target_task: Name of the task to build tree for
@@ -109,7 +113,7 @@ def build_dependency_tree(recipe: Recipe, target_task: str) -> dict:
     if target_task not in recipe.tasks:
         raise TaskNotFoundError(f"Task not found: {target_task}")
 
-    visited = set()
+    current_path = set()  # Track current recursion path for cycle detection
 
     def build_tree(task_name: str) -> dict:
         """Recursively build dependency tree."""
@@ -117,18 +121,18 @@ def build_dependency_tree(recipe: Recipe, target_task: str) -> dict:
         if task is None:
             raise TaskNotFoundError(f"Task not found: {task_name}")
 
-        # Prevent infinite recursion on cycles
-        if task_name in visited:
+        # Detect cycles in current recursion path
+        if task_name in current_path:
             return {"name": task_name, "deps": [], "cycle": True}
 
-        visited.add(task_name)
+        current_path.add(task_name)
 
         tree = {
             "name": task_name,
             "deps": [build_tree(dep) for dep in task.deps],
         }
 
-        visited.remove(task_name)
+        current_path.remove(task_name)
 
         return tree
 
