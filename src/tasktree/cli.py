@@ -8,10 +8,8 @@ from typing import Any, Optional
 
 import typer
 import yaml
-from pygments import highlight
-from pygments.formatters import TerminalFormatter
-from pygments.lexers import YamlLexer
 from rich.console import Console
+from rich.syntax import Syntax
 from rich.table import Table
 from rich.tree import Tree
 
@@ -87,10 +85,10 @@ def show_task(
     task_dict = task_yaml[task_name]
     task_yaml[task_name] = {k: v for k, v in task_dict.items() if v}
 
-    # Format and highlight
+    # Format and highlight using Rich
     yaml_str = yaml.dump(task_yaml, default_flow_style=False, sort_keys=False)
-    highlighted = highlight(yaml_str, YamlLexer(), TerminalFormatter())
-    console.print(highlighted)
+    syntax = Syntax(yaml_str, "yaml", theme="ansi_light", line_numbers=False)
+    console.print(syntax)
 
 
 @app.command("tree", help="Show dependency tree with freshness status")
