@@ -198,6 +198,30 @@ def _init_recipe():
     console.print("Edit the file to define your tasks")
 
 
+def _show_help():
+    """Display help message with all available options."""
+    console.print("[bold]Task Tree - A task automation tool with intelligent incremental execution[/bold]\n")
+    console.print("[bold]Usage:[/bold]")
+    console.print("  tt <task-name> [args...]     Run a task")
+    console.print("  tt [OPTIONS]\n")
+    console.print("[bold]Options:[/bold]")
+    console.print("  --help, -h                   Show this help message")
+    console.print("  --version, -v                Show version")
+    console.print("  --list, -l                   List all available tasks")
+    console.print("  --show <task>                Show task definition")
+    console.print("  --tree <task>                Show dependency tree")
+    console.print("  --dry-run <task>             Show execution plan without running")
+    console.print("  --init                       Create a blank tasktree.yaml")
+    console.print("  --clean                      Remove state file (reset task cache)")
+    console.print("  --clean-state                Remove state file (reset task cache)")
+    console.print("  --reset                      Remove state file (reset task cache)\n")
+    console.print("[bold]Examples:[/bold]")
+    console.print("  tt build                     Run the 'build' task")
+    console.print("  tt deploy prod region=us-1   Run 'deploy' with arguments")
+    console.print("  tt --list                    List all tasks")
+    console.print("  tt --tree test               Show dependency tree for 'test'")
+
+
 def main():
     """Entry point that handles dynamic task execution."""
     import sys
@@ -222,7 +246,7 @@ def main():
         return
 
     if args[0] in ["--help", "-h"]:
-        app()
+        _show_help()
         return
 
     if args[0] in ["--version", "-v"]:

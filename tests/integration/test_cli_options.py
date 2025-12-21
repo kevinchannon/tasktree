@@ -177,5 +177,45 @@ build:
             self.assertIn("build:", result.stdout)
 
 
+    def test_help_option_works(self):
+        """Test that --help and -h options work correctly."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create a simple recipe
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+build:
+  desc: Build task
+  cmd: echo "building"
+""")
+
+            # Test --help
+            result = subprocess.run(
+                ["python3", "-m", "tasktree.cli", "--help"],
+                cwd=project_root,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0)
+            self.assertIn("Task Tree", result.stdout)
+            self.assertIn("Usage:", result.stdout)
+            self.assertIn("Options:", result.stdout)
+            self.assertIn("--help", result.stdout)
+            self.assertIn("--version", result.stdout)
+            self.assertIn("--list", result.stdout)
+
+            # Test -h (short alias)
+            result = subprocess.run(
+                ["python3", "-m", "tasktree.cli", "-h"],
+                cwd=project_root,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0)
+            self.assertIn("Task Tree", result.stdout)
+            self.assertIn("Usage:", result.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()
