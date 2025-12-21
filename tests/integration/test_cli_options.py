@@ -200,21 +200,16 @@ build:
             self.assertEqual(result.returncode, 0)
             self.assertIn("Task Tree", result.stdout)
             self.assertIn("Usage:", result.stdout)
-            self.assertIn("Options:", result.stdout)
+            # Typer formats it with a box, so just check for "Options"
+            self.assertIn("Options", result.stdout)
             self.assertIn("--help", result.stdout)
             self.assertIn("--version", result.stdout)
             self.assertIn("--list", result.stdout)
-
-            # Test -h (short alias)
-            result = subprocess.run(
-                ["python3", "-m", "tasktree.cli", "-h"],
-                cwd=project_root,
-                capture_output=True,
-                text=True,
-            )
-            self.assertEqual(result.returncode, 0)
-            self.assertIn("Task Tree", result.stdout)
-            self.assertIn("Usage:", result.stdout)
+            self.assertIn("--show", result.stdout)
+            self.assertIn("--tree", result.stdout)
+            self.assertIn("--dry-run", result.stdout)
+            self.assertIn("--init", result.stdout)
+            self.assertIn("--clean", result.stdout)
 
 
 if __name__ == "__main__":

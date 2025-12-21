@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, List, Optional
 
 import typer
 import yaml
@@ -24,7 +24,7 @@ from tasktree.types import get_click_type
 app = typer.Typer(
     help="Task Tree - A task automation tool with intelligent incremental execution",
     add_completion=False,
-    no_args_is_help=False,
+    no_args_is_help=True,
 )
 console = Console()
 
@@ -198,40 +198,98 @@ def _init_recipe():
     console.print("Edit the file to define your tasks")
 
 
-def _show_help():
-    """Display help message with all available options."""
-    console.print("[bold]Task Tree - A task automation tool with intelligent incremental execution[/bold]\n")
-    console.print("[bold]Usage:[/bold]")
-    console.print("  tt <task-name> [args...]     Run a task")
-    console.print("  tt [OPTIONS]\n")
-    console.print("[bold]Options:[/bold]")
-    console.print("  --help, -h                   Show this help message")
-    console.print("  --version, -v                Show version")
-    console.print("  --list, -l                   List all available tasks")
-    console.print("  --show <task>                Show task definition")
-    console.print("  --tree <task>                Show dependency tree")
-    console.print("  --dry-run <task>             Show execution plan without running")
-    console.print("  --init                       Create a blank tasktree.yaml")
-    console.print("  --clean                      Remove state file (reset task cache)")
-    console.print("  --clean-state                Remove state file (reset task cache)")
-    console.print("  --reset                      Remove state file (reset task cache)\n")
-    console.print("[bold]Examples:[/bold]")
-    console.print("  tt build                     Run the 'build' task")
-    console.print("  tt deploy prod region=us-1   Run 'deploy' with arguments")
-    console.print("  tt --list                    List all tasks")
-    console.print("  tt --tree test               Show dependency tree for 'test'")
+def _version_callback(value: bool):
+    """Show version and exit."""
+    if value:
+        console.print(f"task-tree version {__version__}")
+        raise typer.Exit()
 
 
-def main():
-    """Entry point that handles dynamic task execution."""
-    import sys
+@app.callback(invoke_without_command=True)
+def main(
+    ctx: typer.Context,
+    version: Optional[bool] = typer.Option(
+        None,
+        "--version",
+        "-v",
+        callback=_version_callback,
+        is_eager=True,
+        help="Show version and exit",
+    ),
+    list_tasks: Optional[bool] = typer.Option(
+        None, "--list", "-l", help="List all available tasks"
+    ),
+    show: Optional[str] = typer.Option(None, "--show", help="Show task definition"),
+    tree: Optional[str] = typer.Option(None, "--tree", help="Show dependency tree"),
+    dry_run: Optional[str] = typer.Option(
+        None, "--dry-run", help="Show execution plan without running"
+    ),
+    init: Optional[bool] = typer.Option(
+        None, "--init", help="Create a blank tasktree.yaml"
+    ),
+    clean: Optional[bool] = typer.Option(
+        None, "--clean", help="Remove state file (reset task cache)"
+    ),
+    clean_state: Optional[bool] = typer.Option(
+        None, "--clean-state", help="Remove state file (reset task cache)"
+    ),
+    reset: Optional[bool] = typer.Option(
+        None, "--reset", help="Remove state file (reset task cache)"
+    ),
+    task_args: Optional[List[str]] = typer.Argument(
+        None, help="Task name and arguments"
+    ),
+):
+    """Task Tree - A task automation tool with intelligent incremental execution.
 
-    # Get command line arguments (skip the program name)
-    args = sys.argv[1:]
+    Run tasks defined in tasktree.yaml with intelligent dependency tracking
+    and incremental execution.
 
-    # Check for built-in commands
-    if not args:
-        # Show brief help
+    Examples:
+
+      tt build                     # Run the 'build' task
+
+      tt deploy prod region=us-1   # Run 'deploy' with arguments
+
+      tt --list                    # List all tasks
+
+      tt --tree test               # Show dependency tree for 'test'
+    """
+    # Handle list option
+    if list_tasks:
+        _list_tasks()
+        raise typer.Exit()
+
+    # Handle show option
+    if show:
+        _show_task(show)
+        raise typer.Exit()
+
+    # Handle tree option
+    if tree:
+        _show_tree(tree)
+        raise typer.Exit()
+
+    # Handle dry-run option
+    if dry_run:
+        _dry_run(dry_run)
+        raise typer.Exit()
+
+    # Handle init option
+    if init:
+        _init_recipe()
+        raise typer.Exit()
+
+    # Handle clean options (all three aliases)
+    if clean or clean_state or reset:
+        _clean_state()
+        raise typer.Exit()
+
+    # Handle task execution
+    if task_args:
+        _execute_dynamic_task(task_args)
+    else:
+        # No arguments - show available tasks
         recipe = _get_recipe()
         if recipe is None:
             console.print("[red]No recipe file found (tasktree.yaml or tt.yaml)[/red]")
@@ -243,54 +301,6 @@ def main():
             console.print(f"  - {task_name}")
         console.print("\nUse [cyan]tt --list[/cyan] for detailed information")
         console.print("Use [cyan]tt <task-name>[/cyan] to run a task")
-        return
-
-    if args[0] in ["--help", "-h"]:
-        _show_help()
-        return
-
-    if args[0] in ["--version", "-v"]:
-        console.print(f"task-tree version {__version__}")
-        return
-
-    if args[0] in ["--clean-state", "--clean", "--reset"]:
-        _clean_state()
-        return
-
-    if args[0] in ["--list", "-l"]:
-        _list_tasks()
-        return
-
-    if args[0] in ["--init"]:
-        _init_recipe()
-        return
-
-    if args[0] in ["--show"]:
-        if len(args) < 2:
-            console.print("[red]Error: --show requires a task name[/red]")
-            console.print("Usage: tt --show <task-name>")
-            raise typer.Exit(1)
-        _show_task(args[1])
-        return
-
-    if args[0] in ["--tree"]:
-        if len(args) < 2:
-            console.print("[red]Error: --tree requires a task name[/red]")
-            console.print("Usage: tt --tree <task-name>")
-            raise typer.Exit(1)
-        _show_tree(args[1])
-        return
-
-    if args[0] in ["--dry-run"]:
-        if len(args) < 2:
-            console.print("[red]Error: --dry-run requires a task name[/red]")
-            console.print("Usage: tt --dry-run <task-name>")
-            raise typer.Exit(1)
-        _dry_run(args[1])
-        return
-
-    # Otherwise, treat first arg as a task name
-    _execute_dynamic_task(args)
 
 
 def _clean_state() -> None:
@@ -487,4 +497,4 @@ def _build_rich_tree(dep_tree: dict, statuses: dict) -> Tree:
 
 
 if __name__ == "__main__":
-    main()
+    app()
