@@ -1,0 +1,18 @@
+hello:
+  desc: Print a greeting
+  cmd: echo "Hello from Task Tree!"
+
+world:
+  desc: Print world message
+  deps: [hello]
+  cmd: echo "World!"
+
+test:
+  desc: Run the tests
+  cmd: python3 -m pytest tests/ -v
+
+build:
+  desc: Build the package
+  deps: [test]
+  outputs: [dist/]
+  cmd: echo "Building package..."
