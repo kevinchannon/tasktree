@@ -29,7 +29,9 @@ clean:
     rm -rf dist/ build/ *.egg-info
     rm -rf .pytest_cache
     find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
-    rm -f .tasktree-state
+
+# Note: To reset task state, manually run: rm .tasktree-state
+# (Can't be done via a task since state is saved after task completion)
 
 clean-all:
   desc: Remove all generated files including virtual environment
