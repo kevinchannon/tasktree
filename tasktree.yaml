@@ -1,9 +1,7 @@
 dev-setup:
   desc: Install development dependencies
-  outputs: [.venv/bin/pytest]
   cmd: |
-    uv pip install -e ".[dev]"
-    uv pip install build
+    uv pip install --system -e ".[dev]"
 
 test:
   desc: Run the test suite
@@ -20,8 +18,7 @@ build:
 
 install-dev:
   desc: Install package in editable mode for development
-  deps: [dev-setup]
-  cmd: uv sync
+  cmd: uv pip install --system -e ".[dev]"
 
 clean:
   desc: Remove build artifacts and cache files
@@ -42,7 +39,8 @@ reinstall:
   desc: Clean, build, and install the package
   deps: [clean, build]
   cmd: |
-    pipx reinstall dist/*.whl || echo "Install with: pipx install dist/*.whl"
+    WHEEL=$(ls dist/*.whl | head -1)
+    pipx install --force "$WHEEL"
 
 check:
   desc: Run all checks (tests and build)
