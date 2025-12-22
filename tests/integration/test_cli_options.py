@@ -16,6 +16,7 @@ class TestCLIOptionsNoClash(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures."""
         self.runner = CliRunner()
+        self.env = {"NO_COLOR": "1"}  # Disable color output for consistent assertions
 
     def test_user_tasks_with_builtin_names(self):
         """Test that user can create tasks named 'show', 'tree', 'init', etc.
@@ -51,19 +52,19 @@ list:
                 os.chdir(project_root)
 
                 # Test 1: User tasks can be executed
-                result = self.runner.invoke(app, ["show"])
+                result = self.runner.invoke(app, ["show"], env=self.env)
                 self.assertEqual(result.exit_code, 0)
                 self.assertIn("Task 'show' completed successfully", result.stdout)
 
-                result = self.runner.invoke(app, ["tree"])
+                result = self.runner.invoke(app, ["tree"], env=self.env)
                 self.assertEqual(result.exit_code, 0)
                 self.assertIn("Task 'tree' completed successfully", result.stdout)
 
-                result = self.runner.invoke(app, ["init"])
+                result = self.runner.invoke(app, ["init"], env=self.env)
                 self.assertEqual(result.exit_code, 0)
                 self.assertIn("Task 'init' completed successfully", result.stdout)
 
-                result = self.runner.invoke(app, ["list"])
+                result = self.runner.invoke(app, ["list"], env=self.env)
                 self.assertEqual(result.exit_code, 0)
                 self.assertIn("Task 'list' completed successfully", result.stdout)
             finally:
@@ -92,7 +93,7 @@ build:
                 os.chdir(project_root)
 
                 # Test that --show (built-in option) still works
-                result = self.runner.invoke(app, ["--show", "build"])
+                result = self.runner.invoke(app, ["--show", "build"], env=self.env)
                 self.assertEqual(result.exit_code, 0)
                 self.assertIn("build:", result.stdout)
                 self.assertIn("desc: Build task", result.stdout)
@@ -100,14 +101,14 @@ build:
                 self.assertNotIn("Running user's show task", result.stdout)
 
                 # Test that --list (built-in option) still works
-                result = self.runner.invoke(app, ["--list"])
+                result = self.runner.invoke(app, ["--list"], env=self.env)
                 self.assertEqual(result.exit_code, 0)
                 self.assertIn("Available Tasks", result.stdout)
                 self.assertIn("show", result.stdout)
                 self.assertIn("build", result.stdout)
 
                 # Test that --tree (built-in option) still works
-                result = self.runner.invoke(app, ["--tree", "build"])
+                result = self.runner.invoke(app, ["--tree", "build"], env=self.env)
                 self.assertEqual(result.exit_code, 0)
                 self.assertIn("build", result.stdout)
                 # Should NOT execute the user's "show" task
@@ -121,7 +122,7 @@ build:
             original_cwd = os.getcwd()
             try:
                 os.chdir(init_dir)
-                result = self.runner.invoke(app, ["--init"])
+                result = self.runner.invoke(app, ["--init"], env=self.env)
                 self.assertEqual(result.exit_code, 0)
                 self.assertTrue((init_dir / "tasktree.yaml").exists())
                 self.assertIn("Created", result.stdout)
@@ -145,13 +146,13 @@ build:
                 os.chdir(project_root)
 
                 # Single word "show" should be treated as a task name (and fail)
-                result = self.runner.invoke(app, ["show", "build"])
+                result = self.runner.invoke(app, ["show", "build"], env=self.env)
                 # This should fail because "show" task doesn't exist
                 self.assertNotEqual(result.exit_code, 0)
                 self.assertIn("Task not found: show", result.stdout)
 
                 # But --show should work
-                result = self.runner.invoke(app, ["--show", "build"])
+                result = self.runner.invoke(app, ["--show", "build"], env=self.env)
                 self.assertEqual(result.exit_code, 0)
                 self.assertIn("build:", result.stdout)
             finally:
@@ -176,7 +177,7 @@ build:
                 os.chdir(project_root)
 
                 # Test --help
-                result = self.runner.invoke(app, ["--help"])
+                result = self.runner.invoke(app, ["--help"], env=self.env)
                 self.assertEqual(result.exit_code, 0)
                 self.assertIn("Task Tree", result.stdout)
                 self.assertIn("Usage:", result.stdout)

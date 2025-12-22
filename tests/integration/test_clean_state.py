@@ -16,6 +16,7 @@ class TestCleanState(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures."""
         self.runner = CliRunner()
+        self.env = {"NO_COLOR": "1"}  # Disable color output for consistent assertions
 
     def test_clean_state_removes_state_file(self):
         """Test that --clean-state removes the .tasktree-state file."""
@@ -35,7 +36,7 @@ build:
             original_cwd = os.getcwd()
             try:
                 os.chdir(project_root)
-                result = self.runner.invoke(app, ["build"])
+                result = self.runner.invoke(app, ["build"], env=self.env)
                 self.assertEqual(result.exit_code, 0)
 
                 # Verify state file was created
@@ -43,7 +44,7 @@ build:
                 self.assertTrue(state_file.exists())
 
                 # Run --clean-state
-                result = self.runner.invoke(app, ["--clean-state"])
+                result = self.runner.invoke(app, ["--clean-state"], env=self.env)
                 self.assertEqual(result.exit_code, 0)
                 self.assertIn("Removed", result.stdout)
 
@@ -70,7 +71,7 @@ build:
             original_cwd = os.getcwd()
             try:
                 os.chdir(project_root)
-                result = self.runner.invoke(app, ["build"])
+                result = self.runner.invoke(app, ["build"], env=self.env)
                 self.assertEqual(result.exit_code, 0)
 
                 # Verify state file was created
@@ -78,7 +79,7 @@ build:
                 self.assertTrue(state_file.exists())
 
                 # Run --clean (short alias)
-                result = self.runner.invoke(app, ["--clean"])
+                result = self.runner.invoke(app, ["--clean"], env=self.env)
                 self.assertEqual(result.exit_code, 0)
                 self.assertIn("Removed", result.stdout)
 
@@ -105,7 +106,7 @@ build:
             original_cwd = os.getcwd()
             try:
                 os.chdir(project_root)
-                result = self.runner.invoke(app, ["build"])
+                result = self.runner.invoke(app, ["build"], env=self.env)
                 self.assertEqual(result.exit_code, 0)
 
                 # Verify state file was created
@@ -113,7 +114,7 @@ build:
                 self.assertTrue(state_file.exists())
 
                 # Run --reset
-                result = self.runner.invoke(app, ["--reset"])
+                result = self.runner.invoke(app, ["--reset"], env=self.env)
                 self.assertEqual(result.exit_code, 0)
                 self.assertIn("Removed", result.stdout)
 
@@ -143,7 +144,7 @@ build:
             original_cwd = os.getcwd()
             try:
                 os.chdir(project_root)
-                result = self.runner.invoke(app, ["--clean-state"])
+                result = self.runner.invoke(app, ["--clean-state"], env=self.env)
                 self.assertEqual(result.exit_code, 0)
                 self.assertIn("No state file found", result.stdout)
             finally:
