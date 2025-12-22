@@ -5,7 +5,7 @@ dev-setup:
 
 test:
   desc: Run the test suite
-  deps: [dev-setup]
+  deps: []
   inputs: [src/**/*.py, tests/**/*.py]
   cmd: python3 -m pytest tests/ -v
 
