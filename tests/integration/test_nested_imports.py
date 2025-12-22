@@ -34,7 +34,7 @@ class TestNestedImports(unittest.TestCase):
             (project_root / "base.yaml").write_text("""
 setup:
   outputs: [base-output.txt]
-  cmd: echo "base setup complete" > base-output.txt
+  cmd: echo base setup complete > base-output.txt
 """)
 
             # Create common.yaml that imports base.yaml
@@ -46,7 +46,7 @@ import:
 prepare:
   deps: [base.setup]
   outputs: [common-output.txt]
-  cmd: echo "common prepare complete" > common-output.txt
+  cmd: echo common prepare complete > common-output.txt
 """)
 
             # Create main recipe that imports common.yaml
@@ -58,7 +58,7 @@ import:
 
 main:
   deps: [common.prepare, common.base.setup]
-  cmd: echo "main task complete"
+  cmd: echo main task complete
 """)
 
             original_cwd = os.getcwd()
@@ -94,12 +94,12 @@ main:
             (project_root / "base.yaml").write_text("""
 init:
   outputs: [init.txt]
-  cmd: echo "step 1" > init.txt
+  cmd: echo step 1 > init.txt
 
 config:
   deps: [init]
   outputs: [config.txt]
-  cmd: echo "step 2" > config.txt
+  cmd: echo step 2 > config.txt
 """)
 
             # Level 2: Import base and add middleware tasks
@@ -111,12 +111,12 @@ import:
 setup:
   deps: [base.config]
   outputs: [setup.txt]
-  cmd: echo "step 3" > setup.txt
+  cmd: echo step 3 > setup.txt
 
 prepare:
   deps: [setup]
   outputs: [prepare.txt]
-  cmd: echo "step 4" > prepare.txt
+  cmd: echo step 4 > prepare.txt
 """)
 
             # Level 1: Import middleware and add app tasks
@@ -129,12 +129,12 @@ import:
 build:
   deps: [mid.prepare, mid.base.config]
   outputs: [build.txt]
-  cmd: echo "step 5" > build.txt
+  cmd: echo step 5 > build.txt
 
 deploy:
   deps: [build]
   outputs: [deploy.txt]
-  cmd: echo "step 6" > deploy.txt
+  cmd: echo step 6 > deploy.txt
 """)
 
             original_cwd = os.getcwd()
@@ -173,7 +173,7 @@ deploy:
             (project_root / "base.yaml").write_text("""
 shared-setup:
   outputs: [base-setup.txt]
-  cmd: echo "base setup" > base-setup.txt
+  cmd: echo base setup > base-setup.txt
 """)
 
             # Left branch (B)
@@ -185,7 +185,7 @@ import:
 left-task:
   deps: [base.shared-setup]
   outputs: [left.txt]
-  cmd: echo "left completed" > left.txt
+  cmd: echo left completed > left.txt
 """)
 
             # Right branch (C)
@@ -197,7 +197,7 @@ import:
 right-task:
   deps: [base.shared-setup]
   outputs: [right.txt]
-  cmd: echo "right completed" > right.txt
+  cmd: echo right completed > right.txt
 """)
 
             # Main file (A) imports both branches
@@ -211,7 +211,7 @@ import:
 
 main:
   deps: [left.left-task, right.right-task]
-  cmd: echo "main completed"
+  cmd: echo main completed
 """)
 
             original_cwd = os.getcwd()
