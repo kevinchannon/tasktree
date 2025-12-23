@@ -4,7 +4,15 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from tasktree.parser import CircularImportError, Task, parse_arg_spec, parse_recipe
+import yaml
+
+from tasktree.parser import (
+    CircularImportError,
+    Task,
+    find_recipe_file,
+    parse_arg_spec,
+    parse_recipe,
+)
 
 
 class TestParseArgSpec(unittest.TestCase):
@@ -757,6 +765,119 @@ build:
             # |- strips the final newline
             expected = 'echo "line 1"\necho "line 2"'
             self.assertEqual(task.cmd, expected)
+
+
+class TestParserErrors(unittest.TestCase):
+    """Tests for parser error conditions."""
+
+    def test_parse_invalid_yaml_syntax(self):
+        """Test yaml.YAMLError is raised for invalid YAML."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            # Create a file with invalid YAML syntax
+            recipe_path.write_text(
+                """
+build:
+  cmd: echo "test"
+  deps: [invalid
+"""
+            )
+
+            with self.assertRaises(yaml.YAMLError):
+                parse_recipe(recipe_path)
+
+    def test_parse_task_not_dictionary(self):
+        """Test ValueError when task is not a dict."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            # Task defined as a string instead of a dictionary
+            recipe_path.write_text(
+                """
+build: echo "this should be a dict"
+"""
+            )
+
+            with self.assertRaises(ValueError) as cm:
+                parse_recipe(recipe_path)
+            self.assertIn("must be a dictionary", str(cm.exception))
+
+    def test_parse_task_missing_cmd(self):
+        """Test ValueError when task has no 'cmd' field."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            # Task defined without required 'cmd' field
+            recipe_path.write_text(
+                """
+build:
+  desc: Build task
+  outputs: [output.txt]
+"""
+            )
+
+            with self.assertRaises(ValueError) as cm:
+                parse_recipe(recipe_path)
+            self.assertIn("missing required 'cmd' field", str(cm.exception))
+
+
+class TestFindRecipeFile(unittest.TestCase):
+    """Tests for find_recipe_file() function."""
+
+    def test_find_recipe_file_current_dir_tasktree(self):
+        """Test finds tasktree.yaml in current directory."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir).resolve()
+            recipe_path = project_root / "tasktree.yaml"
+            recipe_path.write_text("build:\n  cmd: echo test")
+
+            result = find_recipe_file(project_root)
+            self.assertEqual(result, recipe_path)
+
+    def test_find_recipe_file_current_dir_tt(self):
+        """Test finds tt.yaml in current directory."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir).resolve()
+            recipe_path = project_root / "tt.yaml"
+            recipe_path.write_text("build:\n  cmd: echo test")
+
+            result = find_recipe_file(project_root)
+            self.assertEqual(result, recipe_path)
+
+    def test_find_recipe_file_parent_directory(self):
+        """Test searches parent directories."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir).resolve()
+            recipe_path = project_root / "tasktree.yaml"
+            recipe_path.write_text("build:\n  cmd: echo test")
+
+            # Create subdirectory
+            subdir = project_root / "src" / "nested"
+            subdir.mkdir(parents=True)
+
+            # Search from subdirectory should find parent recipe
+            result = find_recipe_file(subdir)
+            self.assertEqual(result, recipe_path)
+
+    def test_find_recipe_file_not_found(self):
+        """Test returns None when no recipe at root."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            result = find_recipe_file(project_root)
+            self.assertIsNone(result)
+
+    def test_find_recipe_file_prefers_tasktree(self):
+        """Test prefers tasktree.yaml over tt.yaml."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir).resolve()
+            tasktree_path = project_root / "tasktree.yaml"
+            tt_path = project_root / "tt.yaml"
+
+            # Create both files
+            tasktree_path.write_text("build:\n  cmd: echo from tasktree")
+            tt_path.write_text("build:\n  cmd: echo from tt")
+
+            result = find_recipe_file(project_root)
+            self.assertEqual(result, tasktree_path)
 
 
 if __name__ == "__main__":

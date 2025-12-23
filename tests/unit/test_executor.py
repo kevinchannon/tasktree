@@ -354,5 +354,230 @@ class TestMissingOutputs(unittest.TestCase):
             self.assertEqual(status.reason, "outputs_missing")
 
 
+class TestExecutorErrors(unittest.TestCase):
+    """Tests for executor error conditions."""
+
+    def test_execute_subprocess_failure(self):
+        """Test ExecutionError raised when subprocess fails."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            recipe_path = project_root / "tasktree.yaml"
+            recipe_path.write_text(
+                """
+fail:
+  cmd: exit 1
+"""
+            )
+
+            from tasktree.executor import ExecutionError, Executor
+            from tasktree.parser import parse_recipe
+            from tasktree.state import StateManager
+
+            recipe = parse_recipe(recipe_path)
+            state_manager = StateManager(project_root)
+            executor = Executor(recipe, state_manager)
+
+            with self.assertRaises(ExecutionError) as cm:
+                executor.execute_task("fail", {})
+            self.assertIn("exit code", str(cm.exception).lower())
+
+    def test_execute_working_dir_not_found(self):
+        """Test error when working directory doesn't exist."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            recipe_path = project_root / "tasktree.yaml"
+            recipe_path.write_text(
+                """
+test:
+  working_dir: nonexistent_directory
+  cmd: echo "test"
+"""
+            )
+
+            from tasktree.executor import ExecutionError, Executor
+            from tasktree.parser import parse_recipe
+            from tasktree.state import StateManager
+
+            recipe = parse_recipe(recipe_path)
+            state_manager = StateManager(project_root)
+            executor = Executor(recipe, state_manager)
+
+            with self.assertRaises((ExecutionError, FileNotFoundError, OSError)):
+                executor.execute_task("test", {})
+
+    def test_execute_command_not_found(self):
+        """Test error when command doesn't exist."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            recipe_path = project_root / "tasktree.yaml"
+            recipe_path.write_text(
+                """
+test:
+  cmd: nonexistent_command_12345
+"""
+            )
+
+            from tasktree.executor import ExecutionError, Executor
+            from tasktree.parser import parse_recipe
+            from tasktree.state import StateManager
+
+            recipe = parse_recipe(recipe_path)
+            state_manager = StateManager(project_root)
+            executor = Executor(recipe, state_manager)
+
+            with self.assertRaises(ExecutionError):
+                executor.execute_task("test", {})
+
+    def test_execute_permission_denied(self):
+        """Test error when command not executable."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create a script file without execute permissions
+            script_path = project_root / "script.sh"
+            script_path.write_text("#!/bin/bash\necho test")
+            script_path.chmod(0o644)  # Read/write but not execute
+
+            recipe_path = project_root / "tasktree.yaml"
+            recipe_path.write_text(
+                f"""
+test:
+  cmd: {script_path}
+"""
+            )
+
+            from tasktree.executor import ExecutionError, Executor
+            from tasktree.parser import parse_recipe
+            from tasktree.state import StateManager
+
+            recipe = parse_recipe(recipe_path)
+            state_manager = StateManager(project_root)
+            executor = Executor(recipe, state_manager)
+
+            with self.assertRaises((ExecutionError, PermissionError, OSError)):
+                executor.execute_task("test", {})
+
+
+class TestExecutorPrivateMethods(unittest.TestCase):
+    """Tests for executor private methods."""
+
+    def test_substitute_args_single(self):
+        """Test substituting single argument."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+            tasks = {"deploy": Task(name="deploy", cmd="echo {{environment}}")}
+            recipe = Recipe(tasks=tasks, project_root=project_root)
+            executor = Executor(recipe, state_manager)
+
+            result = executor._substitute_args("echo {{environment}}", {"environment": "production"})
+            self.assertEqual(result, "echo production")
+
+    def test_substitute_args_multiple(self):
+        """Test substituting multiple arguments."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+            tasks = {"deploy": Task(name="deploy", cmd="deploy {{app}} to {{region}}")}
+            recipe = Recipe(tasks=tasks, project_root=project_root)
+            executor = Executor(recipe, state_manager)
+
+            result = executor._substitute_args(
+                "deploy {{app}} to {{region}}",
+                {"app": "myapp", "region": "us-east-1"}
+            )
+            self.assertEqual(result, "deploy myapp to us-east-1")
+
+    def test_substitute_args_missing_placeholder(self):
+        """Test leaves unreplaced placeholders when arg not provided."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+            tasks = {"deploy": Task(name="deploy", cmd="echo {{environment}} {{missing}}")}
+            recipe = Recipe(tasks=tasks, project_root=project_root)
+            executor = Executor(recipe, state_manager)
+
+            result = executor._substitute_args(
+                "echo {{environment}} {{missing}}",
+                {"environment": "production"}
+            )
+            # Missing placeholder should remain
+            self.assertEqual(result, "echo production {{missing}}")
+
+    def test_check_inputs_changed_mtime(self):
+        """Test detects changed file by mtime."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create input file
+            input_file = project_root / "input.txt"
+            input_file.write_text("original")
+            original_mtime = input_file.stat().st_mtime
+
+            # Create state with old mtime
+            state_manager = StateManager(project_root)
+            task = Task(name="build", cmd="cat input.txt", inputs=["input.txt"])
+
+            # Create cached state with original mtime
+            cached_state = TaskState(
+                last_run=time.time(),
+                input_state={"input.txt": original_mtime - 100}  # Older mtime
+            )
+
+            tasks = {"build": task}
+            recipe = Recipe(tasks=tasks, project_root=project_root)
+            executor = Executor(recipe, state_manager)
+
+            # Check if inputs changed
+            changed = executor._check_inputs_changed(task, cached_state, ["input.txt"])
+
+            # Should detect change because current mtime > cached mtime
+            self.assertEqual(changed, ["input.txt"])
+
+    def test_check_outputs_missing(self):
+        """Test detects missing output files."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+
+            # Task declares outputs but files don't exist
+            task = Task(
+                name="build",
+                cmd="echo test > output.txt",
+                outputs=["output.txt"]
+            )
+
+            tasks = {"build": task}
+            recipe = Recipe(tasks=tasks, project_root=project_root)
+            executor = Executor(recipe, state_manager)
+
+            # Check for missing outputs
+            missing = executor._check_outputs_missing(task)
+
+            # Should detect output.txt is missing
+            self.assertEqual(missing, ["output.txt"])
+
+    def test_expand_globs_multiple_patterns(self):
+        """Test expanding multiple glob patterns."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create test files
+            (project_root / "file1.txt").write_text("test1")
+            (project_root / "file2.txt").write_text("test2")
+            (project_root / "script.py").write_text("print('test')")
+
+            state_manager = StateManager(project_root)
+            tasks = {"test": Task(name="test", cmd="echo test")}
+            recipe = Recipe(tasks=tasks, project_root=project_root)
+            executor = Executor(recipe, state_manager)
+
+            # Expand multiple patterns
+            result = executor._expand_globs(["*.txt", "*.py"], ".")
+
+            # Should find all matching files
+            self.assertEqual(set(result), {"file1.txt", "file2.txt", "script.py"})
+
+
 if __name__ == "__main__":
     unittest.main()

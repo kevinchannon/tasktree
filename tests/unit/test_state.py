@@ -81,5 +81,34 @@ class TestStateManager(unittest.TestCase):
             self.assertIsNone(state_manager.get("abc12345"))
 
 
+class TestStateErrors(unittest.TestCase):
+    """Tests for state error conditions."""
+
+    def test_state_corrupted_json(self):
+        """Test StateManager handles corrupted JSON gracefully."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_file = project_root / ".tasktree-state"
+
+            # Create a corrupted JSON file
+            state_file.write_text("{ invalid json content }")
+
+            # StateManager should handle this gracefully and start with empty state
+            state_manager = StateManager(project_root)
+            state_manager.load()
+
+            # Should have empty state (corrupted file ignored)
+            self.assertIsNone(state_manager.get("any_key"))
+
+            # Should be able to save new state
+            state_manager.set("new_key", TaskState(last_run=1234567890.0))
+            state_manager.save()
+
+            # Should be able to load the new state
+            state_manager2 = StateManager(project_root)
+            state_manager2.load()
+            self.assertIsNotNone(state_manager2.get("new_key"))
+
+
 if __name__ == "__main__":
     unittest.main()

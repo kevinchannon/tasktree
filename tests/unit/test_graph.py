@@ -5,6 +5,7 @@ import unittest
 from tasktree.graph import (
     CycleError,
     TaskNotFoundError,
+    build_dependency_tree,
     get_implicit_inputs,
     resolve_execution_order,
 )
@@ -93,6 +94,101 @@ class TestGetImplicitInputs(unittest.TestCase):
 
         implicit = get_implicit_inputs(recipe, tasks["build"])
         self.assertEqual(implicit, ["src/**/*.rs"])
+
+
+class TestGraphErrors(unittest.TestCase):
+    """Tests for graph error conditions."""
+
+    def test_graph_cycle_error(self):
+        """Test CycleError raised for circular dependencies."""
+        # Create a circular dependency: A -> B -> C -> A
+        tasks = {
+            "a": Task(name="a", cmd="echo a", deps=["b"]),
+            "b": Task(name="b", cmd="echo b", deps=["c"]),
+            "c": Task(name="c", cmd="echo c", deps=["a"]),
+        }
+        recipe = Recipe(tasks=tasks, project_root=None)
+
+        from tasktree.graph import CycleError
+
+        with self.assertRaises(CycleError):
+            resolve_execution_order(recipe, "a")
+
+    def test_graph_build_tree_missing_task(self):
+        """Test TaskNotFoundError in build_dependency_tree()."""
+        tasks = {
+            "build": Task(name="build", cmd="echo build"),
+        }
+        recipe = Recipe(tasks=tasks, project_root=None)
+
+        from tasktree.graph import TaskNotFoundError, build_dependency_tree
+
+        with self.assertRaises(TaskNotFoundError):
+            build_dependency_tree(recipe, "nonexistent")
+
+
+class TestBuildDependencyTree(unittest.TestCase):
+    """Tests for build_dependency_tree() function."""
+
+    def test_build_tree_single_task(self):
+        """Test tree for task with no dependencies."""
+        tasks = {"build": Task(name="build", cmd="cargo build")}
+        recipe = Recipe(tasks=tasks, project_root=None)
+
+        tree = build_dependency_tree(recipe, "build")
+
+        self.assertEqual(tree["name"], "build")
+        self.assertEqual(tree["deps"], [])
+
+    def test_build_tree_with_dependencies(self):
+        """Test tree structure for task with deps."""
+        tasks = {
+            "lint": Task(name="lint", cmd="cargo clippy"),
+            "build": Task(name="build", cmd="cargo build", deps=["lint"]),
+            "test": Task(name="test", cmd="cargo test", deps=["build"]),
+        }
+        recipe = Recipe(tasks=tasks, project_root=None)
+
+        tree = build_dependency_tree(recipe, "test")
+
+        # Root should be "test"
+        self.assertEqual(tree["name"], "test")
+        # Should have one dependency (build)
+        self.assertEqual(len(tree["deps"]), 1)
+        self.assertEqual(tree["deps"][0]["name"], "build")
+        # build should have one dependency (lint)
+        self.assertEqual(len(tree["deps"][0]["deps"]), 1)
+        self.assertEqual(tree["deps"][0]["deps"][0]["name"], "lint")
+        # lint should have no dependencies
+        self.assertEqual(tree["deps"][0]["deps"][0]["deps"], [])
+
+    def test_build_tree_missing_task(self):
+        """Test raises TaskNotFoundError for nonexistent task."""
+        tasks = {"build": Task(name="build", cmd="echo build")}
+        recipe = Recipe(tasks=tasks, project_root=None)
+
+        with self.assertRaises(TaskNotFoundError):
+            build_dependency_tree(recipe, "nonexistent")
+
+    def test_build_tree_includes_task_info(self):
+        """Test tree includes task name and deps structure."""
+        tasks = {
+            "a": Task(name="a", cmd="echo a"),
+            "b": Task(name="b", cmd="echo b", deps=["a"]),
+            "c": Task(name="c", cmd="echo c", deps=["a"]),
+            "d": Task(name="d", cmd="echo d", deps=["b", "c"]),
+        }
+        recipe = Recipe(tasks=tasks, project_root=None)
+
+        tree = build_dependency_tree(recipe, "d")
+
+        # Root should be "d"
+        self.assertEqual(tree["name"], "d")
+        # Should have two dependencies
+        self.assertEqual(len(tree["deps"]), 2)
+        # Both b and c should be in deps
+        dep_names = {dep["name"] for dep in tree["deps"]}
+        self.assertEqual(dep_names, {"b", "c"})
 
 
 if __name__ == "__main__":
