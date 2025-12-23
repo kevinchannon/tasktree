@@ -236,6 +236,9 @@ def main(
     reset: Optional[bool] = typer.Option(
         None, "--reset", help="Remove state file (reset task cache)"
     ),
+    force: Optional[bool] = typer.Option(
+        None, "--force", "-f", help="Force re-run all tasks (ignore freshness)"
+    ),
     task_args: Optional[List[str]] = typer.Argument(
         None, help="Task name and arguments"
     ),
@@ -284,7 +287,7 @@ def main(
 
     # Handle task execution
     if task_args:
-        _execute_dynamic_task(task_args)
+        _execute_dynamic_task(task_args, force=force or False)
     else:
         # No arguments - show available tasks
         recipe = _get_recipe()
@@ -332,11 +335,12 @@ def _get_recipe() -> Recipe | None:
         raise typer.Exit(1)
 
 
-def _execute_dynamic_task(args: list[str]) -> None:
+def _execute_dynamic_task(args: list[str], force: bool = False) -> None:
     """Execute a task specified by name with arguments.
 
     Args:
         args: Command line arguments (task name and task arguments)
+        force: If True, ignore freshness and re-run all tasks
     """
     if not args:
         return
@@ -373,7 +377,7 @@ def _execute_dynamic_task(args: list[str]) -> None:
     # Execute task
     executor = Executor(recipe, state)
     try:
-        executor.execute_task(task_name, args_dict, dry_run=False)
+        executor.execute_task(task_name, args_dict, dry_run=False, force=force)
         console.print(f"[green]✓ Task '{task_name}' completed successfully[/green]")
     except Exception as e:
         console.print(f"[red]✗ Task '{task_name}' failed: {e}[/red]")

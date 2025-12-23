@@ -51,25 +51,36 @@ class Executor:
         task: Task,
         args_dict: dict[str, Any],
         dep_statuses: dict[str, TaskStatus],
+        force: bool = False,
     ) -> TaskStatus:
         """Check if a task needs to run.
 
         A task executes if ANY of these conditions are met:
-        1. Task definition hash differs from cached state
-        2. Any explicit inputs have newer mtime than last_run
-        3. Any implicit inputs (from deps) have changed
-        4. No cached state exists for this task+args combination
-        5. Task has no inputs AND no outputs (always runs)
-        6. Different arguments than any cached execution
+        1. Force flag is set (--force)
+        2. Task definition hash differs from cached state
+        3. Any explicit inputs have newer mtime than last_run
+        4. Any implicit inputs (from deps) have changed
+        5. No cached state exists for this task+args combination
+        6. Task has no inputs AND no outputs (always runs)
+        7. Different arguments than any cached execution
 
         Args:
             task: Task to check
             args_dict: Arguments for this task execution
             dep_statuses: Status of dependencies
+            force: If True, ignore freshness and force execution
 
         Returns:
             TaskStatus indicating whether task will run and why
         """
+        # If force flag is set, always run
+        if force:
+            return TaskStatus(
+                task_name=task.name,
+                will_run=True,
+                reason="forced",
+            )
+
         # Compute hashes
         task_hash = hash_task(task.cmd, task.outputs, task.working_dir, task.args)
         args_hash = hash_args(args_dict) if args_dict else None
@@ -136,6 +147,7 @@ class Executor:
         task_name: str,
         args_dict: dict[str, Any] | None = None,
         dry_run: bool = False,
+        force: bool = False,
     ) -> dict[str, TaskStatus]:
         """Execute a task and its dependencies.
 
@@ -143,6 +155,7 @@ class Executor:
             task_name: Name of task to execute
             args_dict: Arguments to pass to the task
             dry_run: If True, only check what would run without executing
+            force: If True, ignore freshness and re-run all tasks
 
         Returns:
             Dictionary of task names to their execution status
@@ -167,7 +180,7 @@ class Executor:
             # Determine task-specific args (only for target task)
             task_args = args_dict if name == task_name else {}
 
-            status = self.check_task_status(task, task_args, dep_statuses)
+            status = self.check_task_status(task, task_args, dep_statuses, force=force)
             statuses[name] = status
 
         if dry_run:
