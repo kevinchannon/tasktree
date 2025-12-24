@@ -1,0 +1,10 @@
+{
+  "yaml.schemas": {
+    "../schema/tasktree-schema.json": [
+      "tasktree.yaml",
+      "tt.yaml",
+      "**/tasktree.yaml",
+      "**/tt.yaml"
+    ]
+  }
+}

@@ -1,0 +1,163 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/kevinchannon/tasktree/schema/tasktree-schema.json",
+  "title": "Task Tree Recipe Schema",
+  "description": "Schema for Task Tree (tt) recipe files (tasktree.yaml or tt.yaml)",
+  "type": "object",
+  "properties": {
+    "imports": {
+      "description": "Import task definitions from other files",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "Path to the YAML file to import (relative to current file)"
+          },
+          "as": {
+            "type": "string",
+            "description": "Namespace to use for imported tasks",
+            "pattern": "^[a-zA-Z][a-zA-Z0-9_-]*$"
+          }
+        },
+        "required": ["file", "as"],
+        "additionalProperties": false
+      }
+    },
+    "environments": {
+      "description": "Shell execution environment configurations",
+      "type": "object",
+      "properties": {
+        "default": {
+          "type": "string",
+          "description": "Name of the default environment to use"
+        }
+      },
+      "patternProperties": {
+        "^[a-zA-Z][a-zA-Z0-9_-]*$": {
+          "type": "object",
+          "properties": {
+            "shell": {
+              "type": "string",
+              "description": "Path to the shell executable (e.g., /bin/bash, python3, pwsh)"
+            },
+            "args": {
+              "description": "Arguments to pass to the shell",
+              "oneOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "preamble": {
+              "type": "string",
+              "description": "Code to execute before the command (e.g., imports, setup)"
+            }
+          },
+          "required": ["shell"],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "tasks": {
+      "description": "Task definitions",
+      "type": "object",
+      "patternProperties": {
+        "^[a-zA-Z][a-zA-Z0-9_-]*$": {
+          "type": "object",
+          "properties": {
+            "desc": {
+              "type": "string",
+              "description": "Human-readable description of the task"
+            },
+            "deps": {
+              "description": "Task dependencies (must run before this task)",
+              "oneOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "inputs": {
+              "description": "Input file patterns (glob supported). Task re-runs if inputs change.",
+              "oneOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "outputs": {
+              "description": "Output file patterns (glob supported). Task re-runs if outputs missing.",
+              "oneOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "working_dir": {
+              "type": "string",
+              "description": "Directory to execute the command in (relative to recipe file)"
+            },
+            "args": {
+              "description": "Parameterized arguments for the task (format: name, name:type, name:type=default)",
+              "oneOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "env": {
+              "type": "string",
+              "description": "Environment to use for this task (overrides default)"
+            },
+            "cmd": {
+              "type": "string",
+              "description": "Shell command to execute. Use {{arg}} for parameter substitution."
+            }
+          },
+          "required": ["cmd"],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "anyOf": [
+    { "required": ["tasks"] },
+    { "required": ["imports"] },
+    { "required": ["environments"] }
+  ]
+}

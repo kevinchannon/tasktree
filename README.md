@@ -174,6 +174,37 @@ cd tasktree
 pipx install .
 ```
 
+## Editor Support
+
+Task Tree includes a [JSON Schema](schema/tasktree-schema.json) that provides autocomplete, validation, and documentation in modern editors.
+
+### VS Code
+
+Install the [YAML extension](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml), then add to your workspace `.vscode/settings.json`:
+
+```json
+{
+  "yaml.schemas": {
+    "https://raw.githubusercontent.com/kevinchannon/tasktree/main/schema/tasktree-schema.json": [
+      "tasktree.yaml",
+      "tt.yaml"
+    ]
+  }
+}
+```
+
+Or add a comment at the top of your `tasktree.yaml`:
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kevinchannon/tasktree/main/schema/tasktree-schema.json
+
+tasks:
+  build:
+    cmd: cargo build
+```
+
+See [schema/README.md](schema/README.md) for IntelliJ/PyCharm and command-line validation.
+
 ## Quick Start
 
 Create a `tasktree.yaml` (or `tt.yaml`) in your project:
