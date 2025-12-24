@@ -4,7 +4,7 @@ import re
 from datetime import datetime
 from ipaddress import IPv4Address, IPv6Address, ip_address
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import click
 
@@ -19,7 +19,7 @@ class HostnameType(click.ParamType):
         r"^(?=.{1,253}$)(?!-)[A-Za-z0-9-]{1,63}(?<!-)(\.[A-Za-z0-9-]{1,63})*\.?$"
     )
 
-    def convert(self, value: Any, param: click.Parameter | None, ctx: click.Context | None) -> str:
+    def convert(self, value: Any, param: Optional[click.Parameter], ctx: Optional[click.Context]) -> str:
         if isinstance(value, str):
             if self.HOSTNAME_PATTERN.match(value):
                 return value
@@ -36,7 +36,7 @@ class EmailType(click.ParamType):
         r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
     )
 
-    def convert(self, value: Any, param: click.Parameter | None, ctx: click.Context | None) -> str:
+    def convert(self, value: Any, param: Optional[click.Parameter], ctx: Optional[click.Context]) -> str:
         if isinstance(value, str):
             if self.EMAIL_PATTERN.match(value):
                 return value
@@ -48,7 +48,7 @@ class IPType(click.ParamType):
 
     name = "ip"
 
-    def convert(self, value: Any, param: click.Parameter | None, ctx: click.Context | None) -> str:
+    def convert(self, value: Any, param: Optional[click.Parameter], ctx: Optional[click.Context]) -> str:
         try:
             ip_address(value)
             return str(value)
@@ -61,7 +61,7 @@ class IPv4Type(click.ParamType):
 
     name = "ipv4"
 
-    def convert(self, value: Any, param: click.Parameter | None, ctx: click.Context | None) -> str:
+    def convert(self, value: Any, param: Optional[click.Parameter], ctx: Optional[click.Context]) -> str:
         try:
             IPv4Address(value)
             return str(value)
@@ -74,7 +74,7 @@ class IPv6Type(click.ParamType):
 
     name = "ipv6"
 
-    def convert(self, value: Any, param: click.Parameter | None, ctx: click.Context | None) -> str:
+    def convert(self, value: Any, param: Optional[click.Parameter], ctx: Optional[click.Context]) -> str:
         try:
             IPv6Address(value)
             return str(value)
@@ -87,7 +87,7 @@ class DateTimeType(click.ParamType):
 
     name = "datetime"
 
-    def convert(self, value: Any, param: click.Parameter | None, ctx: click.Context | None) -> str:
+    def convert(self, value: Any, param: Optional[click.Parameter], ctx: Optional[click.Context]) -> str:
         if isinstance(value, str):
             try:
                 datetime.fromisoformat(value)
