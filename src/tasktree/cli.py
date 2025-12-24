@@ -191,6 +191,9 @@ def main(
     only: Optional[bool] = typer.Option(
         None, "--only", "-o", help="Run only the specified task, skip dependencies (implies --force)"
     ),
+    env: Optional[str] = typer.Option(
+        None, "--env", "-e", help="Override environment for all tasks"
+    ),
     task_args: Optional[List[str]] = typer.Argument(
         None, help="Task name and arguments"
     ),
@@ -236,7 +239,7 @@ def main(
     if task_args:
         # When --only is specified, force execution (--only implies --force)
         force_execution = force or only or False
-        _execute_dynamic_task(task_args, force=force_execution, only=only or False)
+        _execute_dynamic_task(task_args, force=force_execution, only=only or False, env=env)
     else:
         # No arguments - show available tasks
         recipe = _get_recipe()
@@ -284,13 +287,14 @@ def _get_recipe() -> Recipe | None:
         raise typer.Exit(1)
 
 
-def _execute_dynamic_task(args: list[str], force: bool = False, only: bool = False) -> None:
+def _execute_dynamic_task(args: list[str], force: bool = False, only: bool = False, env: str | None = None) -> None:
     """Execute a task specified by name with arguments.
 
     Args:
         args: Command line arguments (task name and task arguments)
         force: If True, ignore freshness and re-run all tasks
         only: If True, run only the specified task without dependencies
+        env: If provided, override environment for all tasks
     """
     if not args:
         return
@@ -303,6 +307,17 @@ def _execute_dynamic_task(args: list[str], force: bool = False, only: bool = Fal
         console.print("[red]No recipe file found (tasktree.yaml or tt.yaml)[/red]")
         raise typer.Exit(1)
 
+    # Apply global environment override if provided
+    if env:
+        # Validate that the environment exists
+        if not recipe.get_environment(env):
+            console.print(f"[red]Environment not found: {env}[/red]")
+            console.print("\nAvailable environments:")
+            for env_name in sorted(recipe.environments.keys()):
+                console.print(f"  - {env_name}")
+            raise typer.Exit(1)
+        recipe.global_env_override = env
+
     task = recipe.get_task(task_name)
     if task is None:
         console.print(f"[red]Task not found: {task_name}[/red]")
@@ -314,18 +329,18 @@ def _execute_dynamic_task(args: list[str], force: bool = False, only: bool = Fal
     # Parse task arguments
     args_dict = _parse_task_args(task.args, task_args)
 
-    # Prune state before execution
+    # Create executor and state manager
     state = StateManager(recipe.project_root)
     state.load()
+    executor = Executor(recipe, state)
+
+    # Prune state before execution (compute hashes with effective environment)
     valid_hashes = {
-        hash_task(t.cmd, t.outputs, t.working_dir, t.args)
+        hash_task(t.cmd, t.outputs, t.working_dir, t.args, executor._get_effective_env_name(t))
         for t in recipe.tasks.values()
     }
     state.prune(valid_hashes)
     state.save()
-
-    # Execute task
-    executor = Executor(recipe, state)
     try:
         executor.execute_task(task_name, args_dict, force=force, only=only)
         console.print(f"[green]✓ Task '{task_name}' completed successfully[/green]")

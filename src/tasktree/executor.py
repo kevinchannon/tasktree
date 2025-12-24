@@ -50,6 +50,85 @@ class Executor:
         self.recipe = recipe
         self.state = state_manager
 
+    def _get_platform_default_environment(self) -> tuple[str, list[str]]:
+        """Get default shell and args for current platform.
+
+        Returns:
+            Tuple of (shell, args) for platform default
+        """
+        is_windows = platform.system() == "Windows"
+        if is_windows:
+            return ("cmd", ["/c"])
+        else:
+            return ("bash", ["-c"])
+
+    def _get_effective_env_name(self, task: Task) -> str:
+        """Get the effective environment name for a task.
+
+        Resolution order:
+        1. Recipe's global_env_override (from CLI --env)
+        2. Task's explicit env field
+        3. Recipe's default_env
+        4. Empty string (for platform default)
+
+        Args:
+            task: Task to get environment name for
+
+        Returns:
+            Environment name (empty string if using platform default)
+        """
+        # Check for global override first
+        if self.recipe.global_env_override:
+            return self.recipe.global_env_override
+
+        # Use task's env
+        if task.env:
+            return task.env
+
+        # Use recipe default
+        if self.recipe.default_env:
+            return self.recipe.default_env
+
+        # Platform default (no env name)
+        return ""
+
+    def _resolve_environment(self, task: Task) -> tuple[str, list[str], str]:
+        """Resolve which environment to use for a task.
+
+        Resolution order:
+        1. Recipe's global_env_override (from CLI --env)
+        2. Task's explicit env field
+        3. Recipe's default_env
+        4. Platform default (bash on Unix, cmd on Windows)
+
+        Args:
+            task: Task to resolve environment for
+
+        Returns:
+            Tuple of (shell, args, preamble)
+        """
+        # Check for global override first
+        env_name = self.recipe.global_env_override
+
+        # If no global override, use task's env
+        if not env_name:
+            env_name = task.env
+
+        # If no explicit env, try recipe default
+        if not env_name and self.recipe.default_env:
+            env_name = self.recipe.default_env
+
+        # If we have an env name, look it up
+        if env_name:
+            env = self.recipe.get_environment(env_name)
+            if env:
+                return (env.shell, env.args, env.preamble)
+            # If env not found, fall through to platform default
+
+        # Use platform default
+        shell, args = self._get_platform_default_environment()
+        return (shell, args, "")
+
     def check_task_status(
         self,
         task: Task,
@@ -85,8 +164,9 @@ class Executor:
                 reason="forced",
             )
 
-        # Compute hashes
-        task_hash = hash_task(task.cmd, task.outputs, task.working_dir, task.args)
+        # Compute hashes (include effective environment)
+        effective_env = self._get_effective_env_name(task)
+        task_hash = hash_task(task.cmd, task.outputs, task.working_dir, task.args, effective_env)
         args_hash = hash_args(args_dict) if args_dict else None
         cache_key = make_cache_key(task_hash, args_hash)
 
@@ -230,20 +310,23 @@ class Executor:
         # Determine working directory
         working_dir = self.recipe.project_root / task.working_dir
 
+        # Resolve environment for this task
+        shell, shell_args, preamble = self._resolve_environment(task)
+
         # Execute command
         print(f"Running: {task.name}")
 
         # Detect multi-line commands
         if "\n" in cmd:
-            self._run_multiline_command(cmd, working_dir, task.name)
+            self._run_multiline_command(cmd, working_dir, task.name, shell, preamble)
         else:
-            self._run_single_line_command(cmd, working_dir, task.name)
+            self._run_single_line_command(cmd, working_dir, task.name, shell, shell_args)
 
         # Update state
         self._update_state(task, args_dict)
 
     def _run_single_line_command(
-        self, cmd: str, working_dir: Path, task_name: str
+        self, cmd: str, working_dir: Path, task_name: str, shell: str, shell_args: list[str]
     ) -> None:
         """Execute a single-line command via shell.
 
@@ -251,14 +334,17 @@ class Executor:
             cmd: Command string
             working_dir: Working directory
             task_name: Task name (for error messages)
+            shell: Shell executable to use
+            shell_args: Arguments to pass to shell
 
         Raises:
             ExecutionError: If command execution fails
         """
         try:
+            # Build command: shell + args + cmd
+            full_cmd = [shell] + shell_args + [cmd]
             subprocess.run(
-                cmd,
-                shell=True,
+                full_cmd,
                 cwd=working_dir,
                 check=True,
                 capture_output=False,
@@ -269,7 +355,7 @@ class Executor:
             )
 
     def _run_multiline_command(
-        self, cmd: str, working_dir: Path, task_name: str
+        self, cmd: str, working_dir: Path, task_name: str, shell: str, preamble: str
     ) -> None:
         """Execute a multi-line command via temporary script file.
 
@@ -277,11 +363,13 @@ class Executor:
             cmd: Multi-line command string
             working_dir: Working directory
             task_name: Task name (for error messages)
+            shell: Shell to use for script execution
+            preamble: Preamble text to prepend to script
 
         Raises:
             ExecutionError: If command execution fails
         """
-        # Determine file extension and shell based on platform
+        # Determine file extension based on platform
         is_windows = platform.system() == "Windows"
         script_ext = ".bat" if is_windows else ".sh"
 
@@ -295,7 +383,15 @@ class Executor:
 
             # On Unix/macOS, add shebang if not present
             if not is_windows and not cmd.startswith("#!"):
-                script_file.write("#!/bin/bash\n")
+                # Use the configured shell in shebang
+                shebang = f"#!/usr/bin/env {shell}\n"
+                script_file.write(shebang)
+
+            # Add preamble if provided
+            if preamble:
+                script_file.write(preamble)
+                if not preamble.endswith("\n"):
+                    script_file.write("\n")
 
             # Write command to file
             script_file.write(cmd)
@@ -441,8 +537,9 @@ class Executor:
             task: Task that was executed
             args_dict: Arguments used for execution
         """
-        # Compute hashes
-        task_hash = hash_task(task.cmd, task.outputs, task.working_dir, task.args)
+        # Compute hashes (include effective environment)
+        effective_env = self._get_effective_env_name(task)
+        task_hash = hash_task(task.cmd, task.outputs, task.working_dir, task.args, effective_env)
         args_hash = hash_args(args_dict) if args_dict else None
         cache_key = make_cache_key(task_hash, args_hash)
 

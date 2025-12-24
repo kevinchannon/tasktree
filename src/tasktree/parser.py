@@ -64,6 +64,7 @@ class Recipe:
     project_root: Path
     environments: dict[str, Environment] = field(default_factory=dict)
     default_env: str = ""  # Name of default environment
+    global_env_override: str = ""  # Global environment override (set via CLI --env)
 
     def get_task(self, name: str) -> Task | None:
         """Get task by name.

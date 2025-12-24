@@ -5,7 +5,7 @@ import json
 from typing import Any
 
 
-def hash_task(cmd: str, outputs: list[str], working_dir: str, args: list[str]) -> str:
+def hash_task(cmd: str, outputs: list[str], working_dir: str, args: list[str], env: str = "") -> str:
     """Compute task definition hash.
 
     The hash includes:
@@ -13,6 +13,7 @@ def hash_task(cmd: str, outputs: list[str], working_dir: str, args: list[str]) -
     - outputs: Declared output files
     - working_dir: Execution directory
     - args: Parameter definitions (names and types)
+    - env: Environment name (effective environment after resolution)
 
     The hash excludes:
     - deps: Only affects scheduling order
@@ -24,6 +25,7 @@ def hash_task(cmd: str, outputs: list[str], working_dir: str, args: list[str]) -
         outputs: List of output glob patterns
         working_dir: Working directory for execution
         args: List of argument definitions
+        env: Environment name (empty string for platform default)
 
     Returns:
         8-character hex hash string
@@ -34,6 +36,7 @@ def hash_task(cmd: str, outputs: list[str], working_dir: str, args: list[str]) -
         "outputs": sorted(outputs),  # Sort for stability
         "working_dir": working_dir,
         "args": sorted(args),  # Sort for stability
+        "env": env,  # Include effective environment
     }
 
     # Serialize to JSON with sorted keys for deterministic hashing

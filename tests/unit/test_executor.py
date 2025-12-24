@@ -90,11 +90,11 @@ class TestExecutor(unittest.TestCase):
 
             executor.execute_task("build")
 
-            # Verify subprocess was called
+            # Verify subprocess was called with shell + args + command
             mock_run.assert_called_once()
             call_args = mock_run.call_args
-            self.assertEqual(call_args[0][0], "cargo build")
-            self.assertTrue(call_args[1]["shell"])
+            # Command should be passed as [shell, shell_arg, cmd]
+            self.assertEqual(call_args[0][0], ["bash", "-c", "cargo build"])
 
     @patch("subprocess.run")
     def test_execute_with_dependencies(self, mock_run):
@@ -136,9 +136,9 @@ class TestExecutor(unittest.TestCase):
 
             executor.execute_task("deploy", {"environment": "production"})
 
-            # Verify command had arguments substituted
+            # Verify command had arguments substituted and passed as [shell, shell_arg, cmd]
             call_args = mock_run.call_args
-            self.assertEqual(call_args[0][0], "echo Deploying to production")
+            self.assertEqual(call_args[0][0], ["bash", "-c", "echo Deploying to production"])
 
 
 class TestMissingOutputs(unittest.TestCase):
@@ -603,7 +603,7 @@ class TestOnlyMode(unittest.TestCase):
             # Verify only build was executed, not lint
             self.assertEqual(mock_run.call_count, 1)
             call_args = mock_run.call_args
-            self.assertEqual(call_args[0][0], "echo building")
+            self.assertEqual(call_args[0][0], ["bash", "-c", "echo building"])
 
             # Verify statuses only contains the target task
             self.assertEqual(len(statuses), 1)
@@ -632,7 +632,7 @@ class TestOnlyMode(unittest.TestCase):
             # Verify only test was executed
             self.assertEqual(mock_run.call_count, 1)
             call_args = mock_run.call_args
-            self.assertEqual(call_args[0][0], "echo testing")
+            self.assertEqual(call_args[0][0], ["bash", "-c", "echo testing"])
 
             # Verify statuses only contains test
             self.assertEqual(len(statuses), 1)
@@ -688,7 +688,7 @@ class TestMultilineExecution(unittest.TestCase):
 
     @patch("subprocess.run")
     def test_single_line_command_uses_shell(self, mock_run):
-        """Test single-line commands execute via shell."""
+        """Test single-line commands execute via shell invocation."""
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -700,10 +700,13 @@ class TestMultilineExecution(unittest.TestCase):
 
             executor.execute_task("build")
 
-            # Verify shell=True was used for single-line command
+            # Verify command was passed as [shell, shell_arg, cmd]
             self.assertEqual(mock_run.call_count, 1)
+            call_args = mock_run.call_args[0][0]
+            self.assertEqual(call_args, ["bash", "-c", "echo hello"])
+            # Verify shell=True is NOT used (we invoke shell explicitly)
             call_kwargs = mock_run.call_args[1]
-            self.assertTrue(call_kwargs.get("shell"))
+            self.assertFalse(call_kwargs.get("shell", False))
 
     @patch("subprocess.run")
     def test_multiline_command_uses_temp_file(self, mock_run):
@@ -764,6 +767,165 @@ echo "line3" >> output.txt"""
             self.assertIn("line1", content)
             self.assertIn("line2", content)
             self.assertIn("line3", content)
+
+
+class TestEnvironmentResolution(unittest.TestCase):
+    """Test environment resolution and usage."""
+
+    def test_get_effective_env_with_global_override(self):
+        """Test that global_env_override takes precedence."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+
+            # Create environments
+            from tasktree.parser import Environment
+
+            envs = {
+                "prod": Environment(name="prod", shell="sh", args=["-c"]),
+                "dev": Environment(name="dev", shell="bash", args=["-c"]),
+            }
+
+            # Create task with explicit env and recipe with default_env
+            tasks = {"build": Task(name="build", cmd="echo hello", env="dev")}
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                environments=envs,
+                default_env="dev",
+                global_env_override="prod",  # Global override
+            )
+            executor = Executor(recipe, state_manager)
+
+            # Global override should win
+            env_name = executor._get_effective_env_name(tasks["build"])
+            self.assertEqual(env_name, "prod")
+
+    def test_get_effective_env_with_task_env(self):
+        """Test that task.env is used when no global override."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+
+            from tasktree.parser import Environment
+
+            envs = {
+                "prod": Environment(name="prod", shell="sh", args=["-c"]),
+                "dev": Environment(name="dev", shell="bash", args=["-c"]),
+            }
+
+            tasks = {"build": Task(name="build", cmd="echo hello", env="dev")}
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                environments=envs,
+                default_env="prod",
+            )
+            executor = Executor(recipe, state_manager)
+
+            # Task env should win over default_env
+            env_name = executor._get_effective_env_name(tasks["build"])
+            self.assertEqual(env_name, "dev")
+
+    def test_get_effective_env_with_default_env(self):
+        """Test that default_env is used when task has no explicit env."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+
+            from tasktree.parser import Environment
+
+            envs = {"prod": Environment(name="prod", shell="sh", args=["-c"])}
+
+            tasks = {"build": Task(name="build", cmd="echo hello")}  # No env
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                environments=envs,
+                default_env="prod",
+            )
+            executor = Executor(recipe, state_manager)
+
+            # Default env should be used
+            env_name = executor._get_effective_env_name(tasks["build"])
+            self.assertEqual(env_name, "prod")
+
+    def test_get_effective_env_platform_default(self):
+        """Test that empty string is returned for platform default."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+
+            tasks = {"build": Task(name="build", cmd="echo hello")}
+            recipe = Recipe(tasks=tasks, project_root=project_root)
+            executor = Executor(recipe, state_manager)
+
+            # No envs defined, should return empty string
+            env_name = executor._get_effective_env_name(tasks["build"])
+            self.assertEqual(env_name, "")
+
+    def test_resolve_environment_with_custom_env(self):
+        """Test resolving environment with custom shell and args."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+
+            from tasktree.parser import Environment
+
+            envs = {
+                "zsh_env": Environment(
+                    name="zsh_env", shell="zsh", args=["-c"], preamble="set -e\n"
+                )
+            }
+
+            tasks = {"build": Task(name="build", cmd="echo hello", env="zsh_env")}
+            recipe = Recipe(
+                tasks=tasks, project_root=project_root, environments=envs
+            )
+            executor = Executor(recipe, state_manager)
+
+            shell, args, preamble = executor._resolve_environment(tasks["build"])
+            self.assertEqual(shell, "zsh")
+            self.assertEqual(args, ["-c"])
+            self.assertEqual(preamble, "set -e\n")
+
+    @patch("subprocess.run")
+    def test_task_execution_uses_custom_shell(self, mock_run):
+        """Test that custom shell from environment is used for execution."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+
+            from tasktree.parser import Environment
+
+            envs = {"fish": Environment(name="fish", shell="fish", args=["-c"])}
+
+            tasks = {"build": Task(name="build", cmd="echo hello", env="fish")}
+            recipe = Recipe(
+                tasks=tasks, project_root=project_root, environments=envs
+            )
+            executor = Executor(recipe, state_manager)
+
+            mock_run.return_value = MagicMock(returncode=0)
+            executor.execute_task("build")
+
+            # Verify fish shell was used
+            call_args = mock_run.call_args[0][0]
+            self.assertEqual(call_args, ["fish", "-c", "echo hello"])
+
+    def test_hash_changes_with_environment(self):
+        """Test that task hash changes when environment changes."""
+        from tasktree.hasher import hash_task
+
+        # Same task, different environments
+        hash1 = hash_task("echo hello", [], ".", [], "prod")
+        hash2 = hash_task("echo hello", [], ".", [], "dev")
+        hash3 = hash_task("echo hello", [], ".", [], "")
+
+        # All hashes should be different
+        self.assertNotEqual(hash1, hash2)
+        self.assertNotEqual(hash2, hash3)
+        self.assertNotEqual(hash1, hash3)
 
 
 if __name__ == "__main__":
