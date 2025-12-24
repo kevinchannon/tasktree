@@ -209,6 +209,69 @@ tasks:
                 os.chdir(original_cwd)
 
 
+class TestShowOption(unittest.TestCase):
+    """Test the --show option displays task definitions correctly."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.runner = CliRunner()
+        self.env = {"NO_COLOR": "1"}
+
+    def test_show_multiline_command_preserves_newlines(self):
+        """Test that --show displays multiline commands with proper newlines, not escaped \\n."""
+        with self.runner.isolated_filesystem():
+            recipe_file = Path("tasktree.yaml")
+            recipe_file.write_text(
+                """
+tasks:
+  multiline:
+    desc: Task with multiline command
+    cmd: |
+      echo "Line 1"
+      echo "Line 2"
+      echo "Line 3"
+"""
+            )
+
+            result = self.runner.invoke(app, ["--show", "multiline"], env=self.env)
+
+            self.assertEqual(result.exit_code, 0)
+
+            # Should show the literal block style indicator
+            self.assertIn("cmd: |", result.stdout)
+
+            # Should show each line on a separate line (not escaped \\n)
+            self.assertIn('echo "Line 1"', result.stdout)
+            self.assertIn('echo "Line 2"', result.stdout)
+            self.assertIn('echo "Line 3"', result.stdout)
+
+            # Should NOT show escaped newlines
+            self.assertNotIn("\\n", result.stdout)
+
+    def test_show_single_line_command(self):
+        """Test that --show displays single-line commands cleanly."""
+        with self.runner.isolated_filesystem():
+            recipe_file = Path("tasktree.yaml")
+            recipe_file.write_text(
+                """
+tasks:
+  single:
+    desc: Task with single line command
+    cmd: echo "Hello world"
+"""
+            )
+
+            result = self.runner.invoke(app, ["--show", "single"], env=self.env)
+
+            self.assertEqual(result.exit_code, 0)
+
+            # Should show the command on a single line
+            self.assertIn('cmd: echo "Hello world"', result.stdout)
+
+            # Should NOT use literal block style for single-line commands
+            self.assertNotIn("cmd: |", result.stdout)
+
+
 class TestForceOption(unittest.TestCase):
     """Test the --force/-f option forces re-run of all tasks."""
 

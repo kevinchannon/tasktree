@@ -79,6 +79,15 @@ def _show_task(task_name: str):
     task_dict = task_yaml[task_name]
     task_yaml[task_name] = {k: v for k, v in task_dict.items() if v}
 
+    # Configure YAML dumper to use literal block style for multiline strings
+    def literal_presenter(dumper, data):
+        """Use literal block style (|) for strings containing newlines."""
+        if '\n' in data:
+            return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='|')
+        return dumper.represent_scalar('tag:yaml.org,2002:str', data)
+
+    yaml.add_representer(str, literal_presenter)
+
     # Format and highlight using Rich
     yaml_str = yaml.dump(task_yaml, default_flow_style=False, sort_keys=False)
     syntax = Syntax(yaml_str, "yaml", theme="ansi_light", line_numbers=False)
