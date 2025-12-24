@@ -38,10 +38,11 @@ class TestStatePersistence(unittest.TestCase):
             # Create recipe
             recipe_file = project_root / "tasktree.yaml"
             recipe_file.write_text("""
-build:
-  inputs: [input.txt]
-  outputs: [output.txt]
-  cmd: echo "built" > output.txt
+tasks:
+  build:
+    inputs: [input.txt]
+    outputs: [output.txt]
+    cmd: echo "built" > output.txt
 """)
 
             original_cwd = os.getcwd()
@@ -90,10 +91,11 @@ build:
             # Create recipe with task that takes arguments
             recipe_file = project_root / "tasktree.yaml"
             recipe_file.write_text("""
-deploy:
-  args: [environment]
-  outputs: ["deploy-{{environment}}.log"]
-  cmd: echo "Deployed to {{environment}}" > deploy-{{environment}}.log
+tasks:
+  deploy:
+    args: [environment]
+    outputs: ["deploy-{{environment}}.log"]
+    cmd: echo "Deployed to {{environment}}" > deploy-{{environment}}.log
 """)
 
             original_cwd = os.getcwd()
@@ -133,9 +135,10 @@ deploy:
             # Create recipe
             recipe_file = project_root / "tasktree.yaml"
             recipe_file.write_text("""
-build:
-  outputs: [output.txt]
-  cmd: echo "built" > output.txt
+tasks:
+  build:
+    outputs: [output.txt]
+    cmd: echo "built" > output.txt
 """)
 
             original_cwd = os.getcwd()

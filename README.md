@@ -56,33 +56,34 @@ Is this just whining and moaning? Should we just man up and revel in our own abi
 
 ... No. That's **a dumb idea**.
 
-Task Tree allows you to pile all the knowledge of **what** to run, **when** to run it, **where** to run it and **how** to run it into a single, readable place. Then you can delete all the scripts that no-one knows how to use and all the readme docs that lie to the few people that actually waste their time reading them. 
+Task Tree allows you to pile all the knowledge of **what** to run, **when** to run it, **where** to run it and **how** to run it into a single, readable place. Then you can delete all the scripts that no-one knows how to use and all the readme docs that lie to the few people that actually waste their time reading them.
 
 The tasks you need to perform to deliver your project become summarised in an executable file that looks like:
 ```yaml
-build:
-  desc: Compile stuff
-  outputs: [target/release/bin]
-  cmd: cargo build --release
+tasks:
+  build:
+    desc: Compile stuff
+    outputs: [target/release/bin]
+    cmd: cargo build --release
 
-package:
-   desc: build installers
-   deps: [build]
-   outputs: [awesome.deb]
-   cmd: |
-      for bin in target/release/*; do
-          if [[ -x "$bin" && ! -d "$bin" ]]; then
-              install -Dm755 "$bin" "debian/awesome/usr/bin/$(basename "$bin")"
-          fi
-      done
-      
-      dpkg-buildpackage -us -uc
+  package:
+     desc: build installers
+     deps: [build]
+     outputs: [awesome.deb]
+     cmd: |
+        for bin in target/release/*; do
+            if [[ -x "$bin" && ! -d "$bin" ]]; then
+                install -Dm755 "$bin" "debian/awesome/usr/bin/$(basename "$bin")"
+            fi
+        done
 
-test:
-  desc: Run tests
-  deps: [package]
-  inputs: [tests/**/*.py]
-  cmd: PYTHONPATH=src python3 -m pytest tests/ -v
+        dpkg-buildpackage -us -uc
+
+  test:
+    desc: Run tests
+    deps: [package]
+    inputs: [tests/**/*.py]
+    cmd: PYTHONPATH=src python3 -m pytest tests/ -v
 ```
 
 If you want to run the tests then:
@@ -92,6 +93,52 @@ tt test
 Boom! Done. `build` will always run, because there's no sensible way to know what Cargo did. However, if Cargo decided that nothing needed to be done and didn't touch the binaries, then `package` will realize that and not do anything. Then `test` will just run with the new tests that you just wrote. If you then immediately run `test` again, then `test` will figure out that none of the dependencies did anything and that none of the test files have changed and then just _do nothing_ - as it should.
 
 This is a toy example, but you can image how it plays out on a more complex project.
+
+## Migrating from v1.x to v2.0
+
+Version 2.0 requires all task definitions to be under a top-level `tasks:` key.
+
+### Quick Migration
+
+Wrap your existing tasks in a `tasks:` block:
+
+```yaml
+# Before (v1.x)
+build:
+  cmd: cargo build
+
+# After (v2.0)
+tasks:
+  build:
+    cmd: cargo build
+```
+
+### Why This Change?
+
+1. **Clearer structure**: Explicit separation of tasks from configuration
+2. **No naming conflicts**: You can now create tasks named "import" or "environments"
+3. **Better error messages**: More helpful validation errors
+4. **Consistency**: All recipe files use the same format
+
+### Error Messages
+
+If you forget to update, you'll see a clear error:
+
+```
+Invalid recipe format in tasktree.yaml
+
+Task definitions must be under a top-level "tasks:" key.
+
+Found these keys at root level: build, test
+
+Did you mean:
+
+tasks:
+  build:
+    cmd: ...
+  test:
+    cmd: ...
+```
 
 ## Installation
 
@@ -132,15 +179,16 @@ pipx install .
 Create a `tasktree.yaml` (or `tt.yaml`) in your project:
 
 ```yaml
-build:
-  desc: Compile the application
-  outputs: [target/release/bin]
-  cmd: cargo build --release
+tasks:
+  build:
+    desc: Compile the application
+    outputs: [target/release/bin]
+    cmd: cargo build --release
 
-test:
-  desc: Run tests
-  deps: [build]
-  cmd: cargo test
+  test:
+    desc: Run tests
+    deps: [build]
+    cmd: cargo test
 ```
 
 Run tasks:
@@ -171,15 +219,16 @@ Task Tree only runs tasks when necessary. A task executes if:
 Tasks automatically inherit inputs from dependencies, eliminating redundant declarations:
 
 ```yaml
-build:
-  outputs: [dist/app]
-  cmd: go build -o dist/app
+tasks:
+  build:
+    outputs: [dist/app]
+    cmd: go build -o dist/app
 
-package:
-  deps: [build]
-  outputs: [dist/app.tar.gz]
-  cmd: tar czf dist/app.tar.gz dist/app
-  # Automatically tracks dist/app as an input
+  package:
+    deps: [build]
+    outputs: [dist/app.tar.gz]
+    cmd: tar czf dist/app.tar.gz dist/app
+    # Automatically tracks dist/app as an input
 ```
 
 ### Single State File
@@ -191,15 +240,16 @@ All state lives in `.tasktree-state` at your project root. Stale entries are aut
 ### Basic Structure
 
 ```yaml
-task-name:
-  desc: Human-readable description (optional)
-  deps: [other-task]                     # Task dependencies
-  inputs: [src/**/*.go]                  # Explicit input files (glob patterns)
-  outputs: [dist/binary]                 # Output files (glob patterns)
-  working_dir: subproject/               # Execution directory (default: project root)
-  env: bash-strict                       # Execution environment (optional)
-  args: [param1, param2:path=default]    # Task parameters
-  cmd: go build -o dist/binary           # Command to execute
+tasks:
+  task-name:
+    desc: Human-readable description (optional)
+    deps: [other-task]                     # Task dependencies
+    inputs: [src/**/*.go]                  # Explicit input files (glob patterns)
+    outputs: [dist/binary]                 # Output files (glob patterns)
+    working_dir: subproject/               # Execution directory (default: project root)
+    env: bash-strict                       # Execution environment (optional)
+    args: [param1, param2:path=default]    # Task parameters
+    cmd: go build -o dist/binary           # Command to execute
 ```
 
 ### Commands
@@ -207,18 +257,20 @@ task-name:
 **Single-line commands** are executed directly via the configured shell:
 
 ```yaml
-build:
-  cmd: cargo build --release
+tasks:
+  build:
+    cmd: cargo build --release
 ```
 
 **Multi-line commands** are written to temporary script files for proper execution:
 
 ```yaml
-deploy:
-  cmd: |
-    mkdir -p dist
-    cp build/* dist/
-    rsync -av dist/ server:/opt/app/
+tasks:
+  deploy:
+    cmd: |
+      mkdir -p dist
+      cp build/* dist/
+      rsync -av dist/ server:/opt/app/
 ```
 
 Multi-line commands preserve shell syntax (line continuations, heredocs, etc.) and support shebangs on Unix/macOS.
@@ -226,12 +278,13 @@ Multi-line commands preserve shell syntax (line continuations, heredocs, etc.) a
 Or use folded blocks for long single-line commands:
 
 ```yaml
-compile:
-  cmd: >
-    gcc -o bin/app
-    src/*.c
-    -I include
-    -L lib -lm
+tasks:
+  compile:
+    cmd: >
+      gcc -o bin/app
+      src/*.c
+      -I include
+      -L lib -lm
 ```
 
 ### Execution Environments
@@ -291,12 +344,13 @@ tasks:
 Tasks can accept arguments with optional defaults:
 
 ```yaml
-deploy:
-  args: [environment, region=eu-west-1]
-  deps: [build]
-  cmd: |
-    aws s3 cp dist/app.zip s3://{{environment}}-{{region}}/
-    aws lambda update-function-code --function-name app-{{environment}}
+tasks:
+  deploy:
+    args: [environment, region=eu-west-1]
+    deps: [build]
+    cmd: |
+      aws s3 cp dist/app.zip s3://{{environment}}-{{region}}/
+      aws lambda update-function-code --function-name app-{{environment}}
 ```
 
 Invoke with: `tt deploy production` or `tt deploy staging us-east-1` or `tt deploy staging region=us-east-1`. 
@@ -329,12 +383,13 @@ import:
   - file: deploy/tasks.yml
     as: deploy
 
-test:
-  deps: [build.compile, build.test-compile]
-  cmd: ./run-tests.sh
+tasks:
+  test:
+    deps: [build.compile, build.test-compile]
+    cmd: ./run-tests.sh
 
-ci:
-  deps: [build.all, test, deploy.staging]
+  ci:
+    deps: [build.all, test, deploy.staging]
 ```
 
 Imported tasks are namespaced and can be referenced as dependencies. Each imported file is self-contained—it cannot depend on tasks in the importing file.
@@ -448,45 +503,46 @@ tt --force deploy production
 ## Example: Full Build Pipeline
 
 ```yaml
-imports:
+import:
   - file: common/docker.yml
     as: docker
 
-compile:
-  desc: Build application binaries
-  outputs: [target/release/app]
-  cmd: cargo build --release
+tasks:
+  compile:
+    desc: Build application binaries
+    outputs: [target/release/app]
+    cmd: cargo build --release
 
-test-unit:
-  desc: Run unit tests
-  deps: [compile]
-  cmd: cargo test
+  test-unit:
+    desc: Run unit tests
+    deps: [compile]
+    cmd: cargo test
 
-package:
-  desc: Create distribution archive
-  deps: [compile]
-  outputs: [dist/app-{{version}}.tar.gz]
-  args: [version]
-  cmd: |
-    mkdir -p dist
-    tar czf dist/app-{{version}}.tar.gz \
-      target/release/app \
-      config/ \
-      migrations/
+  package:
+    desc: Create distribution archive
+    deps: [compile]
+    outputs: [dist/app-{{version}}.tar.gz]
+    args: [version]
+    cmd: |
+      mkdir -p dist
+      tar czf dist/app-{{version}}.tar.gz \
+        target/release/app \
+        config/ \
+        migrations/
 
-deploy:
-  desc: Deploy to environment
-  deps: [package, docker.build-runtime]
-  args: [environment, version]
-  cmd: |
-    scp dist/app-{{version}}.tar.gz {{environment}}:/opt/
-    ssh {{environment}} /opt/deploy.sh {{version}}
+  deploy:
+    desc: Deploy to environment
+    deps: [package, docker.build-runtime]
+    args: [environment, version]
+    cmd: |
+      scp dist/app-{{version}}.tar.gz {{environment}}:/opt/
+      ssh {{environment}} /opt/deploy.sh {{version}}
 
-integration-test:
-  desc: Run integration tests against deployed environment
-  deps: [deploy]
-  args: [environment, version]
-  cmd: pytest tests/integration/ --env={{environment}}
+  integration-test:
+    desc: Run integration tests against deployed environment
+    deps: [deploy]
+    args: [environment, version]
+    cmd: pytest tests/integration/ --env={{environment}}
 ```
 
 Run the full pipeline:

@@ -32,9 +32,10 @@ class TestNestedImports(unittest.TestCase):
 
             # Create base.yaml with a task that creates an output file
             (project_root / "base.yaml").write_text("""
-setup:
-  outputs: [base-output.txt]
-  cmd: echo base setup complete > base-output.txt
+tasks:
+  setup:
+    outputs: [base-output.txt]
+    cmd: echo base setup complete > base-output.txt
 """)
 
             # Create common.yaml that imports base.yaml
@@ -43,10 +44,11 @@ import:
   - file: base.yaml
     as: base
 
-prepare:
-  deps: [base.setup]
-  outputs: [common-output.txt]
-  cmd: echo common prepare complete > common-output.txt
+tasks:
+  prepare:
+    deps: [base.setup]
+    outputs: [common-output.txt]
+    cmd: echo common prepare complete > common-output.txt
 """)
 
             # Create main recipe that imports common.yaml
@@ -56,9 +58,10 @@ import:
   - file: common.yaml
     as: common
 
-main:
-  deps: [common.prepare, common.base.setup]
-  cmd: echo main task complete
+tasks:
+  main:
+    deps: [common.prepare, common.base.setup]
+    cmd: echo main task complete
 """)
 
             original_cwd = os.getcwd()
@@ -92,14 +95,15 @@ main:
 
             # Level 3: Create base tasks
             (project_root / "base.yaml").write_text("""
-init:
-  outputs: [init.txt]
-  cmd: echo step 1 > init.txt
+tasks:
+  init:
+    outputs: [init.txt]
+    cmd: echo step 1 > init.txt
 
-config:
-  deps: [init]
-  outputs: [config.txt]
-  cmd: echo step 2 > config.txt
+  config:
+    deps: [init]
+    outputs: [config.txt]
+    cmd: echo step 2 > config.txt
 """)
 
             # Level 2: Import base and add middleware tasks
@@ -108,15 +112,16 @@ import:
   - file: base.yaml
     as: base
 
-setup:
-  deps: [base.config]
-  outputs: [setup.txt]
-  cmd: echo step 3 > setup.txt
+tasks:
+  setup:
+    deps: [base.config]
+    outputs: [setup.txt]
+    cmd: echo step 3 > setup.txt
 
-prepare:
-  deps: [setup]
-  outputs: [prepare.txt]
-  cmd: echo step 4 > prepare.txt
+  prepare:
+    deps: [setup]
+    outputs: [prepare.txt]
+    cmd: echo step 4 > prepare.txt
 """)
 
             # Level 1: Import middleware and add app tasks
@@ -126,15 +131,16 @@ import:
   - file: middleware.yaml
     as: mid
 
-build:
-  deps: [mid.prepare, mid.base.config]
-  outputs: [build.txt]
-  cmd: echo step 5 > build.txt
+tasks:
+  build:
+    deps: [mid.prepare, mid.base.config]
+    outputs: [build.txt]
+    cmd: echo step 5 > build.txt
 
-deploy:
-  deps: [build]
-  outputs: [deploy.txt]
-  cmd: echo step 6 > deploy.txt
+  deploy:
+    deps: [build]
+    outputs: [deploy.txt]
+    cmd: echo step 6 > deploy.txt
 """)
 
             original_cwd = os.getcwd()
@@ -171,9 +177,10 @@ deploy:
 
             # Base file (D) - shared by both branches
             (project_root / "base.yaml").write_text("""
-shared-setup:
-  outputs: [base-setup.txt]
-  cmd: echo base setup > base-setup.txt
+tasks:
+  shared-setup:
+    outputs: [base-setup.txt]
+    cmd: echo base setup > base-setup.txt
 """)
 
             # Left branch (B)
@@ -182,10 +189,11 @@ import:
   - file: base.yaml
     as: base
 
-left-task:
-  deps: [base.shared-setup]
-  outputs: [left.txt]
-  cmd: echo left completed > left.txt
+tasks:
+  left-task:
+    deps: [base.shared-setup]
+    outputs: [left.txt]
+    cmd: echo left completed > left.txt
 """)
 
             # Right branch (C)
@@ -194,10 +202,11 @@ import:
   - file: base.yaml
     as: base
 
-right-task:
-  deps: [base.shared-setup]
-  outputs: [right.txt]
-  cmd: echo right completed > right.txt
+tasks:
+  right-task:
+    deps: [base.shared-setup]
+    outputs: [right.txt]
+    cmd: echo right completed > right.txt
 """)
 
             # Main file (A) imports both branches
@@ -209,9 +218,10 @@ import:
   - file: right.yaml
     as: right
 
-main:
-  deps: [left.left-task, right.right-task]
-  cmd: echo main completed
+tasks:
+  main:
+    deps: [left.left-task, right.right-task]
+    cmd: echo main completed
 """)
 
             original_cwd = os.getcwd()

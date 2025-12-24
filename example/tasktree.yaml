@@ -1,15 +1,16 @@
-process:
-  desc: Process source file
-  inputs: [source.txt]
-  outputs: [output.txt]
-  cmd: cat source.txt > output.txt
+tasks:
+  process:
+    desc: Process source file
+    inputs: [source.txt]
+    outputs: [output.txt]
+    cmd: cat source.txt > output.txt
 
-package:
-  desc: Create archive
-  deps: [process]
-  outputs: [archive.tar.gz]
-  cmd: tar czf archive.tar.gz output.txt
+  package:
+    desc: Create archive
+    deps: [process]
+    outputs: [archive.tar.gz]
+    cmd: tar czf archive.tar.gz output.txt
 
-clean:
-  desc: Clean generated files
-  cmd: rm -f output.txt archive.tar.gz
+  clean:
+    desc: Clean generated files
+    cmd: rm -f output.txt archive.tar.gz

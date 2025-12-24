@@ -117,27 +117,28 @@ def _init_recipe():
         raise typer.Exit(1)
 
     template = """# Task Tree Recipe
-# See https://github.com/kevinchannon/task-tree for documentation
+# See https://github.com/kevinchannon/tasktree for documentation
 
 # Example task definitions:
 
-# build:
-#   desc: Compile the application
-#   outputs: [target/release/bin]
-#   cmd: cargo build --release
+tasks:
+  # build:
+  #   desc: Compile the application
+  #   outputs: [target/release/bin]
+  #   cmd: cargo build --release
 
-# test:
-#   desc: Run tests
-#   deps: [build]
-#   cmd: cargo test
+  # test:
+  #   desc: Run tests
+  #   deps: [build]
+  #   cmd: cargo test
 
-# deploy:
-#   desc: Deploy to environment
-#   deps: [build]
-#   args: [environment, region=eu-west-1]
-#   cmd: |
-#     echo "Deploying to {{environment}} in {{region}}"
-#     ./deploy.sh {{environment}} {{region}}
+  # deploy:
+  #   desc: Deploy to environment
+  #   deps: [build]
+  #   args: [environment, region=eu-west-1]
+  #   cmd: |
+  #     echo "Deploying to {{environment}} in {{region}}"
+  #     ./deploy.sh {{environment}} {{region}}
 
 # Uncomment and modify the examples above to define your tasks
 """

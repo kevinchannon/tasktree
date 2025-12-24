@@ -58,12 +58,13 @@ The project uses Python's built-in `unittest` framework with mocking via `unitte
 
 Tasks are defined in YAML with the following structure:
 ```yaml
-task-name:
-  desc: Description (optional)
-  deps: [dependency-tasks]
-  inputs: [glob-patterns]
-  outputs: [glob-patterns]
-  working_dir: execution-directory
-  args: [typed-parameters]
-  cmd: shell-command
+tasks:
+  task-name:
+    desc: Description (optional)
+    deps: [dependency-tasks]
+    inputs: [glob-patterns]
+    outputs: [glob-patterns]
+    working_dir: execution-directory
+    args: [typed-parameters]
+    cmd: shell-command
 ```

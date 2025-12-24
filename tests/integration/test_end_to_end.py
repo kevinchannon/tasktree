@@ -33,10 +33,11 @@ class TestEndToEnd(unittest.TestCase):
             # Create recipe with typed arguments
             recipe_file = project_root / "tasktree.yaml"
             recipe_file.write_text("""
-deploy:
-  args: [environment, region:str=us-west-1, port:int=8080, debug:bool=false]
-  outputs: [deploy.log]
-  cmd: echo "env={{environment}} region={{region}} port={{port}} debug={{debug}}" > deploy.log
+tasks:
+  deploy:
+    args: [environment, region:str=us-west-1, port:int=8080, debug:bool=false]
+    outputs: [deploy.log]
+    cmd: echo "env={{environment}} region={{region}} port={{port}} debug={{debug}}" > deploy.log
 """)
 
             original_cwd = os.getcwd()
@@ -98,8 +99,9 @@ deploy:
             # Create recipe with failing task
             recipe_file = project_root / "tasktree.yaml"
             recipe_file.write_text("""
-failing-task:
-  cmd: exit 42
+tasks:
+  failing-task:
+    cmd: exit 42
 """)
 
             original_cwd = os.getcwd()

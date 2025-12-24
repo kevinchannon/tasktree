@@ -37,21 +37,22 @@ class TestCLIOptionsNoClash(unittest.TestCase):
             # Create a tasktree.yaml with tasks named after built-in options
             recipe_file = project_root / "tasktree.yaml"
             recipe_file.write_text("""
-show:
-  desc: User task named 'show'
-  cmd: echo "Running user's show task"
+tasks:
+  show:
+    desc: User task named 'show'
+    cmd: echo "Running user's show task"
 
-tree:
-  desc: User task named 'tree'
-  cmd: echo "Running user's tree task"
+  tree:
+    desc: User task named 'tree'
+    cmd: echo "Running user's tree task"
 
-init:
-  desc: User task named 'init'
-  cmd: echo "Running user's init task"
+  init:
+    desc: User task named 'init'
+    cmd: echo "Running user's init task"
 
-list:
-  desc: User task named 'list'
-  cmd: echo "Running user's list task"
+  list:
+    desc: User task named 'list'
+    cmd: echo "Running user's list task"
 """)
 
             original_cwd = os.getcwd()
@@ -85,14 +86,15 @@ list:
             # Create a tasktree.yaml with tasks named after built-in options
             recipe_file = project_root / "tasktree.yaml"
             recipe_file.write_text("""
-show:
-  desc: User task named 'show'
-  cmd: echo "Running user's show task"
+tasks:
+  show:
+    desc: User task named 'show'
+    cmd: echo "Running user's show task"
 
-build:
-  desc: Build task
-  outputs: [output.txt]
-  cmd: echo "building" > output.txt
+  build:
+    desc: Build task
+    outputs: [output.txt]
+    cmd: echo "building" > output.txt
 """)
 
             original_cwd = os.getcwd()
@@ -143,9 +145,10 @@ build:
 
             recipe_file = project_root / "tasktree.yaml"
             recipe_file.write_text("""
-build:
-  desc: Build task
-  cmd: echo "building"
+tasks:
+  build:
+    desc: Build task
+    cmd: echo "building"
 """)
 
             original_cwd = os.getcwd()
@@ -174,9 +177,10 @@ build:
             # Create a simple recipe
             recipe_file = project_root / "tasktree.yaml"
             recipe_file.write_text("""
-build:
-  desc: Build task
-  cmd: echo "building"
+tasks:
+  build:
+    desc: Build task
+    cmd: echo "building"
 """)
 
             original_cwd = os.getcwd()
@@ -224,10 +228,11 @@ class TestForceOption(unittest.TestCase):
 
             recipe_file = project_root / "tasktree.yaml"
             recipe_file.write_text("""
-build:
-  inputs: [input.txt]
-  outputs: [output.txt]
-  cmd: cat input.txt > output.txt
+tasks:
+  build:
+    inputs: [input.txt]
+    outputs: [output.txt]
+    cmd: cat input.txt > output.txt
 """)
 
             original_cwd = os.getcwd()
@@ -264,9 +269,10 @@ build:
 
             recipe_file = project_root / "tasktree.yaml"
             recipe_file.write_text("""
-build:
-  outputs: [output.txt]
-  cmd: echo "built" > output.txt
+tasks:
+  build:
+    outputs: [output.txt]
+    cmd: echo "built" > output.txt
 """)
 
             original_cwd = os.getcwd()
@@ -296,19 +302,20 @@ build:
 
             recipe_file = project_root / "tasktree.yaml"
             recipe_file.write_text("""
-lint:
-  outputs: [lint.log]
-  cmd: echo "linting" > lint.log
+tasks:
+  lint:
+    outputs: [lint.log]
+    cmd: echo "linting" > lint.log
 
-build:
-  deps: [lint]
-  outputs: [build.log]
-  cmd: echo "building" > build.log
+  build:
+    deps: [lint]
+    outputs: [build.log]
+    cmd: echo "building" > build.log
 
-test:
-  deps: [build]
-  outputs: [test.log]
-  cmd: echo "testing" > test.log
+  test:
+    deps: [build]
+    outputs: [test.log]
+    cmd: echo "testing" > test.log
 """)
 
             original_cwd = os.getcwd()
@@ -363,14 +370,15 @@ class TestOnlyOption(unittest.TestCase):
 
             recipe_file = project_root / "tasktree.yaml"
             recipe_file.write_text("""
-lint:
-  outputs: [lint.log]
-  cmd: echo "linting" > lint.log
+tasks:
+  lint:
+    outputs: [lint.log]
+    cmd: echo "linting" > lint.log
 
-build:
-  deps: [lint]
-  outputs: [build.log]
-  cmd: echo "building" > build.log
+  build:
+    deps: [lint]
+    outputs: [build.log]
+    cmd: echo "building" > build.log
 """)
 
             original_cwd = os.getcwd()
@@ -397,14 +405,15 @@ build:
 
             recipe_file = project_root / "tasktree.yaml"
             recipe_file.write_text("""
-lint:
-  outputs: [lint.log]
-  cmd: echo "linting" > lint.log
+tasks:
+  lint:
+    outputs: [lint.log]
+    cmd: echo "linting" > lint.log
 
-build:
-  deps: [lint]
-  outputs: [build.log]
-  cmd: echo "building" > build.log
+  build:
+    deps: [lint]
+    outputs: [build.log]
+    cmd: echo "building" > build.log
 """)
 
             original_cwd = os.getcwd()
@@ -431,19 +440,20 @@ build:
 
             recipe_file = project_root / "tasktree.yaml"
             recipe_file.write_text("""
-lint:
-  outputs: [lint.log]
-  cmd: echo "linting" > lint.log
+tasks:
+  lint:
+    outputs: [lint.log]
+    cmd: echo "linting" > lint.log
 
-build:
-  deps: [lint]
-  outputs: [build.log]
-  cmd: echo "building" > build.log
+  build:
+    deps: [lint]
+    outputs: [build.log]
+    cmd: echo "building" > build.log
 
-test:
-  deps: [build]
-  outputs: [test.log]
-  cmd: echo "testing" > test.log
+  test:
+    deps: [build]
+    outputs: [test.log]
+    cmd: echo "testing" > test.log
 """)
 
             original_cwd = os.getcwd()
@@ -469,9 +479,10 @@ test:
 
             recipe_file = project_root / "tasktree.yaml"
             recipe_file.write_text("""
-build:
-  outputs: [build.log]
-  cmd: echo "building" > build.log
+tasks:
+  build:
+    outputs: [build.log]
+    cmd: echo "building" > build.log
 """)
 
             original_cwd = os.getcwd()
@@ -512,13 +523,14 @@ class TestListOptionWithImports(unittest.TestCase):
 
             # Create base.yaml with some tasks
             (project_root / "base.yaml").write_text("""
-setup:
-  desc: Setup base infrastructure
-  cmd: echo "Setting up base"
+tasks:
+  setup:
+    desc: Setup base infrastructure
+    cmd: echo "Setting up base"
 
-configure:
-  desc: Configure base settings
-  cmd: echo "Configuring base"
+  configure:
+    desc: Configure base settings
+    cmd: echo "Configuring base"
 """)
 
             # Create common.yaml that imports base.yaml
@@ -527,10 +539,11 @@ import:
   - file: base.yaml
     as: base
 
-prepare:
-  desc: Prepare common resources
-  deps: [base.setup]
-  cmd: echo "Preparing common"
+tasks:
+  prepare:
+    desc: Prepare common resources
+    deps: [base.setup]
+    cmd: echo "Preparing common"
 """)
 
             # Create main recipe that imports common.yaml
@@ -540,15 +553,16 @@ import:
   - file: common.yaml
     as: common
 
-build:
-  desc: Build the project
-  deps: [common.prepare]
-  cmd: echo "Building project"
+tasks:
+  build:
+    desc: Build the project
+    deps: [common.prepare]
+    cmd: echo "Building project"
 
-test:
-  desc: Run tests
-  deps: [build]
-  cmd: echo "Running tests"
+  test:
+    desc: Run tests
+    deps: [build]
+    cmd: echo "Running tests"
 """)
 
             original_cwd = os.getcwd()
@@ -588,13 +602,14 @@ test:
 
             # Create imported file
             (project_root / "shared.yaml").write_text("""
-lint:
-  desc: Run linter
-  cmd: echo "Linting code"
+tasks:
+  lint:
+    desc: Run linter
+    cmd: echo "Linting code"
 
-format:
-  desc: Format code
-  cmd: echo "Formatting code"
+  format:
+    desc: Format code
+    cmd: echo "Formatting code"
 """)
 
             # Create main recipe
@@ -604,9 +619,10 @@ import:
   - file: shared.yaml
     as: shared
 
-build:
-  desc: Build application
-  cmd: echo "Building"
+tasks:
+  build:
+    desc: Build application
+    cmd: echo "Building"
 """)
 
             original_cwd = os.getcwd()

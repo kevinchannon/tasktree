@@ -37,10 +37,11 @@ class TestWorkingDirectory(unittest.TestCase):
             # Create recipe with working_dir
             recipe_file = project_root / "tasktree.yaml"
             recipe_file.write_text("""
-build:
-  working_dir: subdir
-  outputs: [output.txt]
-  cmd: pwd > output.txt
+tasks:
+  build:
+    working_dir: subdir
+    outputs: [output.txt]
+    cmd: pwd > output.txt
 """)
 
             original_cwd = os.getcwd()
@@ -75,10 +76,11 @@ build:
             # Create recipe
             recipe_file = project_root / "tasktree.yaml"
             recipe_file.write_text("""
-build:
-  working_dir: project
-  outputs: [target/bin]
-  cmd: mkdir -p target && echo binary > target/bin
+tasks:
+  build:
+    working_dir: project
+    outputs: [target/bin]
+    cmd: mkdir -p target && echo binary > target/bin
 """)
 
             original_cwd = os.getcwd()

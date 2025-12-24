@@ -33,10 +33,11 @@ class TestCleanState(unittest.TestCase):
             # Create a tasktree.yaml
             recipe_file = project_root / "tasktree.yaml"
             recipe_file.write_text("""
-build:
-  desc: Build task
-  outputs: [output.txt]
-  cmd: echo "building" > output.txt
+tasks:
+  build:
+    desc: Build task
+    outputs: [output.txt]
+    cmd: echo "building" > output.txt
 """)
 
             # Run a task to create state file
@@ -68,10 +69,11 @@ build:
             # Create a tasktree.yaml
             recipe_file = project_root / "tasktree.yaml"
             recipe_file.write_text("""
-build:
-  desc: Build task
-  outputs: [output.txt]
-  cmd: echo "building" > output.txt
+tasks:
+  build:
+    desc: Build task
+    outputs: [output.txt]
+    cmd: echo "building" > output.txt
 """)
 
             # Run a task to create state file
@@ -103,10 +105,11 @@ build:
             # Create a tasktree.yaml
             recipe_file = project_root / "tasktree.yaml"
             recipe_file.write_text("""
-build:
-  desc: Build task
-  outputs: [output.txt]
-  cmd: echo "building" > output.txt
+tasks:
+  build:
+    desc: Build task
+    outputs: [output.txt]
+    cmd: echo "building" > output.txt
 """)
 
             # Run a task to create state file
@@ -138,9 +141,10 @@ build:
             # Create a tasktree.yaml
             recipe_file = project_root / "tasktree.yaml"
             recipe_file.write_text("""
-build:
-  desc: Build task
-  cmd: echo "building"
+tasks:
+  build:
+    desc: Build task
+    cmd: echo "building"
 """)
 
             # State file doesn't exist yet

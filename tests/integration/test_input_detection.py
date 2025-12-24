@@ -38,10 +38,11 @@ class TestInputDetection(unittest.TestCase):
             # Create recipe
             recipe_file = project_root / "tasktree.yaml"
             recipe_file.write_text("""
-build:
-  inputs: [input.txt]
-  outputs: [output.txt]
-  cmd: cat input.txt > output.txt
+tasks:
+  build:
+    inputs: [input.txt]
+    outputs: [output.txt]
+    cmd: cat input.txt > output.txt
 """)
 
             original_cwd = os.getcwd()
@@ -90,10 +91,11 @@ build:
             # Create recipe with glob pattern
             recipe_file = project_root / "tasktree.yaml"
             recipe_file.write_text("""
-build:
-  inputs: [src/*.rs]
-  outputs: [output.bin]
-  cmd: echo "compiled" > output.bin
+tasks:
+  build:
+    inputs: [src/*.rs]
+    outputs: [output.bin]
+    cmd: echo "compiled" > output.bin
 """)
 
             original_cwd = os.getcwd()
@@ -141,10 +143,11 @@ build:
             # Create recipe
             recipe_file = project_root / "tasktree.yaml"
             recipe_file.write_text("""
-build:
-  inputs: [src/*.rs]
-  outputs: [output.bin]
-  cmd: echo "compiled" > output.bin
+tasks:
+  build:
+    inputs: [src/*.rs]
+    outputs: [output.bin]
+    cmd: echo "compiled" > output.bin
 """)
 
             original_cwd = os.getcwd()

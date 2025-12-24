@@ -91,11 +91,12 @@ tasks:
 **Unix/Linux/macOS:**
 ```yaml
 # Implicit default
-bash-strict:
-  shell: bash
-  args: ['-c']
-  preamble: |
-    set -euo pipefail
+environments:
+  bash-strict:
+    shell: bash
+    args: ['-c']
+    preamble: |
+      set -euo pipefail
 ```
 
 **Windows:**
@@ -184,36 +185,36 @@ tt -e python build
 ### Example Configurations
 
 ```yaml
-# Cross-platform Python task
-analyze:
-  cmd: |
-    #!/usr/bin/env python3
-    import sys
-    print(f"Python version: {sys.version}")
-    # ... analysis code ...
-
-# Platform-specific tasks
-build-unix:
-  cmd: |
-    cargo build --release
-    strip target/release/bin
-
-build-windows:
-  env: powershell
-  cmd: |
-    cargo build --release
-    # PowerShell-specific post-processing
-
-# Custom strict shell
 environments:
   default: extra-strict
-  
+
   extra-strict:
     shell: bash
     args: ['-c']
     preamble: |
       set -euxo pipefail
       export LANG=C
+
+tasks:
+  # Cross-platform Python task
+  analyze:
+    cmd: |
+      #!/usr/bin/env python3
+      import sys
+      print(f"Python version: {sys.version}")
+      # ... analysis code ...
+
+  # Platform-specific tasks
+  build-unix:
+    cmd: |
+      cargo build --release
+      strip target/release/bin
+
+  build-windows:
+    env: powershell
+    cmd: |
+      cargo build --release
+      # PowerShell-specific post-processing
 ```
 
 ## Import Behavior
@@ -333,7 +334,7 @@ tasks:
   build:
     env: node
     cmd: console.log("build")
-  
+
   test:
     cmd: echo "test"  # No env, file has no default
 ```

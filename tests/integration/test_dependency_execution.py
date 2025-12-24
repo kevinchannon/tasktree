@@ -34,19 +34,20 @@ class TestDependencyExecution(unittest.TestCase):
             # Create recipe with linear dependency chain
             recipe_file = project_root / "tasktree.yaml"
             recipe_file.write_text("""
-lint:
-  outputs: [lint.log]
-  cmd: echo "linting..." > lint.log
+tasks:
+  lint:
+    outputs: [lint.log]
+    cmd: echo "linting..." > lint.log
 
-build:
-  deps: [lint]
-  outputs: [build.log]
-  cmd: echo "building..." > build.log
+  build:
+    deps: [lint]
+    outputs: [build.log]
+    cmd: echo "building..." > build.log
 
-test:
-  deps: [build]
-  outputs: [test.log]
-  cmd: echo "testing..." > test.log
+  test:
+    deps: [build]
+    outputs: [test.log]
+    cmd: echo "testing..." > test.log
 """)
 
             original_cwd = os.getcwd()
@@ -86,24 +87,25 @@ test:
             # Create recipe with diamond dependency
             recipe_file = project_root / "tasktree.yaml"
             recipe_file.write_text("""
-setup:
-  outputs: [setup.log]
-  cmd: echo setup > setup.log
+tasks:
+  setup:
+    outputs: [setup.log]
+    cmd: echo setup > setup.log
 
-build:
-  deps: [setup]
-  outputs: [build.log]
-  cmd: echo build > build.log
+  build:
+    deps: [setup]
+    outputs: [build.log]
+    cmd: echo build > build.log
 
-test:
-  deps: [setup]
-  outputs: [test.log]
-  cmd: echo test > test.log
+  test:
+    deps: [setup]
+    outputs: [test.log]
+    cmd: echo test > test.log
 
-deploy:
-  deps: [build, test]
-  outputs: [deploy.log]
-  cmd: echo deploy > deploy.log
+  deploy:
+    deps: [build, test]
+    outputs: [deploy.log]
+    cmd: echo deploy > deploy.log
 """)
 
             original_cwd = os.getcwd()
@@ -152,15 +154,16 @@ deploy:
             # Create recipe
             recipe_file = project_root / "tasktree.yaml"
             recipe_file.write_text("""
-gen-config:
-  inputs: [config.template]
-  outputs: [config.json]
-  cmd: echo "generated config" > config.json
+tasks:
+  gen-config:
+    inputs: [config.template]
+    outputs: [config.json]
+    cmd: echo "generated config" > config.json
 
-build:
-  deps: [gen-config]
-  outputs: [app.bin]
-  cmd: echo "built app" > app.bin
+  build:
+    deps: [gen-config]
+    outputs: [app.bin]
+    cmd: echo "built app" > app.bin
 """)
 
             original_cwd = os.getcwd()

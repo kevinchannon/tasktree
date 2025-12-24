@@ -52,8 +52,9 @@ class TestParseRecipe(unittest.TestCase):
             recipe_path = Path(tmpdir) / "tasktree.yaml"
             recipe_path.write_text(
                 """
-build:
-  cmd: cargo build --release
+tasks:
+  build:
+    cmd: cargo build --release
 """
             )
 
@@ -69,14 +70,15 @@ build:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
             recipe_path.write_text(
                 """
-build:
-  desc: Build the project
-  deps: [lint]
-  inputs: ["src/**/*.rs"]
-  outputs: [target/release/bin]
-  working_dir: subproject
-  args: [environment, region=eu-west-1]
-  cmd: cargo build --release
+tasks:
+  build:
+    desc: Build the project
+    deps: [lint]
+    inputs: ["src/**/*.rs"]
+    outputs: [target/release/bin]
+    working_dir: subproject
+    args: [environment, region=eu-west-1]
+    cmd: cargo build --release
 """
             )
 
@@ -99,8 +101,9 @@ build:
             import_file = import_dir / "build.yaml"
             import_file.write_text(
                 """
-compile:
-  cmd: cargo build
+tasks:
+  compile:
+    cmd: cargo build
 """
             )
 
@@ -112,9 +115,10 @@ import:
   - file: common/build.yaml
     as: build
 
-test:
-  deps: [build.compile]
-  cmd: cargo test
+tasks:
+  test:
+    deps: [build.compile]
+    cmd: cargo test
 """
             )
 
@@ -138,15 +142,17 @@ class TestParseImports(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             # Create first import
             (Path(tmpdir) / "build.yaml").write_text("""
-compile:
-  cmd: cargo build
+tasks:
+  compile:
+    cmd: cargo build
 """)
             # Create second import
             (Path(tmpdir) / "test.yaml").write_text("""
-unit:
-  cmd: cargo test --lib
-integration:
-  cmd: cargo test --test '*'
+tasks:
+  unit:
+    cmd: cargo test --lib
+  integration:
+    cmd: cargo test --test '*'
 """)
 
             # Create main recipe
@@ -158,9 +164,10 @@ import:
   - file: test.yaml
     as: test
 
-all:
-  deps: [build.compile, test.unit, test.integration]
-  cmd: echo "All done"
+tasks:
+  all:
+    deps: [build.compile, test.unit, test.integration]
+    cmd: echo "All done"
 """)
 
             recipe = parse_recipe(recipe_path)
@@ -177,8 +184,9 @@ all:
         with TemporaryDirectory() as tmpdir:
             # Create deepest level import
             (Path(tmpdir) / "base.yaml").write_text("""
-setup:
-  cmd: echo "base setup"
+tasks:
+  setup:
+    cmd: echo "base setup"
 """)
 
             # Create middle level import that imports base
@@ -187,9 +195,10 @@ import:
   - file: base.yaml
     as: base
 
-prepare:
-  deps: [base.setup]
-  cmd: echo "common prepare"
+tasks:
+  prepare:
+    deps: [base.setup]
+    cmd: echo "common prepare"
 """)
 
             # Create main recipe that imports common
@@ -199,9 +208,10 @@ import:
   - file: common.yaml
     as: common
 
-build:
-  deps: [common.prepare, common.base.setup]
-  cmd: echo "building"
+tasks:
+  build:
+    deps: [common.prepare, common.base.setup]
+    cmd: echo "building"
 """)
 
             recipe = parse_recipe(recipe_path)
@@ -217,8 +227,9 @@ build:
         with TemporaryDirectory() as tmpdir:
             # Level 4 (deepest)
             (Path(tmpdir) / "level4.yaml").write_text("""
-task4:
-  cmd: echo "level 4"
+tasks:
+  task4:
+    cmd: echo "level 4"
 """)
 
             # Level 3
@@ -227,9 +238,10 @@ import:
   - file: level4.yaml
     as: l4
 
-task3:
-  deps: [l4.task4]
-  cmd: echo "level 3"
+tasks:
+  task3:
+    deps: [l4.task4]
+    cmd: echo "level 3"
 """)
 
             # Level 2
@@ -238,9 +250,10 @@ import:
   - file: level3.yaml
     as: l3
 
-task2:
-  deps: [l3.task3]
-  cmd: echo "level 2"
+tasks:
+  task2:
+    deps: [l3.task3]
+    cmd: echo "level 2"
 """)
 
             # Level 1 (main)
@@ -250,9 +263,10 @@ import:
   - file: level2.yaml
     as: l2
 
-task1:
-  deps: [l2.task2]
-  cmd: echo "level 1"
+tasks:
+  task1:
+    deps: [l2.task2]
+    cmd: echo "level 1"
 """)
 
             recipe = parse_recipe(recipe_path)
@@ -266,8 +280,9 @@ task1:
         with TemporaryDirectory() as tmpdir:
             # Base file (D)
             (Path(tmpdir) / "base.yaml").write_text("""
-setup:
-  cmd: echo "base setup"
+tasks:
+  setup:
+    cmd: echo "base setup"
 """)
 
             # Left branch (B)
@@ -276,9 +291,10 @@ import:
   - file: base.yaml
     as: base
 
-left-task:
-  deps: [base.setup]
-  cmd: echo "left"
+tasks:
+  left-task:
+    deps: [base.setup]
+    cmd: echo "left"
 """)
 
             # Right branch (C)
@@ -287,9 +303,10 @@ import:
   - file: base.yaml
     as: base
 
-right-task:
-  deps: [base.setup]
-  cmd: echo "right"
+tasks:
+  right-task:
+    deps: [base.setup]
+    cmd: echo "right"
 """)
 
             # Main file (A)
@@ -301,9 +318,10 @@ import:
   - file: right.yaml
     as: right
 
-main:
-  deps: [left.left-task, right.right-task]
-  cmd: echo "main"
+tasks:
+  main:
+    deps: [left.left-task, right.right-task]
+    cmd: echo "main"
 """)
 
             recipe = parse_recipe(recipe_path)
@@ -323,8 +341,9 @@ import:
   - file: nonexistent.yaml
     as: missing
 
-task:
-  cmd: echo "test"
+tasks:
+  task:
+    cmd: echo "test"
 """)
 
             with self.assertRaises(FileNotFoundError):
@@ -338,10 +357,11 @@ task:
             subdir.mkdir(parents=True)
 
             (subdir / "compile.yaml").write_text("""
-rust:
-  cmd: cargo build
-python:
-  cmd: python -m build
+tasks:
+  rust:
+    cmd: cargo build
+  python:
+    cmd: python -m build
 """)
 
             recipe_path = Path(tmpdir) / "tasktree.yaml"
@@ -350,9 +370,10 @@ import:
   - file: tasks/build/compile.yaml
     as: compile
 
-all:
-  deps: [compile.rust, compile.python]
-  cmd: echo "done"
+tasks:
+  all:
+    deps: [compile.rust, compile.python]
+    cmd: echo "done"
 """)
 
             recipe = parse_recipe(recipe_path)
@@ -363,13 +384,14 @@ all:
         """Test that imported tasks preserve all their properties."""
         with TemporaryDirectory() as tmpdir:
             (Path(tmpdir) / "import.yaml").write_text("""
-build:
-  desc: Build the project
-  inputs: ["src/**/*.rs"]
-  outputs: [target/release/bin]
-  working_dir: subproject
-  args: [environment, region=eu-west-1]
-  cmd: cargo build --release
+tasks:
+  build:
+    desc: Build the project
+    inputs: ["src/**/*.rs"]
+    outputs: [target/release/bin]
+    working_dir: subproject
+    args: [environment, region=eu-west-1]
+    cmd: cargo build --release
 """)
 
             recipe_path = Path(tmpdir) / "tasktree.yaml"
@@ -394,15 +416,17 @@ import:
         with TemporaryDirectory() as tmpdir:
             # First import defines build
             (Path(tmpdir) / "build.yaml").write_text("""
-compile:
-  cmd: cargo build
+tasks:
+  compile:
+    cmd: cargo build
 """)
 
             # Second import depends on first import
             (Path(tmpdir) / "test.yaml").write_text("""
-run-tests:
-  deps: [build.compile]
-  cmd: cargo test
+tasks:
+  run-tests:
+    deps: [build.compile]
+    cmd: cargo test
 """)
 
             # Main recipe imports both
@@ -434,8 +458,9 @@ import:
   - file: empty.yaml
     as: empty
 
-task:
-  cmd: echo "test"
+tasks:
+  task:
+    cmd: echo "test"
 """)
 
             recipe = parse_recipe(recipe_path)
@@ -461,8 +486,9 @@ import:
   - file: whitespace.yaml
     as: ws
 
-task:
-  cmd: echo "test"
+tasks:
+  task:
+    cmd: echo "test"
 """)
 
             recipe = parse_recipe(recipe_path)
@@ -477,8 +503,9 @@ import:
   - file: self.yaml
     as: myself
 
-task:
-  cmd: echo "test"
+tasks:
+  task:
+    cmd: echo "test"
 """)
 
             recipe_path = Path(tmpdir) / "self.yaml"
@@ -498,8 +525,9 @@ import:
   - file: b.yaml
     as: b
 
-task-a:
-  cmd: echo "a"
+tasks:
+  task-a:
+    cmd: echo "a"
 """)
 
             # B imports A (creates cycle)
@@ -508,8 +536,9 @@ import:
   - file: a.yaml
     as: a
 
-task-b:
-  cmd: echo "b"
+tasks:
+  task-b:
+    cmd: echo "b"
 """)
 
             recipe_path = Path(tmpdir) / "a.yaml"
@@ -531,8 +560,9 @@ import:
   - file: b.yaml
     as: b
 
-task-a:
-  cmd: echo "a"
+tasks:
+  task-a:
+    cmd: echo "a"
 """)
 
             # B imports C
@@ -541,8 +571,9 @@ import:
   - file: c.yaml
     as: c
 
-task-b:
-  cmd: echo "b"
+tasks:
+  task-b:
+    cmd: echo "b"
 """)
 
             # C imports A (creates cycle)
@@ -551,8 +582,9 @@ import:
   - file: a.yaml
     as: a
 
-task-c:
-  cmd: echo "c"
+tasks:
+  task-c:
+    cmd: echo "c"
 """)
 
             recipe_path = Path(tmpdir) / "a.yaml"
@@ -579,8 +611,9 @@ task-c:
 
             # shared/utils.yaml
             (shared_dir / "utils.yaml").write_text("""
-utility:
-  cmd: echo "utility task"
+tasks:
+  utility:
+    cmd: echo "utility task"
 """)
 
             # common/base.yaml imports ../shared/utils.yaml (relative to common/)
@@ -589,9 +622,10 @@ import:
   - file: ../shared/utils.yaml
     as: utils
 
-base-task:
-  deps: [utils.utility]
-  cmd: echo "base"
+tasks:
+  base-task:
+    deps: [utils.utility]
+    cmd: echo "base"
 """)
 
             # Main recipe imports common/base.yaml
@@ -601,9 +635,10 @@ import:
   - file: common/base.yaml
     as: common
 
-main:
-  deps: [common.base-task]
-  cmd: echo "main"
+tasks:
+  main:
+    deps: [common.base-task]
+    cmd: echo "main"
 """)
 
             recipe = parse_recipe(recipe_path)
@@ -629,8 +664,9 @@ import:
   - file: nonexistent.yaml
     as: missing
 
-task:
-  cmd: echo "test"
+tasks:
+  task:
+    cmd: echo "test"
 """)
 
             recipe_path = Path(tmpdir) / "tasktree.yaml"
@@ -655,8 +691,9 @@ class TestParseMultilineCommands(unittest.TestCase):
             recipe_path = Path(tmpdir) / "tasktree.yaml"
             recipe_path.write_text(
                 """
-build:
-  cmd: echo "single line"
+tasks:
+  build:
+    cmd: echo "single line"
 """
             )
 
@@ -670,11 +707,12 @@ build:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
             recipe_path.write_text(
                 """
-build:
-  cmd: |
-    echo "line 1"
-    echo "line 2"
-    echo "line 3"
+tasks:
+  build:
+    cmd: |
+      echo "line 1"
+      echo "line 2"
+      echo "line 3"
 """
             )
 
@@ -690,11 +728,12 @@ build:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
             recipe_path.write_text(
                 """
-build:
-  cmd: >
-    echo "this is a very long command"
-    "that spans multiple lines"
-    "but becomes a single line"
+tasks:
+  build:
+    cmd: >
+      echo "this is a very long command"
+      "that spans multiple lines"
+      "but becomes a single line"
 """
             )
 
@@ -710,11 +749,12 @@ build:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
             recipe_path.write_text(
                 """
-clean:
-  cmd: |
-    rm -rf dist/
-    rm -rf build/
-    find . -name __pycache__ -exec rm -rf {} +
+tasks:
+  clean:
+    cmd: |
+      rm -rf dist/
+      rm -rf build/
+      find . -name __pycache__ -exec rm -rf {} +
 """
             )
 
@@ -734,10 +774,11 @@ clean:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
             recipe_path.write_text(
                 """
-deploy:
-  cmd: |
-    VERSION=$(cat version.txt)
-    echo "Deploying version $VERSION"
+tasks:
+  deploy:
+    cmd: |
+      VERSION=$(cat version.txt)
+      echo "Deploying version $VERSION"
 """
             )
 
@@ -753,10 +794,11 @@ deploy:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
             recipe_path.write_text(
                 """
-build:
-  cmd: |-
-    echo "line 1"
-    echo "line 2"
+tasks:
+  build:
+    cmd: |-
+      echo "line 1"
+      echo "line 2"
 """
             )
 
@@ -777,9 +819,10 @@ class TestParserErrors(unittest.TestCase):
             # Create a file with invalid YAML syntax
             recipe_path.write_text(
                 """
-build:
-  cmd: echo "test"
-  deps: [invalid
+tasks:
+  build:
+    cmd: echo "test"
+    deps: [invalid
 """
             )
 
@@ -793,7 +836,8 @@ build:
             # Task defined as a string instead of a dictionary
             recipe_path.write_text(
                 """
-build: echo "this should be a dict"
+tasks:
+  build: echo "this should be a dict"
 """
             )
 
@@ -808,9 +852,10 @@ build: echo "this should be a dict"
             # Task defined without required 'cmd' field
             recipe_path.write_text(
                 """
-build:
-  desc: Build task
-  outputs: [output.txt]
+tasks:
+  build:
+    desc: Build task
+    outputs: [output.txt]
 """
             )
 
@@ -827,7 +872,7 @@ class TestFindRecipeFile(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir).resolve()
             recipe_path = project_root / "tasktree.yaml"
-            recipe_path.write_text("build:\n  cmd: echo test")
+            recipe_path.write_text("tasks:\n  build:\n    cmd: echo test")
 
             result = find_recipe_file(project_root)
             self.assertEqual(result, recipe_path)
@@ -837,7 +882,7 @@ class TestFindRecipeFile(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir).resolve()
             recipe_path = project_root / "tt.yaml"
-            recipe_path.write_text("build:\n  cmd: echo test")
+            recipe_path.write_text("tasks:\n  build:\n    cmd: echo test")
 
             result = find_recipe_file(project_root)
             self.assertEqual(result, recipe_path)
@@ -847,7 +892,7 @@ class TestFindRecipeFile(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir).resolve()
             recipe_path = project_root / "tasktree.yaml"
-            recipe_path.write_text("build:\n  cmd: echo test")
+            recipe_path.write_text("tasks:\n  build:\n    cmd: echo test")
 
             # Create subdirectory
             subdir = project_root / "src" / "nested"
@@ -873,8 +918,8 @@ class TestFindRecipeFile(unittest.TestCase):
             tt_path = project_root / "tt.yaml"
 
             # Create both files
-            tasktree_path.write_text("build:\n  cmd: echo from tasktree")
-            tt_path.write_text("build:\n  cmd: echo from tt")
+            tasktree_path.write_text("tasks:\n  build:\n    cmd: echo from tasktree")
+            tt_path.write_text("tasks:\n  build:\n    cmd: echo from tt")
 
             result = find_recipe_file(project_root)
             self.assertEqual(result, tasktree_path)
@@ -968,6 +1013,146 @@ tasks:
                 parse_recipe(recipe_path)
 
             self.assertIn("must specify 'shell'", str(cm.exception))
+
+
+class TestTasksFieldValidation(unittest.TestCase):
+    """Tests for validating that tasks must be under 'tasks:' key."""
+
+    def test_missing_tasks_key_with_task_definitions(self):
+        """Test that root-level task definitions raise an error."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+build:
+  cmd: cargo build
+
+test:
+  cmd: cargo test
+""")
+
+            with self.assertRaises(ValueError) as cm:
+                parse_recipe(recipe_path)
+
+            error_msg = str(cm.exception)
+            self.assertIn("Task definitions must be under a top-level 'tasks:' key", error_msg)
+            self.assertIn("build", error_msg)
+            self.assertIn("test", error_msg)
+            self.assertIn("Did you mean:", error_msg)
+
+    def test_invalid_top_level_keys(self):
+        """Test that unknown top-level keys raise an error."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+custom_section:
+  foo: bar
+
+another_unknown:
+  baz: qux
+
+tasks:
+  build:
+    cmd: echo build
+""")
+
+            with self.assertRaises(ValueError) as cm:
+                parse_recipe(recipe_path)
+
+            error_msg = str(cm.exception)
+            self.assertIn("Unknown top-level keys", error_msg)
+            self.assertIn("custom_section", error_msg)
+            self.assertIn("another_unknown", error_msg)
+            self.assertIn("Valid top-level keys are", error_msg)
+
+    def test_empty_file_is_valid(self):
+        """Test that an empty YAML file is valid (no tasks defined)."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("")
+
+            recipe = parse_recipe(recipe_path)
+
+            self.assertEqual(len(recipe.tasks), 0)
+
+    def test_only_import_no_tasks(self):
+        """Test that a file with only imports is valid."""
+        with TemporaryDirectory() as tmpdir:
+            # Create a base file with tasks
+            base_path = Path(tmpdir) / "base.yaml"
+            base_path.write_text("""
+tasks:
+  setup:
+    cmd: echo setup
+""")
+
+            # Create main file with only import
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+import:
+  - file: base.yaml
+    as: base
+""")
+
+            recipe = parse_recipe(recipe_path)
+
+            # Should have the imported task
+            self.assertIn("base.setup", recipe.tasks)
+
+    def test_only_environments_no_tasks(self):
+        """Test that a file with only environments is valid."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+environments:
+  bash-strict:
+    shell: /bin/bash
+    args: ['-e', '-u']
+""")
+
+            recipe = parse_recipe(recipe_path)
+
+            self.assertEqual(len(recipe.tasks), 0)
+            self.assertIn("bash-strict", recipe.environments)
+
+    def test_task_named_tasks_is_allowed(self):
+        """Test that a task named 'tasks' is allowed under tasks: key."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+tasks:
+  tasks:
+    desc: A task named tasks
+    cmd: echo "I am a task named tasks"
+
+  build:
+    cmd: cargo build
+""")
+
+            recipe = parse_recipe(recipe_path)
+
+            self.assertIn("tasks", recipe.tasks)
+            self.assertIn("build", recipe.tasks)
+            self.assertEqual(recipe.tasks["tasks"].desc, "A task named tasks")
+
+    def test_empty_tasks_section_is_valid(self):
+        """Test that tasks: {} or tasks: with no value is valid."""
+        with TemporaryDirectory() as tmpdir:
+            # Test with empty dict
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+tasks: {}
+""")
+
+            recipe = parse_recipe(recipe_path)
+            self.assertEqual(len(recipe.tasks), 0)
+
+            # Test with null value
+            recipe_path.write_text("""
+tasks:
+""")
+
+            recipe = parse_recipe(recipe_path)
+            self.assertEqual(len(recipe.tasks), 0)
 
 
 if __name__ == "__main__":

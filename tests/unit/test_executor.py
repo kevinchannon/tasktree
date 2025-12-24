@@ -364,8 +364,9 @@ class TestExecutorErrors(unittest.TestCase):
             recipe_path = project_root / "tasktree.yaml"
             recipe_path.write_text(
                 """
-fail:
-  cmd: exit 1
+tasks:
+  fail:
+    cmd: exit 1
 """
             )
 
@@ -388,9 +389,10 @@ fail:
             recipe_path = project_root / "tasktree.yaml"
             recipe_path.write_text(
                 """
-test:
-  working_dir: nonexistent_directory
-  cmd: echo "test"
+tasks:
+  test:
+    working_dir: nonexistent_directory
+    cmd: echo "test"
 """
             )
 
@@ -412,8 +414,9 @@ test:
             recipe_path = project_root / "tasktree.yaml"
             recipe_path.write_text(
                 """
-test:
-  cmd: nonexistent_command_12345
+tasks:
+  test:
+    cmd: nonexistent_command_12345
 """
             )
 
@@ -441,8 +444,9 @@ test:
             recipe_path = project_root / "tasktree.yaml"
             recipe_path.write_text(
                 f"""
-test:
-  cmd: {script_path}
+tasks:
+  test:
+    cmd: {script_path}
 """
             )
 

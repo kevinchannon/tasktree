@@ -297,15 +297,49 @@ def _parse_file(
 
             tasks.update(nested_tasks)
 
-    # Determine where tasks are defined
-    # Tasks can be either at root level OR inside a "tasks:" key
-    tasks_data = data.get("tasks", data) if "tasks" in data else data
+    # Validate top-level keys (only import, environments, and tasks are allowed)
+    VALID_TOP_LEVEL_KEYS = {"import", "environments", "tasks"}
+
+    # Check if tasks key is missing when there appear to be task definitions at root
+    # Do this BEFORE checking for unknown keys, to provide better error message
+    if "tasks" not in data and data:
+        # Check if there are potential task definitions at root level
+        potential_tasks = [
+            k for k, v in data.items()
+            if isinstance(v, dict) and k not in VALID_TOP_LEVEL_KEYS
+        ]
+
+        if potential_tasks:
+            raise ValueError(
+                f"Invalid recipe format in {file_path}\n\n"
+                f"Task definitions must be under a top-level 'tasks:' key.\n\n"
+                f"Found these keys at root level: {', '.join(potential_tasks)}\n\n"
+                f"Did you mean:\n\n"
+                f"tasks:\n"
+                + '\n'.join(f"  {k}:" for k in potential_tasks) +
+                "\n    cmd: ...\n\n"
+                f"Valid top-level keys are: {', '.join(sorted(VALID_TOP_LEVEL_KEYS))}"
+            )
+
+    # Now check for other invalid top-level keys (non-dict values)
+    invalid_keys = set(data.keys()) - VALID_TOP_LEVEL_KEYS
+    if invalid_keys:
+        raise ValueError(
+            f"Invalid recipe format in {file_path}\n\n"
+            f"Unknown top-level keys: {', '.join(sorted(invalid_keys))}\n\n"
+            f"Valid top-level keys are:\n"
+            f"  - import       (for importing task files)\n"
+            f"  - environments (for shell environment configuration)\n"
+            f"  - tasks        (for task definitions)"
+        )
+
+    # Extract tasks from "tasks" key
+    tasks_data = data.get("tasks", {})
+    if tasks_data is None:
+        tasks_data = {}
 
     # Process local tasks
     for task_name, task_data in tasks_data.items():
-        # Skip special sections (only relevant if tasks are at root level)
-        if task_name in ("import", "environments", "tasks"):
-            continue
 
         if not isinstance(task_data, dict):
             raise ValueError(f"Task '{task_name}' must be a dictionary")
