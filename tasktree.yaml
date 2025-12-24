@@ -1,47 +1,48 @@
-dev-setup:
-  desc: Install development dependencies
-  cmd: uv sync --extra dev
+tasks:
+  dev-setup:
+    desc: Install development dependencies
+    cmd: uv sync --extra dev
 
-test:
-  desc: Run the test suite
-  deps: []
-  inputs: [src/**/*.py, tests/**/*.py]
-  cmd: PYTHONPATH=src python3 -m pytest tests/ -v
+  test:
+    desc: Run the test suite
+    deps: []
+    inputs: [src/**/*.py, tests/**/*.py]
+    cmd: PYTHONPATH=src python3 -m pytest tests/ -v
 
-build:
-  desc: Build distribution packages (wheel and sdist)
-  deps: [test]
-  inputs: [src/**/*.py, pyproject.toml, README.md]
-  outputs: [dist/*.whl, dist/*.tar.gz]
-  cmd: python3 -m build
+  build:
+    desc: Build distribution packages (wheel and sdist)
+    deps: [test]
+    inputs: [src/**/*.py, pyproject.toml, README.md]
+    outputs: [dist/*.whl, dist/*.tar.gz]
+    cmd: python3 -m build
 
-install-dev:
-  desc: Install package in editable mode for development
-  cmd: uv sync
+  install-dev:
+    desc: Install package in editable mode for development
+    cmd: uv sync
 
-clean:
-  desc: Remove build artifacts and cache files
-  cmd: |
-    rm -rf dist/ build/ *.egg-info
-    rm -rf .pytest_cache
-    find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+  clean:
+    desc: Remove build artifacts and cache files
+    cmd: |
+      rm -rf dist/ build/ *.egg-info
+      rm -rf .pytest_cache
+      find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 
-# Note: To reset task execution state (force all tasks to re-run), use:
-#   tt --clean-state  (or tt --reset)
+  # Note: To reset task execution state (force all tasks to re-run), use:
+  #   tt --clean-state  (or tt --reset)
 
-clean-all:
-  desc: Remove all generated files including virtual environment
-  deps: [clean]
-  cmd: rm -rf .venv
+  clean-all:
+    desc: Remove all generated files including virtual environment
+    deps: [clean]
+    cmd: rm -rf .venv
 
-reinstall:
-  desc: Clean, build, and install the package
-  deps: [clean, build]
-  cmd: |
-    WHEEL=$(ls dist/*.whl | head -1)
-    pipx install --force "$WHEEL"
+  reinstall:
+    desc: Clean, build, and install the package
+    deps: [clean, build]
+    cmd: |
+      WHEEL=$(ls dist/*.whl | head -1)
+      pipx install --force "$WHEEL"
 
-check:
-  desc: Run all checks (tests and build)
-  deps: [test, build]
-  cmd: echo "✓ All checks passed!"
+  check:
+    desc: Run all checks (tests and build)
+    deps: [test, build]
+    cmd: echo "✓ All checks passed!"
