@@ -1,13 +1,12 @@
 dev-setup:
   desc: Install development dependencies
-  cmd: |
-    uv pip install --system -e ".[dev]"
+  cmd: uv sync --extra dev
 
 test:
   desc: Run the test suite
   deps: []
   inputs: [src/**/*.py, tests/**/*.py]
-  cmd: python3 -m pytest tests/ -v
+  cmd: PYTHONPATH=src python3 -m pytest tests/ -v
 
 build:
   desc: Build distribution packages (wheel and sdist)
@@ -18,7 +17,7 @@ build:
 
 install-dev:
   desc: Install package in editable mode for development
-  cmd: uv pip install --system -e ".[dev]"
+  cmd: uv sync
 
 clean:
   desc: Remove build artifacts and cache files
