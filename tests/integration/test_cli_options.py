@@ -497,5 +497,141 @@ build:
                 os.chdir(original_cwd)
 
 
+class TestListOptionWithImports(unittest.TestCase):
+    """Test that --list option shows imported tasks."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.runner = CliRunner()
+        self.env = {"NO_COLOR": "1"}
+
+    def test_list_shows_imported_tasks(self):
+        """Test that imported tasks are shown in --list output with namespaced names."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create base.yaml with some tasks
+            (project_root / "base.yaml").write_text("""
+setup:
+  desc: Setup base infrastructure
+  cmd: echo "Setting up base"
+
+configure:
+  desc: Configure base settings
+  cmd: echo "Configuring base"
+""")
+
+            # Create common.yaml that imports base.yaml
+            (project_root / "common.yaml").write_text("""
+import:
+  - file: base.yaml
+    as: base
+
+prepare:
+  desc: Prepare common resources
+  deps: [base.setup]
+  cmd: echo "Preparing common"
+""")
+
+            # Create main recipe that imports common.yaml
+            recipe_path = project_root / "tasktree.yaml"
+            recipe_path.write_text("""
+import:
+  - file: common.yaml
+    as: common
+
+build:
+  desc: Build the project
+  deps: [common.prepare]
+  cmd: echo "Building project"
+
+test:
+  desc: Run tests
+  deps: [build]
+  cmd: echo "Running tests"
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Run --list
+                result = self.runner.invoke(app, ["--list"], env=self.env)
+                self.assertEqual(result.exit_code, 0)
+
+                # Strip ANSI codes for reliable assertions
+                output = strip_ansi_codes(result.stdout)
+
+                # Verify main tasks are listed
+                self.assertIn("build", output)
+                self.assertIn("test", output)
+
+                # Verify imported tasks are listed with namespace
+                self.assertIn("common.prepare", output)
+                self.assertIn("common.base.setup", output)
+                self.assertIn("common.base.configure", output)
+
+                # Verify descriptions are shown
+                self.assertIn("Build the project", output)
+                self.assertIn("Run tests", output)
+                self.assertIn("Prepare common resources", output)
+                self.assertIn("Setup base infrastructure", output)
+                self.assertIn("Configure base settings", output)
+
+            finally:
+                os.chdir(original_cwd)
+
+    def test_list_shows_single_level_import(self):
+        """Test that --list shows tasks from a single-level import."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create imported file
+            (project_root / "shared.yaml").write_text("""
+lint:
+  desc: Run linter
+  cmd: echo "Linting code"
+
+format:
+  desc: Format code
+  cmd: echo "Formatting code"
+""")
+
+            # Create main recipe
+            recipe_path = project_root / "tasktree.yaml"
+            recipe_path.write_text("""
+import:
+  - file: shared.yaml
+    as: shared
+
+build:
+  desc: Build application
+  cmd: echo "Building"
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Run --list
+                result = self.runner.invoke(app, ["--list"], env=self.env)
+                self.assertEqual(result.exit_code, 0)
+
+                output = strip_ansi_codes(result.stdout)
+
+                # Verify all tasks are listed
+                self.assertIn("build", output)
+                self.assertIn("shared.lint", output)
+                self.assertIn("shared.format", output)
+
+                # Verify descriptions
+                self.assertIn("Build application", output)
+                self.assertIn("Run linter", output)
+                self.assertIn("Format code", output)
+
+            finally:
+                os.chdir(original_cwd)
+
+
 if __name__ == "__main__":
     unittest.main()
