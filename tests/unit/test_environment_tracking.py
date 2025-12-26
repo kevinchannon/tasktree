@@ -209,5 +209,148 @@ class TestCheckEnvironmentChanged(unittest.TestCase):
         self.assertTrue(result)
 
 
+class TestCheckDockerImageChanged(unittest.TestCase):
+    """Test Docker image ID change detection in executor."""
+
+    def setUp(self):
+        """Set up test environment."""
+        from unittest.mock import Mock
+
+        self.project_root = Path("/tmp/test")
+
+        # Create Docker environment
+        self.env = Environment(
+            name="builder",
+            dockerfile="Dockerfile",
+            context=".",
+        )
+        self.recipe = Recipe(
+            tasks={},
+            project_root=self.project_root,
+            environments={"builder": self.env},
+        )
+        self.state_manager = StateManager(self.project_root)
+        self.executor = Executor(self.recipe, self.state_manager)
+
+    def test_check_docker_image_changed_no_cached_id(self):
+        """Test that missing cached image ID returns True (first run)."""
+        task = Task(name="test", cmd="echo test", env="builder")
+
+        # Cached state has env hash but no image ID (old state file)
+        from tasktree.hasher import hash_environment_definition
+        env_hash = hash_environment_definition(self.env)
+        cached_state = TaskState(
+            last_run=123.0,
+            input_state={f"_env_hash_builder": env_hash}
+        )
+
+        # Mock docker manager to return image ID
+        from unittest.mock import Mock
+        self.executor.docker_manager.ensure_image_built = Mock(
+            return_value=("tt-env-builder", "sha256:abc123")
+        )
+
+        result = self.executor._check_docker_image_changed(self.env, cached_state, "builder")
+
+        self.assertTrue(result)
+
+    def test_check_docker_image_changed_same_id(self):
+        """Test that matching image ID returns False."""
+        task = Task(name="test", cmd="echo test", env="builder")
+
+        # Cached state with image ID
+        image_id = "sha256:abc123"
+        cached_state = TaskState(
+            last_run=123.0,
+            input_state={f"_docker_image_id_builder": image_id}
+        )
+
+        # Mock docker manager to return same image ID
+        from unittest.mock import Mock
+        self.executor.docker_manager.ensure_image_built = Mock(
+            return_value=("tt-env-builder", image_id)
+        )
+
+        result = self.executor._check_docker_image_changed(self.env, cached_state, "builder")
+
+        self.assertFalse(result)
+
+    def test_check_docker_image_changed_different_id(self):
+        """Test that different image ID returns True (unpinned base updated)."""
+        task = Task(name="test", cmd="echo test", env="builder")
+
+        # Cached state with old image ID
+        old_image_id = "sha256:abc123"
+        cached_state = TaskState(
+            last_run=123.0,
+            input_state={f"_docker_image_id_builder": old_image_id}
+        )
+
+        # Mock docker manager to return new image ID (base image updated)
+        from unittest.mock import Mock
+        new_image_id = "sha256:def456"
+        self.executor.docker_manager.ensure_image_built = Mock(
+            return_value=("tt-env-builder", new_image_id)
+        )
+
+        result = self.executor._check_docker_image_changed(self.env, cached_state, "builder")
+
+        self.assertTrue(result)
+
+    def test_check_environment_changed_docker_yaml_and_image(self):
+        """Test that Docker environment checks both YAML hash and image ID."""
+        task = Task(name="test", cmd="echo test", env="builder")
+
+        # Cached state with matching env hash AND matching image ID
+        from tasktree.hasher import hash_environment_definition
+        env_hash = hash_environment_definition(self.env)
+        image_id = "sha256:abc123"
+        cached_state = TaskState(
+            last_run=123.0,
+            input_state={
+                f"_env_hash_builder": env_hash,
+                f"_docker_image_id_builder": image_id,
+            }
+        )
+
+        # Mock docker manager to return same image ID
+        from unittest.mock import Mock
+        self.executor.docker_manager.ensure_image_built = Mock(
+            return_value=("tt-env-builder", image_id)
+        )
+
+        # Should return False (both YAML and image ID unchanged)
+        result = self.executor._check_environment_changed(task, cached_state, "builder")
+        self.assertFalse(result)
+
+    def test_check_environment_changed_docker_yaml_changed(self):
+        """Test that YAML change detected without checking image ID."""
+        task = Task(name="test", cmd="echo test", env="builder")
+
+        # Cached state with OLD env hash (YAML changed)
+        old_env = Environment(name="builder", dockerfile="OldDockerfile", context=".")
+        from tasktree.hasher import hash_environment_definition
+        old_env_hash = hash_environment_definition(old_env)
+
+        cached_state = TaskState(
+            last_run=123.0,
+            input_state={
+                f"_env_hash_builder": old_env_hash,
+                f"_docker_image_id_builder": "sha256:abc123",
+            }
+        )
+
+        # Mock should NOT be called (YAML change detected early)
+        from unittest.mock import Mock
+        self.executor.docker_manager.ensure_image_built = Mock()
+
+        # Should return True (YAML changed)
+        result = self.executor._check_environment_changed(task, cached_state, "builder")
+        self.assertTrue(result)
+
+        # Verify docker manager was NOT called (early exit on YAML change)
+        self.executor.docker_manager.ensure_image_built.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()

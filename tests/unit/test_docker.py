@@ -190,19 +190,31 @@ class TestDockerManager(unittest.TestCase):
             context=".",
         )
 
-        # Mock successful build and docker --version check
-        mock_run.return_value = None
+        # Mock successful build and docker --version check and docker inspect
+        # docker --version, docker build, docker inspect
+        def mock_run_side_effect(*args, **kwargs):
+            cmd = args[0]
+            if "inspect" in cmd:
+                # Mock docker inspect returning image ID
+                result = Mock()
+                result.stdout = "sha256:abc123def456\n"
+                return result
+            return None
 
-        # First call should check docker and build
-        tag1 = self.manager.ensure_image_built(env)
+        mock_run.side_effect = mock_run_side_effect
+
+        # First call should check docker, build, and inspect
+        tag1, image_id1 = self.manager.ensure_image_built(env)
         self.assertEqual(tag1, "tt-env-builder")
-        # Should have called docker --version and docker build
-        self.assertEqual(mock_run.call_count, 2)
+        self.assertEqual(image_id1, "sha256:abc123def456")
+        # Should have called docker --version, docker build, and docker inspect
+        self.assertEqual(mock_run.call_count, 3)
 
         # Second call should use cache (no additional docker build)
-        tag2 = self.manager.ensure_image_built(env)
+        tag2, image_id2 = self.manager.ensure_image_built(env)
         self.assertEqual(tag2, "tt-env-builder")
-        self.assertEqual(mock_run.call_count, 2)  # No additional calls
+        self.assertEqual(image_id2, "sha256:abc123def456")
+        self.assertEqual(mock_run.call_count, 3)  # No additional calls
 
     @patch("tasktree.docker.subprocess.run")
     def test_build_command_structure(self, mock_run):
@@ -213,15 +225,26 @@ class TestDockerManager(unittest.TestCase):
             context=".",
         )
 
+        # Mock docker inspect returning image ID
+        def mock_run_side_effect(*args, **kwargs):
+            cmd = args[0]
+            if "inspect" in cmd:
+                result = Mock()
+                result.stdout = "sha256:abc123def456\n"
+                return result
+            return None
+
+        mock_run.side_effect = mock_run_side_effect
+
         self.manager.ensure_image_built(env)
 
-        # Check that docker build was called with correct args
-        args = mock_run.call_args[0][0]
-        self.assertEqual(args[0], "docker")
-        self.assertEqual(args[1], "build")
-        self.assertEqual(args[2], "-t")
-        self.assertEqual(args[3], "tt-env-builder")
-        self.assertEqual(args[4], "-f")
+        # Check that docker build was called with correct args (2nd call, after docker --version)
+        build_call_args = mock_run.call_args_list[1][0][0]
+        self.assertEqual(build_call_args[0], "docker")
+        self.assertEqual(build_call_args[1], "build")
+        self.assertEqual(build_call_args[2], "-t")
+        self.assertEqual(build_call_args[3], "tt-env-builder")
+        self.assertEqual(build_call_args[4], "-f")
 
     def test_resolve_volume_mount_relative(self):
         """Test relative volume path resolution."""

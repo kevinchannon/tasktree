@@ -37,23 +37,26 @@ class DockerManager:
             project_root: Root directory of the project (where tasktree.yaml is located)
         """
         self._project_root = project_root
-        self._built_images: dict[str, str] = {}  # env_name -> image_tag cache
+        self._built_images: dict[str, tuple[str, str]] = {}  # env_name -> (image_tag, image_id) cache
 
-    def ensure_image_built(self, env: Environment) -> str:
+    def ensure_image_built(self, env: Environment) -> tuple[str, str]:
         """Build Docker image if not already built this invocation.
 
         Args:
             env: Environment definition with dockerfile and context
 
         Returns:
-            Image tag (e.g., "tt-env-builder")
+            Tuple of (image_tag, image_id)
+            - image_tag: Tag like "tt-env-builder"
+            - image_id: Full image ID like "sha256:abc123..."
 
         Raises:
             DockerError: If docker command not available or build fails
         """
         # Check if already built this invocation
         if env.name in self._built_images:
-            return self._built_images[env.name]
+            tag, image_id = self._built_images[env.name]
+            return tag, image_id
 
         # Check if docker is available
         self._check_docker_available()
@@ -90,9 +93,12 @@ class DockerManager:
                 "Docker command not found. Please install Docker and ensure it's in your PATH."
             )
 
-        # Cache the built image
-        self._built_images[env.name] = image_tag
-        return image_tag
+        # Get the image ID
+        image_id = self._get_image_id(image_tag)
+
+        # Cache both tag and ID
+        self._built_images[env.name] = (image_tag, image_id)
+        return image_tag, image_id
 
     def run_in_container(
         self,
@@ -115,8 +121,8 @@ class DockerManager:
         Raises:
             DockerError: If docker run fails
         """
-        # Ensure image is built
-        image_tag = self.ensure_image_built(env)
+        # Ensure image is built (returns tag and ID)
+        image_tag, image_id = self.ensure_image_built(env)
 
         # Build docker run command
         docker_cmd = ["docker", "run", "--rm"]
@@ -213,6 +219,30 @@ class DockerManager:
                 "Docker is not available. Please install Docker and ensure it's running.\n"
                 "Visit https://docs.docker.com/get-docker/ for installation instructions."
             )
+
+    def _get_image_id(self, image_tag: str) -> str:
+        """Get the full image ID for a given tag.
+
+        Args:
+            image_tag: Docker image tag (e.g., "tt-env-builder")
+
+        Returns:
+            Full image ID (e.g., "sha256:abc123def456...")
+
+        Raises:
+            DockerError: If cannot inspect image
+        """
+        try:
+            result = subprocess.run(
+                ["docker", "inspect", "--format={{.Id}}", image_tag],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            image_id = result.stdout.strip()
+            return image_id
+        except subprocess.CalledProcessError as e:
+            raise DockerError(f"Failed to inspect image {image_tag}: {e.stderr}")
 
 
 def is_docker_environment(env: Environment) -> bool:

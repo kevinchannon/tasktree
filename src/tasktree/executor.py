@@ -448,23 +448,6 @@ class Executor:
             env.working_dir, task.working_dir
         )
 
-        # Check for unpinned base images and warn
-        dockerfile_path = self.recipe.project_root / env.dockerfile
-        if dockerfile_path.exists():
-            try:
-                dockerfile_content = dockerfile_path.read_text()
-                unpinned = docker_module.check_unpinned_images(dockerfile_content)
-                if unpinned:
-                    print(f"\nWarning: {env.dockerfile} uses unpinned base image(s):")
-                    for image in unpinned:
-                        print(f"  - {image}")
-                    print("\nTask Tree cannot detect if these base images have been updated on the registry.")
-                    print("For reproducible builds, pin to digests:")
-                    print(f"  FROM {unpinned[0]}@sha256:...")
-                    print(f"\nAlternatively, run 'tt --force {task.name}' to force rebuild with latest images.\n")
-            except (OSError, IOError):
-                pass  # If we can't read Dockerfile, skip warning
-
         # Execute in container
         try:
             self.docker_manager.run_in_container(
@@ -511,6 +494,9 @@ class Executor:
     ) -> bool:
         """Check if environment definition has changed since last run.
 
+        For shell environments: checks YAML definition hash
+        For Docker environments: checks YAML hash AND Docker image ID
+
         Args:
             task: Task to check
             cached_state: Cached state from previous run
@@ -529,7 +515,7 @@ class Executor:
             # Environment was deleted - treat as changed
             return True
 
-        # Compute current environment hash
+        # Compute current environment hash (YAML definition)
         from tasktree.hasher import hash_environment_definition
 
         current_env_hash = hash_environment_definition(env)
@@ -542,8 +528,50 @@ class Executor:
         if cached_env_hash is None:
             return True
 
-        # Compare hashes
-        return current_env_hash != cached_env_hash
+        # Check if YAML definition changed
+        if current_env_hash != cached_env_hash:
+            return True  # YAML changed, no need to check image
+
+        # For Docker environments, also check if image ID changed
+        if env.dockerfile:
+            return self._check_docker_image_changed(env, cached_state, env_name)
+
+        # Shell environment with unchanged hash
+        return False
+
+    def _check_docker_image_changed(
+        self, env: Environment, cached_state: TaskState, env_name: str
+    ) -> bool:
+        """Check if Docker image ID has changed.
+
+        Builds the image and compares the resulting image ID with the cached ID.
+        This detects changes from unpinned base images, network-dependent builds, etc.
+
+        Args:
+            env: Docker environment definition
+            cached_state: Cached state from previous run
+            env_name: Environment name
+
+        Returns:
+            True if image ID changed, False otherwise
+        """
+        # Build/ensure image is built and get its ID
+        try:
+            image_tag, current_image_id = self.docker_manager.ensure_image_built(env)
+        except Exception as e:
+            # If we can't build, treat as changed (will fail later with better error)
+            return True
+
+        # Get cached image ID
+        image_id_key = f"_docker_image_id_{env_name}"
+        cached_image_id = cached_state.input_state.get(image_id_key)
+
+        # If no cached ID (first run or old state), treat as changed
+        if cached_image_id is None:
+            return True
+
+        # Compare image IDs
+        return current_image_id != cached_image_id
 
     def _check_inputs_changed(
         self, task: Task, cached_state: TaskState, all_inputs: list[str]
@@ -754,6 +782,13 @@ class Executor:
 
                 env_hash = hash_environment_definition(env)
                 input_state[f"_env_hash_{env_name}"] = env_hash
+
+                # For Docker environments, also store the image ID
+                if env.dockerfile:
+                    # Image was already built during check phase or task execution
+                    if env_name in self.docker_manager._built_images:
+                        image_tag, image_id = self.docker_manager._built_images[env_name]
+                        input_state[f"_docker_image_id_{env_name}"] = image_id
 
         # Create new state
         state = TaskState(
