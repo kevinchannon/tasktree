@@ -126,6 +126,7 @@ class DockerManager:
 
         # Build docker run command
         docker_cmd = ["docker", "run", "--rm"]
+        docker_cmd.extend(env.extra_args)
 
         # Add volume mounts
         for volume in env.volumes:
