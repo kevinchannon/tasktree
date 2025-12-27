@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, List
 
 import yaml
 
@@ -34,6 +34,7 @@ class Environment:
     ports: list[str] = field(default_factory=list)  # Port mappings
     env_vars: dict[str, str] = field(default_factory=dict)  # Environment variables
     working_dir: str = ""  # Working directory (container or host)
+    extra_args: List[str] = field(default_factory=list) # Any extra arguments to pass to docker
 
     def __post_init__(self):
         """Ensure args is always a list."""
@@ -225,6 +226,7 @@ def _parse_file_with_env(
                     volumes = env_config.get("volumes", [])
                     ports = env_config.get("ports", [])
                     env_vars = env_config.get("env_vars", {})
+                    extra_args = env_config.get("extra_args", [])
 
                     # Validate environment type
                     if not shell and not dockerfile:
@@ -278,6 +280,7 @@ def _parse_file_with_env(
                         ports=ports,
                         env_vars=env_vars,
                         working_dir=working_dir,
+                        extra_args=extra_args
                     )
 
     return tasks, environments, default_env
