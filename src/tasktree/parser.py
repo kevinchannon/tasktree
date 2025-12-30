@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -214,6 +215,89 @@ def _infer_variable_type(value: Any) -> str:
     return type_map[python_type]
 
 
+def _is_env_variable_reference(value: Any) -> bool:
+    """Check if value is an environment variable reference.
+
+    Args:
+        value: Raw value from YAML
+
+    Returns:
+        True if value is { env: VAR_NAME } dict
+    """
+    return isinstance(value, dict) and "env" in value
+
+
+def _validate_env_variable_reference(var_name: str, value: dict) -> str:
+    """Validate and extract environment variable name from reference.
+
+    Args:
+        var_name: Name of the variable being defined
+        value: Dict that should be { env: ENV_VAR_NAME }
+
+    Returns:
+        Environment variable name
+
+    Raises:
+        ValueError: If reference is invalid
+    """
+    # Validate dict structure
+    if len(value) != 1:
+        extra_keys = [k for k in value.keys() if k != "env"]
+        raise ValueError(
+            f"Invalid environment variable reference in variable '{var_name}'.\n"
+            f"Expected: {{ env: VARIABLE_NAME }}\n"
+            f"Found extra keys: {', '.join(extra_keys)}"
+        )
+
+    env_var_name = value["env"]
+
+    # Validate env var name is provided
+    if not env_var_name or not isinstance(env_var_name, str):
+        raise ValueError(
+            f"Invalid environment variable reference in variable '{var_name}'.\n"
+            f"Expected: {{ env: VARIABLE_NAME }}\n"
+            f"Found: {{ env: {env_var_name!r} }}"
+        )
+
+    # Validate env var name format (allow both uppercase and mixed case for flexibility)
+    if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', env_var_name):
+        raise ValueError(
+            f"Invalid environment variable name '{env_var_name}' in variable '{var_name}'.\n"
+            f"Environment variable names must start with a letter or underscore,\n"
+            f"and contain only alphanumerics and underscores."
+        )
+
+    return env_var_name
+
+
+def _resolve_env_variable(var_name: str, env_var_name: str) -> str:
+    """Resolve environment variable value.
+
+    Args:
+        var_name: Name of the variable being defined
+        env_var_name: Name of environment variable to read
+
+    Returns:
+        Environment variable value as string
+
+    Raises:
+        ValueError: If environment variable is not set
+    """
+    value = os.environ.get(env_var_name)
+
+    if value is None:
+        raise ValueError(
+            f"Environment variable '{env_var_name}' (referenced by variable '{var_name}') is not set.\n\n"
+            f"Hint: Set it before running tt:\n"
+            f"  {env_var_name}=value tt task\n\n"
+            f"Or export it in your shell:\n"
+            f"  export {env_var_name}=value\n"
+            f"  tt task"
+        )
+
+    return value
+
+
 def _resolve_variable_value(
     name: str,
     raw_value: Any,
@@ -242,6 +326,33 @@ def _resolve_variable_value(
     resolution_stack.append(name)
 
     try:
+        # Check if this is an environment variable reference
+        if _is_env_variable_reference(raw_value):
+            # Validate and extract env var name
+            env_var_name = _validate_env_variable_reference(name, raw_value)
+
+            # Resolve from os.environ
+            string_value = _resolve_env_variable(name, env_var_name)
+
+            # Still perform variable-in-variable substitution
+            from tasktree.substitution import substitute_variables
+            try:
+                resolved_value = substitute_variables(string_value, resolved)
+            except ValueError as e:
+                # Check if the undefined variable is in the resolution stack (circular reference)
+                error_msg = str(e)
+                if "not defined" in error_msg:
+                    match = re.search(r"Variable '(\w+)' is not defined", error_msg)
+                    if match:
+                        undefined_var = match.group(1)
+                        if undefined_var in resolution_stack:
+                            cycle = " -> ".join(resolution_stack + [undefined_var])
+                            raise ValueError(f"Circular reference detected in variables: {cycle}")
+                # Re-raise the original error if not circular
+                raise
+
+            return resolved_value
+
         # Validate and infer type
         type_name = _infer_variable_type(raw_value)
         from tasktree.types import get_click_type

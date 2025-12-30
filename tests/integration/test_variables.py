@@ -333,6 +333,86 @@ tasks:
             finally:
                 os.chdir(original_cwd)
 
+    def test_env_variable_in_command_execution(self):
+        """Test task runs with environment variable substituted."""
+        # Set environment variable for test
+        os.environ["TEST_API_KEY"] = "secret123"
+        os.environ["TEST_DB_HOST"] = "localhost"
+
+        try:
+            with TemporaryDirectory() as tmpdir:
+                project_root = Path(tmpdir)
+
+                recipe_file = project_root / "tasktree.yaml"
+                recipe_file.write_text("""
+variables:
+  api_key: { env: TEST_API_KEY }
+  db_host: { env: TEST_DB_HOST }
+  connection: "{{ var.db_host }}:5432"
+
+tasks:
+  test:
+    outputs: [config.txt]
+    cmd: echo "API={{ var.api_key }} DB={{ var.connection }}" > config.txt
+""")
+
+                original_cwd = os.getcwd()
+                try:
+                    os.chdir(project_root)
+
+                    # Run task
+                    result = self.runner.invoke(app, ["test"], env=self.env)
+                    self.assertEqual(result.exit_code, 0)
+
+                    # Verify env vars were substituted correctly
+                    output_file = project_root / "config.txt"
+                    self.assertTrue(output_file.exists())
+                    content = output_file.read_text().strip()
+                    self.assertEqual(content, "API=secret123 DB=localhost:5432")
+
+                finally:
+                    os.chdir(original_cwd)
+
+        finally:
+            # Clean up environment variables
+            del os.environ["TEST_API_KEY"]
+            del os.environ["TEST_DB_HOST"]
+
+    def test_env_variable_undefined_at_runtime(self):
+        """Test clear error when environment variable not set."""
+        # Ensure env var is NOT set
+        if "TEST_UNDEFINED_VAR" in os.environ:
+            del os.environ["TEST_UNDEFINED_VAR"]
+
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+variables:
+  missing: { env: TEST_UNDEFINED_VAR }
+
+tasks:
+  test:
+    cmd: echo "{{ var.missing }}"
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Should fail at parse time with clear error
+                result = self.runner.invoke(app, ["test"], env=self.env)
+                self.assertNotEqual(result.exit_code, 0)
+
+                # Error should mention the undefined env variable
+                output = result.stdout
+                self.assertIn("TEST_UNDEFINED_VAR", output)
+                self.assertIn("not set", output.lower())
+
+            finally:
+                os.chdir(original_cwd)
+
 
 if __name__ == "__main__":
     unittest.main()

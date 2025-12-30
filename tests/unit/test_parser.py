@@ -1,5 +1,6 @@
 """Tests for parser module."""
 
+import os
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -1199,6 +1200,215 @@ tasks:
 
             recipe = parse_recipe(recipe_path)
             self.assertEqual(len(recipe.tasks), 0)
+
+
+class TestVariablesParsing(unittest.TestCase):
+    """Test parsing of variables section with environment variable support."""
+
+    def test_parse_env_variable_basic(self):
+        """Test basic environment variable reference."""
+        with TemporaryDirectory() as tmpdir:
+            # Set environment variable
+            os.environ["TEST_VAR"] = "test_value"
+            try:
+                recipe_path = Path(tmpdir) / "tasktree.yaml"
+                recipe_path.write_text("""
+variables:
+  my_var: { env: TEST_VAR }
+
+tasks:
+  test:
+    cmd: echo "{{ var.my_var }}"
+""")
+
+                recipe = parse_recipe(recipe_path)
+
+                # Check variable was resolved
+                self.assertEqual(recipe.variables["my_var"], "test_value")
+            finally:
+                del os.environ["TEST_VAR"]
+
+    def test_parse_env_variable_not_set(self):
+        """Test error when environment variable is not set."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+variables:
+  my_var: { env: UNDEFINED_ENV_VAR }
+
+tasks:
+  test:
+    cmd: echo test
+""")
+
+            with self.assertRaises(ValueError) as cm:
+                parse_recipe(recipe_path)
+
+            error_msg = str(cm.exception)
+            self.assertIn("UNDEFINED_ENV_VAR", error_msg)
+            self.assertIn("not set", error_msg)
+            self.assertIn("Hint:", error_msg)
+
+    def test_parse_env_variable_in_variable_expansion(self):
+        """Test env variable used in other variable definitions."""
+        with TemporaryDirectory() as tmpdir:
+            os.environ["BASE_URL"] = "https://api.example.com"
+            try:
+                recipe_path = Path(tmpdir) / "tasktree.yaml"
+                recipe_path.write_text("""
+variables:
+  base: { env: BASE_URL }
+  users: "{{ var.base }}/users"
+  posts: "{{ var.base }}/posts"
+
+tasks:
+  test:
+    cmd: echo test
+""")
+
+                recipe = parse_recipe(recipe_path)
+
+                self.assertEqual(recipe.variables["base"], "https://api.example.com")
+                self.assertEqual(recipe.variables["users"], "https://api.example.com/users")
+                self.assertEqual(recipe.variables["posts"], "https://api.example.com/posts")
+            finally:
+                del os.environ["BASE_URL"]
+
+    def test_parse_env_variable_always_string(self):
+        """Test env variable values are always strings."""
+        with TemporaryDirectory() as tmpdir:
+            os.environ["PORT"] = "8080"
+            try:
+                recipe_path = Path(tmpdir) / "tasktree.yaml"
+                recipe_path.write_text("""
+variables:
+  port: { env: PORT }
+
+tasks:
+  test:
+    cmd: echo "{{ var.port }}"
+""")
+
+                recipe = parse_recipe(recipe_path)
+
+                # Should be string "8080", not int 8080
+                self.assertEqual(recipe.variables["port"], "8080")
+                self.assertIsInstance(recipe.variables["port"], str)
+            finally:
+                del os.environ["PORT"]
+
+    def test_parse_env_variable_invalid_syntax_extra_keys(self):
+        """Test error for { env: VAR, other: value } syntax."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+variables:
+  my_var: { env: TEST_VAR, default: "foo" }
+
+tasks:
+  test:
+    cmd: echo test
+""")
+
+            with self.assertRaises(ValueError) as cm:
+                parse_recipe(recipe_path)
+
+            error_msg = str(cm.exception)
+            self.assertIn("extra keys", error_msg.lower())
+            self.assertIn("default", error_msg)
+
+    def test_parse_env_variable_invalid_name_empty(self):
+        """Test error for { env: } with empty value."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+variables:
+  my_var: { env: }
+
+tasks:
+  test:
+    cmd: echo test
+""")
+
+            with self.assertRaises(ValueError) as cm:
+                parse_recipe(recipe_path)
+
+            error_msg = str(cm.exception)
+            self.assertIn("Invalid environment variable reference", error_msg)
+
+    def test_parse_env_variable_invalid_name_format(self):
+        """Test error for invalid env var name format."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+variables:
+  my_var: { env: "INVALID NAME" }
+
+tasks:
+  test:
+    cmd: echo test
+""")
+
+            with self.assertRaises(ValueError) as cm:
+                parse_recipe(recipe_path)
+
+            error_msg = str(cm.exception)
+            self.assertIn("Invalid environment variable name", error_msg)
+            self.assertIn("INVALID NAME", error_msg)
+
+    def test_parse_multiple_env_variables(self):
+        """Test multiple environment variables in same recipe."""
+        with TemporaryDirectory() as tmpdir:
+            os.environ["API_KEY"] = "secret123"
+            os.environ["DB_HOST"] = "localhost"
+            try:
+                recipe_path = Path(tmpdir) / "tasktree.yaml"
+                recipe_path.write_text("""
+variables:
+  api_key: { env: API_KEY }
+  db_host: { env: DB_HOST }
+  connection: "{{ var.db_host }}:5432"
+
+tasks:
+  test:
+    cmd: echo test
+""")
+
+                recipe = parse_recipe(recipe_path)
+
+                self.assertEqual(recipe.variables["api_key"], "secret123")
+                self.assertEqual(recipe.variables["db_host"], "localhost")
+                self.assertEqual(recipe.variables["connection"], "localhost:5432")
+            finally:
+                del os.environ["API_KEY"]
+                del os.environ["DB_HOST"]
+
+    def test_parse_mixed_regular_and_env_variables(self):
+        """Test mixing regular variables and env variables."""
+        with TemporaryDirectory() as tmpdir:
+            os.environ["REGION"] = "us-west-2"
+            try:
+                recipe_path = Path(tmpdir) / "tasktree.yaml"
+                recipe_path.write_text("""
+variables:
+  app_name: "myapp"
+  version: 1.0
+  region: { env: REGION }
+  deploy_target: "{{ var.app_name }}-{{ var.version }}-{{ var.region }}"
+
+tasks:
+  test:
+    cmd: echo test
+""")
+
+                recipe = parse_recipe(recipe_path)
+
+                self.assertEqual(recipe.variables["app_name"], "myapp")
+                self.assertEqual(recipe.variables["version"], "1.0")
+                self.assertEqual(recipe.variables["region"], "us-west-2")
+                self.assertEqual(recipe.variables["deploy_target"], "myapp-1.0-us-west-2")
+            finally:
+                del os.environ["REGION"]
 
 
 if __name__ == "__main__":
