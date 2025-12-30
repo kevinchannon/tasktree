@@ -1,6 +1,6 @@
 """Placeholder substitution for variables and arguments.
 
-This module provides functions to substitute {{ var: name }} and {{ arg: name }}
+This module provides functions to substitute {{ var.name }} and {{ arg.name }}
 placeholders with their corresponding values.
 """
 
@@ -8,22 +8,22 @@ import re
 from typing import Any
 
 
-# Pattern matches: {{ prefix: name }} with optional whitespace
+# Pattern matches: {{ prefix.name }} with optional whitespace
 # Groups: (1) prefix (var|arg), (2) name (identifier)
 PLACEHOLDER_PATTERN = re.compile(
-    r'\{\{\s*(var|arg)\s*:\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}'
+    r'\{\{\s*(var|arg)\s*\.\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}'
 )
 
 
 def substitute_variables(text: str, variables: dict[str, str]) -> str:
-    """Substitute {{ var: name }} placeholders with variable values.
+    """Substitute {{ var.name }} placeholders with variable values.
 
     Args:
-        text: Text containing {{ var: name }} placeholders
+        text: Text containing {{ var.name }} placeholders
         variables: Dictionary mapping variable names to their string values
 
     Returns:
-        Text with all {{ var: name }} placeholders replaced
+        Text with all {{ var.name }} placeholders replaced
 
     Raises:
         ValueError: If a referenced variable is not defined
@@ -48,14 +48,14 @@ def substitute_variables(text: str, variables: dict[str, str]) -> str:
 
 
 def substitute_arguments(text: str, args: dict[str, Any]) -> str:
-    """Substitute {{ arg: name }} placeholders with argument values.
+    """Substitute {{ arg.name }} placeholders with argument values.
 
     Args:
-        text: Text containing {{ arg: name }} placeholders
+        text: Text containing {{ arg.name }} placeholders
         args: Dictionary mapping argument names to their values
 
     Returns:
-        Text with all {{ arg: name }} placeholders replaced
+        Text with all {{ arg.name }} placeholders replaced
 
     Raises:
         ValueError: If a referenced argument is not provided
@@ -81,7 +81,7 @@ def substitute_arguments(text: str, args: dict[str, Any]) -> str:
 
 
 def substitute_all(text: str, variables: dict[str, str], args: dict[str, Any]) -> str:
-    """Substitute both {{ var: name }} and {{ arg: name }} placeholders.
+    """Substitute both {{ var.name }} and {{ arg.name }} placeholders.
 
     Variables are substituted first, then arguments.
 

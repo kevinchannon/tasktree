@@ -250,7 +250,7 @@ def _resolve_variable_value(
         # Validate and stringify the value
         string_value = validator.convert(raw_value, None, None)
 
-        # Substitute any {{ var: ... }} references in the string value
+        # Substitute any {{ var.name }} references in the string value
         from tasktree.substitution import substitute_variables
         try:
             resolved_value = substitute_variables(str(string_value), resolved)
@@ -278,7 +278,7 @@ def _parse_variables_section(data: dict) -> dict[str, str]:
     """Parse and resolve the variables section from YAML data.
 
     Variables are resolved in order, allowing variables to reference
-    previously-defined variables using {{ var: name }} syntax.
+    previously-defined variables using {{ var.name }} syntax.
 
     Args:
         data: Parsed YAML data (root level)

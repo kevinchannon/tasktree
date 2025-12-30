@@ -31,7 +31,7 @@ variables:
 tasks:
   test:
     outputs: [output.txt]
-    cmd: 'echo "{{ var: message }}" > output.txt'
+    cmd: echo "{{ var.message }}" > output.txt
 """)
 
             original_cwd = os.getcwd()
@@ -65,8 +65,8 @@ variables:
 tasks:
   deploy:
     args: [app_name]
-    outputs: ["deploy-{{ arg: app_name }}.log"]
-    cmd: 'echo "Deploy {{ arg: app_name }} to {{ var: server }}:{{ var: port }}" > deploy-{{ arg: app_name }}.log'
+    outputs: ["deploy-{{ arg.app_name }}.log"]
+    cmd: echo "Deploy {{ arg.app_name }} to {{ var.server }}:{{ var.port }}" > deploy-{{ arg.app_name }}.log
 """)
 
             original_cwd = os.getcwd()
@@ -101,7 +101,7 @@ variables:
 tasks:
   test:
     outputs: [config.txt]
-    cmd: 'echo "port={{ var: port }} debug={{ var: debug }} timeout={{ var: timeout }}" > config.txt'
+    cmd: echo "port={{ var.port }} debug={{ var.debug }} timeout={{ var.timeout }}" > config.txt
 """)
 
             original_cwd = os.getcwd()
@@ -130,16 +130,16 @@ tasks:
 variables:
   protocol: "https"
   domain: "api.example.com"
-  base_url: "{{ var: protocol }}://{{ var: domain }}"
-  users_endpoint: "{{ var: base_url }}/users"
-  posts_endpoint: "{{ var: base_url }}/posts"
+  base_url: "{{ var.protocol }}://{{ var.domain }}"
+  users_endpoint: "{{ var.base_url }}/users"
+  posts_endpoint: "{{ var.base_url }}/posts"
 
 tasks:
   test:
     outputs: [endpoints.txt]
     cmd: |
-      echo "{{ var: users_endpoint }}" > endpoints.txt
-      echo "{{ var: posts_endpoint }}" >> endpoints.txt
+      echo "{{ var.users_endpoint }}" > endpoints.txt
+      echo "{{ var.posts_endpoint }}" >> endpoints.txt
 """)
 
             original_cwd = os.getcwd()
@@ -176,7 +176,7 @@ variables:
 
 tasks:
   test:
-    working_dir: "{{ var: build_dir }}"
+    working_dir: "{{ var.build_dir }}"
     outputs: [build/result.txt]
     cmd: pwd > result.txt
 """)
@@ -213,12 +213,12 @@ variables:
 tasks:
   build:
     outputs: [build.log]
-    cmd: 'echo "Building {{ var: app_name }} v{{ var: version }}" > build.log'
+    cmd: echo "Building {{ var.app_name }} v{{ var.version }}" > build.log
 
   deploy:
     deps: [build]
     outputs: [deploy.log]
-    cmd: 'echo "Deploying {{ var: app_name }} v{{ var: version }}" > deploy.log'
+    cmd: echo "Deploying {{ var.app_name }} v{{ var.version }}" > deploy.log
 """)
 
             original_cwd = os.getcwd()
@@ -251,7 +251,7 @@ variables:
 
 tasks:
   test:
-    cmd: 'echo "{{ var: undefined }}"'
+    cmd: echo "{{ var.undefined }}"
 """)
 
             original_cwd = os.getcwd()
@@ -278,7 +278,7 @@ tasks:
             # Test self-referential circular reference
             recipe_file.write_text("""
 variables:
-  recursive: "value {{ var: recursive }}"
+  recursive: "value {{ var.recursive }}"
 
 tasks:
   test:
@@ -313,7 +313,7 @@ variables:
 tasks:
   test:
     outputs: [output.txt]
-    cmd: 'echo "{{ var: message }}" > output.txt'
+    cmd: echo "{{ var.message }}" > output.txt
 """)
 
             original_cwd = os.getcwd()

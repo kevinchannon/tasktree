@@ -2,7 +2,7 @@
 
 ## Overview
 
-Add a new top-level `variables` section to the recipe YAML that supports simple key-value pairs. Update the substitution syntax throughout the codebase to use explicit prefixes (`{{ arg: name }}` and `{{ var: name }}`).
+Add a new top-level `variables` section to the recipe YAML that supports simple key-value pairs. Update the substitution syntax throughout the codebase to use explicit prefixes (`{{ arg.name }}` and `{{ var.name }}`).
 
 ## Requirements
 
@@ -20,7 +20,7 @@ variables:
 tasks:
   deploy:
     args: [target]
-    cmd: echo "Deploying to {{ var: server }} on port {{ var: port }}"
+    cmd: echo "Deploying to {{ var.server }} on port {{ var.port }}"
 ```
 
 **Supported variable types:**
@@ -42,29 +42,29 @@ Allowed variable types should match those allowed in task arguments:
 **Parse-time resolution:**
 - Variables must be resolved at recipe parse time, after YAML loading but before task execution planning
 - Variables are defined in order and can reference previously-defined variables
-- Variable references in variable definitions must use the `{{ var: name }}` syntax
+- Variable references in variable definitions must use the `{{ var.name }}` syntax
 - Undefined variable references should produce a clear error, e.g. "Variable 'varX' references undefined variable 'varY'. Variables must be defined before use."
 
 **Example with variable-in-variable:**
 ```yaml
 variables:
   base_url: "https://api.example.com"
-  users_endpoint: "{{ var: base_url }}/users"
-  posts_endpoint: "{{ var: base_url }}/posts"
+  users_endpoint: "{{ var.base_url }}/users"
+  posts_endpoint: "{{ var.base_url }}/posts"
 ```
 
 **Ordering requirement:**
 Variables must be defined before they are referenced. This example should error:
 ```yaml
 variables:
-  derived: "{{ var: base }}"  # Error: 'base' not yet defined
+  derived: "{{ var.base }}"  # Error: 'base' not yet defined
   base: "value"
 ```
 
 ### 3. Substitution Syntax Changes
 
 **Current syntax:** `{{ arg_name }}`
-**New syntax:** `{{ arg: arg_name }}` and `{{ var: var_name }}`
+**New syntax:** `{{ arg.arg_name }}` and `{{ var.var_name }}`
 
 **Substitution locations:**
 Variable and argument substitutions should work in:
@@ -75,8 +75,8 @@ Variable and argument substitutions should work in:
 
 **Type handling:**
 - All substitutions stringify their values at substitution time
-- `{{ var: port }}` where `port: 8080` becomes the string `"8080"`
-- `{{ var: debug }}` where `debug: true` becomes the string `"true"`
+- `{{ var.port }}` where `port: 8080` becomes the string `"8080"`
+- `{{ var.debug }}` where `debug: true` becomes the string `"true"`
 
 ### 4. Validation
 
@@ -111,7 +111,7 @@ Add validation to ensure:
 
 ### 6. Backward Compatibility
 
-**Breaking change:** The substitution syntax changes from `{{ name }}` to `{{ arg: name }}`.
+**Breaking change:** The substitution syntax changes from `{{ name }}` to `{{ arg.name }}`.
 
 DO NOT be concerned with handling the old syntax going forward, no parsing of the old syntax is required. No warnings about the old syntax need be issued. The product is in early alpha and has not real users, so we do not need to concern ourselves with compatibility issues.
 
@@ -122,7 +122,7 @@ Update README.md and other docs to:
 - Show examples of variable definition and usage
 - Explain variable-in-variable expansion
 - Document ordering requirements
-- Update all examples to use new `{{ arg: name }}` syntax
+- Update all examples to use new `{{ arg.name }}` syntax
 - Explain type handling (all substitutions produce strings)
 
 ## Implementation Notes

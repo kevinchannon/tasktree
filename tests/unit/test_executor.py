@@ -125,7 +125,7 @@ class TestExecutor(unittest.TestCase):
             tasks = {
                 "deploy": Task(
                     name="deploy",
-                    cmd="echo Deploying to {{ arg: environment }}",
+                    cmd="echo Deploying to {{ arg.environment }}",
                     args=["environment"],
                 )
             }
@@ -470,11 +470,11 @@ class TestExecutorPrivateMethods(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
-            tasks = {"deploy": Task(name="deploy", cmd="echo {{ arg: environment }}")}
+            tasks = {"deploy": Task(name="deploy", cmd="echo {{ arg.environment }}")}
             recipe = Recipe(tasks=tasks, project_root=project_root)
             executor = Executor(recipe, state_manager)
 
-            result = executor._substitute_args("echo {{ arg: environment }}", {"environment": "production"})
+            result = executor._substitute_args("echo {{ arg.environment }}", {"environment": "production"})
             self.assertEqual(result, "echo production")
 
     def test_substitute_args_multiple(self):
@@ -482,12 +482,12 @@ class TestExecutorPrivateMethods(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
-            tasks = {"deploy": Task(name="deploy", cmd="deploy {{ arg: app }} to {{ arg: region }}")}
+            tasks = {"deploy": Task(name="deploy", cmd="deploy {{ arg.app }} to {{ arg.region }}")}
             recipe = Recipe(tasks=tasks, project_root=project_root)
             executor = Executor(recipe, state_manager)
 
             result = executor._substitute_args(
-                "deploy {{ arg: app }} to {{ arg: region }}",
+                "deploy {{ arg.app }} to {{ arg.region }}",
                 {"app": "myapp", "region": "us-east-1"}
             )
             self.assertEqual(result, "deploy myapp to us-east-1")
@@ -497,14 +497,14 @@ class TestExecutorPrivateMethods(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
-            tasks = {"deploy": Task(name="deploy", cmd="echo {{ arg: environment }} {{ arg: missing }}")}
+            tasks = {"deploy": Task(name="deploy", cmd="echo {{ arg.environment }} {{ arg.missing }}")}
             recipe = Recipe(tasks=tasks, project_root=project_root)
             executor = Executor(recipe, state_manager)
 
             # Missing argument should raise ValueError
             with self.assertRaises(ValueError) as cm:
                 executor._substitute_args(
-                    "echo {{ arg: environment }} {{ arg: missing }}",
+                    "echo {{ arg.environment }} {{ arg.missing }}",
                     {"environment": "production"}
                 )
             self.assertIn("missing", str(cm.exception))

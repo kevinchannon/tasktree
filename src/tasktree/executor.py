@@ -460,13 +460,13 @@ class Executor:
             raise ExecutionError(str(e)) from e
 
     def _substitute_args(self, cmd: str, args_dict: dict[str, Any]) -> str:
-        """Substitute {{ arg: name }} placeholders in command string.
+        """Substitute {{ arg.name }} placeholders in command string.
 
         Variables are already substituted at parse time by the parser.
         This only handles runtime argument substitution.
 
         Args:
-            cmd: Command with {{ arg: name }} placeholders
+            cmd: Command with {{ arg.name }} placeholders
             args_dict: Argument values to substitute
 
         Returns:
