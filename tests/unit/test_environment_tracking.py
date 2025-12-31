@@ -136,6 +136,7 @@ class TestCheckEnvironmentChanged(unittest.TestCase):
         self.recipe = Recipe(
             tasks={},
             project_root=self.project_root,
+            recipe_path=self.project_root / "tasktree.yaml",
             environments={"test": self.env},
         )
         self.state_manager = StateManager(self.project_root)
@@ -227,6 +228,7 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         self.recipe = Recipe(
             tasks={},
             project_root=self.project_root,
+            recipe_path=self.project_root / "tasktree.yaml",
             environments={"builder": self.env},
         )
         self.state_manager = StateManager(self.project_root)
