@@ -61,8 +61,8 @@ def substitute_arguments(text: str, args: dict[str, Any], exported_args: set[str
     Raises:
         ValueError: If a referenced argument is not provided or is exported
     """
-    if exported_args is None:
-        exported_args = set()
+    # Use empty set if None for cleaner handling
+    exported_args = exported_args or set()
 
     def replace_match(match: re.Match) -> str:
         prefix = match.group(1)

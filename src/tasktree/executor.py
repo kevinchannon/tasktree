@@ -302,6 +302,7 @@ class Executor:
             ExecutionError: If task execution fails
         """
         # Parse task arguments to identify exported args
+        # Note: args_dict already has defaults applied by CLI (cli.py:413-424)
         from tasktree.parser import parse_arg_spec
         exported_args = set()
         regular_args = {}
@@ -312,6 +313,7 @@ class Executor:
             if is_exported:
                 exported_args.add(name)
                 # Get value and convert to string for environment variable
+                # Value should always be in args_dict (CLI applies defaults)
                 if name in args_dict:
                     exported_env_vars[name] = str(args_dict[name])
             else:
@@ -491,22 +493,9 @@ class Executor:
         if exported_env_vars:
             docker_env_vars.update(exported_env_vars)
 
-        # Create modified environment with merged env vars
-        from tasktree.parser import Environment
-        modified_env = Environment(
-            name=env.name,
-            shell=env.shell,
-            args=env.args,
-            preamble=env.preamble,
-            dockerfile=env.dockerfile,
-            context=env.context,
-            volumes=env.volumes,
-            ports=env.ports,
-            env_vars=docker_env_vars,
-            working_dir=env.working_dir,
-            extra_args=env.extra_args,
-            run_as_root=env.run_as_root
-        )
+        # Create modified environment with merged env vars using dataclass replace
+        from dataclasses import replace
+        modified_env = replace(env, env_vars=docker_env_vars)
 
         # Execute in container
         try:

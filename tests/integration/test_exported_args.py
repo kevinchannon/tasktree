@@ -75,6 +75,52 @@ tasks:
 
             self.assertIn("test", statuses)
 
+    def test_exported_args_default_not_provided(self):
+        """Test that exported args with defaults work when default is not explicitly provided.
+
+        This is a regression test for the bug where exported args with defaults
+        would not be set as environment variables if the value wasn't provided
+        by the user (relying on CLI to apply the default).
+        """
+        is_windows = platform.system() == "Windows"
+        if is_windows:
+            env_check = 'echo %server% %port%'
+        else:
+            env_check = 'echo "$server $port"'
+
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text(
+                f"""
+tasks:
+  test:
+    args: [$server, $port=8080]
+    cmd: {env_check}
+"""
+            )
+
+            # Use CLI to parse and execute (simulating real usage)
+            from tasktree.cli import _parse_task_args
+
+            recipe = parse_recipe(recipe_path)
+            task = recipe.get_task("test")
+
+            # Parse args with CLI (which applies defaults)
+            # Only provide server, not port (port should use default)
+            args_dict = _parse_task_args(task.args, ["prod-server"])
+
+            # Verify CLI applied the default
+            self.assertEqual(args_dict["server"], "prod-server")
+            self.assertEqual(args_dict["port"], 8080)
+
+            # Execute with args_dict from CLI
+            state = StateManager(recipe.project_root)
+            state.load()
+            executor = Executor(recipe, state)
+            statuses = executor.execute_task("test", args_dict)
+
+            self.assertIn("test", statuses)
+
     def test_exported_args_not_substitutable(self):
         """Test that exported args cannot be used in template substitution."""
         with TemporaryDirectory() as tmpdir:

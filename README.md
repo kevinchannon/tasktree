@@ -472,6 +472,51 @@ tasks:
 
 Exported arguments are passed through to Docker containers as environment variables, overriding any Docker environment configuration.
 
+#### Troubleshooting Exported Arguments
+
+**Problem: Exported argument appears undefined in script**
+
+If your script reports an undefined variable:
+
+1. Verify the argument is prefixed with `$` in the `args` list
+2. Check that you're passing the argument when invoking the task:
+   ```bash
+   tt deploy prod-server  # If server is required
+   ```
+3. On Windows, use `%VAR%` syntax instead of `$VAR`:
+   ```yaml
+   tasks:
+     test:
+       args: [$server]
+       cmd: echo %server%  # Windows
+       # cmd: echo $server  # Unix/macOS
+   ```
+
+**Problem: How to debug which args are exported vs regular**
+
+Use `tt --show <task-name>` to view the task definition:
+```bash
+tt --show deploy
+```
+
+This displays the task with its argument specifications. Exported arguments have the `$` prefix.
+
+**Problem: Case-sensitive variable confusion**
+
+On Unix systems, `$Server` and `$server` are different variables. If you see unexpected behavior:
+
+1. Check that all references use the exact same case
+2. Task Tree will warn during parsing if it detects arguments that differ only in case
+3. Consider using lowercase consistently for environment variables to avoid confusion
+
+**Problem: Exported argument with default value not set**
+
+If an exported argument with a default isn't available as an environment variable:
+
+1. Ensure you're running on the latest version (this was a bug in earlier versions)
+2. The CLI automatically applies defaults before execution
+3. You can explicitly provide the value: `tt deploy prod-server port=8080`
+
 ## Environment Variables
 
 Task Tree supports reading environment variables in two ways:

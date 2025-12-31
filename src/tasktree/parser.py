@@ -1118,12 +1118,55 @@ def _parse_file(
             env=task_data.get("env", ""),
         )
 
+        # Check for case-sensitive argument collisions
+        if task.args:
+            _check_case_sensitive_arg_collisions(task.args, full_name)
+
         tasks[full_name] = task
 
     # Remove current file from stack
     import_stack.pop()
 
     return tasks
+
+
+def _check_case_sensitive_arg_collisions(args: list[str], task_name: str) -> None:
+    """Check for exported arguments that differ only in case.
+
+    On Unix systems, environment variables are case-sensitive, but having
+    args that differ only in case (e.g., $Server and $server) can be confusing.
+    This function emits a warning if such collisions are detected.
+
+    Args:
+        args: List of argument specifications
+        task_name: Name of the task (for warning message)
+    """
+    import sys
+    import warnings
+
+    # Parse all exported arg names
+    exported_names = []
+    for arg_spec in args:
+        name, _, _, is_exported = parse_arg_spec(arg_spec)
+        if is_exported:
+            exported_names.append(name)
+
+    # Check for case collisions
+    seen_lower = {}
+    for name in exported_names:
+        lower_name = name.lower()
+        if lower_name in seen_lower:
+            # Found a collision
+            other_name = seen_lower[lower_name]
+            if name != other_name:  # Only warn if actual case differs
+                print(
+                    f"Warning: Task '{task_name}' has exported arguments that differ only in case: "
+                    f"${other_name} and ${name}. "
+                    f"This may be confusing on case-sensitive systems.",
+                    file=sys.stderr
+                )
+        else:
+            seen_lower[lower_name] = name
 
 
 def parse_arg_spec(arg_spec: str) -> tuple[str, str, str | None, bool]:
