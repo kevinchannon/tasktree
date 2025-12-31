@@ -1,6 +1,7 @@
 """Tests for parser module."""
 
 import os
+import platform
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -1755,6 +1756,356 @@ tasks:
 
         finally:
             del os.environ["TEST_ENV_VAR"]
+
+
+class TestEvalVariables(unittest.TestCase):
+    """Tests for { eval: command } variable references."""
+
+    def test_eval_basic_command(self):
+        """Test basic command evaluation."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text(
+                """
+variables:
+  greeting: { eval: "echo hello" }
+
+tasks:
+  test:
+    cmd: echo "{{ var.greeting }}"
+"""
+            )
+
+            recipe = parse_recipe(recipe_path)
+            self.assertEqual(recipe.variables["greeting"], "hello")
+
+    def test_eval_strips_trailing_newline(self):
+        """Test that trailing newline is stripped from command output."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            # echo produces output with trailing newline
+            recipe_path.write_text(
+                """
+variables:
+  output: { eval: "echo test" }
+
+tasks:
+  test:
+    cmd: echo done
+"""
+            )
+
+            recipe = parse_recipe(recipe_path)
+            # Should strip the trailing newline
+            self.assertEqual(recipe.variables["output"], "test")
+
+    def test_eval_preserves_internal_newlines(self):
+        """Test that internal newlines are preserved."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            if platform.system() == "Windows":
+                # Windows cmd uses echo. for blank lines
+                cmd = 'echo line1 && echo. && echo line2'
+            else:
+                cmd = "echo -e 'line1\\nline2'"
+            recipe_path.write_text(
+                f"""
+variables:
+  lines: {{ eval: "{cmd}" }}
+
+tasks:
+  test:
+    cmd: echo done
+"""
+            )
+
+            recipe = parse_recipe(recipe_path)
+            # Should have internal newline but not trailing one
+            self.assertIn("\n", recipe.variables["lines"])
+
+    def test_eval_empty_output(self):
+        """Test command with empty output."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            if platform.system() == "Windows":
+                cmd = "cmd /c exit 0"
+            else:
+                cmd = "true"
+            recipe_path.write_text(
+                f"""
+variables:
+  empty: {{ eval: "{cmd}" }}
+
+tasks:
+  test:
+    cmd: echo done
+"""
+            )
+
+            recipe = parse_recipe(recipe_path)
+            self.assertEqual(recipe.variables["empty"], "")
+
+    def test_eval_command_failure(self):
+        """Test that non-zero exit code raises error."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            if platform.system() == "Windows":
+                cmd = "cmd /c exit 1"
+            else:
+                cmd = "false"
+            recipe_path.write_text(
+                f"""
+variables:
+  bad: {{ eval: "{cmd}" }}
+
+tasks:
+  test:
+    cmd: echo done
+"""
+            )
+
+            with self.assertRaises(ValueError) as cm:
+                parse_recipe(recipe_path)
+            error_msg = str(cm.exception)
+            self.assertIn("Command failed", error_msg)
+            self.assertIn("bad", error_msg)
+            self.assertIn("Exit code:", error_msg)
+
+    def test_eval_nonexistent_command(self):
+        """Test that nonexistent command produces helpful error."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text(
+                """
+variables:
+  bad: { eval: "nonexistent-command-xyz" }
+
+tasks:
+  test:
+    cmd: echo done
+"""
+            )
+
+            with self.assertRaises(ValueError) as cm:
+                parse_recipe(recipe_path)
+            error_msg = str(cm.exception)
+            self.assertIn("Command failed", error_msg)
+            self.assertIn("bad", error_msg)
+
+    def test_eval_working_directory(self):
+        """Test that command runs from recipe file directory."""
+        with TemporaryDirectory() as tmpdir:
+            # Create a marker file
+            marker_file = Path(tmpdir) / "marker.txt"
+            marker_file.write_text("found")
+
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            if platform.system() == "Windows":
+                cmd = "type marker.txt"
+            else:
+                cmd = "cat marker.txt"
+            recipe_path.write_text(
+                f"""
+variables:
+  marker: {{ eval: "{cmd}" }}
+
+tasks:
+  test:
+    cmd: echo done
+"""
+            )
+
+            recipe = parse_recipe(recipe_path)
+            self.assertEqual(recipe.variables["marker"], "found")
+
+    def test_eval_with_variable_substitution(self):
+        """Test eval output can use variable substitution."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text(
+                """
+variables:
+  prefix: "hello"
+  suffix: { eval: "echo world" }
+  combined: "{{ var.prefix }}-{{ var.suffix }}"
+
+tasks:
+  test:
+    cmd: echo done
+"""
+            )
+
+            recipe = parse_recipe(recipe_path)
+            self.assertEqual(recipe.variables["suffix"], "world")
+            self.assertEqual(recipe.variables["combined"], "hello-world")
+
+    def test_eval_in_variable_substitution(self):
+        """Test that eval output itself can contain variable references."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text(
+                """
+variables:
+  base: "test"
+  # Command outputs a string with variable reference
+  template: { eval: "echo '{{ var.base }}-value'" }
+
+tasks:
+  test:
+    cmd: echo done
+"""
+            )
+
+            recipe = parse_recipe(recipe_path)
+            # The output should have the variable substituted
+            self.assertEqual(recipe.variables["template"], "test-value")
+
+    def test_eval_validation_missing_command(self):
+        """Test validation error when eval has no command."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text(
+                """
+variables:
+  bad: { eval: }
+
+tasks:
+  test:
+    cmd: echo done
+"""
+            )
+
+            with self.assertRaises(ValueError) as cm:
+                parse_recipe(recipe_path)
+            error_msg = str(cm.exception)
+            self.assertIn("Invalid eval reference", error_msg)
+            self.assertIn("bad", error_msg)
+
+    def test_eval_validation_extra_keys(self):
+        """Test validation error when eval has extra keys."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text(
+                """
+variables:
+  bad: { eval: "echo test", timeout: 5 }
+
+tasks:
+  test:
+    cmd: echo done
+"""
+            )
+
+            with self.assertRaises(ValueError) as cm:
+                parse_recipe(recipe_path)
+            error_msg = str(cm.exception)
+            self.assertIn("Invalid eval reference", error_msg)
+            self.assertIn("extra keys", error_msg)
+            self.assertIn("timeout", error_msg)
+
+    def test_eval_validation_non_string_command(self):
+        """Test validation error when command is not a string."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text(
+                """
+variables:
+  bad: { eval: 123 }
+
+tasks:
+  test:
+    cmd: echo done
+"""
+            )
+
+            with self.assertRaises(ValueError) as cm:
+                parse_recipe(recipe_path)
+            error_msg = str(cm.exception)
+            self.assertIn("Invalid eval reference", error_msg)
+            self.assertIn("must be a non-empty string", error_msg)
+
+    def test_eval_uses_default_env(self):
+        """Test that eval uses default environment if specified."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            # This tests that the environment resolution works
+            # We use a simple command that works in both bash and cmd
+            recipe_path.write_text(
+                """
+environments:
+  default: bash-env
+  bash-env:
+    shell: bash
+    args: ["-c"]
+
+variables:
+  result: { eval: "echo test" }
+
+tasks:
+  test:
+    cmd: echo done
+"""
+            )
+
+            recipe = parse_recipe(recipe_path)
+            self.assertEqual(recipe.variables["result"], "test")
+
+    def test_eval_with_pipes_and_redirection(self):
+        """Test that commands with pipes work correctly."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            if platform.system() == "Windows":
+                # Windows cmd piping
+                cmd = 'echo test | findstr test'
+            else:
+                cmd = "echo test | grep test"
+            recipe_path.write_text(
+                f"""
+variables:
+  filtered: {{ eval: "{cmd}" }}
+
+tasks:
+  test:
+    cmd: echo done
+"""
+            )
+
+            recipe = parse_recipe(recipe_path)
+            self.assertEqual(recipe.variables["filtered"], "test")
+
+    def test_eval_mixed_with_other_variable_types(self):
+        """Test eval works alongside env and read variables."""
+        with TemporaryDirectory() as tmpdir:
+            # Setup environment variable
+            os.environ["TEST_EVAL_VAR"] = "env-value"
+
+            # Create file to read
+            test_file = Path(tmpdir) / "test.txt"
+            test_file.write_text("file-value\n")
+
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text(
+                """
+variables:
+  from_env: { env: TEST_EVAL_VAR }
+  from_file: { read: "test.txt" }
+  from_eval: { eval: "echo eval-value" }
+  combined: "{{ var.from_env }}-{{ var.from_file }}-{{ var.from_eval }}"
+
+tasks:
+  test:
+    cmd: echo done
+"""
+            )
+
+            try:
+                recipe = parse_recipe(recipe_path)
+                self.assertEqual(recipe.variables["from_env"], "env-value")
+                self.assertEqual(recipe.variables["from_file"], "file-value")
+                self.assertEqual(recipe.variables["from_eval"], "eval-value")
+                self.assertEqual(recipe.variables["combined"], "env-value-file-value-eval-value")
+            finally:
+                del os.environ["TEST_EVAL_VAR"]
 
 
 if __name__ == "__main__":

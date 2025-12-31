@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import os
+import platform
 import re
+import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, List
@@ -430,21 +432,173 @@ def _resolve_file_variable(var_name: str, filepath: str, resolved_path: Path) ->
     return content
 
 
+def _is_eval_reference(value: Any) -> bool:
+    """Check if value is an eval command reference.
+
+    Args:
+        value: Raw value from YAML
+
+    Returns:
+        True if value is { eval: command } dict
+    """
+    return isinstance(value, dict) and "eval" in value
+
+
+def _validate_eval_reference(var_name: str, value: dict) -> str:
+    """Validate and extract command from eval reference.
+
+    Args:
+        var_name: Name of the variable being defined
+        value: Dict that should be { eval: command }
+
+    Returns:
+        Command string
+
+    Raises:
+        ValueError: If reference is invalid
+    """
+    # Validate dict structure (only "eval" key allowed)
+    if len(value) != 1:
+        extra_keys = [k for k in value.keys() if k != "eval"]
+        raise ValueError(
+            f"Invalid eval reference in variable '{var_name}'.\n"
+            f"Expected: {{ eval: command }}\n"
+            f"Found extra keys: {', '.join(extra_keys)}"
+        )
+
+    command = value["eval"]
+
+    # Validate command is provided and is a string
+    if not command or not isinstance(command, str):
+        raise ValueError(
+            f"Invalid eval reference in variable '{var_name}'.\n"
+            f"Expected: {{ eval: command }}\n"
+            f"Found: {{ eval: {command!r} }}\n\n"
+            f"Command must be a non-empty string."
+        )
+
+    return command
+
+
+def _get_default_shell_and_args() -> tuple[str, list[str]]:
+    """Get default shell and args for current platform.
+
+    Returns:
+        Tuple of (shell, args) for platform default
+    """
+    is_windows = platform.system() == "Windows"
+    if is_windows:
+        return ("cmd", ["/c"])
+    else:
+        return ("bash", ["-c"])
+
+
+def _resolve_eval_variable(
+    var_name: str,
+    command: str,
+    recipe_file_path: Path,
+    recipe_data: dict
+) -> str:
+    """Execute command and capture output for variable value.
+
+    Args:
+        var_name: Name of the variable being defined
+        command: Command to execute
+        recipe_file_path: Path to recipe file (for working directory)
+        recipe_data: Parsed YAML data (for accessing default_env)
+
+    Returns:
+        Command stdout as string (with trailing newline stripped)
+
+    Raises:
+        ValueError: If command fails or cannot be executed
+    """
+    # Determine shell to use
+    shell = None
+    shell_args = []
+
+    # Check if recipe has default_env specified
+    if recipe_data and "environments" in recipe_data:
+        env_data = recipe_data["environments"]
+        if isinstance(env_data, dict):
+            default_env_name = env_data.get("default", "")
+            if default_env_name and default_env_name in env_data:
+                env_config = env_data[default_env_name]
+                if isinstance(env_config, dict):
+                    shell = env_config.get("shell", "")
+                    shell_args = env_config.get("args", [])
+                    if isinstance(shell_args, str):
+                        shell_args = [shell_args]
+
+    # Use platform default if no environment specified or not found
+    if not shell:
+        shell, shell_args = _get_default_shell_and_args()
+
+    # Build command list
+    cmd_list = [shell] + shell_args + [command]
+
+    # Execute from recipe file directory
+    working_dir = recipe_file_path.parent
+
+    try:
+        result = subprocess.run(
+            cmd_list,
+            capture_output=True,
+            text=True,
+            cwd=working_dir,
+            check=False,
+        )
+    except FileNotFoundError:
+        raise ValueError(
+            f"Failed to execute command for variable '{var_name}'.\n"
+            f"Shell not found: {shell}\n\n"
+            f"Command: {command}\n\n"
+            f"Ensure the shell is installed and available in PATH."
+        )
+    except Exception as e:
+        raise ValueError(
+            f"Failed to execute command for variable '{var_name}'.\n"
+            f"Command: {command}\n"
+            f"Error: {e}"
+        )
+
+    # Check exit code
+    if result.returncode != 0:
+        stderr_output = result.stderr.strip() if result.stderr else "(no stderr output)"
+        raise ValueError(
+            f"Command failed for variable '{var_name}': {command}\n"
+            f"Exit code: {result.returncode}\n"
+            f"stderr: {stderr_output}\n\n"
+            f"Ensure the command succeeds when run from the recipe file location."
+        )
+
+    # Get stdout and strip trailing newline
+    output = result.stdout
+
+    # Strip single trailing newline if present
+    if output.endswith('\n'):
+        output = output[:-1]
+
+    return output
+
+
 def _resolve_variable_value(
     name: str,
     raw_value: Any,
     resolved: dict[str, str],
     resolution_stack: list[str],
-    file_path: Path
+    file_path: Path,
+    recipe_data: dict | None = None
 ) -> str:
     """Resolve a single variable value with circular reference detection.
 
     Args:
         name: Variable name being resolved
-        raw_value: Raw value from YAML (int, str, bool, float, dict with env/read)
+        raw_value: Raw value from YAML (int, str, bool, float, dict with env/read/eval)
         resolved: Dictionary of already-resolved variables
         resolution_stack: Stack of variables currently being resolved (for circular detection)
         file_path: Path to recipe file (for resolving relative file paths in { read: ... })
+        recipe_data: Parsed YAML data (for accessing default_env in { eval: ... })
 
     Returns:
         Resolved string value
@@ -460,6 +614,33 @@ def _resolve_variable_value(
     resolution_stack.append(name)
 
     try:
+        # Check if this is an eval reference
+        if _is_eval_reference(raw_value):
+            # Validate and extract command
+            command = _validate_eval_reference(name, raw_value)
+
+            # Execute command and capture output
+            string_value = _resolve_eval_variable(name, command, file_path, recipe_data)
+
+            # Still perform variable-in-variable substitution
+            from tasktree.substitution import substitute_variables
+            try:
+                resolved_value = substitute_variables(string_value, resolved)
+            except ValueError as e:
+                # Check if the undefined variable is in the resolution stack (circular reference)
+                error_msg = str(e)
+                if "not defined" in error_msg:
+                    match = re.search(r"Variable '(\w+)' is not defined", error_msg)
+                    if match:
+                        undefined_var = match.group(1)
+                        if undefined_var in resolution_stack:
+                            cycle = " -> ".join(resolution_stack + [undefined_var])
+                            raise ValueError(f"Circular reference detected in variables: {cycle}")
+                # Re-raise the original error if not circular
+                raise
+
+            return resolved_value
+
         # Check if this is a file read reference
         if _is_file_read_reference(raw_value):
             # Validate and extract filepath
@@ -578,7 +759,7 @@ def _parse_variables_section(data: dict, file_path: Path) -> dict[str, str]:
     for var_name, raw_value in vars_data.items():
         _validate_variable_name(var_name)
         resolved[var_name] = _resolve_variable_value(
-            var_name, raw_value, resolved, resolution_stack, file_path
+            var_name, raw_value, resolved, resolution_stack, file_path, data
         )
 
     return resolved
