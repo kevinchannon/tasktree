@@ -16,7 +16,7 @@ from typing import Any
 from tasktree import docker as docker_module
 from tasktree.graph import get_implicit_inputs, resolve_execution_order
 from tasktree.hasher import hash_args, hash_task, make_cache_key
-from tasktree.parser import Recipe, Task
+from tasktree.parser import Recipe, Task, Environment
 from tasktree.state import StateManager, TaskState
 
 
