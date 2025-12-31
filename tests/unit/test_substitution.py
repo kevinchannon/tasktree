@@ -7,6 +7,7 @@ from tasktree.substitution import (
     PLACEHOLDER_PATTERN,
     substitute_arguments,
     substitute_all,
+    substitute_builtin_variables,
     substitute_environment,
     substitute_variables,
 )
@@ -35,6 +36,13 @@ class TestPlaceholderPattern(unittest.TestCase):
         self.assertIsNotNone(match)
         self.assertEqual(match.group(1), "env")
         self.assertEqual(match.group(2), "USER")
+
+    def test_pattern_matches_tt_prefix(self):
+        """Test pattern matches {{ tt.name }} syntax."""
+        match = PLACEHOLDER_PATTERN.search("{{ tt.project_root }}")
+        self.assertIsNotNone(match)
+        self.assertEqual(match.group(1), "tt")
+        self.assertEqual(match.group(2), "project_root")
 
     def test_pattern_allows_whitespace(self):
         """Test pattern tolerates extra whitespace."""
@@ -322,6 +330,128 @@ class TestSubstituteEnvironment(unittest.TestCase):
         finally:
             del os.environ['DEPLOY_USER']
             del os.environ['DEPLOY_HOST']
+
+
+class TestSubstituteBuiltinVariables(unittest.TestCase):
+    """Test substitute_builtin_variables function."""
+
+    def test_substitute_single_builtin_var(self):
+        """Test basic {{ tt.x }} substitution."""
+        builtin_vars = {"project_root": "/home/user/project"}
+        result = substitute_builtin_variables("Root: {{ tt.project_root }}", builtin_vars)
+        self.assertEqual(result, "Root: /home/user/project")
+
+    def test_substitute_multiple_builtin_vars(self):
+        """Test multiple different built-in vars in same string."""
+        builtin_vars = {
+            "project_root": "/home/user/project",
+            "task_name": "build",
+        }
+        text = "Task {{ tt.task_name }} in {{ tt.project_root }}"
+        result = substitute_builtin_variables(text, builtin_vars)
+        self.assertEqual(result, "Task build in /home/user/project")
+
+    def test_substitute_all_builtin_vars(self):
+        """Test all 8 built-in variables."""
+        builtin_vars = {
+            "project_root": "/home/user/project",
+            "recipe_dir": "/home/user/project",
+            "task_name": "build",
+            "working_dir": "/home/user/project/src",
+            "timestamp": "2024-12-28T14:30:45Z",
+            "timestamp_unix": "1703772645",
+            "user_home": "/home/user",
+            "user_name": "alice",
+        }
+        text = (
+            "Project: {{ tt.project_root }}, "
+            "Recipe: {{ tt.recipe_dir }}, "
+            "Task: {{ tt.task_name }}, "
+            "Working: {{ tt.working_dir }}, "
+            "Time: {{ tt.timestamp }}, "
+            "Unix: {{ tt.timestamp_unix }}, "
+            "Home: {{ tt.user_home }}, "
+            "User: {{ tt.user_name }}"
+        )
+        result = substitute_builtin_variables(text, builtin_vars)
+        self.assertEqual(
+            result,
+            "Project: /home/user/project, "
+            "Recipe: /home/user/project, "
+            "Task: build, "
+            "Working: /home/user/project/src, "
+            "Time: 2024-12-28T14:30:45Z, "
+            "Unix: 1703772645, "
+            "Home: /home/user, "
+            "User: alice",
+        )
+
+    def test_substitute_same_builtin_var_multiple_times(self):
+        """Test same built-in var appears multiple times."""
+        builtin_vars = {"task_name": "build"}
+        text = "{{ tt.task_name }} depends on {{ tt.task_name }}"
+        result = substitute_builtin_variables(text, builtin_vars)
+        self.assertEqual(result, "build depends on build")
+
+    def test_substitute_no_placeholders(self):
+        """Test string without placeholders returns unchanged."""
+        builtin_vars = {"project_root": "/home/user/project"}
+        text = "No placeholders here"
+        result = substitute_builtin_variables(text, builtin_vars)
+        self.assertEqual(result, text)
+
+    def test_substitute_ignores_var_prefix(self):
+        """Test {{ var.name }} is not substituted."""
+        builtin_vars = {"project_root": "/home/user/project"}
+        text = "{{ tt.project_root }} {{ var.foo }}"
+        result = substitute_builtin_variables(text, builtin_vars)
+        self.assertEqual(result, "/home/user/project {{ var.foo }}")
+
+    def test_substitute_ignores_arg_prefix(self):
+        """Test {{ arg.name }} is not substituted."""
+        builtin_vars = {"project_root": "/home/user/project"}
+        text = "{{ tt.project_root }} {{ arg.foo }}"
+        result = substitute_builtin_variables(text, builtin_vars)
+        self.assertEqual(result, "/home/user/project {{ arg.foo }}")
+
+    def test_substitute_ignores_env_prefix(self):
+        """Test {{ env.NAME }} is not substituted."""
+        builtin_vars = {"project_root": "/home/user/project"}
+        text = "{{ tt.project_root }} {{ env.USER }}"
+        result = substitute_builtin_variables(text, builtin_vars)
+        self.assertEqual(result, "/home/user/project {{ env.USER }}")
+
+    def test_substitute_undefined_builtin_var_raises(self):
+        """Test error for undefined built-in variable."""
+        builtin_vars = {"project_root": "/home/user/project"}
+        with self.assertRaises(ValueError) as cm:
+            substitute_builtin_variables("{{ tt.missing }}", builtin_vars)
+        self.assertIn("missing", str(cm.exception))
+        self.assertIn("not defined", str(cm.exception))
+
+    def test_substitute_with_whitespace_variations(self):
+        """Test whitespace handling in placeholders."""
+        builtin_vars = {"task_name": "build"}
+        test_cases = [
+            ("{{tt.task_name}}", "build"),
+            ("{{ tt.task_name }}", "build"),
+            ("{{ tt.task_name }}", "build"),
+            ("{{  tt  .  task_name  }}", "build"),
+        ]
+        for text, expected in test_cases:
+            with self.subTest(text=text):
+                result = substitute_builtin_variables(text, builtin_vars)
+                self.assertEqual(result, expected)
+
+    def test_substitute_in_realistic_command(self):
+        """Test substitution in realistic command string."""
+        builtin_vars = {
+            "project_root": "/home/user/project",
+            "timestamp_unix": "1703772645",
+        }
+        text = 'tar czf {{ tt.project_root }}/dist/app-{{ tt.timestamp_unix }}.tar.gz .'
+        result = substitute_builtin_variables(text, builtin_vars)
+        self.assertEqual(result, 'tar czf /home/user/project/dist/app-1703772645.tar.gz .')
 
 
 class TestSubstituteAll(unittest.TestCase):

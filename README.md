@@ -718,6 +718,76 @@ variables:
 
 Every `{ eval: ... }` runs a subprocess at parse time, adding startup latency. For frequently-run tasks, consider caching results in files or using `{ read: ... }` to read pre-computed values.
 
+## Built-in Variables
+
+Task Tree provides system-provided variables that tasks can reference using `{{ tt.variable_name }}` syntax. These provide access to common system information without requiring manual configuration.
+
+### Available Variables
+
+| Variable | Description | Example Value |
+|----------|-------------|---------------|
+| `{{ tt.project_root }}` | Absolute path to project root (where `.tasktree-state` lives) | `/home/user/myproject` |
+| `{{ tt.recipe_dir }}` | Absolute path to directory containing the recipe file | `/home/user/myproject` or `/home/user/myproject/subdir` |
+| `{{ tt.task_name }}` | Name of currently executing task | `build` |
+| `{{ tt.working_dir }}` | Absolute path to task's effective working directory | `/home/user/myproject/src` |
+| `{{ tt.timestamp }}` | ISO8601 timestamp when task started execution | `2024-12-28T14:30:45Z` |
+| `{{ tt.timestamp_unix }}` | Unix epoch timestamp when task started | `1703772645` |
+| `{{ tt.user_home }}` | Current user's home directory (cross-platform) | `/home/user` or `C:\Users\user` |
+| `{{ tt.user_name }}` | Current username | `alice` |
+
+### Usage Examples
+
+**Logging with timestamps:**
+
+```yaml
+tasks:
+  build:
+    cmd: |
+      echo "Building {{ tt.task_name }} at {{ tt.timestamp }}"
+      cargo build --release
+```
+
+**Artifact naming:**
+
+```yaml
+tasks:
+  package:
+    deps: [build]
+    cmd: |
+      mkdir -p {{ tt.project_root }}/dist
+      tar czf {{ tt.project_root }}/dist/app-{{ tt.timestamp_unix }}.tar.gz target/release/
+```
+
+**Cross-platform paths:**
+
+```yaml
+tasks:
+  copy-config:
+    cmd: cp config.yaml {{ tt.user_home }}/.myapp/config.yaml
+```
+
+**Mixed with other variables:**
+
+```yaml
+variables:
+  version: { eval: "git describe --tags" }
+
+tasks:
+  deploy:
+    args: [environment]
+    cmd: |
+      echo "Deploying version {{ var.version }} to {{ arg.environment }}"
+      echo "From {{ tt.project_root }} by {{ tt.user_name }}"
+      ./deploy.sh {{ arg.environment }}
+```
+
+### Important Notes
+
+- **Timestamp consistency**: The same timestamp is used throughout a single task execution (all references to `{{ tt.timestamp }}` and `{{ tt.timestamp_unix }}` within one task will have identical values)
+- **Working directory**: `{{ tt.working_dir }}` reflects the task's `working_dir` setting, or the project root if not specified
+- **Recipe vs Project**: `{{ tt.recipe_dir }}` points to where the recipe file is located, while `{{ tt.project_root }}` points to where the `.tasktree-state` file is (usually the same, but can differ)
+- **Username fallback**: If `os.getlogin()` fails, `{{ tt.user_name }}` falls back to `$USER` or `$USERNAME` environment variables, or `"unknown"` if neither is set
+
 ## File Imports
 
 Split task definitions across multiple files for better organisation:

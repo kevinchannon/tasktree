@@ -80,6 +80,7 @@ class Recipe:
 
     tasks: dict[str, Task]
     project_root: Path
+    recipe_path: Path  # Path to the recipe file
     environments: dict[str, Environment] = field(default_factory=dict)
     default_env: str = ""  # Name of default environment
     global_env_override: str = ""  # Global environment override (set via CLI --env)
@@ -939,6 +940,7 @@ def parse_recipe(recipe_path: Path, project_root: Path | None = None) -> Recipe:
     return Recipe(
         tasks=tasks,
         project_root=project_root,
+        recipe_path=recipe_path,
         environments=environments,
         default_env=default_env,
         variables=variables,

@@ -9,9 +9,9 @@ from typing import Any
 
 
 # Pattern matches: {{ prefix.name }} with optional whitespace
-# Groups: (1) prefix (var|arg|env), (2) name (identifier)
+# Groups: (1) prefix (var|arg|env|tt), (2) name (identifier)
 PLACEHOLDER_PATTERN = re.compile(
-    r'\{\{\s*(var|arg|env)\s*\.\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}'
+    r'\{\{\s*(var|arg|env|tt)\s*\.\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}'
 )
 
 
@@ -129,6 +129,45 @@ def substitute_environment(text: str) -> str:
             )
 
         return value
+
+    return PLACEHOLDER_PATTERN.sub(replace_match, text)
+
+
+def substitute_builtin_variables(text: str, builtin_vars: dict[str, str]) -> str:
+    """Substitute {{ tt.name }} placeholders with built-in variable values.
+
+    Built-in variables are system-provided values that tasks can reference.
+
+    Args:
+        text: Text containing {{ tt.name }} placeholders
+        builtin_vars: Dictionary mapping built-in variable names to their string values
+
+    Returns:
+        Text with all {{ tt.name }} placeholders replaced
+
+    Raises:
+        ValueError: If a referenced built-in variable is not defined
+
+    Example:
+        >>> builtin_vars = {'project_root': '/home/user/project', 'task_name': 'build'}
+        >>> substitute_builtin_variables("Root: {{ tt.project_root }}", builtin_vars)
+        'Root: /home/user/project'
+    """
+    def replace_match(match: re.Match) -> str:
+        prefix = match.group(1)
+        name = match.group(2)
+
+        # Only substitute tt: placeholders
+        if prefix != "tt":
+            return match.group(0)  # Return unchanged
+
+        if name not in builtin_vars:
+            raise ValueError(
+                f"Built-in variable '{{ tt.{name} }}' is not defined. "
+                f"Available built-in variables: {', '.join(sorted(builtin_vars.keys()))}"
+            )
+
+        return builtin_vars[name]
 
     return PLACEHOLDER_PATTERN.sub(replace_match, text)
 
