@@ -233,7 +233,9 @@ tasks:
     outputs: [dist/binary]                 # Output files (glob patterns)
     working_dir: subproject/               # Execution directory (default: project root)
     env: bash-strict                       # Execution environment (optional)
-    args: [param1, param2:path=default]    # Task parameters
+    args:                                  # Task parameters
+      - param1                             # Required parameter
+      - param2: {type: path, default: .}   # Optional with default and type
     cmd: go build -o dist/binary           # Command to execute
 ```
 
@@ -370,21 +372,25 @@ You may need to set `run_as_root: true` when:
 
 ### Parameterised Tasks
 
-Tasks can accept arguments with optional defaults:
+Tasks can accept arguments with optional types and defaults:
 
 ```yaml
 tasks:
   deploy:
-    args: [environment, region=eu-west-1]
+    args:
+      - environment                              # Required argument
+      - region: {default: eu-west-1}             # Optional with default
+      - port: {type: int, default: 8080}         # Typed with default
+      - debug: {type: bool}                      # Required, typed
     deps: [build]
     cmd: |
       aws s3 cp dist/app.zip s3://{{ arg.environment }}-{{ arg.region }}/
       aws lambda update-function-code --function-name app-{{ arg.environment }}
 ```
 
-Invoke with: `tt deploy production` or `tt deploy staging us-east-1` or `tt deploy staging region=us-east-1`. 
+Invoke with: `tt deploy production` or `tt deploy staging us-east-1` or `tt deploy staging region=us-east-1`.
 
-Arguments may be typed, or not and have a default, or not. Valid argument types are:
+Arguments may be typed or not, and have a default or not. Valid argument types are:
 
 * int - an integer value (e.g. 0, 10, 123, -9)
 * float - a floating point value (e.g. 1.234, -3.1415, 2e-4)
@@ -411,7 +417,8 @@ Reference environment variables directly in task commands using `{{ env.VAR_NAME
 ```yaml
 tasks:
   deploy:
-    args: [target]
+    args:
+      - target
     cmd: |
       echo "Deploying to {{ arg.target }}"
       echo "User: {{ env.USER }}"
@@ -481,7 +488,8 @@ tasks:
 
   # Mixed usage
   deploy:
-    args: [app]
+    args:
+      - app
     cmd: |
       echo "Config: {{ var.config_dir }}"
       echo "Deploying {{ arg.app }} as {{ env.DEPLOY_USER }}"
@@ -752,7 +760,8 @@ tasks:
     desc: Create distribution archive
     deps: [compile]
     outputs: [dist/app-{{ arg.version }}.tar.gz]
-    args: [version]
+    args:
+      - version
     cmd: |
       mkdir -p dist
       tar czf dist/app-{{ arg.version }}.tar.gz \
@@ -763,7 +772,9 @@ tasks:
   deploy:
     desc: Deploy to environment
     deps: [package, docker.build-runtime]
-    args: [environment, version]
+    args:
+      - environment
+      - version
     cmd: |
       scp dist/app-{{ arg.version }}.tar.gz {{ env.DEPLOY_USER }}@{{ arg.environment }}:/opt/
       ssh {{ env.DEPLOY_USER }}@{{ arg.environment }} /opt/deploy.sh {{ arg.version }}
@@ -771,7 +782,9 @@ tasks:
   integration-test:
     desc: Run integration tests against deployed environment
     deps: [deploy]
-    args: [environment, version]
+    args:
+      - environment
+      - version
     cmd: pytest tests/integration/ --env={{ arg.environment }}
 ```
 

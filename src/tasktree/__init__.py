@@ -16,7 +16,7 @@ from tasktree.graph import (
     resolve_execution_order,
 )
 from tasktree.hasher import hash_args, hash_task, make_cache_key
-from tasktree.parser import Recipe, Task, find_recipe_file, parse_arg_spec, parse_recipe
+from tasktree.parser import ArgSpec, Recipe, Task, find_recipe_file, parse_args_yaml, parse_recipe
 from tasktree.state import StateManager, TaskState
 
 __all__ = [
@@ -32,10 +32,11 @@ __all__ = [
     "hash_args",
     "hash_task",
     "make_cache_key",
+    "ArgSpec",
     "Recipe",
     "Task",
     "find_recipe_file",
-    "parse_arg_spec",
+    "parse_args_yaml",
     "parse_recipe",
     "StateManager",
     "TaskState",

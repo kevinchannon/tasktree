@@ -64,7 +64,8 @@ variables:
 
 tasks:
   deploy:
-    args: [app_name]
+    args:
+      - app_name
     outputs: ["deploy-{{ arg.app_name }}.log"]
     cmd: echo "Deploy {{ arg.app_name }} to {{ var.server }}:{{ var.port }}" > deploy-{{ arg.app_name }}.log
 """)
@@ -458,7 +459,8 @@ variables:
 
 tasks:
   deploy:
-    args: [app_name]
+    args:
+      - app_name
     outputs: ["deploy.log"]
     cmd: echo "Deploy {{ arg.app_name }} to {{ var.server }} as {{ env.USER }}" > deploy.log
 """)

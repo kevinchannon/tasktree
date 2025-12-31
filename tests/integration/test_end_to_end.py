@@ -35,7 +35,11 @@ class TestEndToEnd(unittest.TestCase):
             recipe_file.write_text("""
 tasks:
   deploy:
-    args: [environment, region:str=us-west-1, port:int=8080, debug:bool=false]
+    args:
+      - environment
+      - region: {type: str, default: us-west-1}
+      - port: {type: int, default: 8080}
+      - debug: {type: bool, default: false}
     outputs: [deploy.log]
     cmd: echo "env={{ arg.environment }} region={{ arg.region }} port={{ arg.port }} debug={{ arg.debug }}" > deploy.log
 """)

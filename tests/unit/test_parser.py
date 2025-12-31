@@ -9,42 +9,136 @@ from tempfile import TemporaryDirectory
 import yaml
 
 from tasktree.parser import (
+    ArgSpec,
     CircularImportError,
     Task,
     find_recipe_file,
-    parse_arg_spec,
+    parse_args_yaml,
     parse_recipe,
 )
 
 
-class TestParseArgSpec(unittest.TestCase):
-    def test_parse_simple_arg(self):
-        """Test parsing a simple argument name."""
-        name, arg_type, default = parse_arg_spec("environment")
-        self.assertEqual(name, "environment")
-        self.assertEqual(arg_type, "str")
-        self.assertIsNone(default)
+class TestParseArgsYaml(unittest.TestCase):
+    def test_parse_simple_string_arg(self):
+        """Test parsing a simple argument as string."""
+        args = parse_args_yaml(["environment"])
+        self.assertEqual(len(args), 1)
+        self.assertEqual(args[0].name, "environment")
+        self.assertEqual(args[0].type, "str")
+        self.assertIsNone(args[0].default)
 
-    def test_parse_arg_with_default(self):
-        """Test parsing argument with default value."""
-        name, arg_type, default = parse_arg_spec("region=eu-west-1")
-        self.assertEqual(name, "region")
-        self.assertEqual(arg_type, "str")
-        self.assertEqual(default, "eu-west-1")
+    def test_parse_multiple_string_args(self):
+        """Test parsing multiple simple arguments."""
+        args = parse_args_yaml(["key1", "key2", "key3"])
+        self.assertEqual(len(args), 3)
+        self.assertEqual(args[0].name, "key1")
+        self.assertEqual(args[1].name, "key2")
+        self.assertEqual(args[2].name, "key3")
 
-    def test_parse_arg_with_type(self):
-        """Test parsing argument with type."""
-        name, arg_type, default = parse_arg_spec("port:int")
-        self.assertEqual(name, "port")
-        self.assertEqual(arg_type, "int")
-        self.assertIsNone(default)
+    def test_parse_arg_with_default_only(self):
+        """Test argument with default value, no explicit type."""
+        args = parse_args_yaml([{"key2": {"default": "foo"}}])
+        self.assertEqual(len(args), 1)
+        self.assertEqual(args[0].name, "key2")
+        self.assertEqual(args[0].type, "str")
+        self.assertEqual(args[0].default, "foo")
+
+    def test_parse_arg_with_type_only(self):
+        """Test argument with type, no default."""
+        args = parse_args_yaml([{"port": {"type": "int"}}])
+        self.assertEqual(len(args), 1)
+        self.assertEqual(args[0].name, "port")
+        self.assertEqual(args[0].type, "int")
+        self.assertIsNone(args[0].default)
 
     def test_parse_arg_with_type_and_default(self):
-        """Test parsing argument with type and default."""
-        name, arg_type, default = parse_arg_spec("port:int=8080")
-        self.assertEqual(name, "port")
-        self.assertEqual(arg_type, "int")
-        self.assertEqual(default, "8080")
+        """Test argument with both type and default."""
+        args = parse_args_yaml([{"key3": {"type": "int", "default": 42}}])
+        self.assertEqual(len(args), 1)
+        self.assertEqual(args[0].name, "key3")
+        self.assertEqual(args[0].type, "int")
+        self.assertEqual(args[0].default, 42)
+
+    def test_parse_mixed_arg_formats(self):
+        """Test combination of simple and configured arguments."""
+        args = parse_args_yaml([
+            "key1",
+            {"key2": {"default": "foo"}},
+            {"key3": {"type": "int", "default": 42}}
+        ])
+        self.assertEqual(len(args), 3)
+        self.assertEqual(args[0].name, "key1")
+        self.assertEqual(args[1].name, "key2")
+        self.assertEqual(args[1].default, "foo")
+        self.assertEqual(args[2].name, "key3")
+        self.assertEqual(args[2].type, "int")
+
+    def test_parse_inline_dict_syntax(self):
+        """Test flow mapping syntax."""
+        # This is how YAML parses: {"key": {"type": "int", "default": 42}}
+        args = parse_args_yaml([{"port": {"type": "int", "default": 8080}}])
+        self.assertEqual(len(args), 1)
+        self.assertEqual(args[0].name, "port")
+        self.assertEqual(args[0].type, "int")
+        self.assertEqual(args[0].default, 8080)
+
+    def test_infer_type_from_string_default(self):
+        """Test type inference from string default."""
+        args = parse_args_yaml([{"key": {"default": "foo"}}])
+        self.assertEqual(args[0].type, "str")
+
+    def test_infer_type_from_int_default(self):
+        """Test type inference from int default."""
+        args = parse_args_yaml([{"key": {"default": 42}}])
+        self.assertEqual(args[0].type, "int")
+
+    def test_infer_type_from_float_default(self):
+        """Test type inference from float default."""
+        args = parse_args_yaml([{"key": {"default": 3.14}}])
+        self.assertEqual(args[0].type, "float")
+
+    def test_infer_type_from_bool_default(self):
+        """Test type inference from bool default."""
+        args = parse_args_yaml([{"key": {"default": True}}])
+        self.assertEqual(args[0].type, "bool")
+
+    def test_reject_invalid_dict_keys(self):
+        """Test error on unknown dictionary properties."""
+        with self.assertRaises(ValueError) as cm:
+            parse_args_yaml([{"key": {"type": "int", "unknown_key": "value"}}])
+        self.assertIn("Unknown keys", str(cm.exception))
+
+    def test_reject_empty_arg_name(self):
+        """Test error on empty string argument."""
+        with self.assertRaises(ValueError) as cm:
+            parse_args_yaml([""])
+        self.assertIn("Empty argument name", str(cm.exception))
+
+    def test_reject_duplicate_arg_names(self):
+        """Test error on duplicate argument names."""
+        with self.assertRaises(ValueError) as cm:
+            parse_args_yaml(["key1", "key1"])
+        self.assertIn("Duplicate argument name", str(cm.exception))
+
+    def test_empty_args_list(self):
+        """Test empty args list is valid."""
+        args = parse_args_yaml([])
+        self.assertEqual(len(args), 0)
+
+    def test_null_default_value(self):
+        """Test explicit null default."""
+        args = parse_args_yaml([{"key": None}])
+        self.assertEqual(len(args), 1)
+        self.assertEqual(args[0].name, "key")
+        self.assertIsNone(args[0].default)
+
+    def test_simple_default_value_shorthand(self):
+        """Test simple default value shorthand: {key: value}."""
+        args = parse_args_yaml([{"key": "default_value"}])
+        self.assertEqual(len(args), 1)
+        self.assertEqual(args[0].name, "key")
+        self.assertEqual(args[0].type, "str")
+        self.assertEqual(args[0].default, "default_value")
 
 
 class TestParseRecipe(unittest.TestCase):
@@ -79,7 +173,9 @@ tasks:
     inputs: ["src/**/*.rs"]
     outputs: [target/release/bin]
     working_dir: subproject
-    args: [environment, region=eu-west-1]
+    args:
+      - environment
+      - region: {default: eu-west-1}
     cmd: cargo build --release
 """
             )
@@ -91,7 +187,10 @@ tasks:
             self.assertEqual(task.inputs, ["src/**/*.rs"])
             self.assertEqual(task.outputs, ["target/release/bin"])
             self.assertEqual(task.working_dir, "subproject")
-            self.assertEqual(task.args, ["environment", "region=eu-west-1"])
+            self.assertEqual(len(task.args), 2)
+            self.assertEqual(task.args[0].name, "environment")
+            self.assertEqual(task.args[1].name, "region")
+            self.assertEqual(task.args[1].default, "eu-west-1")
             self.assertEqual(task.cmd, "cargo build --release")
 
     def test_parse_with_imports(self):
@@ -392,7 +491,9 @@ tasks:
     inputs: ["src/**/*.rs"]
     outputs: [target/release/bin]
     working_dir: subproject
-    args: [environment, region=eu-west-1]
+    args:
+      - environment
+      - region: {default: eu-west-1}
     cmd: cargo build --release
 """)
 

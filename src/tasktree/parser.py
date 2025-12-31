@@ -48,6 +48,15 @@ class Environment:
 
 
 @dataclass
+class ArgSpec:
+    """Represents a task argument specification."""
+
+    name: str
+    type: str = "str"
+    default: Any = None
+
+
+@dataclass
 class Task:
     """Represents a task definition."""
 
@@ -58,7 +67,7 @@ class Task:
     inputs: list[str] = field(default_factory=list)
     outputs: list[str] = field(default_factory=list)
     working_dir: str = ""
-    args: list[str] = field(default_factory=list)
+    args: list[ArgSpec] = field(default_factory=list)
     source_file: str = ""  # Track which file defined this task
     env: str = ""  # Environment name to use for execution
 
@@ -70,8 +79,6 @@ class Task:
             self.inputs = [self.inputs]
         if isinstance(self.outputs, str):
             self.outputs = [self.outputs]
-        if isinstance(self.args, str):
-            self.args = [self.args]
 
 
 @dataclass
@@ -1105,6 +1112,13 @@ def _parse_file(
                         rewritten_deps.append(dep)
             deps = rewritten_deps
 
+        # Parse arguments from YAML format
+        args_yaml = task_data.get("args", [])
+        try:
+            args = parse_args_yaml(args_yaml)
+        except ValueError as e:
+            raise ValueError(f"Task '{full_name}': {e}")
+
         task = Task(
             name=full_name,
             cmd=task_data["cmd"],
@@ -1113,7 +1127,7 @@ def _parse_file(
             inputs=task_data.get("inputs", []),
             outputs=task_data.get("outputs", []),
             working_dir=working_dir,
-            args=task_data.get("args", []),
+            args=args,
             source_file=str(file_path),
             env=task_data.get("env", ""),
         )
@@ -1126,40 +1140,124 @@ def _parse_file(
     return tasks
 
 
-def parse_arg_spec(arg_spec: str) -> tuple[str, str, str | None]:
-    """Parse argument specification.
-
-    Format: name:type=default
-    - name is required
-    - type is optional (defaults to 'str')
-    - default is optional
+def _infer_type_from_value(value: Any) -> str:
+    """Infer type from a default value.
 
     Args:
-        arg_spec: Argument specification string
+        value: Default value
 
     Returns:
-        Tuple of (name, type, default)
-
-    Examples:
-        >>> parse_arg_spec("environment")
-        ('environment', 'str', None)
-        >>> parse_arg_spec("region=eu-west-1")
-        ('region', 'str', 'eu-west-1')
-        >>> parse_arg_spec("port:int=8080")
-        ('port', 'int', '8080')
+        Type name as string
     """
-    # Split on = to separate name:type from default
-    if "=" in arg_spec:
-        name_type, default = arg_spec.split("=", 1)
+    if isinstance(value, bool):
+        return "bool"
+    elif isinstance(value, int):
+        return "int"
+    elif isinstance(value, float):
+        return "float"
     else:
-        name_type = arg_spec
-        default = None
+        return "str"
 
-    # Split on : to separate name from type
-    if ":" in name_type:
-        name, arg_type = name_type.split(":", 1)
-    else:
-        name = name_type
-        arg_type = "str"
 
-    return name, arg_type, default
+def parse_args_yaml(args_yaml: list[Any]) -> list[ArgSpec]:
+    """Parse argument specifications from YAML format.
+
+    Supports:
+    - Simple string: "argname"
+    - Dictionary: { type: int, default: 42 }
+    - Dictionary with key as name: { argname: { type: int, default: 42 } }
+
+    Args:
+        args_yaml: List of argument specifications from YAML
+
+    Returns:
+        List of ArgSpec objects
+
+    Raises:
+        ValueError: If argument specification is invalid
+    """
+    if not args_yaml:
+        return []
+
+    arg_specs = []
+    seen_names = set()
+
+    for i, arg_item in enumerate(args_yaml):
+        # Simple string format: "argname"
+        if isinstance(arg_item, str):
+            if not arg_item:
+                raise ValueError(f"Argument {i}: Empty argument name")
+            if arg_item in seen_names:
+                raise ValueError(f"Argument {i}: Duplicate argument name '{arg_item}'")
+            seen_names.add(arg_item)
+            arg_specs.append(ArgSpec(name=arg_item, type="str", default=None))
+
+        # Dictionary format
+        elif isinstance(arg_item, dict):
+            # Check if it's inline format: { argname: { type: ..., default: ... } }
+            # or direct format: { type: ..., default: ... }
+
+            # Direct format: { type: int, default: 42 }
+            if "type" in arg_item or "default" in arg_item:
+                # This should not happen without a name - error
+                raise ValueError(
+                    f"Argument {i}: Dictionary must specify argument name. "
+                    f"Use either a string 'argname' or dict with single key 'argname: {{...}}'"
+                )
+
+            # Inline format: { argname: { type: ..., default: ... } }
+            if len(arg_item) != 1:
+                raise ValueError(
+                    f"Argument {i}: Dictionary must have exactly one key (the argument name), "
+                    f"got {len(arg_item)} keys"
+                )
+
+            arg_name, arg_config = next(iter(arg_item.items()))
+
+            if not arg_name:
+                raise ValueError(f"Argument {i}: Empty argument name")
+            if arg_name in seen_names:
+                raise ValueError(f"Argument {i}: Duplicate argument name '{arg_name}'")
+            seen_names.add(arg_name)
+
+            # Handle case where config is None (e.g., "argname: null")
+            if arg_config is None:
+                arg_specs.append(ArgSpec(name=arg_name, type="str", default=None))
+                continue
+
+            # Config must be a dictionary
+            if not isinstance(arg_config, dict):
+                # Allow simple default value: { argname: "default_value" }
+                arg_type = _infer_type_from_value(arg_config)
+                arg_specs.append(ArgSpec(name=arg_name, type=arg_type, default=arg_config))
+                continue
+
+            # Validate dictionary keys
+            valid_keys = {"type", "default"}
+            unknown_keys = set(arg_config.keys()) - valid_keys
+            if unknown_keys:
+                raise ValueError(
+                    f"Argument '{arg_name}': Unknown keys {unknown_keys}. "
+                    f"Valid keys are: {valid_keys}"
+                )
+
+            arg_type = arg_config.get("type", None)
+            default_value = arg_config.get("default", None)
+
+            # Infer type from default if not specified
+            if arg_type is None and default_value is not None:
+                arg_type = _infer_type_from_value(default_value)
+            elif arg_type is None:
+                arg_type = "str"
+
+            # Validate type is known (this will be done by get_click_type later)
+            # For now, just store it
+
+            arg_specs.append(ArgSpec(name=arg_name, type=arg_type, default=default_value))
+
+        else:
+            raise ValueError(
+                f"Argument {i}: Must be a string or dictionary, got {type(arg_item).__name__}"
+            )
+
+    return arg_specs

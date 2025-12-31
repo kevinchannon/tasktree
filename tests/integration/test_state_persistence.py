@@ -93,7 +93,8 @@ tasks:
             recipe_file.write_text("""
 tasks:
   deploy:
-    args: [environment]
+    args:
+      - environment
     outputs: ["deploy-{{ arg.environment }}.log"]
     cmd: echo "Deployed to {{ arg.environment }}" > deploy-{{ arg.environment }}.log
 """)
