@@ -64,12 +64,13 @@ class Executor:
         self.state = state_manager
         self.docker_manager = docker_module.DockerManager(recipe.project_root)
 
-    def _collect_builtin_variables(self, task: Task, working_dir: Path, timestamp: datetime) -> dict[str, str]:
-        """Collect built-in variables for task execution.
+    def _collect_early_builtin_variables(self, task: Task, timestamp: datetime) -> dict[str, str]:
+        """Collect built-in variables that don't depend on working_dir.
+
+        These variables can be used in the working_dir field itself.
 
         Args:
             task: Task being executed
-            working_dir: Resolved working directory for the task
             timestamp: Timestamp when task started execution
 
         Returns:
@@ -90,9 +91,6 @@ class Executor:
 
         # {{ tt.task_name }} - Name of currently executing task
         builtin_vars['task_name'] = task.name
-
-        # {{ tt.working_dir }} - Absolute path to task's effective working directory
-        builtin_vars['working_dir'] = str(working_dir.resolve())
 
         # {{ tt.timestamp }} - ISO8601 timestamp when task started execution
         builtin_vars['timestamp'] = timestamp.strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -116,6 +114,29 @@ class Executor:
             # Fallback to environment variables if os.getlogin() fails
             user_name = os.environ.get('USER') or os.environ.get('USERNAME') or 'unknown'
         builtin_vars['user_name'] = user_name
+
+        return builtin_vars
+
+    def _collect_builtin_variables(self, task: Task, working_dir: Path, timestamp: datetime) -> dict[str, str]:
+        """Collect built-in variables for task execution.
+
+        Args:
+            task: Task being executed
+            working_dir: Resolved working directory for the task
+            timestamp: Timestamp when task started execution
+
+        Returns:
+            Dictionary mapping built-in variable names to their string values
+
+        Raises:
+            ExecutionError: If any built-in variable fails to resolve
+        """
+        # Get early builtin vars (those that don't depend on working_dir)
+        builtin_vars = self._collect_early_builtin_variables(task, timestamp)
+
+        # {{ tt.working_dir }} - Absolute path to task's effective working directory
+        # This is added after working_dir is resolved to avoid circular dependency
+        builtin_vars['working_dir'] = str(working_dir.resolve())
 
         return builtin_vars
 
@@ -414,12 +435,19 @@ class Executor:
                 if name in args_dict:
                     regular_args[name] = args_dict[name]
 
-        # Resolve working directory first (needed for builtin vars)
-        working_dir_str = self._substitute_args(task.working_dir, regular_args, exported_args)
+        # Collect early built-in variables (those that don't depend on working_dir)
+        # These can be used in the working_dir field itself
+        early_builtin_vars = self._collect_early_builtin_variables(task, task_start_time)
+
+        # Resolve working directory
+        # Validate that working_dir doesn't contain {{ tt.working_dir }} (circular dependency)
+        self._validate_no_working_dir_circular_ref(task.working_dir)
+        working_dir_str = self._substitute_builtin(task.working_dir, early_builtin_vars)
+        working_dir_str = self._substitute_args(working_dir_str, regular_args, exported_args)
         working_dir_str = self._substitute_env(working_dir_str)
         working_dir = self.recipe.project_root / working_dir_str
 
-        # Collect built-in variables
+        # Collect all built-in variables (including tt.working_dir now that it's resolved)
         builtin_vars = self._collect_builtin_variables(task, working_dir, task_start_time)
 
         # Substitute built-in variables, arguments, and environment variables in command
@@ -608,6 +636,28 @@ class Executor:
             )
         except docker_module.DockerError as e:
             raise ExecutionError(str(e)) from e
+
+    def _validate_no_working_dir_circular_ref(self, text: str) -> None:
+        """Validate that working_dir field does not contain {{ tt.working_dir }}.
+
+        Using {{ tt.working_dir }} in the working_dir field creates a circular dependency.
+
+        Args:
+            text: The working_dir field value to validate
+
+        Raises:
+            ExecutionError: If {{ tt.working_dir }} placeholder is found
+        """
+        import re
+        # Pattern to match {{ tt.working_dir }} specifically
+        pattern = re.compile(r'\{\{\s*tt\s*\.\s*working_dir\s*\}\}')
+
+        if pattern.search(text):
+            raise ExecutionError(
+                f"Cannot use {{{{ tt.working_dir }}}} in the 'working_dir' field.\n\n"
+                f"This creates a circular dependency (working_dir cannot reference itself).\n"
+                f"Other built-in variables like {{{{ tt.task_name }}}} or {{{{ tt.timestamp }}}} are allowed."
+            )
 
     def _substitute_builtin(self, text: str, builtin_vars: dict[str, str]) -> str:
         """Substitute {{ tt.name }} placeholders in text.

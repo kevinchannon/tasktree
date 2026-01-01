@@ -462,6 +462,65 @@ tasks:
             with self.assertRaises((ExecutionError, PermissionError, OSError)):
                 executor.execute_task("test", {})
 
+    def test_builtin_working_dir_in_working_dir_raises_error(self):
+        """Test that using {{ tt.working_dir }} in working_dir raises clear error."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            recipe_path = project_root / "tasktree.yaml"
+            recipe_path.write_text(
+                """
+tasks:
+  test:
+    working_dir: "{{ tt.working_dir }}/subdir"
+    cmd: echo "test"
+"""
+            )
+
+            from tasktree.executor import ExecutionError, Executor
+            from tasktree.parser import parse_recipe
+            from tasktree.state import StateManager
+
+            recipe = parse_recipe(recipe_path)
+            state_manager = StateManager(project_root)
+            executor = Executor(recipe, state_manager)
+
+            with self.assertRaises(ExecutionError) as cm:
+                executor.execute_task("test", {})
+
+            error_msg = str(cm.exception)
+            self.assertIn("Cannot use {{ tt.working_dir }}", error_msg)
+            self.assertIn("circular dependency", error_msg)
+
+    def test_other_builtin_vars_in_working_dir_allowed(self):
+        """Test that non-circular builtin vars like {{ tt.task_name }} work in working_dir."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create directory using task name
+            task_subdir = project_root / "test-task"
+            task_subdir.mkdir()
+
+            recipe_path = project_root / "tasktree.yaml"
+            recipe_path.write_text(
+                """
+tasks:
+  test-task:
+    working_dir: "{{ tt.task_name }}"
+    cmd: pwd
+"""
+            )
+
+            from tasktree.executor import Executor
+            from tasktree.parser import parse_recipe
+            from tasktree.state import StateManager
+
+            recipe = parse_recipe(recipe_path)
+            state_manager = StateManager(project_root)
+            executor = Executor(recipe, state_manager)
+
+            # Should not raise - tt.task_name is allowed in working_dir
+            executor.execute_task("test-task", {})
+
 
 class TestExecutorPrivateMethods(unittest.TestCase):
     """Tests for executor private methods."""
