@@ -58,16 +58,16 @@ tasks:
 
         # Verify all variables were substituted
         self.assertIn("project_root", lines)
-        self.assertEqual(lines["project_root"], str(recipe.project_root))
+        self.assertEqual(lines["project_root"], str(recipe.project_root.resolve()))
 
         self.assertIn("recipe_dir", lines)
-        self.assertEqual(lines["recipe_dir"], str(self.recipe_file.parent))
+        self.assertEqual(lines["recipe_dir"], str(self.recipe_file.parent.resolve()))
 
         self.assertIn("task_name", lines)
         self.assertEqual(lines["task_name"], "test-vars")
 
         self.assertIn("working_dir", lines)
-        self.assertEqual(lines["working_dir"], str(recipe.project_root))
+        self.assertEqual(lines["working_dir"], str(recipe.project_root.resolve()))
 
         self.assertIn("timestamp", lines)
         # Verify ISO8601 format
@@ -161,7 +161,7 @@ tasks:
         executor.execute_task("test-multiline")
 
         output = output_file.read_text().strip()
-        expected = f"{recipe.project_root}/test-multiline"
+        expected = f"{recipe.project_root.resolve()}/test-multiline"
         self.assertEqual(output, expected)
 
     def test_recipe_dir_differs_from_project_root_when_recipe_in_subdir(self):
@@ -192,9 +192,9 @@ tasks:
         lines = {line.split("=", 1)[0]: line.split("=", 1)[1] for line in output.strip().split("\n")}
 
         # project_root should be test_dir
-        self.assertEqual(lines["project"], str(Path(self.test_dir)))
+        self.assertEqual(lines["project"], str(Path(self.test_dir).resolve()))
         # recipe_dir should be the subdirectory
-        self.assertEqual(lines["recipe"], str(recipe_subdir))
+        self.assertEqual(lines["recipe"], str(recipe_subdir.resolve()))
 
     def test_builtin_vars_mixed_with_other_vars(self):
         """Test built-in variables work alongside regular variables and arguments."""
@@ -225,7 +225,7 @@ tasks:
         output = output_file.read_text()
         lines = [line for line in output.strip().split("\n")]
 
-        self.assertIn(f"Deploying from {recipe.project_root}", lines[0])
+        self.assertIn(f"Deploying from {recipe.project_root.resolve()}", lines[0])
         self.assertIn("Task: deploy", lines[1])
         self.assertIn("Server: prod.example.com", lines[2])
         self.assertIn("Region: us-west-1", lines[3])
