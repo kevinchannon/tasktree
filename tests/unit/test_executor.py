@@ -19,7 +19,7 @@ class TestTaskStatus(unittest.TestCase):
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
             tasks = {"build": Task(name="build", cmd="cargo build", outputs=["target/bin"])}
-            recipe = Recipe(tasks=tasks, project_root=project_root)
+            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
             executor = Executor(recipe, state_manager)
 
             status = executor.check_task_status(tasks["build"], {}, {})
@@ -32,7 +32,7 @@ class TestTaskStatus(unittest.TestCase):
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
             tasks = {"test": Task(name="test", cmd="cargo test")}
-            recipe = Recipe(tasks=tasks, project_root=project_root)
+            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
             executor = Executor(recipe, state_manager)
 
             status = executor.check_task_status(tasks["test"], {}, {})
@@ -68,7 +68,7 @@ class TestTaskStatus(unittest.TestCase):
             )
 
             tasks = {"build": task}
-            recipe = Recipe(tasks=tasks, project_root=project_root)
+            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
             executor = Executor(recipe, state_manager)
 
             status = executor.check_task_status(task, {}, {})
@@ -84,7 +84,7 @@ class TestExecutor(unittest.TestCase):
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
             tasks = {"build": Task(name="build", cmd="cargo build")}
-            recipe = Recipe(tasks=tasks, project_root=project_root)
+            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
             executor = Executor(recipe, state_manager)
 
             mock_run.return_value = MagicMock(returncode=0)
@@ -107,7 +107,7 @@ class TestExecutor(unittest.TestCase):
                 "lint": Task(name="lint", cmd="cargo clippy"),
                 "build": Task(name="build", cmd="cargo build", deps=["lint"]),
             }
-            recipe = Recipe(tasks=tasks, project_root=project_root)
+            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
             executor = Executor(recipe, state_manager)
 
             mock_run.return_value = MagicMock(returncode=0)
@@ -130,7 +130,7 @@ class TestExecutor(unittest.TestCase):
                     args=["environment"],
                 )
             }
-            recipe = Recipe(tasks=tasks, project_root=project_root)
+            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
             executor = Executor(recipe, state_manager)
 
             mock_run.return_value = MagicMock(returncode=0)
@@ -171,7 +171,7 @@ class TestMissingOutputs(unittest.TestCase):
             )
 
             tasks = {"build": task}
-            recipe = Recipe(tasks=tasks, project_root=project_root)
+            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
             executor = Executor(recipe, state_manager)
 
             status = executor.check_task_status(task, {}, {})
@@ -204,7 +204,7 @@ class TestMissingOutputs(unittest.TestCase):
             )
 
             tasks = {"build": task}
-            recipe = Recipe(tasks=tasks, project_root=project_root)
+            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
             executor = Executor(recipe, state_manager)
 
             status = executor.check_task_status(task, {}, {})
@@ -239,7 +239,7 @@ class TestMissingOutputs(unittest.TestCase):
             )
 
             tasks = {"build": task}
-            recipe = Recipe(tasks=tasks, project_root=project_root)
+            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
             executor = Executor(recipe, state_manager)
 
             status = executor.check_task_status(task, {}, {})
@@ -260,7 +260,7 @@ class TestMissingOutputs(unittest.TestCase):
             )
 
             tasks = {"build": task}
-            recipe = Recipe(tasks=tasks, project_root=project_root)
+            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
             executor = Executor(recipe, state_manager)
 
             status = executor.check_task_status(task, {}, {})
@@ -276,7 +276,7 @@ class TestMissingOutputs(unittest.TestCase):
             task = Task(name="test", cmd="echo test")  # No outputs
 
             tasks = {"test": task}
-            recipe = Recipe(tasks=tasks, project_root=project_root)
+            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
             executor = Executor(recipe, state_manager)
 
             status = executor.check_task_status(task, {}, {})
@@ -314,7 +314,7 @@ class TestMissingOutputs(unittest.TestCase):
             )
 
             tasks = {"build": task}
-            recipe = Recipe(tasks=tasks, project_root=project_root)
+            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
             executor = Executor(recipe, state_manager)
 
             status = executor.check_task_status(task, {}, {})
@@ -347,7 +347,7 @@ class TestMissingOutputs(unittest.TestCase):
             )
 
             tasks = {"package": task}
-            recipe = Recipe(tasks=tasks, project_root=project_root)
+            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
             executor = Executor(recipe, state_manager)
 
             status = executor.check_task_status(task, {}, {})
@@ -462,6 +462,65 @@ tasks:
             with self.assertRaises((ExecutionError, PermissionError, OSError)):
                 executor.execute_task("test", {})
 
+    def test_builtin_working_dir_in_working_dir_raises_error(self):
+        """Test that using {{ tt.working_dir }} in working_dir raises clear error."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            recipe_path = project_root / "tasktree.yaml"
+            recipe_path.write_text(
+                """
+tasks:
+  test:
+    working_dir: "{{ tt.working_dir }}/subdir"
+    cmd: echo "test"
+"""
+            )
+
+            from tasktree.executor import ExecutionError, Executor
+            from tasktree.parser import parse_recipe
+            from tasktree.state import StateManager
+
+            recipe = parse_recipe(recipe_path)
+            state_manager = StateManager(project_root)
+            executor = Executor(recipe, state_manager)
+
+            with self.assertRaises(ExecutionError) as cm:
+                executor.execute_task("test", {})
+
+            error_msg = str(cm.exception)
+            self.assertIn("Cannot use {{ tt.working_dir }}", error_msg)
+            self.assertIn("circular dependency", error_msg)
+
+    def test_other_builtin_vars_in_working_dir_allowed(self):
+        """Test that non-circular builtin vars like {{ tt.task_name }} work in working_dir."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create directory using task name
+            task_subdir = project_root / "test-task"
+            task_subdir.mkdir()
+
+            recipe_path = project_root / "tasktree.yaml"
+            recipe_path.write_text(
+                """
+tasks:
+  test-task:
+    working_dir: "{{ tt.task_name }}"
+    cmd: pwd
+"""
+            )
+
+            from tasktree.executor import Executor
+            from tasktree.parser import parse_recipe
+            from tasktree.state import StateManager
+
+            recipe = parse_recipe(recipe_path)
+            state_manager = StateManager(project_root)
+            executor = Executor(recipe, state_manager)
+
+            # Should not raise - tt.task_name is allowed in working_dir
+            executor.execute_task("test-task", {})
+
 
 class TestExecutorPrivateMethods(unittest.TestCase):
     """Tests for executor private methods."""
@@ -472,7 +531,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
             tasks = {"deploy": Task(name="deploy", cmd="echo {{ arg.environment }}")}
-            recipe = Recipe(tasks=tasks, project_root=project_root)
+            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
             executor = Executor(recipe, state_manager)
 
             result = executor._substitute_args("echo {{ arg.environment }}", {"environment": "production"})
@@ -484,7 +543,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
             tasks = {"deploy": Task(name="deploy", cmd="deploy {{ arg.app }} to {{ arg.region }}")}
-            recipe = Recipe(tasks=tasks, project_root=project_root)
+            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
             executor = Executor(recipe, state_manager)
 
             result = executor._substitute_args(
@@ -499,7 +558,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
             tasks = {"deploy": Task(name="deploy", cmd="echo {{ arg.environment }} {{ arg.missing }}")}
-            recipe = Recipe(tasks=tasks, project_root=project_root)
+            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
             executor = Executor(recipe, state_manager)
 
             # Missing argument should raise ValueError
@@ -532,7 +591,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
             )
 
             tasks = {"build": task}
-            recipe = Recipe(tasks=tasks, project_root=project_root)
+            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
             executor = Executor(recipe, state_manager)
 
             # Check if inputs changed
@@ -555,7 +614,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
             )
 
             tasks = {"build": task}
-            recipe = Recipe(tasks=tasks, project_root=project_root)
+            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
             executor = Executor(recipe, state_manager)
 
             # Check for missing outputs
@@ -576,7 +635,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
 
             state_manager = StateManager(project_root)
             tasks = {"test": Task(name="test", cmd="echo test")}
-            recipe = Recipe(tasks=tasks, project_root=project_root)
+            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
             executor = Executor(recipe, state_manager)
 
             # Expand multiple patterns
@@ -599,7 +658,7 @@ class TestOnlyMode(unittest.TestCase):
                 "lint": Task(name="lint", cmd="echo linting"),
                 "build": Task(name="build", cmd="echo building", deps=["lint"]),
             }
-            recipe = Recipe(tasks=tasks, project_root=project_root)
+            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
             executor = Executor(recipe, state_manager)
 
             mock_run.return_value = MagicMock(returncode=0)
@@ -628,7 +687,7 @@ class TestOnlyMode(unittest.TestCase):
                 "build": Task(name="build", cmd="echo building", deps=["lint"]),
                 "test": Task(name="test", cmd="echo testing", deps=["build"]),
             }
-            recipe = Recipe(tasks=tasks, project_root=project_root)
+            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
             executor = Executor(recipe, state_manager)
 
             mock_run.return_value = MagicMock(returncode=0)
@@ -676,7 +735,7 @@ class TestOnlyMode(unittest.TestCase):
             )
 
             tasks = {"build": task}
-            recipe = Recipe(tasks=tasks, project_root=project_root)
+            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
             executor = Executor(recipe, state_manager)
 
             mock_run.return_value = MagicMock(returncode=0)
@@ -700,7 +759,7 @@ class TestMultilineExecution(unittest.TestCase):
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
             tasks = {"build": Task(name="build", cmd="echo hello")}
-            recipe = Recipe(tasks=tasks, project_root=project_root)
+            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
             executor = Executor(recipe, state_manager)
 
             mock_run.return_value = MagicMock(returncode=0)
@@ -726,7 +785,7 @@ class TestMultilineExecution(unittest.TestCase):
             folded_cmd = "gcc -o bin/app src/*.c -I include\n"
 
             tasks = {"build": Task(name="build", cmd=folded_cmd)}
-            recipe = Recipe(tasks=tasks, project_root=project_root)
+            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
             executor = Executor(recipe, state_manager)
 
             mock_run.return_value = MagicMock(returncode=0)
@@ -748,7 +807,7 @@ echo line2
 echo line3"""
 
             tasks = {"build": Task(name="build", cmd=multiline_cmd)}
-            recipe = Recipe(tasks=tasks, project_root=project_root)
+            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
             executor = Executor(recipe, state_manager)
 
             mock_run.return_value = MagicMock(returncode=0)
@@ -782,7 +841,7 @@ echo "line2" >> output.txt
 echo "line3" >> output.txt"""
 
             tasks = {"build": Task(name="build", cmd=multiline_cmd)}
-            recipe = Recipe(tasks=tasks, project_root=project_root)
+            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
             executor = Executor(recipe, state_manager)
 
             # Let the command actually run (no mocking)
@@ -819,6 +878,7 @@ class TestEnvironmentResolution(unittest.TestCase):
             recipe = Recipe(
                 tasks=tasks,
                 project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
                 environments=envs,
                 default_env="dev",
                 global_env_override="prod",  # Global override
@@ -846,6 +906,7 @@ class TestEnvironmentResolution(unittest.TestCase):
             recipe = Recipe(
                 tasks=tasks,
                 project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
                 environments=envs,
                 default_env="prod",
             )
@@ -869,6 +930,7 @@ class TestEnvironmentResolution(unittest.TestCase):
             recipe = Recipe(
                 tasks=tasks,
                 project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
                 environments=envs,
                 default_env="prod",
             )
@@ -885,7 +947,7 @@ class TestEnvironmentResolution(unittest.TestCase):
             state_manager = StateManager(project_root)
 
             tasks = {"build": Task(name="build", cmd="echo hello")}
-            recipe = Recipe(tasks=tasks, project_root=project_root)
+            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
             executor = Executor(recipe, state_manager)
 
             # No envs defined, should return empty string
@@ -908,7 +970,7 @@ class TestEnvironmentResolution(unittest.TestCase):
 
             tasks = {"build": Task(name="build", cmd="echo hello", env="zsh_env")}
             recipe = Recipe(
-                tasks=tasks, project_root=project_root, environments=envs
+                tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml", environments=envs
             )
             executor = Executor(recipe, state_manager)
 
@@ -930,7 +992,7 @@ class TestEnvironmentResolution(unittest.TestCase):
 
             tasks = {"build": Task(name="build", cmd="echo hello", env="fish")}
             recipe = Recipe(
-                tasks=tasks, project_root=project_root, environments=envs
+                tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml", environments=envs
             )
             executor = Executor(recipe, state_manager)
 
@@ -970,7 +1032,7 @@ class TestEnvironmentResolution(unittest.TestCase):
                     cmd="echo {{ env.TEST_ENV_VAR }}",
                     working_dir=".",
                 )}
-                recipe = Recipe(tasks=tasks, project_root=project_root)
+                recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
                 executor = Executor(recipe, state_manager)
 
                 mock_run.return_value = MagicMock(returncode=0)
@@ -1000,7 +1062,7 @@ class TestEnvironmentResolution(unittest.TestCase):
                     cmd="echo test",
                     working_dir="{{ env.SUBDIR }}",
                 )}
-                recipe = Recipe(tasks=tasks, project_root=project_root)
+                recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
                 executor = Executor(recipe, state_manager)
 
                 mock_run.return_value = MagicMock(returncode=0)
@@ -1027,7 +1089,7 @@ class TestEnvironmentResolution(unittest.TestCase):
                 cmd="echo {{ env.UNDEFINED_TEST_VAR }}",
                 working_dir=".",
             )}
-            recipe = Recipe(tasks=tasks, project_root=project_root)
+            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
             executor = Executor(recipe, state_manager)
 
             with self.assertRaises(ValueError) as cm:

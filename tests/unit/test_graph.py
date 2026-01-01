@@ -1,6 +1,7 @@
 """Tests for graph module."""
 
 import unittest
+from pathlib import Path
 
 from tasktree.graph import (
     CycleError,
@@ -16,7 +17,7 @@ class TestResolveExecutionOrder(unittest.TestCase):
     def test_single_task(self):
         """Test execution order for single task with no dependencies."""
         tasks = {"build": Task(name="build", cmd="cargo build")}
-        recipe = Recipe(tasks=tasks, project_root=None)
+        recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
 
         order = resolve_execution_order(recipe, "build")
         self.assertEqual(order, ["build"])
@@ -28,7 +29,7 @@ class TestResolveExecutionOrder(unittest.TestCase):
             "build": Task(name="build", cmd="cargo build", deps=["lint"]),
             "test": Task(name="test", cmd="cargo test", deps=["build"]),
         }
-        recipe = Recipe(tasks=tasks, project_root=None)
+        recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
 
         order = resolve_execution_order(recipe, "test")
         self.assertEqual(order, ["lint", "build", "test"])
@@ -41,7 +42,7 @@ class TestResolveExecutionOrder(unittest.TestCase):
             "c": Task(name="c", cmd="echo c", deps=["a"]),
             "d": Task(name="d", cmd="echo d", deps=["b", "c"]),
         }
-        recipe = Recipe(tasks=tasks, project_root=None)
+        recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
 
         order = resolve_execution_order(recipe, "d")
         # Should include all tasks
@@ -56,7 +57,7 @@ class TestResolveExecutionOrder(unittest.TestCase):
     def test_task_not_found(self):
         """Test error when task doesn't exist."""
         tasks = {"build": Task(name="build", cmd="cargo build")}
-        recipe = Recipe(tasks=tasks, project_root=None)
+        recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
 
         with self.assertRaises(TaskNotFoundError):
             resolve_execution_order(recipe, "nonexistent")
@@ -66,7 +67,7 @@ class TestGetImplicitInputs(unittest.TestCase):
     def test_no_dependencies(self):
         """Test implicit inputs for task with no dependencies."""
         tasks = {"build": Task(name="build", cmd="cargo build")}
-        recipe = Recipe(tasks=tasks, project_root=None)
+        recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
 
         implicit = get_implicit_inputs(recipe, tasks["build"])
         self.assertEqual(implicit, [])
@@ -79,7 +80,7 @@ class TestGetImplicitInputs(unittest.TestCase):
                 name="package", cmd="tar czf package.tar.gz target/bin", deps=["build"]
             ),
         }
-        recipe = Recipe(tasks=tasks, project_root=None)
+        recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
 
         implicit = get_implicit_inputs(recipe, tasks["package"])
         self.assertEqual(implicit, ["target/bin"])
@@ -90,7 +91,7 @@ class TestGetImplicitInputs(unittest.TestCase):
             "lint": Task(name="lint", cmd="cargo clippy", inputs=["src/**/*.rs"]),
             "build": Task(name="build", cmd="cargo build", deps=["lint"]),
         }
-        recipe = Recipe(tasks=tasks, project_root=None)
+        recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
 
         implicit = get_implicit_inputs(recipe, tasks["build"])
         self.assertEqual(implicit, ["src/**/*.rs"])
@@ -107,7 +108,7 @@ class TestGraphErrors(unittest.TestCase):
             "b": Task(name="b", cmd="echo b", deps=["c"]),
             "c": Task(name="c", cmd="echo c", deps=["a"]),
         }
-        recipe = Recipe(tasks=tasks, project_root=None)
+        recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
 
         from tasktree.graph import CycleError
 
@@ -119,7 +120,7 @@ class TestGraphErrors(unittest.TestCase):
         tasks = {
             "build": Task(name="build", cmd="echo build"),
         }
-        recipe = Recipe(tasks=tasks, project_root=None)
+        recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
 
         from tasktree.graph import TaskNotFoundError, build_dependency_tree
 
@@ -133,7 +134,7 @@ class TestBuildDependencyTree(unittest.TestCase):
     def test_build_tree_single_task(self):
         """Test tree for task with no dependencies."""
         tasks = {"build": Task(name="build", cmd="cargo build")}
-        recipe = Recipe(tasks=tasks, project_root=None)
+        recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
 
         tree = build_dependency_tree(recipe, "build")
 
@@ -147,7 +148,7 @@ class TestBuildDependencyTree(unittest.TestCase):
             "build": Task(name="build", cmd="cargo build", deps=["lint"]),
             "test": Task(name="test", cmd="cargo test", deps=["build"]),
         }
-        recipe = Recipe(tasks=tasks, project_root=None)
+        recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
 
         tree = build_dependency_tree(recipe, "test")
 
@@ -165,7 +166,7 @@ class TestBuildDependencyTree(unittest.TestCase):
     def test_build_tree_missing_task(self):
         """Test raises TaskNotFoundError for nonexistent task."""
         tasks = {"build": Task(name="build", cmd="echo build")}
-        recipe = Recipe(tasks=tasks, project_root=None)
+        recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
 
         with self.assertRaises(TaskNotFoundError):
             build_dependency_tree(recipe, "nonexistent")
@@ -178,7 +179,7 @@ class TestBuildDependencyTree(unittest.TestCase):
             "c": Task(name="c", cmd="echo c", deps=["a"]),
             "d": Task(name="d", cmd="echo d", deps=["b", "c"]),
         }
-        recipe = Recipe(tasks=tasks, project_root=None)
+        recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
 
         tree = build_dependency_tree(recipe, "d")
 

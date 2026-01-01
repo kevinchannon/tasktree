@@ -29,7 +29,7 @@ class TestMissingOutputsIntegration(unittest.TestCase):
             )
 
             tasks = {"build": task}
-            recipe = Recipe(tasks=tasks, project_root=project_root)
+            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
             state_manager = StateManager(project_root)
             state_manager.load()
             executor = Executor(recipe, state_manager)
@@ -77,7 +77,7 @@ class TestMissingOutputsIntegration(unittest.TestCase):
             )
 
             tasks = {"build": task}
-            recipe = Recipe(tasks=tasks, project_root=project_root)
+            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
             state_manager = StateManager(project_root)
             state_manager.load()
             executor = Executor(recipe, state_manager)
