@@ -2688,6 +2688,22 @@ class TestArgTypeInference(unittest.TestCase):
         error_msg = str(cm.exception)
         self.assertIn("inconsistent types", error_msg)
 
+    def test_inferred_type_default_less_than_min(self):
+        """Test that default < min raises error with inferred type."""
+        with self.assertRaises(ValueError) as cm:
+            parse_arg_spec({"count": {"min": 10, "max": 100, "default": 5}})
+        error_msg = str(cm.exception)
+        self.assertIn("Default value", error_msg)
+        self.assertIn("less than min", error_msg)
+
+    def test_inferred_type_default_greater_than_max(self):
+        """Test that default > max raises error with inferred type."""
+        with self.assertRaises(ValueError) as cm:
+            parse_arg_spec({"count": {"min": 1, "max": 10, "default": 15}})
+        error_msg = str(cm.exception)
+        self.assertIn("Default value", error_msg)
+        self.assertIn("greater than max", error_msg)
+
 
 if __name__ == "__main__":
     unittest.main()
