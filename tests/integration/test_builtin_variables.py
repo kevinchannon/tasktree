@@ -232,6 +232,37 @@ tasks:
         # User should be present (from tt.user_name)
         self.assertTrue(lines[4].startswith("User: "))
 
+    def test_builtin_vars_in_working_dir(self):
+        """Test that non-circular builtin variables can be used in working_dir."""
+        # Create a directory that matches the task name
+        task_dir = Path(self.test_dir) / "build-task"
+        task_dir.mkdir()
+        output_file = Path(self.test_dir) / "result.txt"
+
+        recipe_content = f"""
+tasks:
+  build-task:
+    working_dir: "{{{{ tt.task_name }}}}"
+    cmd: |
+      echo "task={{{{ tt.task_name }}}}" > {output_file}
+      echo "wd={{{{ tt.working_dir }}}}" >> {output_file}
+"""
+        self.recipe_file.write_text(recipe_content)
+
+        recipe = parse_recipe(self.recipe_file)
+        state = StateManager(recipe.project_root)
+        state.load()
+        executor = Executor(recipe, state)
+        executor.execute_task("build-task")
+
+        output = output_file.read_text()
+        lines = {line.split("=", 1)[0]: line.split("=", 1)[1] for line in output.strip().split("\n")}
+
+        # Verify task_name was substituted in working_dir
+        self.assertEqual(lines["task"], "build-task")
+        # Verify working_dir reflects the actual resolved path
+        self.assertEqual(lines["wd"], str(task_dir.resolve()))
+
 
 if __name__ == "__main__":
     unittest.main()
