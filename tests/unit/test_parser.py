@@ -189,15 +189,15 @@ class TestParseArgSpecYAML(unittest.TestCase):
         name, arg_type, default, is_exported = parse_arg_spec({"key": {"type": "int", "default": 42}})
         self.assertEqual(name, "key")
         self.assertEqual(arg_type, "int")
-        self.assertEqual(default, "8080") if default == "8080" else self.assertEqual(default, "42")
+        self.assertEqual(default, "42")
 
     def test_null_default_value(self):
         """Test explicit default: null or default: ~."""
         name, arg_type, default, is_exported = parse_arg_spec({"arg": {"default": None}})
         self.assertEqual(name, "arg")
         self.assertEqual(arg_type, "str")
-        # None default gets converted to string "None"
-        self.assertEqual(default, "None")
+        # None default remains as None (not converted to string)
+        self.assertIsNone(default)
 
     def test_reject_incompatible_default(self):
         """Test error when default doesn't match declared type."""
@@ -215,6 +215,46 @@ class TestParseArgSpecYAML(unittest.TestCase):
         """Test string defaults with quotes, newlines, etc."""
         name, arg_type, default, is_exported = parse_arg_spec({"msg": {"default": "hello\nworld"}})
         self.assertEqual(default, "hello\nworld")
+
+    def test_empty_config_dict(self):
+        """Test empty config dict defaults to str type with no default."""
+        name, arg_type, default, is_exported = parse_arg_spec({"arg": {}})
+        self.assertEqual(name, "arg")
+        self.assertEqual(arg_type, "str")
+        self.assertIsNone(default)
+        self.assertFalse(is_exported)
+
+    def test_mixed_string_and_dict_formats(self):
+        """Test mixing string and dict argument formats in same list."""
+        # Parse different formats
+        simple = parse_arg_spec("env")
+        with_default = parse_arg_spec({"region": {"default": "us-east-1"}})
+        with_type = parse_arg_spec({"port": {"type": "int", "default": 8080}})
+        exported = parse_arg_spec("$server")
+
+        # Verify simple string format
+        self.assertEqual(simple[0], "env")
+        self.assertEqual(simple[1], "str")
+        self.assertIsNone(simple[2])
+        self.assertFalse(simple[3])
+
+        # Verify dict with default
+        self.assertEqual(with_default[0], "region")
+        self.assertEqual(with_default[1], "str")
+        self.assertEqual(with_default[2], "us-east-1")
+        self.assertFalse(with_default[3])
+
+        # Verify dict with type and default
+        self.assertEqual(with_type[0], "port")
+        self.assertEqual(with_type[1], "int")
+        self.assertEqual(with_type[2], "8080")
+        self.assertFalse(with_type[3])
+
+        # Verify exported string format
+        self.assertEqual(exported[0], "server")
+        self.assertEqual(exported[1], "str")
+        self.assertIsNone(exported[2])
+        self.assertTrue(exported[3])
 
 
 class TestParseRecipe(unittest.TestCase):

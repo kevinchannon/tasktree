@@ -12,6 +12,8 @@ from typing import Any, List
 
 import yaml
 
+from tasktree.types import get_click_type
+
 
 class CircularImportError(Exception):
     """Raised when a circular import is detected."""
@@ -1307,10 +1309,9 @@ def _parse_arg_dict(arg_name: str, config: dict, is_exported: bool) -> tuple[str
             # Default to string
             arg_type = "str"
 
-    # Validate type name
-    from tasktree.types import get_click_type
+    # Validate type name and get validator
     try:
-        get_click_type(arg_type)
+        validator = get_click_type(arg_type)
     except ValueError:
         raise ValueError(
             f"Unknown type in argument '{arg_name}': {arg_type}\n"
@@ -1326,8 +1327,7 @@ def _parse_arg_dict(arg_name: str, config: dict, is_exported: bool) -> tuple[str
 
             # Validate that the default value is compatible with the type
             try:
-                validator = get_click_type(arg_type)
-                # Try to convert to validate it's compatible
+                # Use the validator we already retrieved
                 validator.convert(default, None, None)
             except Exception as e:
                 raise ValueError(
@@ -1336,6 +1336,7 @@ def _parse_arg_dict(arg_name: str, config: dict, is_exported: bool) -> tuple[str
         else:
             default_str = str(default)
     else:
+        # None remains None (not the string "None")
         default_str = None
 
     return arg_name, arg_type, default_str, is_exported
