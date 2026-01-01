@@ -63,6 +63,8 @@ class Executor:
         self.recipe = recipe
         self.state = state_manager
         self.docker_manager = docker_module.DockerManager(recipe.project_root)
+        # Cache for git variables (per-executor instance)
+        self._git_cache: dict[str, str] = {}
 
     def _collect_early_builtin_variables(self, task: Task, timestamp: datetime) -> dict[str, str]:
         """Collect built-in variables that don't depend on working_dir.
@@ -450,10 +452,11 @@ class Executor:
         # Collect all built-in variables (including tt.working_dir now that it's resolved)
         builtin_vars = self._collect_builtin_variables(task, working_dir, task_start_time)
 
-        # Substitute built-in variables, arguments, and environment variables in command
+        # Substitute built-in variables, arguments, environment, and git variables in command
         cmd = self._substitute_builtin(task.cmd, builtin_vars)
         cmd = self._substitute_args(cmd, regular_args, exported_args)
         cmd = self._substitute_env(cmd)
+        cmd = self._substitute_git(cmd, working_dir)
 
         # Check if task uses Docker environment
         env_name = self._get_effective_env_name(task)
@@ -713,6 +716,28 @@ class Executor:
         """
         from tasktree.substitution import substitute_environment
         return substitute_environment(text)
+
+    def _substitute_git(self, text: str, working_dir: Path) -> str:
+        """Substitute {{ git.name }} placeholders in text.
+
+        Git variables are resolved at execution time by running git commands.
+        Values are cached per-executor instance to avoid repeated subprocess calls.
+
+        Args:
+            text: Text with {{ git.name }} placeholders
+            working_dir: Directory to run git commands in
+
+        Returns:
+            Text with git variables substituted
+
+        Raises:
+            ExecutionError: If git command fails (wraps ValueError from substitution)
+        """
+        from tasktree.substitution import substitute_git_variables
+        try:
+            return substitute_git_variables(text, str(working_dir), self._git_cache)
+        except ValueError as e:
+            raise ExecutionError(str(e)) from e
 
     def _get_all_inputs(self, task: Task) -> list[str]:
         """Get all inputs for a task (explicit + implicit from dependencies).

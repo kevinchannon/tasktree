@@ -805,6 +805,81 @@ tasks:
 - **Recipe vs Project**: `{{ tt.recipe_dir }}` points to where the recipe file is located, while `{{ tt.project_root }}` points to where the `.tasktree-state` file is (usually the same, but can differ)
 - **Username fallback**: If `os.getlogin()` fails, `{{ tt.user_name }}` falls back to `$USER` or `$USERNAME` environment variables, or `"unknown"` if neither is set
 
+## Git Variables
+
+Access git repository information in tasks using `{{ git.variable }}` syntax. These variables allow tasks to access git metadata for versioning, tagging, and build identification.
+
+### Available Git Variables
+
+| Variable | Description | Example Value |
+|----------|-------------|---------------|
+| `{{ git.commit }}` | Full commit SHA | `a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0` |
+| `{{ git.commit_short }}` | Short commit SHA (7 chars) | `a1b2c3d` |
+| `{{ git.branch }}` | Current branch name | `main` or `feature/new-thing` |
+| `{{ git.user_name }}` | Git user name | `Alice Smith` |
+| `{{ git.user_email }}` | Git user email | `alice@example.com` |
+| `{{ git.tag }}` | Most recent tag reachable from HEAD | `v1.2.3` |
+| `{{ git.describe }}` | Full git describe output | `v1.2.3-14-ga1b2c3d` |
+| `{{ git.is_dirty }}` | Working tree has uncommitted changes | `true` or `false` |
+
+### Usage Examples
+
+**Version stamping:**
+
+```yaml
+tasks:
+  build:
+    cmd: |
+      cargo build --release
+      echo "{{ git.describe }}" > target/release/VERSION
+      echo "Built from {{ git.commit }} by {{ git.user_name }}" > target/release/METADATA
+```
+
+**Conditional deployment:**
+
+```yaml
+tasks:
+  deploy:
+    deps: [build]
+    cmd: |
+      if [ "{{ git.is_dirty }}" = "true" ]; then
+        echo "Error: Cannot deploy with uncommitted changes"
+        exit 1
+      fi
+      ./deploy.sh --version {{ git.describe }}
+```
+
+**Build metadata:**
+
+```yaml
+tasks:
+  package:
+    cmd: |
+      tar czf app-{{ git.describe }}.tar.gz dist/
+      echo "Branch: {{ git.branch }}, Commit: {{ git.commit_short }}" > BUILD_INFO
+```
+
+**Branch-specific behavior:**
+
+```yaml
+tasks:
+  test:
+    cmd: |
+      if [ "{{ git.branch }}" = "main" ]; then
+        pytest --strict
+      else
+        pytest
+      fi
+```
+
+### Important Notes
+
+- **Git repository required**: Git variables require running from within a git repository. Tasks will fail with a clear error if git commands cannot execute.
+- **Detached HEAD**: When in detached HEAD state, `{{ git.branch }}` returns `HEAD`.
+- **No tags**: If no tags exist, `{{ git.tag }}` and `{{ git.describe }}` will fail with an error. Create a tag first: `git tag v0.1.0`
+- **Dirty detection**: `{{ git.is_dirty }}` returns `"true"` if there are either staged or unstaged changes, `"false"` otherwise.
+- **Caching**: Git values are cached per-invocation to avoid repeated subprocess calls. The same git variable used multiple times within a task execution will return the same value.
+
 ## File Imports
 
 Split task definitions across multiple files for better organisation:
