@@ -233,7 +233,9 @@ tasks:
     outputs: [dist/binary]                 # Output files (glob patterns)
     working_dir: subproject/               # Execution directory (default: project root)
     env: bash-strict                       # Execution environment (optional)
-    args: [param1, param2:path=default]    # Task parameters
+    args:                                   # Task parameters
+      - param1                              # Simple argument
+      - param2: { type: path, default: "." }  # With type and default
     cmd: go build -o dist/binary           # Command to execute
 ```
 
@@ -370,12 +372,14 @@ You may need to set `run_as_root: true` when:
 
 ### Parameterised Tasks
 
-Tasks can accept arguments with optional defaults:
+Tasks can accept arguments with optional type annotations and defaults:
 
 ```yaml
 tasks:
   deploy:
-    args: [environment, region=eu-west-1]
+    args:
+      - environment
+      - region: { default: "eu-west-1" }
     deps: [build]
     cmd: |
       aws s3 cp dist/app.zip s3://{{ arg.environment }}-{{ arg.region }}/
@@ -384,7 +388,17 @@ tasks:
 
 Invoke with: `tt deploy production` or `tt deploy staging us-east-1` or `tt deploy staging region=us-east-1`.
 
-Arguments may be typed, or not and have a default, or not. Valid argument types are:
+**Argument syntax:**
+
+```yaml
+args:
+  - name                              # Simple argument (type: str, no default)
+  - port: { type: int }               # With type annotation
+  - region: { default: "eu-west-1" }  # With default (type inferred)
+  - count: { type: int, default: 10 } # With both type and default
+```
+
+When a default value is provided without an explicit type, the type is inferred from the default value's Python type. Valid argument types are:
 
 * int - an integer value (e.g. 0, 10, 123, -9)
 * float - a floating point value (e.g. 1.234, -3.1415, 2e-4)
@@ -407,7 +421,10 @@ Arguments can be prefixed with `$` to export them as environment variables inste
 ```yaml
 tasks:
   deploy:
-    args: [$server, $user=admin, port=8080]
+    args:
+      - $server
+      - $user: { default: "admin" }
+      - port: { type: int, default: 8080 }
     cmd: |
       echo "Deploying to $server as $user on port {{ arg.port }}"
       ssh $user@$server "systemctl restart app --port {{ arg.port }}"
@@ -417,10 +434,10 @@ tasks:
 
 | Feature | Regular Argument | Exported Argument |
 |---------|-----------------|-------------------|
-| **Syntax** | `args: [name]` | `args: [$name]` |
+| **Syntax** | `- name` | `- $name` |
 | **Usage in commands** | `{{ arg.name }}` | `$name` (shell variable) |
-| **Type annotations** | Allowed: `port:int` | **Not allowed** (always strings) |
-| **Defaults** | `port=8080` | `$port=8080` |
+| **Type annotations** | Allowed: `{ type: int }` | **Not allowed** (always strings) |
+| **Defaults** | `{ default: 8080 }` | `- $port: { default: "8080" }` |
 | **Availability** | Template substitution only | Environment variable (all subprocesses) |
 | **Case handling** | N/A | Preserves exact case as written |
 

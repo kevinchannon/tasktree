@@ -12,6 +12,8 @@ from typing import Any, List
 
 import yaml
 
+from tasktree.types import get_click_type
+
 
 class CircularImportError(Exception):
     """Raised when a circular import is detected."""
@@ -1170,18 +1172,24 @@ def _check_case_sensitive_arg_collisions(args: list[str], task_name: str) -> Non
             seen_lower[lower_name] = name
 
 
-def parse_arg_spec(arg_spec: str) -> tuple[str, str, str | None, bool]:
-    """Parse argument specification.
+def parse_arg_spec(arg_spec: str | dict) -> tuple[str, str, str | None, bool]:
+    """Parse argument specification from YAML.
 
-    Format: [$]name[:type][=default]
-    - $ prefix marks argument as exported (environment variable)
-    - name is required
-    - type is optional (defaults to 'str')
-    - default is optional
-    - exported arguments cannot have type annotations
+    Supports both string format and dictionary format:
+
+    String format:
+        - Simple name: "argname"
+        - Exported (becomes env var): "$argname"
+        - With default: "argname=value" or "$argname=value"
+        - Legacy type syntax: "argname:type=value" (for backwards compat)
+
+    Dictionary format:
+        - argname: { default: "value" }
+        - argname: { type: int, default: 42 }
+        - $argname: { default: "value" }  # Exported
 
     Args:
-        arg_spec: Argument specification string
+        arg_spec: Argument specification (string or dict with single key)
 
     Returns:
         Tuple of (name, type, default, is_exported)
@@ -1189,18 +1197,44 @@ def parse_arg_spec(arg_spec: str) -> tuple[str, str, str | None, bool]:
     Examples:
         >>> parse_arg_spec("environment")
         ('environment', 'str', None, False)
-        >>> parse_arg_spec("region=eu-west-1")
-        ('region', 'str', 'eu-west-1', False)
-        >>> parse_arg_spec("port:int=8080")
-        ('port', 'int', '8080', False)
-        >>> parse_arg_spec("$server")
-        ('server', 'str', None, True)
-        >>> parse_arg_spec("$user=admin")
-        ('user', 'str', 'admin', True)
+        >>> parse_arg_spec({"key2": {"default": "foo"}})
+        ('key2', 'str', 'foo', False)
+        >>> parse_arg_spec({"key3": {"type": "int", "default": 42}})
+        ('key3', 'int', '42', False)
 
     Raises:
-        ValueError: If exported argument has type annotation
+        ValueError: If argument specification is invalid
     """
+    # Handle dictionary format: { argname: { type: ..., default: ... } }
+    if isinstance(arg_spec, dict):
+        if len(arg_spec) != 1:
+            raise ValueError(
+                f"Argument dictionary must have exactly one key (the argument name), got: {list(arg_spec.keys())}"
+            )
+
+        # Extract the argument name and its configuration
+        arg_name, config = next(iter(arg_spec.items()))
+
+        # Check if argument is exported (name starts with $)
+        is_exported = arg_name.startswith("$")
+        if is_exported:
+            arg_name = arg_name[1:]  # Remove $ prefix
+
+        # Validate argument name
+        if not arg_name or not isinstance(arg_name, str):
+            raise ValueError(
+                f"Argument name must be a non-empty string, got: {arg_name!r}"
+            )
+
+        # Config must be a dictionary
+        if not isinstance(config, dict):
+            raise ValueError(
+                f"Argument '{arg_name}' configuration must be a dictionary, got: {type(config).__name__}"
+            )
+
+        return _parse_arg_dict(arg_name, config, is_exported)
+
+    # Handle string format
     # Check if argument is exported (starts with $)
     is_exported = arg_spec.startswith("$")
     if is_exported:
@@ -1230,3 +1264,79 @@ def parse_arg_spec(arg_spec: str) -> tuple[str, str, str | None, bool]:
         arg_type = "str"
 
     return name, arg_type, default, is_exported
+
+
+def _parse_arg_dict(arg_name: str, config: dict, is_exported: bool) -> tuple[str, str, str | None, bool]:
+    """Parse argument specification from dictionary format.
+
+    Args:
+        arg_name: Name of the argument
+        config: Dictionary with optional keys: type, default
+        is_exported: Whether argument should be exported to environment
+
+    Returns:
+        Tuple of (name, type, default, is_exported)
+
+    Raises:
+        ValueError: If dictionary format is invalid
+    """
+    # Validate dictionary keys
+    valid_keys = {"type", "default"}
+    invalid_keys = set(config.keys()) - valid_keys
+    if invalid_keys:
+        raise ValueError(
+            f"Invalid keys in argument '{arg_name}' configuration: {', '.join(sorted(invalid_keys))}\n"
+            f"Valid keys are: {', '.join(sorted(valid_keys))}"
+        )
+
+    # Extract values
+    arg_type = config.get("type")
+    default = config.get("default")
+
+    # Exported arguments cannot have type annotations
+    if is_exported and arg_type is not None:
+        raise ValueError(
+            f"Type annotations not allowed on exported argument '${arg_name}'\n"
+            f"Exported arguments are always strings. Remove the 'type' field"
+        )
+
+    # Infer type from default if type not specified
+    if arg_type is None:
+        if default is not None:
+            # Infer from default value's Python type
+            arg_type = _infer_variable_type(default)
+        else:
+            # Default to string
+            arg_type = "str"
+
+    # Validate type name and get validator
+    try:
+        validator = get_click_type(arg_type)
+    except ValueError:
+        raise ValueError(
+            f"Unknown type in argument '{arg_name}': {arg_type}\n"
+            f"Supported types: str, int, float, bool, path, datetime, ip, ipv4, ipv6, email, hostname"
+        )
+
+    # Validate and convert default value
+    if default is not None:
+        # Validate that default is compatible with the declared type
+        if arg_type != "str":
+            # Validate that the default value is compatible with the type
+            try:
+                # Use the validator we already retrieved
+                validator.convert(default, None, None)
+            except Exception as e:
+                raise ValueError(
+                    f"Default value for argument '{arg_name}' is incompatible with type '{arg_type}': {e}"
+                )
+
+            # After validation, convert to string for storage
+            default_str = str(default)
+        else:
+            default_str = str(default)
+    else:
+        # None remains None (not the string "None")
+        default_str = None
+
+    return arg_name, arg_type, default_str, is_exported
