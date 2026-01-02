@@ -8,9 +8,17 @@ from tempfile import TemporaryDirectory
 from . import is_docker_available, run_tasktree_cli
 
 
-@unittest.skipUnless(is_docker_available(), "Docker not available or not running")
 class TestDockerVolumes(unittest.TestCase):
     """Test Docker volume mount functionality."""
+
+    @classmethod
+    def setUpClass(cls):
+        """Ensure Docker is available before running tests."""
+        if not is_docker_available():
+            raise RuntimeError(
+                "Docker is not available or not running. "
+                "E2E tests require Docker to be installed and the daemon to be running."
+            )
 
     def test_relative_volume_mount(self):
         """Test that relative volume paths resolve correctly."""

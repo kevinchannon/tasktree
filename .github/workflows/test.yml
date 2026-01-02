@@ -31,6 +31,7 @@ jobs:
         uv pip install --system -e ".[dev]"
 
     - name: Pre-pull Docker images for E2E tests
+      if: runner.os == 'Linux'
       run: |
         docker pull alpine:latest
 
@@ -43,6 +44,7 @@ jobs:
         python -m pytest tests/integration/ -v --tb=short
 
     - name: Run E2E Docker tests
+      if: runner.os == 'Linux'
       run: |
         python -m pytest tests/e2e/ -v --tb=short
 

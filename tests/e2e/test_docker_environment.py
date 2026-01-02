@@ -7,9 +7,17 @@ from tempfile import TemporaryDirectory
 from . import is_docker_available, run_tasktree_cli
 
 
-@unittest.skipUnless(is_docker_available(), "Docker not available or not running")
 class TestDockerEnvironment(unittest.TestCase):
     """Test Docker environment variable and configuration features."""
+
+    @classmethod
+    def setUpClass(cls):
+        """Ensure Docker is available before running tests."""
+        if not is_docker_available():
+            raise RuntimeError(
+                "Docker is not available or not running. "
+                "E2E tests require Docker to be installed and the daemon to be running."
+            )
 
     def test_environment_variable_injection(self):
         """Test that env_vars are passed to container correctly."""
