@@ -61,6 +61,10 @@ tasks:
 
                 # Run test_debug - should build with debug mode
                 result = self.runner.invoke(app, ["test_debug"], env=self.env)
+                if result.exit_code != 0:
+                    print(f"\n=== test_parameterized_dependency_with_different_args failed ===")
+                    print(f"Exit code: {result.exit_code}")
+                    print(f"Output:\n{result.output}")
                 self.assertEqual(result.exit_code, 0)
 
                 # Verify debug build was created
@@ -120,6 +124,10 @@ tasks:
 
                 # Run link - should compile both x86 and arm
                 result = self.runner.invoke(app, ["link"], env=self.env)
+                if result.exit_code != 0:
+                    print(f"\n=== test_multiple_invocations_same_task failed ===")
+                    print(f"Exit code: {result.exit_code}")
+                    print(f"Output:\n{result.output}")
                 self.assertEqual(result.exit_code, 0)
 
                 # Verify both targets were compiled
@@ -166,6 +174,10 @@ tasks:
 
                 # Run process - should generate XML with pretty=true
                 result = self.runner.invoke(app, ["process"], env=self.env)
+                if result.exit_code != 0:
+                    print(f"\n=== test_named_argument_dependency failed ===")
+                    print(f"Exit code: {result.exit_code}")
+                    print(f"Output:\n{result.output}")
                 self.assertEqual(result.exit_code, 0)
 
                 # Verify XML was generated
