@@ -424,16 +424,16 @@ class Executor:
         exported_env_vars = {}
 
         for arg_spec in task.args:
-            name, arg_type, default, is_exported, _, _ = parse_arg_spec(arg_spec)
-            if is_exported:
-                exported_args.add(name)
+            parsed = parse_arg_spec(arg_spec)
+            if parsed.is_exported:
+                exported_args.add(parsed.name)
                 # Get value and convert to string for environment variable
                 # Value should always be in args_dict (CLI applies defaults)
-                if name in args_dict:
-                    exported_env_vars[name] = str(args_dict[name])
+                if parsed.name in args_dict:
+                    exported_env_vars[parsed.name] = str(args_dict[parsed.name])
             else:
-                if name in args_dict:
-                    regular_args[name] = args_dict[name]
+                if parsed.name in args_dict:
+                    regular_args[parsed.name] = args_dict[parsed.name]
 
         # Collect early built-in variables (those that don't depend on working_dir)
         # These can be used in the working_dir field itself

@@ -378,8 +378,8 @@ Tasks can accept arguments with optional type annotations and defaults:
 tasks:
   deploy:
     args:
-      - environment
-      - region: { default: "eu-west-1" }
+      - environment: { choices: ["dev", "staging", "production"] }
+      - region: { choices: ["us-east-1", "eu-west-1"], default: "eu-west-1" }
     deps: [build]
     cmd: |
       aws s3 cp dist/app.zip s3://{{ arg.environment }}-{{ arg.region }}/
@@ -388,16 +388,20 @@ tasks:
 
 Invoke with: `tt deploy production` or `tt deploy staging us-east-1` or `tt deploy staging region=us-east-1`.
 
+If you try an invalid environment like `tt deploy testing`, you'll get a clear error showing the valid choices.
+
 **Argument syntax:**
 
 ```yaml
 args:
-  - name                              # Simple argument (type: str, no default)
-  - port: { type: int }               # With type annotation
-  - region: { default: "eu-west-1" }  # With default (type inferred as str)
-  - count: { type: int, default: 10 } # With both type and default
-  - replicas: { min: 1, max: 100 }    # Type inferred as int from min/max
+  - name                                          # Simple argument (type: str, no default)
+  - port: { type: int }                           # With type annotation
+  - region: { default: "eu-west-1" }              # With default (type inferred as str)
+  - count: { type: int, default: 10 }             # With both type and default
+  - replicas: { min: 1, max: 100 }                # Type inferred as int from min/max
   - timeout: { min: 0.5, max: 30.0, default: 10.0 }  # Type inferred as float
+  - environment: { choices: ["dev", "prod"] }     # Type inferred as str from choices
+  - priority: { type: int, choices: [1, 2, 3], default: 2 }  # With choices and default
 ```
 
 **Range constraints** (min/max):
@@ -411,6 +415,25 @@ args:
   - percentage: { max: 100.0 }                  # Type inferred as float from max
   - workers: { min: 1, max: 16, default: 4 }    # Type inferred as int (all consistent)
 ```
+
+**Discrete choices**:
+
+For arguments with a specific set of valid values, use the `choices` field to specify allowed values. This provides clear validation errors and self-documenting task definitions:
+
+```yaml
+args:
+  - environment: { choices: ["dev", "staging", "prod"] }  # Type inferred as str from choices
+  - priority: { choices: [1, 2, 3] }                      # Type inferred as int from choices
+  - region: { type: str, choices: ["us-east-1", "eu-west-1"], default: "us-east-1" }
+```
+
+**Choices features:**
+- Type is automatically inferred from the first choice value if not explicitly specified
+- All choices must have the same type
+- Default value (if provided) must be one of the valid choices
+- `choices` and `min`/`max` are mutually exclusive
+- Boolean types cannot have choices (already limited to true/false)
+- Validation happens after type conversion, producing clear error messages showing valid options
 
 * Both bounds are **inclusive**: `min` is the smallest allowable value, `max` is the largest
 * Can specify `min` alone, `max` alone, or both together

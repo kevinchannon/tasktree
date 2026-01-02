@@ -9,6 +9,7 @@ from tempfile import TemporaryDirectory
 import yaml
 
 from tasktree.parser import (
+    ArgSpec,
     CircularImportError,
     Task,
     find_recipe_file,
@@ -20,51 +21,51 @@ from tasktree.parser import (
 class TestParseArgSpec(unittest.TestCase):
     def test_parse_simple_arg(self):
         """Test parsing a simple argument name."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec("environment")
-        self.assertEqual(name, "environment")
-        self.assertEqual(arg_type, "str")
-        self.assertIsNone(default)
-        self.assertFalse(is_exported)
+        spec = parse_arg_spec("environment")
+        self.assertEqual(spec.name,"environment")
+        self.assertEqual(spec.arg_type,"str")
+        self.assertIsNone(spec.default)
+        self.assertFalse(spec.is_exported)
 
     def test_parse_arg_with_default(self):
         """Test parsing argument with default value."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec("region=eu-west-1")
-        self.assertEqual(name, "region")
-        self.assertEqual(arg_type, "str")
-        self.assertEqual(default, "eu-west-1")
-        self.assertFalse(is_exported)
+        spec = parse_arg_spec("region=eu-west-1")
+        self.assertEqual(spec.name,"region")
+        self.assertEqual(spec.arg_type,"str")
+        self.assertEqual(spec.default,"eu-west-1")
+        self.assertFalse(spec.is_exported)
 
     def test_parse_arg_with_type(self):
         """Test parsing argument with type."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec("port:int")
-        self.assertEqual(name, "port")
-        self.assertEqual(arg_type, "int")
-        self.assertIsNone(default)
-        self.assertFalse(is_exported)
+        spec = parse_arg_spec("port:int")
+        self.assertEqual(spec.name,"port")
+        self.assertEqual(spec.arg_type,"int")
+        self.assertIsNone(spec.default)
+        self.assertFalse(spec.is_exported)
 
     def test_parse_arg_with_type_and_default(self):
         """Test parsing argument with type and default."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec("port:int=8080")
-        self.assertEqual(name, "port")
-        self.assertEqual(arg_type, "int")
-        self.assertEqual(default, "8080")
-        self.assertFalse(is_exported)
+        spec = parse_arg_spec("port:int=8080")
+        self.assertEqual(spec.name,"port")
+        self.assertEqual(spec.arg_type,"int")
+        self.assertEqual(spec.default,"8080")
+        self.assertFalse(spec.is_exported)
 
     def test_parse_exported_arg(self):
         """Test parsing exported argument ($ prefix)."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec("$server")
-        self.assertEqual(name, "server")
-        self.assertEqual(arg_type, "str")
-        self.assertIsNone(default)
-        self.assertTrue(is_exported)
+        spec = parse_arg_spec("$server")
+        self.assertEqual(spec.name,"server")
+        self.assertEqual(spec.arg_type,"str")
+        self.assertIsNone(spec.default)
+        self.assertTrue(spec.is_exported)
 
     def test_parse_exported_arg_with_default(self):
         """Test parsing exported argument with default value."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec("$user=admin")
-        self.assertEqual(name, "user")
-        self.assertEqual(arg_type, "str")
-        self.assertEqual(default, "admin")
-        self.assertTrue(is_exported)
+        spec = parse_arg_spec("$user=admin")
+        self.assertEqual(spec.name,"user")
+        self.assertEqual(spec.arg_type,"str")
+        self.assertEqual(spec.default,"admin")
+        self.assertTrue(spec.is_exported)
 
     def test_parse_exported_arg_with_type_raises_error(self):
         """Test that exported arguments with type annotations raise error."""
@@ -98,63 +99,63 @@ class TestParseArgSpecYAML(unittest.TestCase):
 
     def test_parse_simple_string_arg(self):
         """Test parsing simple argument as string."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec("key1")
-        self.assertEqual(name, "key1")
-        self.assertEqual(arg_type, "str")
-        self.assertIsNone(default)
-        self.assertFalse(is_exported)
+        spec = parse_arg_spec("key1")
+        self.assertEqual(spec.name,"key1")
+        self.assertEqual(spec.arg_type,"str")
+        self.assertIsNone(spec.default)
+        self.assertFalse(spec.is_exported)
 
     def test_parse_arg_with_default_only(self):
         """Test argument with default value, no explicit type."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec({"key2": {"default": "foo"}})
-        self.assertEqual(name, "key2")
-        self.assertEqual(arg_type, "str")
-        self.assertEqual(default, "foo")
-        self.assertFalse(is_exported)
+        spec = parse_arg_spec({"key2": {"default": "foo"}})
+        self.assertEqual(spec.name,"key2")
+        self.assertEqual(spec.arg_type,"str")
+        self.assertEqual(spec.default,"foo")
+        self.assertFalse(spec.is_exported)
 
     def test_parse_arg_with_type_only(self):
         """Test argument with type, no default."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec({"port": {"type": "int"}})
-        self.assertEqual(name, "port")
-        self.assertEqual(arg_type, "int")
-        self.assertIsNone(default)
-        self.assertFalse(is_exported)
+        spec = parse_arg_spec({"port": {"type": "int"}})
+        self.assertEqual(spec.name,"port")
+        self.assertEqual(spec.arg_type,"int")
+        self.assertIsNone(spec.default)
+        self.assertFalse(spec.is_exported)
 
     def test_parse_arg_with_type_and_default(self):
         """Test argument with both type and default."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec({"port": {"type": "int", "default": 8080}})
-        self.assertEqual(name, "port")
-        self.assertEqual(arg_type, "int")
-        self.assertEqual(default, "8080")
-        self.assertFalse(is_exported)
+        spec = parse_arg_spec({"port": {"type": "int", "default": 8080}})
+        self.assertEqual(spec.name,"port")
+        self.assertEqual(spec.arg_type,"int")
+        self.assertEqual(spec.default,"8080")
+        self.assertFalse(spec.is_exported)
 
     def test_parse_exported_arg_dict_syntax(self):
         """Test exported argument using dictionary syntax."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec({"$server": {"default": "localhost"}})
-        self.assertEqual(name, "server")
-        self.assertEqual(arg_type, "str")
-        self.assertEqual(default, "localhost")
-        self.assertTrue(is_exported)
+        spec = parse_arg_spec({"$server": {"default": "localhost"}})
+        self.assertEqual(spec.name,"server")
+        self.assertEqual(spec.arg_type,"str")
+        self.assertEqual(spec.default,"localhost")
+        self.assertTrue(spec.is_exported)
 
     def test_infer_type_from_string_default(self):
         """Test type inference from string default value."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec({"name": {"default": "foo"}})
-        self.assertEqual(arg_type, "str")
+        spec = parse_arg_spec({"name": {"default": "foo"}})
+        self.assertEqual(spec.arg_type,"str")
 
     def test_infer_type_from_int_default(self):
         """Test type inference from int default value."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec({"count": {"default": 42}})
-        self.assertEqual(arg_type, "int")
+        spec = parse_arg_spec({"count": {"default": 42}})
+        self.assertEqual(spec.arg_type,"int")
 
     def test_infer_type_from_float_default(self):
         """Test type inference from float default value."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec({"pi": {"default": 3.14}})
-        self.assertEqual(arg_type, "float")
+        spec = parse_arg_spec({"pi": {"default": 3.14}})
+        self.assertEqual(spec.arg_type,"float")
 
     def test_infer_type_from_bool_default(self):
         """Test type inference from bool default value."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec({"enabled": {"default": True}})
-        self.assertEqual(arg_type, "bool")
+        spec = parse_arg_spec({"enabled": {"default": True}})
+        self.assertEqual(spec.arg_type,"bool")
 
     def test_reject_unknown_type(self):
         """Test error on unsupported type name."""
@@ -186,18 +187,18 @@ class TestParseArgSpecYAML(unittest.TestCase):
     def test_parse_inline_dict_syntax(self):
         """Test flow mapping syntax { type: int, default: 42 }."""
         # YAML parses inline dicts the same as block dicts
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec({"key": {"type": "int", "default": 42}})
-        self.assertEqual(name, "key")
-        self.assertEqual(arg_type, "int")
-        self.assertEqual(default, "42")
+        spec = parse_arg_spec({"key": {"type": "int", "default": 42}})
+        self.assertEqual(spec.name,"key")
+        self.assertEqual(spec.arg_type,"int")
+        self.assertEqual(spec.default,"42")
 
     def test_null_default_value(self):
         """Test explicit default: null or default: ~."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec({"arg": {"default": None}})
-        self.assertEqual(name, "arg")
-        self.assertEqual(arg_type, "str")
+        spec = parse_arg_spec({"arg": {"default": None}})
+        self.assertEqual(spec.name,"arg")
+        self.assertEqual(spec.arg_type,"str")
         # None default remains as None (not converted to string)
-        self.assertIsNone(default)
+        self.assertIsNone(spec.default)
 
     def test_reject_incompatible_default(self):
         """Test error when default doesn't match declared type."""
@@ -213,16 +214,16 @@ class TestParseArgSpecYAML(unittest.TestCase):
 
     def test_string_defaults_with_special_chars(self):
         """Test string defaults with quotes, newlines, etc."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec({"msg": {"default": "hello\nworld"}})
-        self.assertEqual(default, "hello\nworld")
+        spec = parse_arg_spec({"msg": {"default": "hello\nworld"}})
+        self.assertEqual(spec.default,"hello\nworld")
 
     def test_empty_config_dict(self):
         """Test empty config dict defaults to str type with no default."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec({"arg": {}})
-        self.assertEqual(name, "arg")
-        self.assertEqual(arg_type, "str")
-        self.assertIsNone(default)
-        self.assertFalse(is_exported)
+        spec = parse_arg_spec({"arg": {}})
+        self.assertEqual(spec.name,"arg")
+        self.assertEqual(spec.arg_type,"str")
+        self.assertIsNone(spec.default)
+        self.assertFalse(spec.is_exported)
 
     def test_mixed_string_and_dict_formats(self):
         """Test mixing string and dict argument formats in same list."""
@@ -233,28 +234,154 @@ class TestParseArgSpecYAML(unittest.TestCase):
         exported = parse_arg_spec("$server")
 
         # Verify simple string format
-        self.assertEqual(simple[0], "env")
-        self.assertEqual(simple[1], "str")
-        self.assertIsNone(simple[2])
-        self.assertFalse(simple[3])
+        self.assertEqual(simple.name, "env")
+        self.assertEqual(simple.arg_type, "str")
+        self.assertIsNone(simple.default)
+        self.assertFalse(simple.is_exported)
 
         # Verify dict with default
-        self.assertEqual(with_default[0], "region")
-        self.assertEqual(with_default[1], "str")
-        self.assertEqual(with_default[2], "us-east-1")
-        self.assertFalse(with_default[3])
+        self.assertEqual(with_default.name, "region")
+        self.assertEqual(with_default.arg_type, "str")
+        self.assertEqual(with_default.default, "us-east-1")
+        self.assertFalse(with_default.is_exported)
 
         # Verify dict with type and default
-        self.assertEqual(with_type[0], "port")
-        self.assertEqual(with_type[1], "int")
-        self.assertEqual(with_type[2], "8080")
-        self.assertFalse(with_type[3])
+        self.assertEqual(with_type.name, "port")
+        self.assertEqual(with_type.arg_type, "int")
+        self.assertEqual(with_type.default, "8080")
+        self.assertFalse(with_type.is_exported)
 
         # Verify exported string format
-        self.assertEqual(exported[0], "server")
-        self.assertEqual(exported[1], "str")
-        self.assertIsNone(exported[2])
-        self.assertTrue(exported[3])
+        self.assertEqual(exported.name, "server")
+        self.assertEqual(exported.arg_type, "str")
+        self.assertIsNone(exported.default)
+        self.assertTrue(exported.is_exported)
+
+
+class TestParseArgSpecChoices(unittest.TestCase):
+    """Tests for choices validation in argument specifications."""
+
+    def test_valid_choices_with_explicit_type(self):
+        """Test choices with explicit type match."""
+        spec = parse_arg_spec(
+            {"environment": {"type": "str", "choices": ["dev", "staging", "prod"]}}
+        )
+        self.assertEqual(spec.name,"environment")
+        self.assertEqual(spec.arg_type,"str")
+        self.assertIsNone(spec.default)
+        self.assertEqual(spec.choices,["dev", "staging", "prod"])
+
+    def test_valid_choices_with_type_inference(self):
+        """Test type inference from choices."""
+        spec = parse_arg_spec(
+            {"region": {"choices": ["us-east-1", "eu-west-1"]}}
+        )
+        self.assertEqual(spec.name,"region")
+        self.assertEqual(spec.arg_type,"str")
+        self.assertEqual(spec.choices,["us-east-1", "eu-west-1"])
+
+    def test_int_choices_inferred(self):
+        """Test type inference from integer choices."""
+        spec = parse_arg_spec(
+            {"priority": {"choices": [1, 2, 3]}}
+        )
+        self.assertEqual(spec.name,"priority")
+        self.assertEqual(spec.arg_type,"int")
+        self.assertEqual(spec.choices,[1, 2, 3])
+
+    def test_empty_choices_list_error(self):
+        """Test that empty choices list produces error."""
+        with self.assertRaises(ValueError) as cm:
+            parse_arg_spec({"arg": {"choices": []}})
+        self.assertIn("empty", str(cm.exception).lower())
+
+    def test_mixed_types_in_choices_error(self):
+        """Test that mixed types in choices produces error."""
+        with self.assertRaises(ValueError) as cm:
+            parse_arg_spec({"arg": {"choices": [1, "two", 3]}})
+        self.assertIn("same type", str(cm.exception).lower())
+
+    def test_boolean_type_with_choices_error(self):
+        """Test that boolean type with choices produces error."""
+        with self.assertRaises(ValueError) as cm:
+            parse_arg_spec({"flag": {"type": "bool", "choices": [True, False]}})
+        self.assertIn("boolean", str(cm.exception).lower())
+
+    def test_choices_and_min_mutual_exclusivity(self):
+        """Test that choices and min are mutually exclusive."""
+        with self.assertRaises(ValueError) as cm:
+            parse_arg_spec({"arg": {"type": "int", "choices": [1, 2, 3], "min": 1}})
+        self.assertIn("mutually exclusive", str(cm.exception).lower())
+
+    def test_choices_and_max_mutual_exclusivity(self):
+        """Test that choices and max are mutually exclusive."""
+        with self.assertRaises(ValueError) as cm:
+            parse_arg_spec({"arg": {"type": "int", "choices": [1, 2, 3], "max": 10}})
+        self.assertIn("mutually exclusive", str(cm.exception).lower())
+
+    def test_default_in_choices_valid(self):
+        """Test that default value in choices passes."""
+        spec = parse_arg_spec(
+            {"env": {"choices": ["dev", "prod"], "default": "dev"}}
+        )
+        self.assertEqual(spec.default,"dev")
+        self.assertEqual(spec.choices,["dev", "prod"])
+
+    def test_default_not_in_choices_error(self):
+        """Test that default value not in choices produces error."""
+        with self.assertRaises(ValueError) as cm:
+            parse_arg_spec({"env": {"choices": ["dev", "prod"], "default": "staging"}})
+        self.assertIn("not in the choices list", str(cm.exception))
+
+    def test_choice_values_match_explicit_type(self):
+        """Test that explicit type validation works with choices."""
+        spec = parse_arg_spec(
+            {"count": {"type": "int", "choices": [1, 2, 3]}}
+        )
+        self.assertEqual(spec.arg_type,"int")
+        self.assertEqual(spec.choices,[1, 2, 3])
+
+    def test_choice_values_dont_match_explicit_type_error(self):
+        """Test that choice values not matching explicit type produces error."""
+        with self.assertRaises(ValueError) as cm:
+            parse_arg_spec({"count": {"type": "int", "choices": ["one", "two"]}})
+        self.assertIn("do not match explicit type", str(cm.exception))
+
+    def test_string_choices_with_spaces(self):
+        """Test that string choices with spaces parse correctly."""
+        spec = parse_arg_spec(
+            {"message": {"choices": ["hello world", "foo bar"]}}
+        )
+        self.assertEqual(spec.choices,["hello world", "foo bar"])
+
+    def test_choices_not_a_list_error(self):
+        """Test that non-list choices value produces error."""
+        with self.assertRaises(ValueError) as cm:
+            parse_arg_spec({"arg": {"choices": "not a list"}})
+        self.assertIn("must be a list", str(cm.exception))
+
+    def test_float_choices(self):
+        """Test float choices."""
+        spec = parse_arg_spec(
+            {"ratio": {"type": "float", "choices": [0.5, 1.0, 1.5]}}
+        )
+        self.assertEqual(spec.arg_type,"float")
+        self.assertEqual(spec.choices,[0.5, 1.0, 1.5])
+
+    def test_type_inference_from_choices_and_default_consistent(self):
+        """Test that type inferred from choices and default is consistent."""
+        spec = parse_arg_spec(
+            {"priority": {"choices": [1, 2, 3], "default": 2}}
+        )
+        self.assertEqual(spec.arg_type,"int")
+        self.assertEqual(spec.default,"2")
+        self.assertEqual(spec.choices,[1, 2, 3])
+
+    def test_type_inference_from_choices_and_default_inconsistent_error(self):
+        """Test that inconsistent types from choices and default produces error."""
+        with self.assertRaises(ValueError) as cm:
+            parse_arg_spec({"arg": {"choices": [1, 2, 3], "default": "two"}})
+        self.assertIn("inconsistent types", str(cm.exception).lower())
 
 
 class TestParseRecipe(unittest.TestCase):
@@ -2323,58 +2450,58 @@ class TestArgMinMax(unittest.TestCase):
 
     def test_parse_int_with_min_and_max(self):
         """Test integer argument with both min and max constraints."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec(
+        spec = parse_arg_spec(
             {"replicas": {"type": "int", "min": 1, "max": 100}}
         )
-        self.assertEqual(name, "replicas")
-        self.assertEqual(arg_type, "int")
-        self.assertIsNone(default)
-        self.assertFalse(is_exported)
-        self.assertEqual(min_val, 1)
-        self.assertEqual(max_val, 100)
+        self.assertEqual(spec.name,"replicas")
+        self.assertEqual(spec.arg_type,"int")
+        self.assertIsNone(spec.default)
+        self.assertFalse(spec.is_exported)
+        self.assertEqual(spec.min_val,1)
+        self.assertEqual(spec.max_val,100)
 
     def test_parse_float_with_min_and_max(self):
         """Test float argument with both min and max constraints."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec(
+        spec = parse_arg_spec(
             {"timeout": {"type": "float", "min": 0.5, "max": 30.0}}
         )
-        self.assertEqual(name, "timeout")
-        self.assertEqual(arg_type, "float")
-        self.assertIsNone(default)
-        self.assertFalse(is_exported)
-        self.assertEqual(min_val, 0.5)
-        self.assertEqual(max_val, 30.0)
+        self.assertEqual(spec.name,"timeout")
+        self.assertEqual(spec.arg_type,"float")
+        self.assertIsNone(spec.default)
+        self.assertFalse(spec.is_exported)
+        self.assertEqual(spec.min_val,0.5)
+        self.assertEqual(spec.max_val,30.0)
 
     def test_parse_int_with_min_only(self):
         """Test integer argument with only min constraint."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec(
+        spec = parse_arg_spec(
             {"port": {"type": "int", "min": 1024}}
         )
-        self.assertEqual(name, "port")
-        self.assertEqual(arg_type, "int")
-        self.assertEqual(min_val, 1024)
-        self.assertIsNone(max_val)
+        self.assertEqual(spec.name,"port")
+        self.assertEqual(spec.arg_type,"int")
+        self.assertEqual(spec.min_val,1024)
+        self.assertIsNone(spec.max_val)
 
     def test_parse_float_with_max_only(self):
         """Test float argument with only max constraint."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec(
+        spec = parse_arg_spec(
             {"percentage": {"type": "float", "max": 100.0}}
         )
-        self.assertEqual(name, "percentage")
-        self.assertEqual(arg_type, "float")
-        self.assertIsNone(min_val)
-        self.assertEqual(max_val, 100.0)
+        self.assertEqual(spec.name,"percentage")
+        self.assertEqual(spec.arg_type,"float")
+        self.assertIsNone(spec.min_val)
+        self.assertEqual(spec.max_val,100.0)
 
     def test_parse_int_with_min_max_and_default(self):
         """Test integer argument with min, max, and default value."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec(
+        spec = parse_arg_spec(
             {"workers": {"type": "int", "min": 1, "max": 16, "default": 4}}
         )
-        self.assertEqual(name, "workers")
-        self.assertEqual(arg_type, "int")
-        self.assertEqual(default, "4")
-        self.assertEqual(min_val, 1)
-        self.assertEqual(max_val, 16)
+        self.assertEqual(spec.name,"workers")
+        self.assertEqual(spec.arg_type,"int")
+        self.assertEqual(spec.default,"4")
+        self.assertEqual(spec.min_val,1)
+        self.assertEqual(spec.max_val,16)
 
     def test_min_max_only_on_numeric_types_int(self):
         """Test that min/max on string type raises error."""
@@ -2402,11 +2529,11 @@ class TestArgMinMax(unittest.TestCase):
 
     def test_min_equals_max_allowed(self):
         """Test that min == max is allowed (edge case)."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec(
+        spec = parse_arg_spec(
             {"fixed": {"type": "int", "min": 42, "max": 42}}
         )
-        self.assertEqual(min_val, 42)
-        self.assertEqual(max_val, 42)
+        self.assertEqual(spec.min_val,42)
+        self.assertEqual(spec.max_val,42)
 
     def test_default_less_than_min_raises_error(self):
         """Test that default < min raises error."""
@@ -2424,75 +2551,75 @@ class TestArgMinMax(unittest.TestCase):
 
     def test_default_within_range(self):
         """Test that default within range is accepted."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec(
+        spec = parse_arg_spec(
             {"value": {"type": "int", "min": 1, "max": 100, "default": 50}}
         )
-        self.assertEqual(default, "50")
+        self.assertEqual(spec.default,"50")
 
     def test_default_equals_min(self):
         """Test that default == min is accepted."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec(
+        spec = parse_arg_spec(
             {"value": {"type": "int", "min": 10, "max": 100, "default": 10}}
         )
-        self.assertEqual(default, "10")
+        self.assertEqual(spec.default,"10")
 
     def test_default_equals_max(self):
         """Test that default == max is accepted."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec(
+        spec = parse_arg_spec(
             {"value": {"type": "int", "min": 10, "max": 100, "default": 100}}
         )
-        self.assertEqual(default, "100")
+        self.assertEqual(spec.default,"100")
 
     def test_float_range_with_precision(self):
         """Test float arguments with precision."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec(
+        spec = parse_arg_spec(
             {"ratio": {"type": "float", "min": 0.001, "max": 0.999, "default": 0.5}}
         )
-        self.assertEqual(min_val, 0.001)
-        self.assertEqual(max_val, 0.999)
-        self.assertEqual(default, "0.5")
+        self.assertEqual(spec.min_val,0.001)
+        self.assertEqual(spec.max_val,0.999)
+        self.assertEqual(spec.default,"0.5")
 
     def test_negative_int_range(self):
         """Test integer range with negative values."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec(
+        spec = parse_arg_spec(
             {"temperature": {"type": "int", "min": -100, "max": 100}}
         )
-        self.assertEqual(min_val, -100)
-        self.assertEqual(max_val, 100)
+        self.assertEqual(spec.min_val,-100)
+        self.assertEqual(spec.max_val,100)
 
     def test_negative_float_range(self):
         """Test float range with negative values."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec(
+        spec = parse_arg_spec(
             {"offset": {"type": "float", "min": -1.0, "max": 1.0}}
         )
-        self.assertEqual(min_val, -1.0)
-        self.assertEqual(max_val, 1.0)
+        self.assertEqual(spec.min_val,-1.0)
+        self.assertEqual(spec.max_val,1.0)
 
     def test_string_format_args_have_no_min_max(self):
         """Test that string format args return None for min/max."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec("count:int=5")
-        self.assertIsNone(min_val)
-        self.assertIsNone(max_val)
+        spec = parse_arg_spec("count:int=5")
+        self.assertIsNone(spec.min_val)
+        self.assertIsNone(spec.max_val)
 
     def test_inferred_type_with_min_max(self):
         """Test that min/max works with inferred int type from default."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec(
+        spec = parse_arg_spec(
             {"count": {"default": 5, "min": 1, "max": 10}}
         )
-        self.assertEqual(arg_type, "int")
-        self.assertEqual(default, "5")
-        self.assertEqual(min_val, 1)
-        self.assertEqual(max_val, 10)
+        self.assertEqual(spec.arg_type,"int")
+        self.assertEqual(spec.default,"5")
+        self.assertEqual(spec.min_val,1)
+        self.assertEqual(spec.max_val,10)
 
     def test_inferred_float_type_with_min_max(self):
         """Test that min/max works with inferred float type from default."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec(
+        spec = parse_arg_spec(
             {"ratio": {"default": 0.5, "min": 0.0, "max": 1.0}}
         )
-        self.assertEqual(arg_type, "float")
-        self.assertEqual(default, "0.5")
-        self.assertEqual(min_val, 0.0)
-        self.assertEqual(max_val, 1.0)
+        self.assertEqual(spec.arg_type,"float")
+        self.assertEqual(spec.default,"0.5")
+        self.assertEqual(spec.min_val,0.0)
+        self.assertEqual(spec.max_val,1.0)
 
 
 class TestArgTypeInference(unittest.TestCase):
@@ -2500,67 +2627,67 @@ class TestArgTypeInference(unittest.TestCase):
 
     def test_infer_int_from_min_only(self):
         """Test type inference from min value alone."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec(
+        spec = parse_arg_spec(
             {"count": {"min": 1}}
         )
-        self.assertEqual(arg_type, "int")
-        self.assertEqual(min_val, 1)
-        self.assertIsNone(max_val)
-        self.assertIsNone(default)
+        self.assertEqual(spec.arg_type,"int")
+        self.assertEqual(spec.min_val,1)
+        self.assertIsNone(spec.max_val)
+        self.assertIsNone(spec.default)
 
     def test_infer_int_from_max_only(self):
         """Test type inference from max value alone."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec(
+        spec = parse_arg_spec(
             {"count": {"max": 100}}
         )
-        self.assertEqual(arg_type, "int")
-        self.assertIsNone(min_val)
-        self.assertEqual(max_val, 100)
-        self.assertIsNone(default)
+        self.assertEqual(spec.arg_type,"int")
+        self.assertIsNone(spec.min_val)
+        self.assertEqual(spec.max_val,100)
+        self.assertIsNone(spec.default)
 
     def test_infer_float_from_min_only(self):
         """Test type inference from float min value."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec(
+        spec = parse_arg_spec(
             {"ratio": {"min": 0.5}}
         )
-        self.assertEqual(arg_type, "float")
-        self.assertEqual(min_val, 0.5)
+        self.assertEqual(spec.arg_type,"float")
+        self.assertEqual(spec.min_val,0.5)
 
     def test_infer_float_from_max_only(self):
         """Test type inference from float max value."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec(
+        spec = parse_arg_spec(
             {"ratio": {"max": 1.0}}
         )
-        self.assertEqual(arg_type, "float")
-        self.assertEqual(max_val, 1.0)
+        self.assertEqual(spec.arg_type,"float")
+        self.assertEqual(spec.max_val,1.0)
 
     def test_infer_from_min_and_max_consistent_int(self):
         """Test type inference when both min and max are int."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec(
+        spec = parse_arg_spec(
             {"port": {"min": 1024, "max": 65535}}
         )
-        self.assertEqual(arg_type, "int")
-        self.assertEqual(min_val, 1024)
-        self.assertEqual(max_val, 65535)
+        self.assertEqual(spec.arg_type,"int")
+        self.assertEqual(spec.min_val,1024)
+        self.assertEqual(spec.max_val,65535)
 
     def test_infer_from_min_and_max_consistent_float(self):
         """Test type inference when both min and max are float."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec(
+        spec = parse_arg_spec(
             {"percentage": {"min": 0.0, "max": 100.0}}
         )
-        self.assertEqual(arg_type, "float")
-        self.assertEqual(min_val, 0.0)
-        self.assertEqual(max_val, 100.0)
+        self.assertEqual(spec.arg_type,"float")
+        self.assertEqual(spec.min_val,0.0)
+        self.assertEqual(spec.max_val,100.0)
 
     def test_infer_from_all_three_consistent(self):
         """Test type inference when default, min, and max are all present and consistent."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec(
+        spec = parse_arg_spec(
             {"workers": {"default": 4, "min": 1, "max": 16}}
         )
-        self.assertEqual(arg_type, "int")
-        self.assertEqual(default, "4")
-        self.assertEqual(min_val, 1)
-        self.assertEqual(max_val, 16)
+        self.assertEqual(spec.arg_type,"int")
+        self.assertEqual(spec.default,"4")
+        self.assertEqual(spec.min_val,1)
+        self.assertEqual(spec.max_val,16)
 
     def test_error_on_inconsistent_min_max_types(self):
         """Test error when min is int but max is float."""
@@ -2598,20 +2725,20 @@ class TestArgTypeInference(unittest.TestCase):
 
     def test_explicit_type_with_matching_default(self):
         """Test that explicit type with matching default value works."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec(
+        spec = parse_arg_spec(
             {"count": {"type": "int", "default": 42}}
         )
-        self.assertEqual(arg_type, "int")
-        self.assertEqual(default, "42")
+        self.assertEqual(spec.arg_type,"int")
+        self.assertEqual(spec.default,"42")
 
     def test_explicit_type_with_matching_min_max(self):
         """Test that explicit type with matching min/max works."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec(
+        spec = parse_arg_spec(
             {"count": {"type": "int", "min": 1, "max": 100}}
         )
-        self.assertEqual(arg_type, "int")
-        self.assertEqual(min_val, 1)
-        self.assertEqual(max_val, 100)
+        self.assertEqual(spec.arg_type,"int")
+        self.assertEqual(spec.min_val,1)
+        self.assertEqual(spec.max_val,100)
 
     def test_error_explicit_type_mismatch_default(self):
         """Test error when explicit type doesn't match default type."""
@@ -2648,37 +2775,37 @@ class TestArgTypeInference(unittest.TestCase):
 
     def test_infer_bool_from_default_no_min_max(self):
         """Test that bool can be inferred from default (but bool doesn't support min/max)."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec(
+        spec = parse_arg_spec(
             {"enabled": {"default": True}}
         )
-        self.assertEqual(arg_type, "bool")
-        self.assertEqual(default, "True")
+        self.assertEqual(spec.arg_type,"bool")
+        self.assertEqual(spec.default,"True")
 
     def test_infer_str_from_default_no_min_max(self):
         """Test that str can be inferred from default."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec(
+        spec = parse_arg_spec(
             {"name": {"default": "test"}}
         )
-        self.assertEqual(arg_type, "str")
-        self.assertEqual(default, "test")
+        self.assertEqual(spec.arg_type,"str")
+        self.assertEqual(spec.default,"test")
 
     def test_negative_values_in_inference(self):
         """Test type inference with negative min/max values."""
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec(
+        spec = parse_arg_spec(
             {"temperature": {"min": -100, "max": 100, "default": -20}}
         )
-        self.assertEqual(arg_type, "int")
-        self.assertEqual(min_val, -100)
-        self.assertEqual(max_val, 100)
-        self.assertEqual(default, "-20")
+        self.assertEqual(spec.arg_type,"int")
+        self.assertEqual(spec.min_val,-100)
+        self.assertEqual(spec.max_val,100)
+        self.assertEqual(spec.default,"-20")
 
     def test_precedence_all_same_type(self):
         """Test that when all values are same type, any can be used for inference."""
         # This should work regardless of which value is checked first
-        name, arg_type, default, is_exported, min_val, max_val = parse_arg_spec(
+        spec = parse_arg_spec(
             {"value": {"max": 100, "min": 1, "default": 50}}
         )
-        self.assertEqual(arg_type, "int")
+        self.assertEqual(spec.arg_type,"int")
 
     def test_float_inference_with_integer_default(self):
         """Test that float min/max with integer default causes error."""

@@ -77,6 +77,28 @@ class Task:
 
 
 @dataclass
+class ArgSpec:
+    """Represents a parsed argument specification.
+
+    Attributes:
+        name: Argument name
+        arg_type: Type of the argument (str, int, float, bool, path)
+        default: Default value as a string (None if no default)
+        is_exported: Whether the argument is exported as an environment variable
+        min_val: Minimum value for numeric arguments (None if not specified)
+        max_val: Maximum value for numeric arguments (None if not specified)
+        choices: List of valid choices for the argument (None if not specified)
+    """
+    name: str
+    arg_type: str
+    default: str | None = None
+    is_exported: bool = False
+    min_val: int | float | None = None
+    max_val: int | float | None = None
+    choices: list[Any] | None = None
+
+
+@dataclass
 class Recipe:
     """Represents a parsed recipe file with all tasks."""
 
@@ -1150,9 +1172,9 @@ def _check_case_sensitive_arg_collisions(args: list[str], task_name: str) -> Non
     # Parse all exported arg names
     exported_names = []
     for arg_spec in args:
-        name, _, _, is_exported, _, _ = parse_arg_spec(arg_spec)
-        if is_exported:
-            exported_names.append(name)
+        parsed = parse_arg_spec(arg_spec)
+        if parsed.is_exported:
+            exported_names.append(parsed.name)
 
     # Check for case collisions
     seen_lower = {}
@@ -1172,7 +1194,7 @@ def _check_case_sensitive_arg_collisions(args: list[str], task_name: str) -> Non
             seen_lower[lower_name] = name
 
 
-def parse_arg_spec(arg_spec: str | dict) -> tuple[str, str, str | None, bool, int | float | None, int | float | None]:
+def parse_arg_spec(arg_spec: str | dict) -> ArgSpec:
     """Parse argument specification from YAML.
 
     Supports both string format and dictionary format:
@@ -1187,23 +1209,26 @@ def parse_arg_spec(arg_spec: str | dict) -> tuple[str, str, str | None, bool, in
         - argname: { default: "value" }
         - argname: { type: int, default: 42 }
         - argname: { type: int, min: 1, max: 100 }
+        - argname: { type: str, choices: ["dev", "staging", "prod"] }
         - $argname: { default: "value" }  # Exported
 
     Args:
         arg_spec: Argument specification (string or dict with single key)
 
     Returns:
-        Tuple of (name, type, default, is_exported, min, max)
+        ArgSpec object containing parsed argument information
 
     Examples:
         >>> parse_arg_spec("environment")
-        ('environment', 'str', None, False, None, None)
+        ArgSpec(name='environment', arg_type='str', default=None, is_exported=False, min_val=None, max_val=None, choices=None)
         >>> parse_arg_spec({"key2": {"default": "foo"}})
-        ('key2', 'str', 'foo', False, None, None)
+        ArgSpec(name='key2', arg_type='str', default='foo', is_exported=False, min_val=None, max_val=None, choices=None)
         >>> parse_arg_spec({"key3": {"type": "int", "default": 42}})
-        ('key3', 'int', '42', False, None, None)
+        ArgSpec(name='key3', arg_type='int', default='42', is_exported=False, min_val=None, max_val=None, choices=None)
         >>> parse_arg_spec({"replicas": {"type": "int", "min": 1, "max": 100}})
-        ('replicas', 'int', None, False, 1, 100)
+        ArgSpec(name='replicas', arg_type='int', default=None, is_exported=False, min_val=1, max_val=100, choices=None)
+        >>> parse_arg_spec({"env": {"type": "str", "choices": ["dev", "prod"]}})
+        ArgSpec(name='env', arg_type='str', default=None, is_exported=False, min_val=None, max_val=None, choices=['dev', 'prod'])
 
     Raises:
         ValueError: If argument specification is invalid
@@ -1266,26 +1291,34 @@ def parse_arg_spec(arg_spec: str | dict) -> tuple[str, str, str | None, bool, in
         name = name_type
         arg_type = "str"
 
-    # String format doesn't support min/max
-    return name, arg_type, default, is_exported, None, None
+    # String format doesn't support min/max/choices
+    return ArgSpec(
+        name=name,
+        arg_type=arg_type,
+        default=default,
+        is_exported=is_exported,
+        min_val=None,
+        max_val=None,
+        choices=None
+    )
 
 
-def _parse_arg_dict(arg_name: str, config: dict, is_exported: bool) -> tuple[str, str, str | None, bool, int | float | None, int | float | None]:
+def _parse_arg_dict(arg_name: str, config: dict, is_exported: bool) -> ArgSpec:
     """Parse argument specification from dictionary format.
 
     Args:
         arg_name: Name of the argument
-        config: Dictionary with optional keys: type, default, min, max
+        config: Dictionary with optional keys: type, default, min, max, choices
         is_exported: Whether argument should be exported to environment
 
     Returns:
-        Tuple of (name, type, default, is_exported, min, max)
+        ArgSpec object containing the parsed argument specification
 
     Raises:
         ValueError: If dictionary format is invalid
     """
     # Validate dictionary keys
-    valid_keys = {"type", "default", "min", "max"}
+    valid_keys = {"type", "default", "min", "max", "choices"}
     invalid_keys = set(config.keys()) - valid_keys
     if invalid_keys:
         raise ValueError(
@@ -1298,6 +1331,7 @@ def _parse_arg_dict(arg_name: str, config: dict, is_exported: bool) -> tuple[str
     default = config.get("default")
     min_val = config.get("min")
     max_val = config.get("max")
+    choices = config.get("choices")
 
     # Track if an explicit type was provided (for validation later)
     explicit_type = arg_type
@@ -1309,7 +1343,28 @@ def _parse_arg_dict(arg_name: str, config: dict, is_exported: bool) -> tuple[str
             f"Exported arguments are always strings. Remove the 'type' field"
         )
 
-    # Infer type from default, min, or max if type not specified
+    # Validate choices
+    if choices is not None:
+        # Validate choices is a list
+        if not isinstance(choices, list):
+            raise ValueError(
+                f"Argument '{arg_name}': choices must be a list"
+            )
+
+        # Validate choices is not empty
+        if len(choices) == 0:
+            raise ValueError(
+                f"Argument '{arg_name}': choices list cannot be empty"
+            )
+
+        # Check for mutual exclusivity with min/max
+        if min_val is not None or max_val is not None:
+            raise ValueError(
+                f"Argument '{arg_name}': choices and min/max are mutually exclusive.\n"
+                f"Use either choices for discrete values or min/max for ranges, not both."
+            )
+
+    # Infer type from default, min, max, or choices if type not specified
     if arg_type is None:
         # Collect all values that can help infer type
         inferred_types = []
@@ -1320,6 +1375,8 @@ def _parse_arg_dict(arg_name: str, config: dict, is_exported: bool) -> tuple[str
             inferred_types.append(("min", _infer_variable_type(min_val)))
         if max_val is not None:
             inferred_types.append(("max", _infer_variable_type(max_val)))
+        if choices is not None and len(choices) > 0:
+            inferred_types.append(("choices[0]", _infer_variable_type(choices[0])))
 
         if inferred_types:
             # Check all inferred types are consistent
@@ -1391,6 +1448,44 @@ def _parse_arg_dict(arg_name: str, config: dict, is_exported: bool) -> tuple[str
             f"Supported types: str, int, float, bool, path, datetime, ip, ipv4, ipv6, email, hostname"
         )
 
+    # Validate choices
+    if choices is not None:
+        # Boolean types cannot have choices
+        if arg_type == "bool":
+            raise ValueError(
+                f"Argument '{arg_name}': boolean types cannot have choices.\n"
+                f"Boolean values are already limited to true/false."
+            )
+
+        # Validate all choices are the same type
+        if len(choices) > 0:
+            first_choice_type = _infer_variable_type(choices[0])
+
+            # If explicit type was provided, validate choices match it
+            if explicit_type is not None and first_choice_type != explicit_type:
+                raise ValueError(
+                    f"Argument '{arg_name}': choice values do not match explicit type '{explicit_type}'.\n"
+                    f"First choice has type '{first_choice_type}'"
+                )
+
+            # Check all choices have the same type
+            for i, choice in enumerate(choices[1:], start=1):
+                choice_type = _infer_variable_type(choice)
+                if choice_type != first_choice_type:
+                    raise ValueError(
+                        f"Argument '{arg_name}': all choice values must have the same type.\n"
+                        f"First choice has type '{first_choice_type}', but choice at index {i} has type '{choice_type}'"
+                    )
+
+            # Validate all choices are valid for the type
+            for i, choice in enumerate(choices):
+                try:
+                    validator.convert(choice, None, None)
+                except Exception as e:
+                    raise ValueError(
+                        f"Argument '{arg_name}': choice at index {i} ({choice!r}) is invalid for type '{arg_type}': {e}"
+                    )
+
     # Validate and convert default value
     if default is not None:
         # Validate that default is compatible with the declared type
@@ -1414,12 +1509,33 @@ def _parse_arg_dict(arg_name: str, config: dict, is_exported: bool) -> tuple[str
                     f"Default value for argument '{arg_name}' ({default}) is greater than max ({max_val})"
                 )
 
+            # Validate default is in choices list
+            if choices is not None and converted_default not in choices:
+                raise ValueError(
+                    f"Default value for argument '{arg_name}' ({default}) is not in the choices list.\n"
+                    f"Valid choices: {choices}"
+                )
+
             # After validation, convert to string for storage
             default_str = str(default)
         else:
+            # For string type, validate default is in choices
+            if choices is not None and default not in choices:
+                raise ValueError(
+                    f"Default value for argument '{arg_name}' ({default}) is not in the choices list.\n"
+                    f"Valid choices: {choices}"
+                )
             default_str = str(default)
     else:
         # None remains None (not the string "None")
         default_str = None
 
-    return arg_name, arg_type, default_str, is_exported, min_val, max_val
+    return ArgSpec(
+        name=arg_name,
+        arg_type=arg_type,
+        default=default_str,
+        is_exported=is_exported,
+        min_val=min_val,
+        max_val=max_val,
+        choices=choices
+    )
