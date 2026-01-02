@@ -115,7 +115,7 @@ tasks:
                 # Verify all types converted to strings
                 output_file = project_root / "config.txt"
                 content = output_file.read_text().strip()
-                self.assertEqual(content, "port=8080 debug=True timeout=30.5")
+                self.assertEqual(content, "port=8080 debug=true timeout=30.5")
 
             finally:
                 os.chdir(original_cwd)

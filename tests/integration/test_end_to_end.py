@@ -69,7 +69,7 @@ tasks:
                 self.assertIn("env=staging", log_content)
                 self.assertIn("region=eu-west-1", log_content)
                 self.assertIn("port=9000", log_content)  # Type converted to int
-                self.assertIn("debug=True", log_content)  # Type converted to bool
+                self.assertIn("debug=true", log_content)  # Type converted to bool (lowercase)
 
                 # Clean up for next test
                 (project_root / "deploy.log").unlink()
@@ -86,7 +86,7 @@ tasks:
                 self.assertIn("env=production", log_content)
                 self.assertIn("region=us-west-1", log_content)  # Default
                 self.assertIn("port=8080", log_content)  # Default
-                self.assertIn("debug=True", log_content)  # Provided
+                self.assertIn("debug=true", log_content)  # Provided (lowercase)
 
             finally:
                 os.chdir(original_cwd)
