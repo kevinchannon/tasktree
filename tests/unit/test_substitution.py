@@ -167,7 +167,7 @@ class TestSubstituteArguments(unittest.TestCase):
         text = "port={{ arg.port }} debug={{ arg.debug }} timeout={{ arg.timeout }}"
         args = {"port": 8080, "debug": True, "timeout": 30.5}
         result = substitute_arguments(text, args)
-        self.assertEqual(result, "port=8080 debug=True timeout=30.5")
+        self.assertEqual(result, "port=8080 debug=true timeout=30.5")
 
     def test_substitute_ignores_var_prefix(self):
         """Test {{ var.name }} is not substituted."""
@@ -216,7 +216,7 @@ class TestSubstituteArguments(unittest.TestCase):
 
         text = "port={{ arg.port }} debug={{ arg.verbose }}"
         result = substitute_arguments(text, args, exported_args)
-        self.assertEqual(result, "port=8080 debug=True")
+        self.assertEqual(result, "port=8080 debug=true")
 
         # Exported arg should fail
         with self.assertRaises(ValueError):
