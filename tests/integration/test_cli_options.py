@@ -112,7 +112,7 @@ tasks:
                 # Test that --list (built-in option) still works
                 result = self.runner.invoke(app, ["--list"], env=self.env)
                 self.assertEqual(result.exit_code, 0)
-                self.assertIn("Available Tasks", result.stdout)
+                # New borderless format shows task names without a title
                 self.assertIn("show", result.stdout)
                 self.assertIn("build", result.stdout)
 
