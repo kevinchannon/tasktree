@@ -61,13 +61,6 @@ tasks:
 
                 # Run test_debug - should build with debug mode
                 result = self.runner.invoke(app, ["test_debug"], env=self.env)
-                if result.exit_code != 0:
-                    print(f"\nTest failed with exit code {result.exit_code}")
-                    print(f"Output: {result.output}")
-                    if result.exception:
-                        print(f"Exception: {result.exception}")
-                        import traceback
-                        traceback.print_exception(type(result.exception), result.exception, result.exception.__traceback__)
                 self.assertEqual(result.exit_code, 0)
 
                 # Verify debug build was created
@@ -160,7 +153,9 @@ tasks:
 
   process:
     deps:
-      - generate: {format: xml, pretty: true}
+      - generate:
+          format: xml
+          pretty: true
     outputs: [processed.log]
     cmd: echo "Processing XML" > processed.log
 """)
