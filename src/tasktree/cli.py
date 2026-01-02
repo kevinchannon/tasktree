@@ -48,7 +48,8 @@ def _format_task_arguments(arg_specs: list[str]) -> str:
         parsed = parse_arg_spec(spec_str)
 
         # Format: name:type or name:type [=default]
-        arg_part = f"{parsed.name}:{parsed.arg_type}"
+        # Argument names in normal intensity, types and defaults in dim
+        arg_part = f"{parsed.name}[dim]:{parsed.arg_type}[/dim]"
 
         if parsed.default is not None:
             # Use dim styling for the default value part
