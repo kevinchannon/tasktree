@@ -54,7 +54,7 @@ def _format_task_arguments(arg_specs: list[str | dict]) -> str:
 
         if parsed.default is not None:
             # Use dim styling for the default value part
-            arg_part += f" [dim]\[={parsed.default}][/dim]"
+            arg_part += f" [dim]\\[={parsed.default}][/dim]"
 
         formatted_parts.append(arg_part)
 

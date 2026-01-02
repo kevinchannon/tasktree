@@ -71,7 +71,7 @@ class TestTaskStatus(unittest.TestCase):
             recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
             executor = Executor(recipe, state_manager)
 
-            status = executor.check_task_status(task, {}, {})
+            status = executor.check_task_status(task, {})
             self.assertFalse(status.will_run)
             self.assertEqual(status.reason, "fresh")
 
@@ -174,7 +174,7 @@ class TestMissingOutputs(unittest.TestCase):
             recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
             executor = Executor(recipe, state_manager)
 
-            status = executor.check_task_status(task, {}, {})
+            status = executor.check_task_status(task, {})
             self.assertFalse(status.will_run)
             self.assertEqual(status.reason, "fresh")
 
@@ -207,7 +207,7 @@ class TestMissingOutputs(unittest.TestCase):
             recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
             executor = Executor(recipe, state_manager)
 
-            status = executor.check_task_status(task, {}, {})
+            status = executor.check_task_status(task, {})
             self.assertTrue(status.will_run)
             self.assertEqual(status.reason, "outputs_missing")
             self.assertEqual(status.changed_files, ["output.txt"])
@@ -242,7 +242,7 @@ class TestMissingOutputs(unittest.TestCase):
             recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
             executor = Executor(recipe, state_manager)
 
-            status = executor.check_task_status(task, {}, {})
+            status = executor.check_task_status(task, {})
             self.assertTrue(status.will_run)
             self.assertEqual(status.reason, "outputs_missing")
             self.assertIn("output2.txt", status.changed_files)
@@ -263,7 +263,7 @@ class TestMissingOutputs(unittest.TestCase):
             recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
             executor = Executor(recipe, state_manager)
 
-            status = executor.check_task_status(task, {}, {})
+            status = executor.check_task_status(task, {})
             self.assertTrue(status.will_run)
             self.assertEqual(status.reason, "never_run")  # Not outputs_missing
 
@@ -279,7 +279,7 @@ class TestMissingOutputs(unittest.TestCase):
             recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
             executor = Executor(recipe, state_manager)
 
-            status = executor.check_task_status(task, {}, {})
+            status = executor.check_task_status(task, {})
             self.assertTrue(status.will_run)
             self.assertEqual(status.reason, "no_outputs")  # Always runs
 
@@ -317,7 +317,7 @@ class TestMissingOutputs(unittest.TestCase):
             recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
             executor = Executor(recipe, state_manager)
 
-            status = executor.check_task_status(task, {}, {})
+            status = executor.check_task_status(task, {})
             self.assertFalse(status.will_run)
             self.assertEqual(status.reason, "fresh")
 
@@ -350,7 +350,7 @@ class TestMissingOutputs(unittest.TestCase):
             recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
             executor = Executor(recipe, state_manager)
 
-            status = executor.check_task_status(task, {}, {})
+            status = executor.check_task_status(task, {})
             self.assertTrue(status.will_run)
             self.assertEqual(status.reason, "outputs_missing")
 

@@ -1646,6 +1646,25 @@ def parse_dependency_spec(dep_spec: str | dict[str, Any], recipe: Recipe) -> Dep
     )
 
 
+def _get_validated_task(task_name: str, recipe: Recipe) -> Task:
+    """Get and validate that a task exists in the recipe.
+
+    Args:
+        task_name: Name of the task to retrieve
+        recipe: Recipe containing task definitions
+
+    Returns:
+        The validated Task object
+
+    Raises:
+        ValueError: If task is not found
+    """
+    task = recipe.get_task(task_name)
+    if task is None:
+        raise ValueError(f"Dependency task not found: {task_name}")
+    return task
+
+
 def _parse_positional_dependency_args(
     task_name: str, args_list: list[Any], recipe: Recipe
 ) -> DependencyInvocation:
@@ -1663,9 +1682,7 @@ def _parse_positional_dependency_args(
         ValueError: If validation fails
     """
     # Get the task to validate against
-    task = recipe.get_task(task_name)
-    if task is None:
-        raise ValueError(f"Dependency task not found: {task_name}")
+    task = _get_validated_task(task_name, recipe)
 
     # Parse task's arg specs
     if not task.args:
@@ -1719,9 +1736,7 @@ def _parse_named_dependency_args(
         ValueError: If validation fails
     """
     # Get the task to validate against
-    task = recipe.get_task(task_name)
-    if task is None:
-        raise ValueError(f"Dependency task not found: {task_name}")
+    task = _get_validated_task(task_name, recipe)
 
     # Parse task's arg specs
     if not task.args:
@@ -1745,8 +1760,9 @@ def _parse_named_dependency_args(
     normalized_args = {}
     for spec in parsed_specs:
         if spec.name in args_dict:
-            # Use provided value
-            normalized_args[spec.name] = args_dict[spec.name]
+            # Use provided value with type conversion
+            click_type = get_click_type(spec.arg_type, min_val=spec.min_val, max_val=spec.max_val)
+            normalized_args[spec.name] = click_type.convert(args_dict[spec.name], None, None)
         elif spec.default is not None:
             # Use default value
             click_type = get_click_type(spec.arg_type, min_val=spec.min_val, max_val=spec.max_val)

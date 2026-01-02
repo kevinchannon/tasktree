@@ -4,6 +4,7 @@ from graphlib import TopologicalSorter
 from pathlib import Path
 from typing import Any
 
+from tasktree.hasher import hash_args
 from tasktree.parser import Recipe, Task, DependencyInvocation, parse_dependency_spec
 
 
@@ -32,7 +33,6 @@ class TaskNode:
 
     def __hash__(self):
         """Hash based on task name and sorted args."""
-        from tasktree.hasher import hash_args
         if not self.args:
             return hash(self.task_name)
         args_hash = hash_args(self.args)
@@ -87,8 +87,6 @@ def resolve_execution_order(
 
     def get_or_create_node(task_name: str, args: dict[str, Any] | None) -> TaskNode:
         """Get existing node or create new one for this invocation."""
-        from tasktree.hasher import hash_args
-
         args_dict = args or {}
         args_hash = hash_args(args_dict) if args_dict else ""
         key = (task_name, args_hash)

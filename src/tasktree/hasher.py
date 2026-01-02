@@ -68,7 +68,7 @@ def hash_task(
 
     # Include dependency invocation signatures if provided
     if deps is not None:
-        # Normalize deps for hashing
+        # Normalize deps for hashing using JSON serialization for consistency
         normalized_deps = []
         for dep in deps:
             if isinstance(dep, str):
@@ -80,7 +80,8 @@ def hash_task(
                 normalized_deps.append(dict(sorted(dep.items())))
             else:
                 normalized_deps.append(dep)
-        data["deps"] = sorted(normalized_deps, key=str)
+        # Sort using JSON serialization for consistent ordering
+        data["deps"] = sorted(normalized_deps, key=lambda x: json.dumps(x, sort_keys=True) if isinstance(x, dict) else x)
 
     serialized = json.dumps(data, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(serialized.encode()).hexdigest()[:8]

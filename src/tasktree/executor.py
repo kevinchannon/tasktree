@@ -386,8 +386,13 @@ class Executor:
             status = self.check_task_status(task, task_args, force=force)
 
             # Use a key that includes args for status tracking
-            from tasktree.hasher import hash_args
-            status_key = name if not task_args else f"{name}({hash_args(task_args)})"
+            # Use JSON serialization to avoid hash collisions
+            if task_args:
+                import json
+                args_str = json.dumps(task_args, sort_keys=True, separators=(",", ":"))
+                status_key = f"{name}({args_str})"
+            else:
+                status_key = name
             statuses[status_key] = status
 
             # Execute immediately if needed

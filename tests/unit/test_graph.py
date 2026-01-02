@@ -20,7 +20,7 @@ class TestResolveExecutionOrder(unittest.TestCase):
         recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
 
         order = resolve_execution_order(recipe, "build")
-        self.assertEqual(order, ["build"])
+        self.assertEqual(order, [("build", {})])
 
     def test_linear_dependencies(self):
         """Test execution order for linear dependency chain."""
@@ -32,7 +32,7 @@ class TestResolveExecutionOrder(unittest.TestCase):
         recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
 
         order = resolve_execution_order(recipe, "test")
-        self.assertEqual(order, ["lint", "build", "test"])
+        self.assertEqual(order, [("lint", {}), ("build", {}), ("test", {})])
 
     def test_diamond_dependencies(self):
         """Test execution order for diamond dependency pattern."""
@@ -45,14 +45,16 @@ class TestResolveExecutionOrder(unittest.TestCase):
         recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
 
         order = resolve_execution_order(recipe, "d")
+        # Extract task names for easier comparison
+        task_names = [name for name, args in order]
         # Should include all tasks
-        self.assertEqual(set(order), {"a", "b", "c", "d"})
+        self.assertEqual(set(task_names), {"a", "b", "c", "d"})
         # Should execute 'a' before 'b' and 'c'
-        self.assertLess(order.index("a"), order.index("b"))
-        self.assertLess(order.index("a"), order.index("c"))
+        self.assertLess(task_names.index("a"), task_names.index("b"))
+        self.assertLess(task_names.index("a"), task_names.index("c"))
         # Should execute 'b' and 'c' before 'd'
-        self.assertLess(order.index("b"), order.index("d"))
-        self.assertLess(order.index("c"), order.index("d"))
+        self.assertLess(task_names.index("b"), task_names.index("d"))
+        self.assertLess(task_names.index("c"), task_names.index("d"))
 
     def test_task_not_found(self):
         """Test error when task doesn't exist."""
