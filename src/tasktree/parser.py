@@ -1259,18 +1259,16 @@ def parse_arg_spec(arg_spec: str | dict) -> ArgSpec:
 
     Supports both string format and dictionary format:
 
-    String format:
+    String format (simple names only):
         - Simple name: "argname"
         - Exported (becomes env var): "$argname"
-        - With default: "argname=value" or "$argname=value"
-        - Legacy type syntax: "argname:type=value" (for backwards compat)
 
     Dictionary format:
         - argname: { default: "value" }
         - argname: { type: int, default: 42 }
         - argname: { type: int, min: 1, max: 100 }
         - argname: { type: str, choices: ["dev", "staging", "prod"] }
-        - $argname: { default: "value" }  # Exported
+        - $argname: { default: "value" }  # Exported (type not allowed)
 
     Args:
         arg_spec: Argument specification (string or dict with single key)
@@ -1328,34 +1326,24 @@ def parse_arg_spec(arg_spec: str | dict) -> ArgSpec:
     if is_exported:
         arg_spec = arg_spec[1:]  # Remove $ prefix
 
-    # Split on = to separate name:type from default
-    if "=" in arg_spec:
-        name_type, default = arg_spec.split("=", 1)
-    else:
-        name_type = arg_spec
-        default = None
+    # String format only supports simple names (no = or :)
+    if "=" in arg_spec or ":" in arg_spec:
+        raise ValueError(
+            f"Invalid argument syntax: {'$' if is_exported else ''}{arg_spec}\n\n"
+            f"String format only supports simple argument names.\n"
+            f"Use YAML dict format for type annotations, defaults, or constraints:\n"
+            f"  args:\n"
+            f"    - {'$' if is_exported else ''}{arg_spec.split('=')[0].split(':')[0]}: {{ default: value }}"
+        )
 
-    # Split on : to separate name from type
-    if ":" in name_type:
-        name, arg_type = name_type.split(":", 1)
+    name = arg_spec
+    arg_type = "str"
 
-        # Exported arguments cannot have type annotations
-        if is_exported:
-            raise ValueError(
-                f"Type annotations not allowed on exported arguments\n"
-                f"In argument: ${name}:{arg_type}\n\n"
-                f"Exported arguments are always strings. Remove the type annotation:\n"
-                f"  args: [${name}]"
-            )
-    else:
-        name = name_type
-        arg_type = "str"
-
-    # String format doesn't support min/max/choices
+    # String format doesn't support min/max/choices/defaults
     return ArgSpec(
         name=name,
         arg_type=arg_type,
-        default=default,
+        default=None,
         is_exported=is_exported,
         min_val=None,
         max_val=None,
@@ -1401,6 +1389,15 @@ def _parse_arg_dict(arg_name: str, config: dict, is_exported: bool) -> ArgSpec:
         raise ValueError(
             f"Type annotations not allowed on exported argument '${arg_name}'\n"
             f"Exported arguments are always strings. Remove the 'type' field"
+        )
+
+    # Exported arguments must have string defaults (if any default is provided)
+    if is_exported and default is not None and not isinstance(default, str):
+        raise ValueError(
+            f"Exported argument '${arg_name}' must have a string default value.\n"
+            f"Got: {default!r} (type: {type(default).__name__})\n"
+            f"Exported arguments become environment variables, which are always strings.\n"
+            f"Use a quoted string: ${arg_name}: {{ default: \"{default}\" }}"
         )
 
     # Validate choices

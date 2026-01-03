@@ -18,7 +18,7 @@ class TestDependencyParsing(unittest.TestCase):
         self.task_with_args = Task(
             name="process",
             cmd="echo mode={{arg.mode}} verbose={{arg.verbose}}",
-            args=["mode", "verbose=false"],
+            args=["mode", {"verbose": {"default": "false"}}],
         )
         self.task_no_args = Task(
             name="build",

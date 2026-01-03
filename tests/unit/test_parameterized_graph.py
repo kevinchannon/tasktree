@@ -84,7 +84,7 @@ class TestParameterizedGraphConstruction(unittest.TestCase):
             "process": Task(
                 name="process",
                 cmd="echo mode={{arg.mode}}",
-                args=["mode=debug"],
+                args=[{"mode": {"default": "debug"}}],
                 deps=[],
             ),
             "consumer1": Task(

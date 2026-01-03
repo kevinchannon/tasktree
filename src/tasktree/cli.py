@@ -192,10 +192,12 @@ tasks:
   # deploy:
   #   desc: Deploy to environment
   #   deps: [build]
-  #   args: [environment, region=eu-west-1]
+  #   args:
+  #     - environment
+  #     - region: { default: eu-west-1 }
   #   cmd: |
-  #     echo "Deploying to {{environment}} in {{region}}"
-  #     ./deploy.sh {{environment}} {{region}}
+  #     echo "Deploying to {{ arg.environment }} in {{ arg.region }}"
+  #     ./deploy.sh {{ arg.environment }} {{ arg.region }}
 
 # Uncomment and modify the examples above to define your tasks
 """

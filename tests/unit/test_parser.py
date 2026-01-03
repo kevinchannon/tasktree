@@ -27,29 +27,23 @@ class TestParseArgSpec(unittest.TestCase):
         self.assertIsNone(spec.default)
         self.assertFalse(spec.is_exported)
 
-    def test_parse_arg_with_default(self):
-        """Test parsing argument with default value."""
-        spec = parse_arg_spec("region=eu-west-1")
-        self.assertEqual(spec.name,"region")
-        self.assertEqual(spec.arg_type,"str")
-        self.assertEqual(spec.default,"eu-west-1")
-        self.assertFalse(spec.is_exported)
+    def test_parse_arg_with_default_raises_error(self):
+        """Test that string format with default raises error."""
+        with self.assertRaises(ValueError) as context:
+            parse_arg_spec("region=eu-west-1")
+        self.assertIn("Invalid argument syntax", str(context.exception))
 
-    def test_parse_arg_with_type(self):
-        """Test parsing argument with type."""
-        spec = parse_arg_spec("port:int")
-        self.assertEqual(spec.name,"port")
-        self.assertEqual(spec.arg_type,"int")
-        self.assertIsNone(spec.default)
-        self.assertFalse(spec.is_exported)
+    def test_parse_arg_with_type_raises_error(self):
+        """Test that string format with type raises error."""
+        with self.assertRaises(ValueError) as context:
+            parse_arg_spec("port:int")
+        self.assertIn("Invalid argument syntax", str(context.exception))
 
-    def test_parse_arg_with_type_and_default(self):
-        """Test parsing argument with type and default."""
-        spec = parse_arg_spec("port:int=8080")
-        self.assertEqual(spec.name,"port")
-        self.assertEqual(spec.arg_type,"int")
-        self.assertEqual(spec.default,"8080")
-        self.assertFalse(spec.is_exported)
+    def test_parse_arg_with_type_and_default_raises_error(self):
+        """Test that string format with type and default raises error."""
+        with self.assertRaises(ValueError) as context:
+            parse_arg_spec("port:int=8080")
+        self.assertIn("Invalid argument syntax", str(context.exception))
 
     def test_parse_exported_arg(self):
         """Test parsing exported argument ($ prefix)."""
@@ -59,39 +53,34 @@ class TestParseArgSpec(unittest.TestCase):
         self.assertIsNone(spec.default)
         self.assertTrue(spec.is_exported)
 
-    def test_parse_exported_arg_with_default(self):
-        """Test parsing exported argument with default value."""
-        spec = parse_arg_spec("$user=admin")
-        self.assertEqual(spec.name,"user")
-        self.assertEqual(spec.arg_type,"str")
-        self.assertEqual(spec.default,"admin")
-        self.assertTrue(spec.is_exported)
+    def test_parse_exported_arg_with_default_raises_error(self):
+        """Test that exported argument string format with default raises error."""
+        with self.assertRaises(ValueError) as context:
+            parse_arg_spec("$user=admin")
+        self.assertIn("Invalid argument syntax", str(context.exception))
 
     def test_parse_exported_arg_with_type_raises_error(self):
         """Test that exported arguments with type annotations raise error."""
         with self.assertRaises(ValueError) as context:
             parse_arg_spec("$server:str")
-        self.assertIn("Type annotations not allowed on exported arguments", str(context.exception))
-        self.assertIn("$server:str", str(context.exception))
+        self.assertIn("Invalid argument syntax", str(context.exception))
 
     def test_parse_exported_arg_with_type_and_default_raises_error(self):
         """Test that exported arguments with type and default raise error."""
         with self.assertRaises(ValueError) as context:
             parse_arg_spec("$port:int=8080")
-        self.assertIn("Type annotations not allowed on exported arguments", str(context.exception))
+        self.assertIn("Invalid argument syntax", str(context.exception))
 
     def test_yaml_parses_dollar_prefix_as_literal(self):
         """Test that PyYAML correctly parses $ prefix as literal text."""
         yaml_text = """
 args:
   - $server
-  - $user=admin
-  - port:int=8080
+  - environment
 """
         data = yaml.safe_load(yaml_text)
         self.assertEqual(data["args"][0], "$server")
-        self.assertEqual(data["args"][1], "$user=admin")
-        self.assertEqual(data["args"][2], "port:int=8080")
+        self.assertEqual(data["args"][1], "environment")
 
 
 class TestParseArgSpecYAML(unittest.TestCase):
@@ -416,7 +405,9 @@ tasks:
     inputs: ["src/**/*.rs"]
     outputs: [target/release/bin]
     working_dir: subproject
-    args: [environment, region=eu-west-1]
+    args:
+      - environment
+      - region: { default: eu-west-1 }
     cmd: cargo build --release
 """
             )
@@ -428,7 +419,9 @@ tasks:
             self.assertEqual(task.inputs, ["src/**/*.rs"])
             self.assertEqual(task.outputs, ["target/release/bin"])
             self.assertEqual(task.working_dir, "subproject")
-            self.assertEqual(task.args, ["environment", "region=eu-west-1"])
+            self.assertEqual(len(task.args), 2)
+            self.assertEqual(task.args[0], "environment")
+            self.assertIsInstance(task.args[1], dict)
             self.assertEqual(task.cmd, "cargo build --release")
 
     def test_parse_with_imports(self):
@@ -729,7 +722,9 @@ tasks:
     inputs: ["src/**/*.rs"]
     outputs: [target/release/bin]
     working_dir: subproject
-    args: [environment, region=eu-west-1]
+    args:
+      - environment
+      - region: { default: eu-west-1 }
     cmd: cargo build --release
 """)
 
@@ -747,7 +742,7 @@ imports:
             self.assertEqual(task.inputs, ["src/**/*.rs"])
             self.assertEqual(task.outputs, ["target/release/bin"])
             self.assertEqual(task.working_dir, "subproject")
-            self.assertEqual(task.args, ["environment", "region=eu-west-1"])
+            self.assertEqual(task.args, ["environment", {"region": {"default": "eu-west-1"}}])
             self.assertEqual(task.cmd, "cargo build --release")
 
     def test_cross_import_dependencies(self):
@@ -2664,7 +2659,7 @@ class TestArgMinMax(unittest.TestCase):
 
     def test_string_format_args_have_no_min_max(self):
         """Test that string format args return None for min/max."""
-        spec = parse_arg_spec("count:int=5")
+        spec = parse_arg_spec("count")
         self.assertIsNone(spec.min_val)
         self.assertIsNone(spec.max_val)
 

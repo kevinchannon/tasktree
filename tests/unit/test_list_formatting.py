@@ -25,7 +25,7 @@ class TestFormatTaskArguments(unittest.TestCase):
 
     def test_format_single_optional_argument(self):
         """Test formatting task with single optional argument."""
-        result = _format_task_arguments(["environment=production"])
+        result = _format_task_arguments([{"environment": {"default": "production"}}])
         self.assertIn("environment[dim]:str[/dim]", result)
         self.assertIn("[dim]\\[=production][/dim]", result)
 
@@ -39,7 +39,7 @@ class TestFormatTaskArguments(unittest.TestCase):
 
     def test_format_multiple_optional_arguments(self):
         """Test formatting task with multiple optional arguments."""
-        result = _format_task_arguments(["mode=debug", "target=x86_64"])
+        result = _format_task_arguments([{"mode": {"default": "debug"}}, {"target": {"default": "x86_64"}}])
         self.assertIn("mode[dim]:str[/dim]", result)
         self.assertIn("[dim]\\[=debug][/dim]", result)
         self.assertIn("target[dim]:str[/dim]", result)
@@ -47,7 +47,7 @@ class TestFormatTaskArguments(unittest.TestCase):
 
     def test_format_mixed_required_and_optional_arguments(self):
         """Test formatting task with mixed required and optional arguments."""
-        result = _format_task_arguments(["environment", "region=us-west-1"])
+        result = _format_task_arguments(["environment", {"region": {"default": "us-west-1"}}])
         self.assertIn("environment[dim]:str[/dim]", result)
         self.assertIn("region[dim]:str[/dim]", result)
         self.assertIn("[dim]\\[=us-west-1][/dim]", result)
@@ -66,7 +66,7 @@ class TestFormatTaskArguments(unittest.TestCase):
 
     def test_format_default_values_with_equals_sign(self):
         """Test formatting shows default values with equals sign."""
-        result = _format_task_arguments(["port=8080"])
+        result = _format_task_arguments([{"port": {"default": "8080"}}])
         self.assertIn("[dim]\\[=8080][/dim]", result)
 
     def test_format_shows_str_type_explicitly(self):
@@ -76,22 +76,22 @@ class TestFormatTaskArguments(unittest.TestCase):
 
     def test_format_shows_int_type(self):
         """Test formatting shows int type."""
-        result = _format_task_arguments(["port:int"])
+        result = _format_task_arguments([{"port": {"type": "int"}}])
         self.assertIn("port[dim]:int[/dim]", result)
 
     def test_format_shows_float_type(self):
         """Test formatting shows float type."""
-        result = _format_task_arguments(["timeout:float"])
+        result = _format_task_arguments([{"timeout": {"type": "float"}}])
         self.assertIn("timeout[dim]:float[/dim]", result)
 
     def test_format_shows_bool_type(self):
         """Test formatting shows bool type."""
-        result = _format_task_arguments(["verbose:bool"])
+        result = _format_task_arguments([{"verbose": {"type": "bool"}}])
         self.assertIn("verbose[dim]:bool[/dim]", result)
 
     def test_format_shows_path_type(self):
         """Test formatting shows path type."""
-        result = _format_task_arguments(["output:path"])
+        result = _format_task_arguments([{"output": {"type": "path"}}])
         self.assertIn("output[dim]:path[/dim]", result)
 
     def test_format_shows_datetime_type(self):
@@ -150,7 +150,7 @@ class TestFormatTaskArguments(unittest.TestCase):
     def test_format_escapes_rich_markup_in_defaults(self):
         """Test formatting properly escapes Rich markup in default values."""
         # Test with brackets in default value
-        result = _format_task_arguments(["pattern=[a-z]+"])
+        result = _format_task_arguments([{"pattern": {"default": "[a-z]+"}}])
         # The brackets in the default should be escaped
         self.assertIn("[dim]\\[=[a-z]+][/dim]", result)
 
