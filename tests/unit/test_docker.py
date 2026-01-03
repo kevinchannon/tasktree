@@ -142,6 +142,39 @@ class TestIsDockerEnvironment(unittest.TestCase):
         )
         self.assertFalse(is_docker_environment(env))
 
+    def test_shell_environment_with_list_args(self):
+        """Test that shell environments still work with list args (backward compatibility)."""
+        # Shell environments should use list args for shell arguments
+        env = Environment(
+            name="bash",
+            shell="bash",
+            args=["-c", "-e"],  # List of shell arguments
+        )
+
+        # Verify it's recognized as a shell environment (not Docker)
+        self.assertFalse(is_docker_environment(env))
+
+        # Verify args are stored as a list
+        self.assertIsInstance(env.args, list)
+        self.assertEqual(env.args, ["-c", "-e"])
+
+    def test_docker_environment_with_dict_args(self):
+        """Test that Docker environments use dict args for build arguments."""
+        # Docker environments should use dict args for build arguments
+        env = Environment(
+            name="builder",
+            dockerfile="./Dockerfile",
+            context=".",
+            args={"BUILD_VERSION": "1.0.0", "BUILD_DATE": "2024-01-01"},
+        )
+
+        # Verify it's recognized as a Docker environment
+        self.assertTrue(is_docker_environment(env))
+
+        # Verify args are stored as a dict
+        self.assertIsInstance(env.args, dict)
+        self.assertEqual(env.args, {"BUILD_VERSION": "1.0.0", "BUILD_DATE": "2024-01-01"})
+
 
 class TestResolveContainerWorkingDir(unittest.TestCase):
     """Test container working directory resolution."""
@@ -293,6 +326,84 @@ class TestDockerManager(unittest.TestCase):
         # Verify expected build args
         self.assertEqual(build_args["FOO"], "fooable")
         self.assertEqual(build_args["bar"], "you're barred!")
+
+    @patch("tasktree.docker.subprocess.run")
+    def test_build_command_with_empty_build_args(self, mock_run):
+        """Test that docker build command works with empty build args dict."""
+        env = Environment(
+            name="builder",
+            dockerfile="./Dockerfile",
+            context=".",
+            args={},
+        )
+
+        # Mock docker inspect returning image ID
+        def mock_run_side_effect(*args, **kwargs):
+            cmd = args[0]
+            if "inspect" in cmd:
+                result = Mock()
+                result.stdout = "sha256:abc123def456\n"
+                return result
+            return None
+
+        mock_run.side_effect = mock_run_side_effect
+
+        self.manager.ensure_image_built(env)
+
+        # Check that docker build was called (2nd call, after docker --version)
+        build_call_args = mock_run.call_args_list[1][0][0]
+
+        # Verify basic command structure
+        self.assertEqual(build_call_args[0], "docker")
+        self.assertEqual(build_call_args[1], "build")
+
+        # Verify NO build args are included
+        self.assertNotIn("--build-arg", build_call_args)
+
+    @patch("tasktree.docker.subprocess.run")
+    def test_build_command_with_special_characters_in_args(self, mock_run):
+        """Test that build args with special characters are handled correctly."""
+        env = Environment(
+            name="builder",
+            dockerfile="./Dockerfile",
+            context=".",
+            args={
+                "API_KEY": "sk-1234_abcd-5678",
+                "MESSAGE": "Hello, World!",
+                "PATH_WITH_SPACES": "/path/to/my files",
+                "SPECIAL_CHARS": "test=value&foo=bar",
+            },
+        )
+
+        # Mock docker inspect returning image ID
+        def mock_run_side_effect(*args, **kwargs):
+            cmd = args[0]
+            if "inspect" in cmd:
+                result = Mock()
+                result.stdout = "sha256:abc123def456\n"
+                return result
+            return None
+
+        mock_run.side_effect = mock_run_side_effect
+
+        self.manager.ensure_image_built(env)
+
+        # Check that docker build was called (2nd call, after docker --version)
+        build_call_args = mock_run.call_args_list[1][0][0]
+
+        # Find all build arg pairs
+        build_args = {}
+        for i, arg in enumerate(build_call_args):
+            if arg == "--build-arg":
+                arg_pair = build_call_args[i + 1]
+                key, value = arg_pair.split("=", 1)
+                build_args[key] = value
+
+        # Verify special characters are preserved
+        self.assertEqual(build_args["API_KEY"], "sk-1234_abcd-5678")
+        self.assertEqual(build_args["MESSAGE"], "Hello, World!")
+        self.assertEqual(build_args["PATH_WITH_SPACES"], "/path/to/my files")
+        self.assertEqual(build_args["SPECIAL_CHARS"], "test=value&foo=bar")
 
     def test_resolve_volume_mount_relative(self):
         """Test relative volume path resolution."""
