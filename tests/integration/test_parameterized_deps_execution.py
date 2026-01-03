@@ -38,7 +38,7 @@ tasks:
   build:
     args:
       - mode=debug
-      - optimize:bool=false
+      - optimize: { type: bool, default: false }
     outputs:
       - "build-{{arg.mode}}.log"
     cmd: echo "Building {{arg.mode}} optimize={{arg.optimize}}" > build-{{arg.mode}}.log
@@ -152,7 +152,7 @@ tasks:
   generate:
     args:
       - format=json
-      - pretty:bool=false
+      - pretty: { type: bool, default: false }
     outputs:
       - "data.{{arg.format}}"
     cmd: echo "{{arg.format}},pretty={{arg.pretty}}" > data.{{arg.format}}

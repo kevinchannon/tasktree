@@ -40,7 +40,7 @@ class TestParseTaskArgs(unittest.TestCase):
 
     def test_parse_task_args_type_conversion(self):
         """Test values converted to correct types."""
-        arg_specs = ["port:int", "debug:bool", "timeout:float"]
+        arg_specs = [{"port": {"type": "int"}}, {"debug": {"type": "bool"}}, {"timeout": {"type": "float"}}]
         arg_values = ["8080", "true", "30.5"]
 
         result = _parse_task_args(arg_specs, arg_values)
@@ -76,7 +76,7 @@ class TestParseTaskArgs(unittest.TestCase):
 
     def test_parse_task_args_invalid_type(self):
         """Test error for invalid type conversion."""
-        arg_specs = ["port:int"]
+        arg_specs = [{"port": {"type": "int"}}]
         arg_values = ["not_a_number"]
 
         with self.assertRaises(typer.Exit):

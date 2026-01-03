@@ -38,7 +38,7 @@ def _format_task_arguments(arg_specs: list[str | dict]) -> str:
     Examples:
         ["mode", "target"] -> "mode:str target:str"
         ["mode=debug", "target=x86_64"] -> "mode:str [=debug] target:str [=x86_64]"
-        ["port:int", "debug:bool=false"] -> "port:int debug:bool [=false]"
+        [{"port": {"type": "int"}}, {"debug": {"type": "bool", "default": false}}] -> "port:int debug:bool [=false]"
         [{"timeout": {"type": "int", "default": 30}}] -> "timeout:int [=30]"
     """
     if not arg_specs:

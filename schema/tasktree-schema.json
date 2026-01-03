@@ -157,12 +157,50 @@
               "description": "Directory to execute the command in (relative to recipe file)"
             },
             "args": {
-              "description": "Parameterized arguments for the task (format: name, name:type, name:type=default)",
+              "description": "Parameterized arguments for the task",
               "oneOf": [
                 {
                   "type": "array",
                   "items": {
-                    "type": "string"
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "description": "Simple argument name or name with default (name=default)"
+                      },
+                      {
+                        "type": "object",
+                        "description": "Argument with configuration (type, default, min, max, choices)",
+                        "minProperties": 1,
+                        "maxProperties": 1,
+                        "additionalProperties": {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": ["str", "int", "float", "bool", "path", "datetime", "email", "hostname", "ip", "ipv4", "ipv6"]
+                            },
+                            "default": {},
+                            "min": {
+                              "oneOf": [
+                                {"type": "integer"},
+                                {"type": "number"}
+                              ]
+                            },
+                            "max": {
+                              "oneOf": [
+                                {"type": "integer"},
+                                {"type": "number"}
+                              ]
+                            },
+                            "choices": {
+                              "type": "array",
+                              "minItems": 1
+                            }
+                          },
+                          "additionalProperties": false
+                        }
+                      }
+                    ]
                   }
                 },
                 {
