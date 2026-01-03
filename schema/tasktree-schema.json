@@ -99,6 +99,70 @@
       },
       "additionalProperties": false
     },
+    "variables": {
+      "description": "Variable definitions that can be referenced in tasks using {{ var.name }} syntax",
+      "type": "object",
+      "patternProperties": {
+        "^[a-zA-Z][a-zA-Z0-9_-]*$": {
+          "oneOf": [
+            {
+              "type": "string",
+              "description": "Simple string value"
+            },
+            {
+              "type": "integer",
+              "description": "Integer value"
+            },
+            {
+              "type": "number",
+              "description": "Floating-point number value"
+            },
+            {
+              "type": "boolean",
+              "description": "Boolean value (true/false)"
+            },
+            {
+              "type": "object",
+              "description": "Environment variable reference",
+              "properties": {
+                "env": {
+                  "type": "string",
+                  "description": "Name of environment variable to read",
+                  "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$"
+                }
+              },
+              "required": ["env"],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "description": "File read reference",
+              "properties": {
+                "read": {
+                  "type": "string",
+                  "description": "Path to file to read (relative to recipe file, or absolute)"
+                }
+              },
+              "required": ["read"],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "description": "Eval command reference (executes shell command and captures output)",
+              "properties": {
+                "eval": {
+                  "type": "string",
+                  "description": "Shell command to execute (stdout becomes variable value)"
+                }
+              },
+              "required": ["eval"],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
     "tasks": {
       "description": "Task definitions",
       "type": "object",
@@ -190,6 +254,7 @@
   "anyOf": [
     { "required": ["tasks"] },
     { "required": ["imports"] },
-    { "required": ["environments"] }
+    { "required": ["environments"] },
+    { "required": ["variables"] }
   ]
 }
