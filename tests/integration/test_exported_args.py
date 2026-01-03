@@ -28,7 +28,9 @@ class TestExportedArgs(unittest.TestCase):
                 f"""
 tasks:
   test:
-    args: [$server, $user=admin]
+    args:
+      - $server
+      - $user: {{ default: admin }}
     cmd: {env_check}
 """
             )
@@ -59,7 +61,9 @@ tasks:
                 f"""
 tasks:
   test:
-    args: [$server, $port=8080]
+    args:
+      - $server
+      - $port: {{ default: 8080 }}
     cmd: {env_check}
 """
             )
@@ -94,7 +98,9 @@ tasks:
                 f"""
 tasks:
   test:
-    args: [$server, $port=8080]
+    args:
+      - $server
+      - $port: {{ default: 8080 }}
     cmd: {env_check}
 """
             )
@@ -164,7 +170,9 @@ tasks:
                 f"""
 tasks:
   deploy:
-    args: [$server, port=8080]
+    args:
+      - $server
+      - port: {{ default: 8080 }}
     cmd: {cmd_line}
 """
             )
@@ -242,12 +250,22 @@ tasks:
         """Test that exported arguments with type annotations fail during arg parsing."""
         from tasktree.parser import parse_arg_spec
 
-        # Test that parse_arg_spec raises error for exported args with types
+        # Test that parse_arg_spec raises error for exported args with types (old colon syntax)
         with self.assertRaises(ValueError) as cm:
             parse_arg_spec("$server:str")
 
+        self.assertIn("Invalid argument syntax", str(cm.exception))
+
+    def test_exported_arg_yaml_dict_with_type_fails(self):
+        """Test that exported arguments with type field in YAML dict format fails."""
+        from tasktree.parser import parse_arg_spec
+
+        # Test that parse_arg_spec raises error for exported args with type in dict format
+        with self.assertRaises(ValueError) as cm:
+            parse_arg_spec({"$server": {"type": "str"}})
+
         self.assertIn("Type annotations not allowed", str(cm.exception))
-        self.assertIn("$server:str", str(cm.exception))
+        self.assertIn("$server", str(cm.exception))
 
     def test_multiline_command_with_exported_args(self):
         """Test exported args work with multi-line commands."""
