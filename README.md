@@ -589,7 +589,9 @@ Dependencies can invoke tasks with specific arguments, enabling flexible and reu
 tasks:
   # Task with parameters
   process:
-    args: [mode, verbose=false]
+    args:
+      - mode
+      - verbose: { default: false }
     cmd: echo "mode={{arg.mode}} verbose={{arg.verbose}}"
 
   # Simple dependency (uses defaults)
