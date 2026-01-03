@@ -405,7 +405,9 @@ tasks:
     inputs: ["src/**/*.rs"]
     outputs: [target/release/bin]
     working_dir: subproject
-    args: [environment, region=eu-west-1]
+    args:
+      - environment
+      - region: { default: eu-west-1 }
     cmd: cargo build --release
 """
             )
@@ -417,7 +419,9 @@ tasks:
             self.assertEqual(task.inputs, ["src/**/*.rs"])
             self.assertEqual(task.outputs, ["target/release/bin"])
             self.assertEqual(task.working_dir, "subproject")
-            self.assertEqual(task.args, ["environment", "region=eu-west-1"])
+            self.assertEqual(len(task.args), 2)
+            self.assertEqual(task.args[0], "environment")
+            self.assertIsInstance(task.args[1], dict)
             self.assertEqual(task.cmd, "cargo build --release")
 
     def test_parse_with_imports(self):
@@ -718,7 +722,9 @@ tasks:
     inputs: ["src/**/*.rs"]
     outputs: [target/release/bin]
     working_dir: subproject
-    args: [environment, region=eu-west-1]
+    args:
+      - environment
+      - region: { default: eu-west-1 }
     cmd: cargo build --release
 """)
 

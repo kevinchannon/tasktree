@@ -1,8 +1,8 @@
 tasks:
   task_parameterized:
     args:
-      - mode=debug
-      - verbose=false
+      - mode: { default: debug }
+      - verbose: { default: false }
     cmd: echo "mode={{arg.mode}} verbose={{arg.verbose}}"
 
   task_consumer_implicit:
