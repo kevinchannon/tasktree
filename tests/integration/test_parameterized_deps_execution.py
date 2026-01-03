@@ -37,8 +37,8 @@ class TestParameterizedDependencyExecution(unittest.TestCase):
 tasks:
   build:
     args:
-      - mode=debug
-      - optimize:bool=false
+      - mode: { default: "debug" }
+      - optimize: { type: bool, default: "false" }
     outputs:
       - "build-{{arg.mode}}.log"
     cmd: echo "Building {{arg.mode}} optimize={{arg.optimize}}" > build-{{arg.mode}}.log
@@ -151,8 +151,8 @@ tasks:
 tasks:
   generate:
     args:
-      - format=json
-      - pretty:bool=false
+      - format: { default: "json" }
+      - pretty: { type: bool, default: "false" }
     outputs:
       - "data.{{arg.format}}"
     cmd: echo "{{arg.format}},pretty={{arg.pretty}}" > data.{{arg.format}}

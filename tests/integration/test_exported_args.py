@@ -63,7 +63,7 @@ tasks:
   test:
     args:
       - $server
-      - $port: {{ default: 8080 }}
+      - $port: {{ default: "8080" }}
     cmd: {env_check}
 """
             )
@@ -100,7 +100,7 @@ tasks:
   test:
     args:
       - $server
-      - $port: {{ default: 8080 }}
+      - $port: {{ default: "8080" }}
     cmd: {env_check}
 """
             )

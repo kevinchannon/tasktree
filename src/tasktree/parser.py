@@ -1391,6 +1391,15 @@ def _parse_arg_dict(arg_name: str, config: dict, is_exported: bool) -> ArgSpec:
             f"Exported arguments are always strings. Remove the 'type' field"
         )
 
+    # Exported arguments must have string defaults (if any default is provided)
+    if is_exported and default is not None and not isinstance(default, str):
+        raise ValueError(
+            f"Exported argument '${arg_name}' must have a string default value.\n"
+            f"Got: {default!r} (type: {type(default).__name__})\n"
+            f"Exported arguments become environment variables, which are always strings.\n"
+            f"Use a quoted string: ${arg_name}: {{ default: \"{default}\" }}"
+        )
+
     # Validate choices
     if choices is not None:
         # Validate choices is a list
