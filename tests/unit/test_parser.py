@@ -1540,6 +1540,73 @@ tasks:
             self.assertEqual(len(recipe.tasks), 0)
 
 
+class TestArgsValidation(unittest.TestCase):
+    """Tests for validating task args must be a list, not a dict."""
+
+    def test_args_dict_syntax_raises_error(self):
+        """Test that dictionary syntax for args raises a helpful error."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+tasks:
+  foo:
+    args:
+      x: {}
+      y: { type: int, default: 10 }
+    cmd: echo x = {{ arg.x }}, y = {{ arg.y }}
+""")
+
+            with self.assertRaises(ValueError) as cm:
+                parse_recipe(recipe_path)
+
+            error_msg = str(cm.exception)
+            self.assertIn("invalid 'args' syntax", error_msg)
+            self.assertIn("dictionary syntax", error_msg)
+            self.assertIn("list format", error_msg)
+            self.assertIn("with dashes", error_msg)
+            # Should show the first key as an example
+            self.assertIn("x", error_msg)
+
+    def test_args_list_syntax_is_valid(self):
+        """Test that list syntax for args works correctly."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+tasks:
+  foo:
+    args:
+      - x
+      - y: { type: int, default: 10 }
+    cmd: echo x = {{ arg.x }}, y = {{ arg.y }}
+""")
+
+            # Should parse without error
+            recipe = parse_recipe(recipe_path)
+
+            # Verify the task was parsed correctly
+            self.assertIn("foo", recipe.tasks)
+            task = recipe.tasks["foo"]
+            self.assertEqual(len(task.args), 2)
+
+    def test_args_empty_dict_raises_error(self):
+        """Test that even an empty dict for args raises an error."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+tasks:
+  foo:
+    args: {}
+    cmd: echo hello
+""")
+
+            with self.assertRaises(ValueError) as cm:
+                parse_recipe(recipe_path)
+
+            error_msg = str(cm.exception)
+            self.assertIn("invalid 'args' syntax", error_msg)
+            self.assertIn("dictionary syntax", error_msg)
+
+
 class TestVariablesParsing(unittest.TestCase):
     """Test parsing of variables section with environment variable support."""
 

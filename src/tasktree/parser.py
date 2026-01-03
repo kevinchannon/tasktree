@@ -60,7 +60,7 @@ class Task:
     inputs: list[str] = field(default_factory=list)
     outputs: list[str] = field(default_factory=list)
     working_dir: str = ""
-    args: list[str] = field(default_factory=list)
+    args: list[str | dict[str, Any]] = field(default_factory=list)  # Can be strings or dicts (each dict has single key: arg name)
     source_file: str = ""  # Track which file defined this task
     env: str = ""  # Environment name to use for execution
 
@@ -74,6 +74,19 @@ class Task:
             self.outputs = [self.outputs]
         if isinstance(self.args, str):
             self.args = [self.args]
+
+        # Validate args is not a dict (common YAML mistake)
+        if isinstance(self.args, dict):
+            raise ValueError(
+                f"Task '{self.name}' has invalid 'args' syntax.\n\n"
+                f"Found dictionary syntax (without dashes):\n"
+                f"  args:\n"
+                f"    {list(self.args.keys())[0] if self.args else 'key'}: ...\n\n"
+                f"Correct syntax uses list format (with dashes):\n"
+                f"  args:\n"
+                f"    - {list(self.args.keys())[0] if self.args else 'key'}: ...\n\n"
+                f"Arguments must be defined as a list, not a dictionary."
+            )
 
 
 @dataclass
