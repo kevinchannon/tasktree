@@ -139,10 +139,10 @@ class TestUnicodeSupport(unittest.TestCase):
     @patch('tasktree.cli.sys.stdout')
     @patch('tasktree.cli.platform.system')
     def test_supports_unicode_on_non_windows_without_utf8(self, mock_platform, mock_stdout):
-        """Test that non-Windows without UTF-8 encoding defaults to True."""
+        """Test that non-Windows without UTF-8 encoding returns False for safety."""
         mock_stdout.encoding = 'latin-1'
         mock_platform.return_value = 'Linux'
-        self.assertTrue(_supports_unicode())
+        self.assertFalse(_supports_unicode())
 
     @patch('tasktree.cli.sys.stdout')
     @patch('tasktree.cli.platform.system')
@@ -155,20 +155,20 @@ class TestUnicodeSupport(unittest.TestCase):
     @patch('tasktree.cli.sys.stdout')
     @patch('tasktree.cli.platform.system')
     def test_supports_unicode_with_none_encoding_on_linux(self, mock_platform, mock_stdout):
-        """Test that None encoding on Linux defaults to True."""
+        """Test that None encoding on Linux returns False for safety."""
         mock_stdout.encoding = None
         mock_platform.return_value = 'Linux'
-        self.assertTrue(_supports_unicode())
+        self.assertFalse(_supports_unicode())
 
     @patch('tasktree.cli.sys.stdout')
     @patch('tasktree.cli.platform.system')
     def test_supports_unicode_without_encoding_attribute(self, mock_platform, mock_stdout):
-        """Test handling of missing encoding attribute."""
+        """Test handling of missing encoding attribute returns False for safety."""
         # Create a mock without encoding attribute
         mock_stdout_no_encoding = MagicMock(spec=[])
         with patch('tasktree.cli.sys.stdout', mock_stdout_no_encoding):
             mock_platform.return_value = 'Linux'
-            self.assertTrue(_supports_unicode())
+            self.assertFalse(_supports_unicode())
 
     @patch('tasktree.cli._supports_unicode')
     def test_get_action_success_string_with_unicode(self, mock_supports):
@@ -193,6 +193,29 @@ class TestUnicodeSupport(unittest.TestCase):
         """Test failure string returns ASCII when Unicode not supported."""
         mock_supports.return_value = False
         self.assertEqual(get_action_failure_string(), "[ FAIL ]")
+
+    @patch('tasktree.cli.sys.stdout')
+    def test_supports_unicode_caching(self, mock_stdout):
+        """Test that Unicode support check is cached after first call."""
+        # Import to reset the global cache
+        import tasktree.cli
+        tasktree.cli._UNICODE_SUPPORT = None
+
+        mock_stdout.encoding = 'utf-8'
+
+        # First call should check encoding
+        result1 = _supports_unicode()
+        self.assertTrue(result1)
+
+        # Change the encoding
+        mock_stdout.encoding = 'ascii'
+
+        # Second call should return cached value, not re-check
+        result2 = _supports_unicode()
+        self.assertTrue(result2)  # Still True from cache
+
+        # Verify the cache is set
+        self.assertEqual(tasktree.cli._UNICODE_SUPPORT, True)
 
 
 if __name__ == "__main__":

@@ -28,23 +28,31 @@ app = typer.Typer(
 console = Console()
 
 
+_UNICODE_SUPPORT: bool | None = None
+
+
 def _supports_unicode() -> bool:
     """Check if the terminal supports Unicode characters.
 
     Returns:
         True if terminal supports UTF-8, False otherwise
     """
+    global _UNICODE_SUPPORT
+    if _UNICODE_SUPPORT is not None:
+        return _UNICODE_SUPPORT
+
     # Check if stdout encoding supports UTF-8
     encoding = getattr(sys.stdout, 'encoding', None)
-    if encoding and 'utf' in encoding.lower():
-        return True
+    if encoding:
+        # Normalize encoding name: remove hyphens and underscores, convert to lowercase
+        normalized = encoding.lower().replace('-', '').replace('_', '')
+        if normalized.startswith('utf8'):
+            _UNICODE_SUPPORT = True
+            return True
 
-    # Fallback: check platform - Windows cmd.exe typically doesn't support Unicode well
-    if platform.system() == "Windows":
-        return False
-
-    # Default to Unicode on other platforms
-    return True
+    # If no UTF-8 detected, default to ASCII for safety
+    _UNICODE_SUPPORT = False
+    return False
 
 
 def get_action_success_string() -> str:
