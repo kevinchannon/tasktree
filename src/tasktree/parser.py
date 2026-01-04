@@ -324,7 +324,7 @@ def _validate_env_variable_reference(var_name: str, value: dict) -> tuple[str, s
     if not env_var_name or not isinstance(env_var_name, str):
         raise ValueError(
             f"Invalid environment variable reference in variable '{var_name}'.\n"
-            f"Expected: {{ env: VARIABLE_NAME }}\n"
+            f"Expected: {{ env: VARIABLE_NAME }} or {{ env: VARIABLE_NAME, default: \"value\" }}"
             f"Found: {{ env: {env_var_name!r} }}"
         )
 
