@@ -48,13 +48,13 @@ jobs:
         shell: bash
 
       - name: Test tt --list command
+        working-directory: example
         run: |
-          cd example
           tt --list
 
       - name: Run test task
+        working-directory: example
         run: |
-          cd example
           tt package
 
       - name: Verify installation
@@ -92,13 +92,13 @@ jobs:
           pipx install --python python3.12 tasktree
 
       - name: Test tt --list command
+        working-directory: example
         run: |
-          cd example
           tt --list
 
       - name: Run test task
+        working-directory: example
         run: |
-          cd example
           tt package
 
       - name: Verify installation
