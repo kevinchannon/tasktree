@@ -53,6 +53,7 @@ jobs:
       - name: Test tt --list command
         working-directory: example
         run: |
+          echo "path = $PATH"
           tt --list
         shell: bash
 
