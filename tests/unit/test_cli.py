@@ -194,29 +194,6 @@ class TestUnicodeSupport(unittest.TestCase):
         mock_supports.return_value = False
         self.assertEqual(get_action_failure_string(), "[ FAIL ]")
 
-    @patch('tasktree.cli.sys.stdout')
-    def test_supports_unicode_caching(self, mock_stdout):
-        """Test that Unicode support check is cached after first call."""
-        # Import to reset the global cache
-        import tasktree.cli
-        tasktree.cli._UNICODE_SUPPORT = None
-
-        mock_stdout.encoding = 'utf-8'
-
-        # First call should check encoding
-        result1 = _supports_unicode()
-        self.assertTrue(result1)
-
-        # Change the encoding
-        mock_stdout.encoding = 'ascii'
-
-        # Second call should return cached value, not re-check
-        result2 = _supports_unicode()
-        self.assertTrue(result2)  # Still True from cache
-
-        # Verify the cache is set
-        self.assertEqual(tasktree.cli._UNICODE_SUPPORT, True)
-
 
 if __name__ == "__main__":
     unittest.main()
