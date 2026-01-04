@@ -98,7 +98,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          dnf install -y gcc openssl-devel bzip2-devel libffi-devel zlib-devel wget make
+          dnf install -y python python-pip
 
       - name: Install Python 3.12
         run: dnf install -y python3.12
