@@ -287,26 +287,35 @@ def _is_env_variable_reference(value: Any) -> bool:
     return isinstance(value, dict) and "env" in value
 
 
-def _validate_env_variable_reference(var_name: str, value: dict) -> str:
-    """Validate and extract environment variable name from reference.
+def _validate_env_variable_reference(var_name: str, value: dict) -> tuple[str, str | None]:
+    """Validate and extract environment variable name and optional default from reference.
 
     Args:
         var_name: Name of the variable being defined
-        value: Dict that should be { env: ENV_VAR_NAME }
+        value: Dict that should be { env: ENV_VAR_NAME } or { env: ENV_VAR_NAME, default: "value" }
 
     Returns:
-        Environment variable name
+        Tuple of (environment variable name, default value or None)
 
     Raises:
         ValueError: If reference is invalid
     """
-    # Validate dict structure
-    if len(value) != 1:
-        extra_keys = [k for k in value.keys() if k != "env"]
+    # Validate dict structure - allow 'env' and optionally 'default'
+    valid_keys = {"env", "default"}
+    invalid_keys = set(value.keys()) - valid_keys
+    if invalid_keys:
         raise ValueError(
             f"Invalid environment variable reference in variable '{var_name}'.\n"
-            f"Expected: {{ env: VARIABLE_NAME }}\n"
-            f"Found extra keys: {', '.join(extra_keys)}"
+            f"Expected: {{ env: VARIABLE_NAME }} or {{ env: VARIABLE_NAME, default: \"value\" }}\n"
+            f"Found invalid keys: {', '.join(invalid_keys)}"
+        )
+
+    # Validate 'env' key is present
+    if "env" not in value:
+        raise ValueError(
+            f"Invalid environment variable reference in variable '{var_name}'.\n"
+            f"Missing required 'env' key.\n"
+            f"Expected: {{ env: VARIABLE_NAME }} or {{ env: VARIABLE_NAME, default: \"value\" }}"
         )
 
     env_var_name = value["env"]
@@ -315,7 +324,7 @@ def _validate_env_variable_reference(var_name: str, value: dict) -> str:
     if not env_var_name or not isinstance(env_var_name, str):
         raise ValueError(
             f"Invalid environment variable reference in variable '{var_name}'.\n"
-            f"Expected: {{ env: VARIABLE_NAME }}\n"
+            f"Expected: {{ env: VARIABLE_NAME }} or {{ env: VARIABLE_NAME, default: \"value\" }}"
             f"Found: {{ env: {env_var_name!r} }}"
         )
 
@@ -327,23 +336,36 @@ def _validate_env_variable_reference(var_name: str, value: dict) -> str:
             f"and contain only alphanumerics and underscores."
         )
 
-    return env_var_name
+    # Extract and validate default if present
+    default = value.get("default")
+    if default is not None:
+        # Default must be a string (env vars are always strings)
+        if not isinstance(default, str):
+            raise ValueError(
+                f"Invalid default value in variable '{var_name}'.\n"
+                f"Environment variable defaults must be strings.\n"
+                f"Got: {default!r} (type: {type(default).__name__})\n"
+                f"Use a quoted string: {{ env: {env_var_name}, default: \"{default}\" }}"
+            )
+
+    return env_var_name, default
 
 
-def _resolve_env_variable(var_name: str, env_var_name: str) -> str:
+def _resolve_env_variable(var_name: str, env_var_name: str, default: str | None = None) -> str:
     """Resolve environment variable value.
 
     Args:
         var_name: Name of the variable being defined
         env_var_name: Name of environment variable to read
+        default: Optional default value to use if environment variable is not set
 
     Returns:
-        Environment variable value as string
+        Environment variable value as string, or default if not set and default provided
 
     Raises:
-        ValueError: If environment variable is not set
+        ValueError: If environment variable is not set and no default provided
     """
-    value = os.environ.get(env_var_name)
+    value = os.environ.get(env_var_name, default)
 
     if value is None:
         raise ValueError(
@@ -730,11 +752,11 @@ def _resolve_variable_value(
 
         # Check if this is an environment variable reference
         if _is_env_variable_reference(raw_value):
-            # Validate and extract env var name
-            env_var_name = _validate_env_variable_reference(name, raw_value)
+            # Validate and extract env var name and optional default
+            env_var_name, default = _validate_env_variable_reference(name, raw_value)
 
-            # Resolve from os.environ
-            string_value = _resolve_env_variable(name, env_var_name)
+            # Resolve from os.environ (with optional default)
+            string_value = _resolve_env_variable(name, env_var_name, default)
 
             # Still perform variable-in-variable substitution
             from tasktree.substitution import substitute_variables

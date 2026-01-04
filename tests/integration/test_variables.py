@@ -693,6 +693,238 @@ tasks:
             finally:
                 os.chdir(original_cwd)
 
+    def test_env_variable_with_default_when_not_set(self):
+        """Test default value is used when environment variable is not set."""
+        # Ensure env var is NOT set
+        if "TEST_PORT_DEFAULT" in os.environ:
+            del os.environ["TEST_PORT_DEFAULT"]
+
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+variables:
+  port: { env: TEST_PORT_DEFAULT, default: "8080" }
+
+tasks:
+  test:
+    outputs: [config.txt]
+    cmd: echo "Port={{ var.port }}" > config.txt
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Run task
+                result = self.runner.invoke(app, ["test"], env=self.env)
+                self.assertEqual(result.exit_code, 0)
+
+                # Verify default value was used
+                output_file = project_root / "config.txt"
+                self.assertTrue(output_file.exists())
+                content = output_file.read_text().strip()
+                self.assertEqual(content, "Port=8080")
+
+            finally:
+                os.chdir(original_cwd)
+
+    def test_env_variable_with_default_when_set(self):
+        """Test environment variable value is used when set, ignoring default."""
+        # Set environment variable
+        os.environ["TEST_PORT_OVERRIDE"] = "9000"
+
+        try:
+            with TemporaryDirectory() as tmpdir:
+                project_root = Path(tmpdir)
+
+                recipe_file = project_root / "tasktree.yaml"
+                recipe_file.write_text("""
+variables:
+  port: { env: TEST_PORT_OVERRIDE, default: "8080" }
+
+tasks:
+  test:
+    outputs: [config.txt]
+    cmd: echo "Port={{ var.port }}" > config.txt
+""")
+
+                original_cwd = os.getcwd()
+                try:
+                    os.chdir(project_root)
+
+                    # Run task
+                    result = self.runner.invoke(app, ["test"], env=self.env)
+                    self.assertEqual(result.exit_code, 0)
+
+                    # Verify env var value was used, not default
+                    output_file = project_root / "config.txt"
+                    self.assertTrue(output_file.exists())
+                    content = output_file.read_text().strip()
+                    self.assertEqual(content, "Port=9000")
+
+                finally:
+                    os.chdir(original_cwd)
+
+        finally:
+            del os.environ["TEST_PORT_OVERRIDE"]
+
+    def test_env_variable_empty_string_vs_default(self):
+        """Test that empty string env var is used, not the default."""
+        # Set environment variable to empty string
+        os.environ["TEST_EMPTY_VAR"] = ""
+
+        try:
+            with TemporaryDirectory() as tmpdir:
+                project_root = Path(tmpdir)
+
+                recipe_file = project_root / "tasktree.yaml"
+                recipe_file.write_text("""
+variables:
+  value: { env: TEST_EMPTY_VAR, default: "default_value" }
+
+tasks:
+  test:
+    outputs: [output.txt]
+    cmd: echo "Value=[{{ var.value }}]" > output.txt
+""")
+
+                original_cwd = os.getcwd()
+                try:
+                    os.chdir(project_root)
+
+                    # Run task
+                    result = self.runner.invoke(app, ["test"], env=self.env)
+                    self.assertEqual(result.exit_code, 0)
+
+                    # Verify empty string was used (not default)
+                    output_file = project_root / "output.txt"
+                    self.assertTrue(output_file.exists())
+                    content = output_file.read_text().strip()
+                    self.assertEqual(content, "Value=[]")
+
+                finally:
+                    os.chdir(original_cwd)
+
+        finally:
+            del os.environ["TEST_EMPTY_VAR"]
+
+    def test_env_variable_default_must_be_string(self):
+        """Test that non-string defaults are rejected."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+variables:
+  port: { env: TEST_PORT, default: 8080 }
+
+tasks:
+  test:
+    cmd: echo test
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Should fail at parse time with clear error
+                result = self.runner.invoke(app, ["test"], env=self.env)
+                self.assertNotEqual(result.exit_code, 0)
+
+                # Error should mention that default must be string
+                output = result.stdout
+                self.assertIn("default", output.lower())
+                self.assertIn("string", output.lower())
+
+            finally:
+                os.chdir(original_cwd)
+
+    def test_env_variable_multiple_with_defaults(self):
+        """Test multiple env variables with defaults work together."""
+        # Set only one env var
+        os.environ["TEST_HOST"] = "prod.example.com"
+
+        try:
+            # Ensure other env var is NOT set
+            if "TEST_PORT" in os.environ:
+                del os.environ["TEST_PORT"]
+
+            with TemporaryDirectory() as tmpdir:
+                project_root = Path(tmpdir)
+
+                recipe_file = project_root / "tasktree.yaml"
+                recipe_file.write_text("""
+variables:
+  host: { env: TEST_HOST, default: "localhost" }
+  port: { env: TEST_PORT, default: "8080" }
+  url: "{{ var.host }}:{{ var.port }}"
+
+tasks:
+  test:
+    outputs: [config.txt]
+    cmd: echo "URL={{ var.url }}" > config.txt
+""")
+
+                original_cwd = os.getcwd()
+                try:
+                    os.chdir(project_root)
+
+                    # Run task
+                    result = self.runner.invoke(app, ["test"], env=self.env)
+                    self.assertEqual(result.exit_code, 0)
+
+                    # Verify one used env var, one used default
+                    output_file = project_root / "config.txt"
+                    self.assertTrue(output_file.exists())
+                    content = output_file.read_text().strip()
+                    self.assertEqual(content, "URL=prod.example.com:8080")
+
+                finally:
+                    os.chdir(original_cwd)
+
+        finally:
+            del os.environ["TEST_HOST"]
+
+    def test_env_variable_default_with_variable_substitution(self):
+        """Test default value can contain variable references."""
+        # Ensure env var is NOT set
+        if "TEST_OVERRIDE" in os.environ:
+            del os.environ["TEST_OVERRIDE"]
+
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+variables:
+  base_url: "https://api.example.com"
+  endpoint: { env: TEST_OVERRIDE, default: "{{ var.base_url }}/users" }
+
+tasks:
+  test:
+    outputs: [config.txt]
+    cmd: echo "Endpoint={{ var.endpoint }}" > config.txt
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Run task
+                result = self.runner.invoke(app, ["test"], env=self.env)
+                self.assertEqual(result.exit_code, 0)
+
+                # Verify default with variable substitution worked
+                output_file = project_root / "config.txt"
+                self.assertTrue(output_file.exists())
+                content = output_file.read_text().strip()
+                self.assertEqual(content, "Endpoint=https://api.example.com/users")
+
+            finally:
+                os.chdir(original_cwd)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -703,10 +703,13 @@ For more complex scenarios, define environment variables in the `variables` sect
 
 ```yaml
 variables:
-  # Direct env reference (resolved at parse time)
+  # Required env var (error if not set)
   api_key: { env: API_KEY }
-  db_host: { env: DATABASE_HOST }
-
+  
+  # Optional env var with default
+  port: { env: PORT, default: "8080" }
+  log_level: { env: LOG_LEVEL, default: "info" }
+  
   # Or using string substitution
   deploy_user: "{{ env.DEPLOY_USER }}"
 

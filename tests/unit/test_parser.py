@@ -1703,7 +1703,7 @@ tasks:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
             recipe_path.write_text("""
 variables:
-  my_var: { env: TEST_VAR, default: "foo" }
+  my_var: { env: TEST_VAR, foo: "bar" }
 
 tasks:
   test:
@@ -1714,8 +1714,8 @@ tasks:
                 parse_recipe(recipe_path)
 
             error_msg = str(cm.exception)
-            self.assertIn("extra keys", error_msg.lower())
-            self.assertIn("default", error_msg)
+            self.assertIn("found invalid keys", error_msg.lower())
+            self.assertIn("foo", error_msg)
 
     def test_parse_env_variable_invalid_name_empty(self):
         """Test error for { env: } with empty value."""
