@@ -28,23 +28,32 @@ app = typer.Typer(
 console = Console()
 
 
+def _supports_unicode() -> bool:
+    """Check if the terminal supports Unicode characters.
+
+    Returns:
+        True if terminal supports UTF-8, False otherwise
+    """
+    # Check if stdout encoding supports UTF-8
+    encoding = getattr(sys.stdout, 'encoding', None)
+    if encoding and 'utf' in encoding.lower():
+        return True
+
+    # Fallback: check platform - Windows cmd.exe typically doesn't support Unicode well
+    if platform.system() == "Windows":
+        return False
+
+    # Default to Unicode on other platforms
+    return True
+
+
 def get_action_success_string() -> str:
     """Get the appropriate success symbol based on terminal capabilities.
 
     Returns:
         Unicode tick symbol (✓) if terminal supports UTF-8, otherwise "[ OK ]"
     """
-    # Check if stdout encoding supports UTF-8
-    encoding = getattr(sys.stdout, 'encoding', None)
-    if encoding and 'utf' in encoding.lower():
-        return "✓"
-
-    # Fallback: check platform - Windows cmd.exe typically doesn't support Unicode well
-    if platform.system() == "Windows":
-        return "[ OK ]"
-
-    # Default to Unicode on other platforms
-    return "✓"
+    return "✓" if _supports_unicode() else "[ OK ]"
 
 
 def get_action_failure_string() -> str:
@@ -53,17 +62,7 @@ def get_action_failure_string() -> str:
     Returns:
         Unicode cross symbol (✗) if terminal supports UTF-8, otherwise "[ FAIL ]"
     """
-    # Check if stdout encoding supports UTF-8
-    encoding = getattr(sys.stdout, 'encoding', None)
-    if encoding and 'utf' in encoding.lower():
-        return "✗"
-
-    # Fallback: check platform - Windows cmd.exe typically doesn't support Unicode well
-    if platform.system() == "Windows":
-        return "[ FAIL ]"
-
-    # Default to Unicode on other platforms
-    return "✗"
+    return "✗" if _supports_unicode() else "[ FAIL ]"
 
 
 def _format_task_arguments(arg_specs: list[str | dict]) -> str:
