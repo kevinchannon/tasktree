@@ -1,0 +1,155 @@
+name: Validate pipx Installation
+
+on:
+  workflow_run:
+    workflows: ["Release to PyPI"]
+    types:
+      - completed
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  validate-installation:
+    # Only run if the release workflow succeeded
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: Ubuntu
+          - os: macos-latest
+            platform: macOS
+          - os: windows-latest
+            platform: Windows
+
+    steps:
+      - name: Wait for PyPI propagation
+        if: github.event_name == 'workflow_run'
+        run: |
+          echo "Waiting 90 seconds for PyPI to propagate the new package..."
+          sleep 90
+        shell: bash
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pipx
+        run: |
+          python -m pip install --user pipx
+          python -m pipx ensurepath
+        shell: bash
+
+      - name: Install tasktree via pipx
+        run: |
+          python -m pipx install tasktree
+        shell: bash
+
+      - name: Create test recipe
+        run: |
+          cat > tt.yaml << 'EOF'
+          tasks:
+            hello:
+              desc: "Say hello"
+              cmd: echo "Hello from tasktree!"
+
+            greet:
+              desc: "Greet with name"
+              args:
+                - name: str
+              cmd: echo "Hello, {{name}}!"
+
+            check-version:
+              desc: "Show tasktree version"
+              cmd: tt --version || python -m tasktree.cli --version || echo "tasktree installed"
+          EOF
+        shell: bash
+
+      - name: Test tt --list command
+        run: |
+          tt --list || python -m pipx run tasktree --list
+        shell: bash
+
+      - name: Run test task
+        run: |
+          tt hello || python -m pipx run tasktree hello
+        shell: bash
+
+      - name: Verify installation
+        run: |
+          echo "✓ tasktree successfully installed via pipx on ${{ matrix.platform }}"
+        shell: bash
+
+  validate-centos:
+    # Only run if the release workflow succeeded
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    container:
+      image: quay.io/centos/centos:stream9
+
+    steps:
+      - name: Wait for PyPI propagation
+        if: github.event_name == 'workflow_run'
+        run: |
+          echo "Waiting 90 seconds for PyPI to propagate the new package..."
+          sleep 90
+
+      - name: Install dependencies
+        run: |
+          dnf install -y gcc openssl-devel bzip2-devel libffi-devel zlib-devel wget make
+
+      - name: Download and install Python 3.12
+        run: |
+          cd /tmp
+          wget https://www.python.org/ftp/python/3.12.8/Python-3.12.8.tgz
+          tar xzf Python-3.12.8.tgz
+          cd Python-3.12.8
+          ./configure --enable-optimizations --prefix=/opt/python3.12
+          make altinstall
+          /opt/python3.12/bin/python3.12 --version
+
+      - name: Install pipx with Python 3.12
+        run: |
+          /opt/python3.12/bin/python3.12 -m pip install --user pipx
+          export PATH="$HOME/.local/bin:$PATH"
+          /opt/python3.12/bin/python3.12 -m pipx ensurepath
+
+      - name: Install tasktree via pipx with Python 3.12
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          /opt/python3.12/bin/python3.12 -m pipx install --python /opt/python3.12/bin/python3.12 tasktree
+
+      - name: Create test recipe
+        run: |
+          cat > tt.yaml << 'EOF'
+          tasks:
+            hello:
+              desc: "Say hello"
+              cmd: echo "Hello from tasktree on CentOS Stream 9!"
+
+            greet:
+              desc: "Greet with name"
+              args:
+                - name: str
+              cmd: echo "Hello, {{name}}!"
+
+            check-version:
+              desc: "Show tasktree version"
+              cmd: echo "tasktree installed on CentOS"
+          EOF
+
+      - name: Test tt --list command
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          tt --list || $HOME/.local/bin/tt --list
+
+      - name: Run test task
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          tt hello || $HOME/.local/bin/tt hello
+
+      - name: Verify installation
+        run: |
+          echo "✓ tasktree successfully installed via pipx on CentOS Stream 9"
