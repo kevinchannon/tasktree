@@ -1,16 +1,33 @@
 tasks:
-  process:
-    desc: Process source file
-    inputs: [source.txt]
-    outputs: [output.txt]
-    cmd: cat source.txt > output.txt
+  build:
+    desc: Building outputs (imagine this is a call to Cargo, or gcc, or something)
+    args:
+      - build_type:
+          choice: [ "debug", "release" ]
+      - target:
+           type: str
+           choice:
+             - "x86"
+             - "x86_64"
+             - "arm"
+             - "ppc"
+           default: "x86_64"
+    outputs: [build/**]
+    cmd: |
+      echo building for {{ arg.target }}...
+      cd build
+      echo "code and stuff" > output-{{ arg.build_type }}-{{ arg.target }}.txt
 
   package:
     desc: Create archive
-    deps: [process]
+    deps:
+      - build: [ "debug", "x86" ]
+      - build: [ "release" ]
+      - build: { build_type: "release", target: "ppc" }
     outputs: [archive.tar.gz]
-    cmd: tar czf archive.tar.gz output.txt
+    cmd: touch archive.tar.gz
 
   clean:
     desc: Clean generated files
-    cmd: rm -f output.txt archive.tar.gz
+    inputs: [ archive.tar.gz ]
+    cmd: rm -f archive.tar.gz
