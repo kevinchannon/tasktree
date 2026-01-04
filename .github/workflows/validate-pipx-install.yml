@@ -58,8 +58,8 @@ jobs:
             greet:
               desc: "Greet with name"
               args:
-                - name: str
-              cmd: echo "Hello, {{name}}!"
+                - name: { type: str }
+              cmd: echo "Hello, {{ arg.name }}!"
 
             check-version:
               desc: "Show tasktree version"
@@ -132,8 +132,8 @@ jobs:
             greet:
               desc: "Greet with name"
               args:
-                - name: str
-              cmd: echo "Hello, {{name}}!"
+                - name: { type: str }
+              cmd: echo "Hello, {{ arg.name }}!"
 
             check-version:
               desc: "Show tasktree version"
