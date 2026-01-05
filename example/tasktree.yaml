@@ -1,9 +1,13 @@
+variables:
+  log_level: { env: LOG_LEVEL, default: "info" }
+
 tasks:
   build:
     desc: Building outputs (imagine this is a call to Cargo, or gcc, or something)
     args:
       - build_type:
-          choices: [ "debug", "release" ]
+          choices: [ "debug", "release", "{{ var.log_level }}" ]
+          default: "{{ var.log_level }}"
       - target:
            type: str
            choices:

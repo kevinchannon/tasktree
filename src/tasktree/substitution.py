@@ -5,6 +5,7 @@ and {{ env.NAME }} placeholders with their corresponding values.
 """
 
 import re
+from random import choice
 from typing import Any
 
 
@@ -15,11 +16,11 @@ PLACEHOLDER_PATTERN = re.compile(
 )
 
 
-def substitute_variables(text: str, variables: dict[str, str]) -> str:
+def substitute_variables(text: str | dict[str, Any], variables: dict[str, str]) -> str | dict[str, Any]:
     """Substitute {{ var.name }} placeholders with variable values.
 
     Args:
-        text: Text containing {{ var.name }} placeholders
+        text: Text containing {{ var.name }} placeholders, or an argument dict with elements to be substituted
         variables: Dictionary mapping variable names to their string values
 
     Returns:
@@ -28,23 +29,42 @@ def substitute_variables(text: str, variables: dict[str, str]) -> str:
     Raises:
         ValueError: If a referenced variable is not defined
     """
-    def replace_match(match: re.Match) -> str:
-        prefix = match.group(1)
-        name = match.group(2)
+    if isinstance(text, dict):
+        # The dict will only contain a single key, the value of this key should also be a dictionary, which contains
+        # the actual details of the argument.
+        assert len(text.keys()) == 1
 
-        # Only substitute var: placeholders
-        if prefix != "var":
-            return match.group(0)  # Return unchanged
+        for arg_name in text.keys():
+            # Pull out and substitute the individual fields of an argument one at a time
+            for field in  [ "default", "min", "max" ]:
+                if field in text[arg_name]:
+                    text[arg_name][field] = substitute_variables(text[arg_name][field], variables)
 
-        if name not in variables:
-            raise ValueError(
-                f"Variable '{name}' is not defined. "
-                f"Variables must be defined before use."
-            )
+            # choices is a list of things
+            if "choices" in text[arg_name]:
+                text[arg_name]["choices"] = [substitute_variables(c, variables) for c in text[arg_name]["choices"]]
 
-        return variables[name]
+            return text
+        else:
+            raise ValueError("Empty arg dictionary")
+    else:
+        def replace_match(match: re.Match) -> str:
+            prefix = match.group(1)
+            name = match.group(2)
 
-    return PLACEHOLDER_PATTERN.sub(replace_match, text)
+            # Only substitute var: placeholders
+            if prefix != "var":
+                return match.group(0)  # Return unchanged
+
+            if name not in variables:
+                raise ValueError(
+                    f"Variable '{name}' is not defined. "
+                    f"Variables must be defined before use."
+                )
+
+            return variables[name]
+
+        return PLACEHOLDER_PATTERN.sub(replace_match, text)
 
 
 def substitute_arguments(text: str, args: dict[str, Any], exported_args: set[str] | None = None) -> str:
