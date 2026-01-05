@@ -50,6 +50,12 @@ jobs:
           python -m pipx install tasktree
         shell: bash
 
+      - name: Get installed tt version
+        working-directory: example
+        run: |
+          tt --version
+        shell: bash
+
       - name: Test tt --list command
         working-directory: example
         run: |
@@ -101,6 +107,13 @@ jobs:
       - name: Install tasktree via pipx with Python 3.12
         run: |
           pipx install --python python3.12 tasktree
+        shell: bash
+
+      - name: Get installed tt version
+        working-directory: example
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          tt --version
         shell: bash
 
       - name: Test tt --list command
