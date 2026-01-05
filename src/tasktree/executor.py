@@ -663,43 +663,44 @@ class Executor:
                 pass  # Ignore cleanup errors
 
     def _substitute_builtin_in_environment(self, env: Environment, builtin_vars: dict[str, str]) -> Environment:
-        """Substitute builtin variables in environment fields.
+        """Substitute builtin and environment variables in environment fields.
 
         Args:
             env: Environment to process
             builtin_vars: Built-in variable values
 
         Returns:
-            New Environment with builtin variables substituted
+            New Environment with builtin and environment variables substituted
 
         Raises:
-            ValueError: If builtin variable is not defined
+            ValueError: If builtin variable or environment variable is not defined
         """
         from dataclasses import replace
 
-        # Substitute in volumes
+        # Substitute in volumes (builtin vars first, then env vars)
         substituted_volumes = [
-            self._substitute_builtin(vol, builtin_vars) for vol in env.volumes
+            self._substitute_env(self._substitute_builtin(vol, builtin_vars)) for vol in env.volumes
         ] if env.volumes else []
 
-        # Substitute in env_vars values
+        # Substitute in env_vars values (builtin vars first, then env vars)
         substituted_env_vars = {
-            key: self._substitute_builtin(value, builtin_vars)
+            key: self._substitute_env(self._substitute_builtin(value, builtin_vars))
             for key, value in env.env_vars.items()
         } if env.env_vars else {}
 
-        # Substitute in ports
+        # Substitute in ports (builtin vars first, then env vars)
         substituted_ports = [
-            self._substitute_builtin(port, builtin_vars) for port in env.ports
+            self._substitute_env(self._substitute_builtin(port, builtin_vars)) for port in env.ports
         ] if env.ports else []
 
-        # Substitute in working_dir
-        substituted_working_dir = self._substitute_builtin(env.working_dir, builtin_vars) if env.working_dir else ""
+        # Substitute in working_dir (builtin vars first, then env vars)
+        substituted_working_dir = self._substitute_env(self._substitute_builtin(env.working_dir, builtin_vars)) if env.working_dir else ""
 
         # Substitute in build args (for Docker environments, args is a dict)
+        # Apply builtin vars first, then env vars
         if isinstance(env.args, dict):
             substituted_args = {
-                key: self._substitute_builtin(value, builtin_vars)
+                key: self._substitute_env(self._substitute_builtin(str(value), builtin_vars))
                 for key, value in env.args.items()
             }
         else:
