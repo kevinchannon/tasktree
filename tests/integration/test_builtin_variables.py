@@ -477,11 +477,6 @@ tasks:
     def test_var_vars_in_environment_fields(self):
         """Test that {{ var.* }} variables are substituted in environment fields."""
         from unittest.mock import patch, Mock
-        import platform
-
-        # Only run on Linux where we can test Docker
-        if platform.system() != "Linux":
-            self.skipTest("Docker environment tests only run on Linux")
 
         recipe_content = f"""
 variables:
