@@ -240,6 +240,7 @@ class Recipe:
                 variables_to_eval = set(self.raw_variables.keys())
         else:
             # Eager path: evaluate all variables (for --list command)
+            reachable_tasks = self.tasks.keys()
             variables_to_eval = set(self.raw_variables.keys())
 
         # Evaluate the selected variables using helper function
@@ -256,7 +257,10 @@ class Recipe:
         # Substitute evaluated variables into all tasks
         from tasktree.substitution import substitute_variables
 
-        for task in self.tasks.values():
+        for task_name, task in self.tasks.items():
+            if task_name not in reachable_tasks:
+                continue
+
             task.cmd = substitute_variables(task.cmd, self.evaluated_variables)
             task.desc = substitute_variables(task.desc, self.evaluated_variables)
             task.working_dir = substitute_variables(task.working_dir, self.evaluated_variables)
