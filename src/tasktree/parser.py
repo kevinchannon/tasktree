@@ -237,6 +237,7 @@ class Recipe:
                 # Root task not found - fall back to eager evaluation
                 # This allows the recipe to be parsed even with invalid task names
                 # so the CLI can provide its own error message
+                reachable_tasks = self.tasks.keys()
                 variables_to_eval = set(self.raw_variables.keys())
         else:
             # Eager path: evaluate all variables (for --list command)
