@@ -137,7 +137,8 @@ def _list_tasks(tasks_file: Optional[str] = None):
 
 def _show_task(task_name: str, tasks_file: Optional[str] = None):
     """Show task definition with syntax highlighting."""
-    recipe = _get_recipe(tasks_file)
+    # Pass task_name as root_task for lazy variable evaluation
+    recipe = _get_recipe(tasks_file, root_task=task_name)
     if recipe is None:
         console.print("[red]No recipe file found (tasktree.yaml, tasktree.yml, tt.yaml, or *.tasks)[/red]")
         raise typer.Exit(1)
@@ -186,7 +187,8 @@ def _show_task(task_name: str, tasks_file: Optional[str] = None):
 
 def _show_tree(task_name: str, tasks_file: Optional[str] = None):
     """Show dependency tree structure."""
-    recipe = _get_recipe(tasks_file)
+    # Pass task_name as root_task for lazy variable evaluation
+    recipe = _get_recipe(tasks_file, root_task=task_name)
     if recipe is None:
         console.print("[red]No recipe file found (tasktree.yaml, tasktree.yml, tt.yaml, or *.tasks)[/red]")
         raise typer.Exit(1)
@@ -372,11 +374,13 @@ def _clean_state(tasks_file: Optional[str] = None) -> None:
         console.print(f"[yellow]No state file found at {state_path}[/yellow]")
 
 
-def _get_recipe(recipe_file: Optional[str] = None) -> Optional[Recipe]:
+def _get_recipe(recipe_file: Optional[str] = None, root_task: Optional[str] = None) -> Optional[Recipe]:
     """Get parsed recipe or None if not found.
 
     Args:
         recipe_file: Optional path to recipe file. If not provided, searches for recipe file.
+        root_task: Optional root task for lazy variable evaluation. If provided, only variables
+                  reachable from this task will be evaluated (performance optimization).
     """
     if recipe_file:
         recipe_path = Path(recipe_file)
@@ -398,7 +402,7 @@ def _get_recipe(recipe_file: Optional[str] = None) -> Optional[Recipe]:
         project_root = None
 
     try:
-        return parse_recipe(recipe_path, project_root)
+        return parse_recipe(recipe_path, project_root, root_task)
     except Exception as e:
         console.print(f"[red]Error parsing recipe: {e}[/red]")
         raise typer.Exit(1)
@@ -411,7 +415,8 @@ def _execute_dynamic_task(args: list[str], force: bool = False, only: bool = Fal
     task_name = args[0]
     task_args = args[1:]
 
-    recipe = _get_recipe(tasks_file)
+    # Pass task_name as root_task for lazy variable evaluation
+    recipe = _get_recipe(tasks_file, root_task=task_name)
     if recipe is None:
         console.print("[red]No recipe file found (tasktree.yaml, tasktree.yml, tt.yaml, or *.tasks)[/red]")
         raise typer.Exit(1)

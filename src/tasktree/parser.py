@@ -165,7 +165,11 @@ class Recipe:
     environments: dict[str, Environment] = field(default_factory=dict)
     default_env: str = ""  # Name of default environment
     global_env_override: str = ""  # Global environment override (set via CLI --env)
-    variables: dict[str, str] = field(default_factory=dict)  # Global variables (resolved at parse time)
+    variables: dict[str, str] = field(default_factory=dict)  # Global variables (resolved at parse time) - DEPRECATED, use evaluated_variables
+    raw_variables: dict[str, Any] = field(default_factory=dict)  # Raw variable specs from YAML (not yet evaluated)
+    evaluated_variables: dict[str, str] = field(default_factory=dict)  # Evaluated variable values (cached after evaluation)
+    _variables_evaluated: bool = False  # Track if variables have been evaluated
+    _original_yaml_data: dict[str, Any] = field(default_factory=dict)  # Store original YAML data for lazy evaluation context
 
     def get_task(self, name: str) -> Task | None:
         """Get task by name.
@@ -192,6 +196,108 @@ class Recipe:
             Environment if found, None otherwise
         """
         return self.environments.get(name)
+
+    def evaluate_variables(self, root_task: str | None = None) -> None:
+        """Evaluate variables lazily based on task reachability.
+
+        This method implements lazy variable evaluation, which only evaluates
+        variables that are actually reachable from the target task. This provides:
+        - Performance improvement: expensive { eval: ... } commands only run when needed
+        - Security improvement: sensitive { read: ... } files only accessed when needed
+        - Side-effect control: commands with side effects only execute when necessary
+
+        If root_task is provided, only variables used by reachable tasks are evaluated.
+        If root_task is None, all variables are evaluated (for --list command compatibility).
+
+        This method is idempotent - calling it multiple times is safe (uses caching).
+
+        Args:
+            root_task: Optional task name to determine reachability (None = evaluate all)
+
+        Raises:
+            ValueError: If variable evaluation or substitution fails
+
+        Example:
+            >>> recipe = parse_recipe(path)  # Variables not yet evaluated
+            >>> recipe.evaluate_variables("build")  # Evaluate only reachable variables
+            >>> # Now recipe.evaluated_variables contains only vars used by "build" task
+        """
+        if self._variables_evaluated:
+            return  # Already evaluated, skip (idempotent)
+
+        # Determine which variables to evaluate
+        if root_task:
+            # Lazy path: only evaluate reachable variables
+            # If root_task doesn't exist, fall back to eager evaluation
+            # (CLI will provide its own "Task not found" error)
+            try:
+                reachable_tasks = collect_reachable_tasks(self.tasks, root_task)
+                variables_to_eval = collect_reachable_variables(self.tasks, reachable_tasks)
+            except ValueError:
+                # Root task not found - fall back to eager evaluation
+                # This allows the recipe to be parsed even with invalid task names
+                # so the CLI can provide its own error message
+                variables_to_eval = set(self.raw_variables.keys())
+        else:
+            # Eager path: evaluate all variables (for --list command)
+            variables_to_eval = set(self.raw_variables.keys())
+
+        # Evaluate the selected variables using helper function
+        self.evaluated_variables = _evaluate_variable_subset(
+            self.raw_variables,
+            variables_to_eval,
+            self.recipe_path,
+            self._original_yaml_data
+        )
+
+        # Also update the deprecated 'variables' field for backward compatibility
+        self.variables = self.evaluated_variables
+
+        # Substitute evaluated variables into all tasks
+        from tasktree.substitution import substitute_variables
+
+        for task in self.tasks.values():
+            task.cmd = substitute_variables(task.cmd, self.evaluated_variables)
+            task.desc = substitute_variables(task.desc, self.evaluated_variables)
+            task.working_dir = substitute_variables(task.working_dir, self.evaluated_variables)
+            task.inputs = [substitute_variables(inp, self.evaluated_variables) for inp in task.inputs]
+            task.outputs = [substitute_variables(out, self.evaluated_variables) for out in task.outputs]
+            # Substitute in argument default values (in arg spec strings)
+            task.args = [substitute_variables(arg, self.evaluated_variables) for arg in task.args]
+
+        # Substitute evaluated variables into all environments
+        for env in self.environments.values():
+            if env.preamble:
+                env.preamble = substitute_variables(env.preamble, self.evaluated_variables)
+
+            # Substitute in volumes
+            if env.volumes:
+                env.volumes = [substitute_variables(vol, self.evaluated_variables) for vol in env.volumes]
+
+            # Substitute in ports
+            if env.ports:
+                env.ports = [substitute_variables(port, self.evaluated_variables) for port in env.ports]
+
+            # Substitute in env_vars values
+            if env.env_vars:
+                env.env_vars = {
+                    key: substitute_variables(value, self.evaluated_variables)
+                    for key, value in env.env_vars.items()
+                }
+
+            # Substitute in working_dir
+            if env.working_dir:
+                env.working_dir = substitute_variables(env.working_dir, self.evaluated_variables)
+
+            # Substitute in build args (dict for Docker environments)
+            if env.args and isinstance(env.args, dict):
+                env.args = {
+                    key: substitute_variables(str(value), self.evaluated_variables)
+                    for key, value in env.args.items()
+                }
+
+        # Mark as evaluated
+        self._variables_evaluated = True
 
 
 def find_recipe_file(start_dir: Path | None = None) -> Path | None:
@@ -825,7 +931,6 @@ def _resolve_variable_value(
             error_msg = str(e)
             if "not defined" in error_msg:
                 # Extract the variable name from the error message
-                import re
                 match = re.search(r"Variable '(\w+)' is not defined", error_msg)
                 if match:
                     undefined_var = match.group(1)
@@ -875,12 +980,145 @@ def _parse_variables_section(data: dict, file_path: Path) -> dict[str, str]:
     return resolved
 
 
+def _expand_variable_dependencies(
+    variable_names: set[str],
+    raw_variables: dict[str, Any]
+) -> set[str]:
+    """Expand variable set to include all transitively referenced variables.
+
+    If variable A references variable B, and B references C, then requesting A
+    should also evaluate B and C.
+
+    Args:
+        variable_names: Initial set of variable names
+        raw_variables: Raw variable definitions from YAML
+
+    Returns:
+        Expanded set including all transitively referenced variables
+
+    Example:
+        >>> raw_vars = {
+        ...     "a": "{{ var.b }}",
+        ...     "b": "{{ var.c }}",
+        ...     "c": "value"
+        ... }
+        >>> _expand_variable_dependencies({"a"}, raw_vars)
+        {"a", "b", "c"}
+    """
+    expanded = set(variable_names)
+    to_process = list(variable_names)
+    pattern = re.compile(r'\{\{\s*var\.(\w+)\s*\}\}')
+
+    while to_process:
+        var_name = to_process.pop(0)
+
+        if var_name not in raw_variables:
+            continue
+
+        raw_value = raw_variables[var_name]
+
+        # Extract referenced variables from the raw value
+        # Handle string values with {{ var.* }} patterns
+        if isinstance(raw_value, str):
+            for match in pattern.finditer(raw_value):
+                referenced_var = match.group(1)
+                if referenced_var not in expanded:
+                    expanded.add(referenced_var)
+                    to_process.append(referenced_var)
+        # Handle { read: filepath } variables - check file contents for variable references
+        elif isinstance(raw_value, dict) and 'read' in raw_value:
+            filepath = raw_value['read']
+            # For dependency expansion, we speculatively read files to find variable references
+            # This is acceptable because file reads are relatively cheap compared to eval commands
+            try:
+                # Try to read the file (may not exist yet, which is fine for dependency tracking)
+                # Skip if filepath is None or empty (validation error will be caught during evaluation)
+                if filepath and isinstance(filepath, str):
+                    from pathlib import Path
+                    if Path(filepath).exists():
+                        file_content = Path(filepath).read_text()
+                        # Extract variable references from file content
+                        for match in pattern.finditer(file_content):
+                            referenced_var = match.group(1)
+                            if referenced_var not in expanded:
+                                expanded.add(referenced_var)
+                                to_process.append(referenced_var)
+            except (IOError, OSError, TypeError):
+                # If file can't be read during expansion, that's okay
+                # The error will be caught during actual evaluation
+                pass
+        # Handle { env: VAR, default: ... } variables - check default value for variable references
+        elif isinstance(raw_value, dict) and 'env' in raw_value and 'default' in raw_value:
+            default_value = raw_value['default']
+            # Check if default value contains variable references
+            if isinstance(default_value, str):
+                for match in pattern.finditer(default_value):
+                    referenced_var = match.group(1)
+                    if referenced_var not in expanded:
+                        expanded.add(referenced_var)
+                        to_process.append(referenced_var)
+
+    return expanded
+
+
+def _evaluate_variable_subset(
+    raw_variables: dict[str, Any],
+    variable_names: set[str],
+    file_path: Path,
+    data: dict
+) -> dict[str, str]:
+    """Evaluate only specified variables from raw specs (for lazy evaluation).
+
+    This function is similar to _parse_variables_section but only evaluates
+    a subset of variables. This enables lazy evaluation where only reachable
+    variables are evaluated, improving performance and security.
+
+    Transitive dependencies are automatically included: if variable A references
+    variable B, both will be evaluated even if only A was explicitly requested.
+
+    Args:
+        raw_variables: Raw variable definitions from YAML (not yet evaluated)
+        variable_names: Set of variable names to evaluate
+        file_path: Recipe file path (for relative file resolution)
+        data: Full YAML data (for context in _resolve_variable_value)
+
+    Returns:
+        Dictionary of evaluated variable values (for specified variables and their dependencies)
+
+    Raises:
+        ValueError: For validation errors, undefined refs, or circular refs
+
+    Example:
+        >>> raw_vars = {"a": "{{ var.b }}", "b": "value", "c": "unused"}
+        >>> _evaluate_variable_subset(raw_vars, {"a"}, path, data)
+        {"a": "value", "b": "value"}  # "a" and its dependency "b", but not "c"
+    """
+    if not isinstance(raw_variables, dict):
+        raise ValueError("'variables' must be a dictionary")
+
+    # Expand variable set to include transitive dependencies
+    variables_to_eval = _expand_variable_dependencies(variable_names, raw_variables)
+
+    resolved = {}  # name -> resolved string value
+    resolution_stack = []  # For circular detection
+
+    # Evaluate variables in order (to handle references between variables)
+    for var_name, raw_value in raw_variables.items():
+        if var_name in variables_to_eval:
+            _validate_variable_name(var_name)
+            resolved[var_name] = _resolve_variable_value(
+                var_name, raw_value, resolved, resolution_stack, file_path, data
+            )
+
+    return resolved
+
+
 def _parse_file_with_env(
     file_path: Path,
     namespace: str | None,
     project_root: Path,
     import_stack: list[Path] | None = None,
-) -> tuple[dict[str, Task], dict[str, Environment], str, dict[str, str]]:
+) -> tuple[dict[str, Task], dict[str, Environment], str, dict[str, Any], dict[str, Any]]:
     """Parse file and extract tasks, environments, and variables.
 
     Args:
@@ -890,7 +1128,8 @@ def _parse_file_with_env(
         import_stack: Stack of files being imported (for circular detection)
 
     Returns:
-        Tuple of (tasks, environments, default_env_name, variables)
+        Tuple of (tasks, environments, default_env_name, raw_variables, yaml_data)
+        Note: Variables are NOT evaluated here - they're stored as raw specs for lazy evaluation
     """
     # Parse tasks normally
     tasks = _parse_file(file_path, namespace, project_root, import_stack)
@@ -898,29 +1137,23 @@ def _parse_file_with_env(
     # Load YAML again to extract environments and variables (only from root file)
     environments: dict[str, Environment] = {}
     default_env = ""
-    variables: dict[str, str] = {}
+    raw_variables: dict[str, Any] = {}
+    yaml_data: dict[str, Any] = {}
 
     # Only parse environments and variables from the root file (namespace is None)
     if namespace is None:
         with open(file_path, "r") as f:
             data = yaml.safe_load(f)
+            yaml_data = data or {}
 
-        # Parse variables first (so they can be used in environment preambles and tasks)
-        if data:
-            variables = _parse_variables_section(data, file_path)
+        # Store raw variable specs WITHOUT evaluating them (lazy evaluation)
+        # Variable evaluation will happen later in Recipe.evaluate_variables()
+        if data and "variables" in data:
+            raw_variables = data["variables"]
 
-        # Apply variable substitution to all tasks
-        if variables:
-            from tasktree.substitution import substitute_variables
-
-            for task in tasks.values():
-                task.cmd = substitute_variables(task.cmd, variables)
-                task.desc = substitute_variables(task.desc, variables)
-                task.working_dir = substitute_variables(task.working_dir, variables)
-                task.inputs = [substitute_variables(inp, variables) for inp in task.inputs]
-                task.outputs = [substitute_variables(out, variables) for out in task.outputs]
-                # Substitute in argument default values (in arg spec strings)
-                task.args = [substitute_variables(arg, variables) for arg in task.args]
+        # SKIP variable substitution here - defer to lazy evaluation phase
+        # Tasks and environments will contain {{ var.* }} placeholders until evaluation
+        # This allows us to only evaluate variables that are actually reachable from the target task
 
         if data and "environments" in data:
             env_data = data["environments"]
@@ -944,10 +1177,8 @@ def _parse_file_with_env(
                     preamble = env_config.get("preamble", "")
                     working_dir = env_config.get("working_dir", "")
 
-                    # Substitute variables in preamble
-                    if preamble and variables:
-                        from tasktree.substitution import substitute_variables
-                        preamble = substitute_variables(preamble, variables)
+                    # SKIP variable substitution in preamble - defer to lazy evaluation
+                    # preamble may contain {{ var.* }} placeholders
 
                     # Parse Docker-specific fields
                     dockerfile = env_config.get("dockerfile", "")
@@ -958,35 +1189,8 @@ def _parse_file_with_env(
                     extra_args = env_config.get("extra_args", [])
                     run_as_root = env_config.get("run_as_root", False)
 
-                    # Substitute variables in environment fields
-                    if variables:
-                        from tasktree.substitution import substitute_variables
-
-                        # Substitute in volumes
-                        if volumes:
-                            volumes = [substitute_variables(vol, variables) for vol in volumes]
-
-                        # Substitute in ports
-                        if ports:
-                            ports = [substitute_variables(port, variables) for port in ports]
-
-                        # Substitute in env_vars values
-                        if env_vars:
-                            env_vars = {
-                                key: substitute_variables(value, variables)
-                                for key, value in env_vars.items()
-                            }
-
-                        # Substitute in working_dir
-                        if working_dir:
-                            working_dir = substitute_variables(working_dir, variables)
-
-                        # Substitute in build args (dict for Docker environments)
-                        if args and isinstance(args, dict):
-                            args = {
-                                key: substitute_variables(str(value), variables)
-                                for key, value in args.items()
-                            }
+                    # SKIP variable substitution in environment fields - defer to lazy evaluation
+                    # Environment fields may contain {{ var.* }} placeholders
 
                     # Validate environment type
                     if not shell and not dockerfile:
@@ -1044,7 +1248,7 @@ def _parse_file_with_env(
                         run_as_root=run_as_root
                     )
 
-    return tasks, environments, default_env, variables
+    return tasks, environments, default_env, raw_variables, yaml_data
 
 
 def collect_reachable_tasks(tasks: dict[str, Task], root_task: str) -> set[str]:
@@ -1204,17 +1408,20 @@ def parse_recipe(
 ) -> Recipe:
     """Parse a recipe file and handle imports recursively.
 
+    This function now implements lazy variable evaluation: if root_task is provided,
+    only variables reachable from that task will be evaluated. This provides significant
+    performance and security benefits for recipes with many variables.
+
     Args:
         recipe_path: Path to the main recipe file
         project_root: Optional project root directory. If not provided, uses recipe file's parent directory.
                      When using --tasks option, this should be the current working directory.
         root_task: Optional root task for lazy variable evaluation. If provided, only variables
                   used by tasks reachable from root_task will be evaluated (optimization).
-                  NOTE: Currently this parameter is accepted but lazy evaluation is not yet
-                  implemented - all variables are still evaluated for backward compatibility.
+                  If None, all variables will be evaluated (for --list command compatibility).
 
     Returns:
-        Recipe object with all tasks (including recursively imported tasks)
+        Recipe object with all tasks (including recursively imported tasks) and evaluated variables
 
     Raises:
         FileNotFoundError: If recipe file doesn't exist
@@ -1230,26 +1437,31 @@ def parse_recipe(
         project_root = recipe_path.parent
 
     # Parse main file - it will recursively handle all imports
-    tasks, environments, default_env, variables = _parse_file_with_env(
+    # Variables are NOT evaluated here (lazy evaluation)
+    tasks, environments, default_env, raw_variables, yaml_data = _parse_file_with_env(
         recipe_path, namespace=None, project_root=project_root
     )
 
-    # TODO: Implement lazy variable evaluation when root_task is provided
-    # This would require:
-    # 1. Deferring variable evaluation until after task parsing
-    # 2. Collecting reachable tasks and variables
-    # 3. Evaluating only reachable variables
-    # 4. Re-substituting variables into task definitions
-    # For now, we evaluate all variables eagerly (current behavior)
-
-    return Recipe(
+    # Create recipe with raw (unevaluated) variables
+    recipe = Recipe(
         tasks=tasks,
         project_root=project_root,
         recipe_path=recipe_path,
         environments=environments,
         default_env=default_env,
-        variables=variables,
+        variables={},  # Empty initially (deprecated field)
+        raw_variables=raw_variables,
+        evaluated_variables={},  # Empty initially
+        _variables_evaluated=False,
+        _original_yaml_data=yaml_data
     )
+
+    # Trigger lazy variable evaluation
+    # If root_task is provided: evaluate only reachable variables
+    # If root_task is None: evaluate all variables (for --list)
+    recipe.evaluate_variables(root_task)
+
+    return recipe
 
 
 def _parse_file(

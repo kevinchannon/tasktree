@@ -48,6 +48,11 @@ def substitute_variables(text: str | dict[str, Any], variables: dict[str, str]) 
         else:
             raise ValueError("Empty arg dictionary")
     else:
+        # If not a string (e.g., int, float, bool, None), return unchanged
+        # This handles cases like: default: 5, min: 0, choices: [1, 2, 3]
+        if not isinstance(text, str):
+            return text
+
         def replace_match(match: re.Match) -> str:
             prefix = match.group(1)
             name = match.group(2)

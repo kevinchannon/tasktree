@@ -282,7 +282,7 @@ variables:
 
 tasks:
   test:
-    cmd: 'echo test'
+    cmd: 'echo test {{ var.recursive }}'
 """)
 
             original_cwd = os.getcwd()
@@ -673,7 +673,7 @@ variables:
 
 tasks:
   test:
-    cmd: echo test
+    cmd: echo test {{ var.missing }}
 """)
 
             original_cwd = os.getcwd()
@@ -822,7 +822,7 @@ variables:
 
 tasks:
   test:
-    cmd: echo test
+    cmd: echo test port = {{ var.port }}
 """)
 
             original_cwd = os.getcwd()
