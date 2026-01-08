@@ -264,7 +264,7 @@
                     "properties": {
                       "type": {
                         "type": "string",
-                        "description": "The type of the argument (int, float, bool, string, path, ip, ipv4, ipv6, email, hostname")
+                        "description": "The type of the argument (int, float, bool, string, path, ip, ipv4, ipv6, email, hostname)"
                       },
                       "default": {
                         "type": "string",
@@ -278,6 +278,11 @@
             "env": {
               "type": "string",
               "description": "Environment to use for this task (overrides default)"
+            },
+            "private": {
+              "type": "boolean",
+              "description": "If true, task is hidden from --list output but can still be run directly",
+              "default": false
             },
             "cmd": {
               "type": "string",

@@ -337,6 +337,67 @@ class TestListFormatting(unittest.TestCase):
         # Rich Table padding can be a tuple of (top, right, bottom, left) or (vertical, horizontal)
         self.assertIn(table.padding, [(0, 2), (0, 2, 0, 2)])
 
+    @patch('tasktree.cli._get_recipe')
+    def test_list_excludes_private_tasks(self, mock_get_recipe):
+        """Test that private tasks are excluded from list output."""
+        tasks = {
+            "public": Task(name="public", cmd="echo public", desc="Public task", private=False),
+            "private": Task(name="private", cmd="echo private", desc="Private task", private=True),
+        }
+        mock_get_recipe.return_value = self._create_mock_recipe(tasks)
+
+        _list_tasks()
+
+        table = self.mock_console.print.call_args[0][0]
+        # Should only have 1 row (the public task)
+        self.assertEqual(len(table.rows), 1)
+
+    @patch('tasktree.cli._get_recipe')
+    def test_list_includes_tasks_without_private_field(self, mock_get_recipe):
+        """Test that tasks without private field (default False) are included."""
+        tasks = {
+            "default": Task(name="default", cmd="echo default", desc="Default task"),
+        }
+        mock_get_recipe.return_value = self._create_mock_recipe(tasks)
+
+        _list_tasks()
+
+        table = self.mock_console.print.call_args[0][0]
+        # Should have 1 row
+        self.assertEqual(len(table.rows), 1)
+
+    @patch('tasktree.cli._get_recipe')
+    def test_list_with_mixed_private_and_public_tasks(self, mock_get_recipe):
+        """Test list with mixed private and public tasks."""
+        tasks = {
+            "public1": Task(name="public1", cmd="echo 1", desc="Public 1", private=False),
+            "private1": Task(name="private1", cmd="echo 2", desc="Private 1", private=True),
+            "public2": Task(name="public2", cmd="echo 3", desc="Public 2"),
+            "private2": Task(name="private2", cmd="echo 4", desc="Private 2", private=True),
+        }
+        mock_get_recipe.return_value = self._create_mock_recipe(tasks)
+
+        _list_tasks()
+
+        table = self.mock_console.print.call_args[0][0]
+        # Should only have 2 rows (public1 and public2)
+        self.assertEqual(len(table.rows), 2)
+
+    @patch('tasktree.cli._get_recipe')
+    def test_list_with_only_private_tasks(self, mock_get_recipe):
+        """Test list with only private tasks shows empty table."""
+        tasks = {
+            "private1": Task(name="private1", cmd="echo 1", desc="Private 1", private=True),
+            "private2": Task(name="private2", cmd="echo 2", desc="Private 2", private=True),
+        }
+        mock_get_recipe.return_value = self._create_mock_recipe(tasks)
+
+        _list_tasks()
+
+        table = self.mock_console.print.call_args[0][0]
+        # Should have 0 rows
+        self.assertEqual(len(table.rows), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

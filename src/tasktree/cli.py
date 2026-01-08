@@ -127,6 +127,9 @@ def _list_tasks(tasks_file: Optional[str] = None):
 
     for task_name in sorted(recipe.task_names()):
         task = recipe.get_task(task_name)
+        # Skip private tasks in list output
+        if task and task.private:
+            continue
         desc = task.desc if task else ""
         args_formatted = _format_task_arguments(task.args) if task else ""
 

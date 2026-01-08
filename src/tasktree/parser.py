@@ -63,6 +63,7 @@ class Task:
     args: list[str | dict[str, Any]] = field(default_factory=list)  # Can be strings or dicts (each dict has single key: arg name)
     source_file: str = ""  # Track which file defined this task
     env: str = ""  # Environment name to use for execution
+    private: bool = False  # If True, task is hidden from --list output
 
     # Internal fields for efficient output lookup (built in __post_init__)
     _output_map: dict[str, str] = field(init=False, default_factory=dict, repr=False)  # name → path mapping
@@ -1797,6 +1798,7 @@ def _parse_file(
             args=task_data.get("args", []),
             source_file=str(file_path),
             env=task_data.get("env", ""),
+            private=task_data.get("private", False),
         )
 
         # Check for case-sensitive argument collisions

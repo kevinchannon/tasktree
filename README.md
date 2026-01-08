@@ -233,6 +233,7 @@ tasks:
     outputs: [dist/binary]                 # Output files (glob patterns)
     working_dir: subproject/               # Execution directory (default: project root)
     env: bash-strict                       # Execution environment (optional)
+    private: false                         # Hide from --list output (default: false)
     args:                                   # Task parameters
       - param1                              # Simple argument
       - param2: { type: path, default: "." }  # With type and default
@@ -816,6 +817,40 @@ Hint: Define named outputs like: outputs: [{ missing: 'path/to/file' }]
 - **Multi-stage builds**: Chain compilation steps with specific output references
 - **Deployment pipelines**: Reference exact artifacts to deploy
 - **Configuration propagation**: Pass generated config files through build stages
+
+
+### Private Tasks
+
+Sometimes you may want to define helper tasks that are useful as dependencies but shouldn't be listed when users run `tt --list`. Mark these tasks as private:
+
+```yaml
+tasks:
+  # Private helper task - hidden from --list
+  setup-deps:
+    private: true
+    cmd: |
+      npm install
+      pip install -r requirements.txt
+
+  # Public task that uses the helper
+  build:
+    deps: [setup-deps]
+    cmd: npm run build
+```
+
+**Behavior:**
+- `tt --list` shows only public tasks (`build` in this example)
+- Private tasks can still be executed: `tt setup-deps` works
+- Private tasks work normally as dependencies
+- By default, all tasks are public (`private: false`)
+
+**Use cases:**
+- Internal helper tasks that shouldn't be run directly
+- Implementation details you want to hide from users
+- Shared setup tasks across multiple public tasks
+
+Note that private tasks remain fully functional - they're only hidden from the list view. Users who know the task name can still execute it directly.
+
 
 ## Environment Variables
 
