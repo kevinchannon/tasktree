@@ -37,9 +37,38 @@ def _normalize_choices_lists(args: list[str | dict[str, Any]]) ->  list[str | di
     return normalized_args
 
 
+def _serialize_outputs_for_hash(outputs: list[str | dict[str, str]]) -> list[str]:
+    """Serialize outputs to consistent list of strings for hashing.
+
+    Converts both named outputs (dicts) and anonymous outputs (strings)
+    into a consistent, sortable format.
+
+    Args:
+        outputs: List of output specifications (strings or dicts)
+
+    Returns:
+        List of serialized output strings in sorted order
+
+    Example:
+        >>> _serialize_outputs_for_hash(["file.txt", {"bundle": "app.js"}])
+        ['bundle:app.js', 'file.txt']
+    """
+    serialized = []
+    for output in outputs:
+        if isinstance(output, str):
+            # Anonymous output: just the path
+            serialized.append(output)
+        elif isinstance(output, dict):
+            # Named output: serialize as "name:path" for each entry
+            # Sort dict items for consistent ordering
+            for name, path in sorted(output.items()):
+                serialized.append(f"{name}:{path}")
+    return sorted(serialized)
+
+
 def hash_task(
     cmd: str,
-    outputs: list[str],
+    outputs: list[str | dict[str, str]],
     working_dir: str,
     args: list[str | dict[str, Any]],
     env: str = "",
@@ -49,7 +78,7 @@ def hash_task(
 
     Args:
         cmd: Task command
-        outputs: Task outputs
+        outputs: Task outputs (strings or named dicts)
         working_dir: Working directory
         args: Task argument specifications
         env: Environment name
@@ -60,7 +89,7 @@ def hash_task(
     """
     data = {
         "cmd": cmd,
-        "outputs": sorted(outputs),
+        "outputs": _serialize_outputs_for_hash(outputs),
         "working_dir": working_dir,
         "args": sorted(_normalize_choices_lists(args), key=_arg_sort_key),
         "env": env,

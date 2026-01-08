@@ -4,13 +4,16 @@ import os
 import unittest
 
 from tasktree.substitution import (
+    DEP_OUTPUT_PATTERN,
     PLACEHOLDER_PATTERN,
     substitute_arguments,
     substitute_all,
     substitute_builtin_variables,
+    substitute_dependency_outputs,
     substitute_environment,
     substitute_variables,
 )
+from tasktree.parser import Task
 
 
 class TestPlaceholderPattern(unittest.TestCase):
@@ -512,6 +515,206 @@ class TestSubstituteAll(unittest.TestCase):
             self.assertEqual(result, "server=host:9000")
         finally:
             del os.environ['PORT']
+
+
+class TestDepOutputPattern(unittest.TestCase):
+    """Test the regex pattern for matching dependency output references."""
+
+    def test_pattern_matches_basic_syntax(self):
+        """Test pattern matches {{ dep.task.outputs.name }} syntax."""
+        match = DEP_OUTPUT_PATTERN.search("{{ dep.build.outputs.bundle }}")
+        self.assertIsNotNone(match)
+        self.assertEqual(match.group(1), "build")
+        self.assertEqual(match.group(2), "bundle")
+
+    def test_pattern_matches_with_whitespace(self):
+        """Test pattern allows whitespace variations."""
+        patterns = [
+            "{{dep.build.outputs.bundle}}",
+            "{{ dep.build.outputs.bundle }}",
+            "{{  dep.build.outputs.bundle  }}",
+            "{{ dep . build . outputs . bundle }}",
+        ]
+        for pattern in patterns:
+            match = DEP_OUTPUT_PATTERN.search(pattern)
+            self.assertIsNotNone(match, f"Failed to match: {pattern}")
+            self.assertEqual(match.group(1), "build")
+            self.assertEqual(match.group(2), "bundle")
+
+    def test_pattern_matches_namespaced_task(self):
+        """Test pattern matches namespaced tasks with dots."""
+        match = DEP_OUTPUT_PATTERN.search("{{ dep.external.build.outputs.artifact }}")
+        self.assertIsNotNone(match)
+        self.assertEqual(match.group(1), "external.build")
+        self.assertEqual(match.group(2), "artifact")
+
+    def test_pattern_matches_underscores(self):
+        """Test pattern matches names with underscores."""
+        match = DEP_OUTPUT_PATTERN.search("{{ dep.build_app.outputs.my_output }}")
+        self.assertIsNotNone(match)
+        self.assertEqual(match.group(1), "build_app")
+        self.assertEqual(match.group(2), "my_output")
+
+    def test_pattern_does_not_match_other_prefixes(self):
+        """Test pattern doesn't match var/arg/env/tt prefixes."""
+        non_matches = [
+            "{{ var.foo }}",
+            "{{ arg.bar }}",
+            "{{ env.BAZ }}",
+            "{{ tt.qux }}",
+        ]
+        for text in non_matches:
+            match = DEP_OUTPUT_PATTERN.search(text)
+            self.assertIsNone(match, f"Should not match: {text}")
+
+    def test_pattern_finds_multiple_references(self):
+        """Test pattern finds all references in text."""
+        text = "Deploy {{ dep.build.outputs.bundle }} and {{ dep.compile.outputs.binary }}"
+        matches = list(DEP_OUTPUT_PATTERN.finditer(text))
+        self.assertEqual(len(matches), 2)
+        self.assertEqual(matches[0].group(1), "build")
+        self.assertEqual(matches[0].group(2), "bundle")
+        self.assertEqual(matches[1].group(1), "compile")
+        self.assertEqual(matches[1].group(2), "binary")
+
+
+class TestSubstituteDependencyOutputs(unittest.TestCase):
+    """Test dependency output substitution function."""
+
+    def test_substitute_basic_output(self):
+        """Test basic output reference substitution."""
+        build_task = Task(name="build", cmd="build.sh")
+        build_task.outputs = [{"bundle": "dist/app.js"}]
+        build_task.__post_init__()
+
+        resolved_tasks = {"build": build_task}
+
+        text = "Deploy {{ dep.build.outputs.bundle }}"
+        result = substitute_dependency_outputs(
+            text, "deploy", ["build"], resolved_tasks
+        )
+        self.assertEqual(result, "Deploy dist/app.js")
+
+    def test_substitute_multiple_outputs(self):
+        """Test multiple output references in same text."""
+        build_task = Task(name="build", cmd="build.sh")
+        build_task.outputs = [
+            {"bundle": "dist/app.js"},
+            {"sourcemap": "dist/app.js.map"}
+        ]
+        build_task.__post_init__()
+
+        resolved_tasks = {"build": build_task}
+
+        text = "Copy {{ dep.build.outputs.bundle }} and {{ dep.build.outputs.sourcemap }}"
+        result = substitute_dependency_outputs(
+            text, "deploy", ["build"], resolved_tasks
+        )
+        self.assertEqual(result, "Copy dist/app.js and dist/app.js.map")
+
+    def test_substitute_from_multiple_tasks(self):
+        """Test references from multiple dependency tasks."""
+        build_task = Task(name="build", cmd="build.sh")
+        build_task.outputs = [{"bundle": "dist/app.js"}]
+        build_task.__post_init__()
+
+        compile_task = Task(name="compile", cmd="compile.sh")
+        compile_task.outputs = [{"binary": "bin/app"}]
+        compile_task.__post_init__()
+
+        resolved_tasks = {"build": build_task, "compile": compile_task}
+
+        text = "Package {{ dep.build.outputs.bundle }} {{ dep.compile.outputs.binary }}"
+        result = substitute_dependency_outputs(
+            text, "package", ["build", "compile"], resolved_tasks
+        )
+        self.assertEqual(result, "Package dist/app.js bin/app")
+
+    def test_substitute_no_placeholders(self):
+        """Test text without placeholders returns unchanged."""
+        resolved_tasks = {}
+        text = "No placeholders here"
+        result = substitute_dependency_outputs(text, "task", [], resolved_tasks)
+        self.assertEqual(result, text)
+
+    def test_error_on_unknown_task(self):
+        """Test error when referencing unknown task."""
+        resolved_tasks = {}
+
+        text = "Deploy {{ dep.unknown.outputs.bundle }}"
+        with self.assertRaises(ValueError) as cm:
+            substitute_dependency_outputs(text, "deploy", ["build"], resolved_tasks)
+
+        error_msg = str(cm.exception)
+        self.assertIn("unknown task 'unknown'", error_msg)
+        self.assertIn("deploy", error_msg)
+
+    def test_error_on_task_not_in_deps(self):
+        """Test error when task not listed as dependency."""
+        build_task = Task(name="build", cmd="build.sh")
+        build_task.outputs = [{"bundle": "dist/app.js"}]
+        build_task.__post_init__()
+
+        resolved_tasks = {"build": build_task}
+
+        text = "Deploy {{ dep.build.outputs.bundle }}"
+        with self.assertRaises(ValueError) as cm:
+            substitute_dependency_outputs(
+                text, "deploy", ["other"], resolved_tasks  # build not in deps
+            )
+
+        error_msg = str(cm.exception)
+        self.assertIn("not list it as a dependency", error_msg)
+        self.assertIn("build", error_msg)
+        self.assertIn("deploy", error_msg)
+
+    def test_error_on_missing_output_name(self):
+        """Test error when output name doesn't exist."""
+        build_task = Task(name="build", cmd="build.sh")
+        build_task.outputs = [{"bundle": "dist/app.js"}]
+        build_task.__post_init__()
+
+        resolved_tasks = {"build": build_task}
+
+        text = "Deploy {{ dep.build.outputs.missing }}"
+        with self.assertRaises(ValueError) as cm:
+            substitute_dependency_outputs(text, "deploy", ["build"], resolved_tasks)
+
+        error_msg = str(cm.exception)
+        self.assertIn("no output named 'missing'", error_msg)
+        self.assertIn("Available named outputs", error_msg)
+        self.assertIn("bundle", error_msg)
+
+    def test_error_message_for_anonymous_outputs(self):
+        """Test error message when task has no named outputs."""
+        build_task = Task(name="build", cmd="build.sh")
+        build_task.outputs = ["dist/app.js"]  # Anonymous output
+        build_task.__post_init__()
+
+        resolved_tasks = {"build": build_task}
+
+        text = "Deploy {{ dep.build.outputs.bundle }}"
+        with self.assertRaises(ValueError) as cm:
+            substitute_dependency_outputs(text, "deploy", ["build"], resolved_tasks)
+
+        error_msg = str(cm.exception)
+        self.assertIn("no output named 'bundle'", error_msg)
+        self.assertIn("(none - all outputs are anonymous)", error_msg)
+
+    def test_substitute_with_other_placeholders(self):
+        """Test that other placeholder types are not affected."""
+        build_task = Task(name="build", cmd="build.sh")
+        build_task.outputs = [{"bundle": "dist/app.js"}]
+        build_task.__post_init__()
+
+        resolved_tasks = {"build": build_task}
+
+        # Text with both dep and other placeholders
+        text = "Deploy {{ dep.build.outputs.bundle }} to {{ env.SERVER }}"
+        result = substitute_dependency_outputs(text, "deploy", ["build"], resolved_tasks)
+
+        # Only dep placeholder should be substituted
+        self.assertEqual(result, "Deploy dist/app.js to {{ env.SERVER }}")
 
 
 if __name__ == "__main__":

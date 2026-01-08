@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from tasktree import docker as docker_module
-from tasktree.graph import get_implicit_inputs, resolve_execution_order
+from tasktree.graph import get_implicit_inputs, resolve_execution_order, resolve_dependency_output_references
 from tasktree.hasher import hash_args, hash_task, make_cache_key
 from tasktree.parser import Recipe, Task, Environment
 from tasktree.state import StateManager, TaskState
@@ -432,6 +432,10 @@ class Executor:
         else:
             # Execute task and all dependencies
             execution_order = resolve_execution_order(self.recipe, task_name, args_dict)
+
+        # Resolve dependency output references in topological order
+        # This substitutes {{ dep.*.outputs.* }} templates before execution
+        resolve_dependency_output_references(self.recipe, execution_order)
 
         # Single phase: Check and execute incrementally
         statuses: dict[str, TaskStatus] = {}
@@ -1042,6 +1046,25 @@ class Executor:
 
         return changed_files
 
+    def _expand_output_paths(self, task: Task) -> list[str]:
+        """Extract all output paths from task outputs (both named and anonymous).
+
+        Args:
+            task: Task with outputs to extract
+
+        Returns:
+            List of output path patterns (glob patterns as strings)
+        """
+        paths = []
+        for output in task.outputs:
+            if isinstance(output, str):
+                # Anonymous output: just the path string
+                paths.append(output)
+            elif isinstance(output, dict):
+                # Named output: extract the path value
+                paths.extend(output.values())
+        return paths
+
     def _check_outputs_missing(self, task: Task) -> list[str]:
         """Check if any declared outputs are missing.
 
@@ -1057,7 +1080,10 @@ class Executor:
         missing_patterns = []
         base_path = self.recipe.project_root / task.working_dir
 
-        for pattern in task.outputs:
+        # Expand outputs to paths (handles both named and anonymous)
+        output_paths = self._expand_output_paths(task)
+
+        for pattern in output_paths:
             # Check if pattern has any matches
             matches = list(base_path.glob(pattern))
             if not matches:

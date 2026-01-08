@@ -2894,5 +2894,211 @@ class TestArgTypeInference(unittest.TestCase):
         self.assertIn("greater than max", error_msg)
 
 
+class TestNamedOutputs(unittest.TestCase):
+    """Tests for named output functionality."""
+
+    def test_parse_named_output(self):
+        """Test parsing a task with named outputs."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text(
+                """
+tasks:
+  build:
+    outputs:
+      - bundle: "dist/app.js"
+      - sourcemap: "dist/app.js.map"
+    cmd: webpack build
+"""
+            )
+
+            recipe = parse_recipe(recipe_path)
+            task = recipe.tasks["build"]
+            self.assertEqual(len(task.outputs), 2)
+            self.assertIn({"bundle": "dist/app.js"}, task.outputs)
+            self.assertIn({"sourcemap": "dist/app.js.map"}, task.outputs)
+
+            # Check internal maps
+            self.assertEqual(task._output_map["bundle"], "dist/app.js")
+            self.assertEqual(task._output_map["sourcemap"], "dist/app.js.map")
+            self.assertEqual(len(task._anonymous_outputs), 0)
+
+    def test_parse_mixed_outputs(self):
+        """Test parsing task with both named and anonymous outputs."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text(
+                """
+tasks:
+  compile:
+    outputs:
+      - binary: "build/app"
+      - "build/app.debug"
+      - symbols: "build/app.sym"
+    cmd: gcc -o build/app src/*.c
+"""
+            )
+
+            recipe = parse_recipe(recipe_path)
+            task = recipe.tasks["compile"]
+            self.assertEqual(len(task.outputs), 3)
+
+            # Check named outputs
+            self.assertEqual(task._output_map["binary"], "build/app")
+            self.assertEqual(task._output_map["symbols"], "build/app.sym")
+
+            # Check anonymous outputs
+            self.assertEqual(len(task._anonymous_outputs), 1)
+            self.assertIn("build/app.debug", task._anonymous_outputs)
+
+    def test_parse_anonymous_outputs_only(self):
+        """Test that existing anonymous-only outputs still work."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text(
+                """
+tasks:
+  build:
+    outputs: ["dist/bundle.js", "dist/bundle.css"]
+    cmd: build.sh
+"""
+            )
+
+            recipe = parse_recipe(recipe_path)
+            task = recipe.tasks["build"]
+            self.assertEqual(len(task.outputs), 2)
+            self.assertEqual(task.outputs, ["dist/bundle.js", "dist/bundle.css"])
+
+            # All should be anonymous
+            self.assertEqual(len(task._output_map), 0)
+            self.assertEqual(len(task._anonymous_outputs), 2)
+
+    def test_named_output_invalid_identifier(self):
+        """Test that invalid identifier names raise error."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text(
+                """
+tasks:
+  build:
+    outputs:
+      - invalid-name: "dist/app.js"
+    cmd: build.sh
+"""
+            )
+
+            with self.assertRaises(ValueError) as cm:
+                parse_recipe(recipe_path)
+            error_msg = str(cm.exception)
+            self.assertIn("invalid-name", error_msg)
+            self.assertIn("valid identifier", error_msg)
+
+    def test_named_output_starts_with_number(self):
+        """Test that output names starting with numbers raise error."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text(
+                """
+tasks:
+  build:
+    outputs:
+      - 1output: "dist/app.js"
+    cmd: build.sh
+"""
+            )
+
+            with self.assertRaises(ValueError) as cm:
+                parse_recipe(recipe_path)
+            error_msg = str(cm.exception)
+            self.assertIn("1output", error_msg)
+            self.assertIn("valid identifier", error_msg)
+
+    def test_named_output_duplicate_names(self):
+        """Test that duplicate output names raise error."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text(
+                """
+tasks:
+  build:
+    outputs:
+      - bundle: "dist/app.js"
+      - bundle: "dist/app.min.js"
+    cmd: build.sh
+"""
+            )
+
+            with self.assertRaises(ValueError) as cm:
+                parse_recipe(recipe_path)
+            error_msg = str(cm.exception)
+            self.assertIn("Duplicate", error_msg)
+            self.assertIn("bundle", error_msg)
+
+    def test_named_output_multiple_keys(self):
+        """Test that output dicts with multiple keys raise error."""
+        task = Task(name="test", cmd="echo test")
+        with self.assertRaises(ValueError) as cm:
+            task.outputs = [{"key1": "path1", "key2": "path2"}]
+            task.__post_init__()
+        error_msg = str(cm.exception)
+        self.assertIn("exactly one key-value pair", error_msg)
+
+    def test_named_output_non_string_path(self):
+        """Test that non-string output paths raise error."""
+        task = Task(name="test", cmd="echo test")
+        with self.assertRaises(ValueError) as cm:
+            task.outputs = [{"bundle": 123}]
+            task.__post_init__()
+        error_msg = str(cm.exception)
+        self.assertIn("string path", error_msg)
+
+    def test_output_invalid_type(self):
+        """Test that invalid output types raise error."""
+        task = Task(name="test", cmd="echo test")
+        with self.assertRaises(ValueError) as cm:
+            task.outputs = [123]
+            task.__post_init__()
+        error_msg = str(cm.exception)
+        self.assertIn("string or dict", error_msg)
+
+    def test_named_output_valid_identifiers(self):
+        """Test various valid identifier names."""
+        valid_names = ["output", "output_1", "OUTPUT", "_private", "camelCase", "snake_case"]
+        for name in valid_names:
+            with TemporaryDirectory() as tmpdir:
+                recipe_path = Path(tmpdir) / "tasktree.yaml"
+                recipe_path.write_text(
+                    f"""
+tasks:
+  build:
+    outputs:
+      - {name}: "dist/app.js"
+    cmd: build.sh
+"""
+                )
+                recipe = parse_recipe(recipe_path)
+                task = recipe.tasks["build"]
+                self.assertIn(name, task._output_map)
+
+    def test_empty_outputs_list(self):
+        """Test that empty outputs list works correctly."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text(
+                """
+tasks:
+  build:
+    outputs: []
+    cmd: build.sh
+"""
+            )
+
+            recipe = parse_recipe(recipe_path)
+            task = recipe.tasks["build"]
+            self.assertEqual(len(task.outputs), 0)
+            self.assertEqual(len(task._output_map), 0)
+            self.assertEqual(len(task._anonymous_outputs), 0)
+
+
 if __name__ == "__main__":
     unittest.main()

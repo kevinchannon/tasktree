@@ -15,6 +15,12 @@ PLACEHOLDER_PATTERN = re.compile(
     r'\{\{\s*(var|arg|env|tt)\s*\.\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}'
 )
 
+# Pattern matches: {{ dep.task_name.outputs.output_name }} with optional whitespace
+# Groups: (1) task_name (can include dots for namespacing), (2) output_name (identifier)
+DEP_OUTPUT_PATTERN = re.compile(
+    r'\{\{\s*dep\s*\.\s*([a-zA-Z_][a-zA-Z0-9_.-]*)\s*\.\s*outputs\s*\.\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}'
+)
+
 
 def substitute_variables(text: str | dict[str, Any], variables: dict[str, str]) -> str | dict[str, Any]:
     """Substitute {{ var.name }} placeholders with variable values.
@@ -290,3 +296,79 @@ def substitute_all(text: str, variables: dict[str, str], args: dict[str, Any]) -
     text = substitute_arguments(text, args)
     text = substitute_environment(text)
     return text
+
+
+def substitute_dependency_outputs(
+    text: str,
+    current_task_name: str,
+    current_task_deps: list[str],
+    resolved_tasks: dict[str, Any],
+) -> str:
+    """Substitute {{ dep.<task>.outputs.<name> }} placeholders with dependency output paths.
+
+    This function resolves references to named outputs from dependency tasks.
+    It validates that:
+    - The referenced task exists in the resolved_tasks dict
+    - The current task lists the referenced task as a dependency
+    - The referenced output name exists in the dependency task
+
+    Args:
+        text: Text containing {{ dep.*.outputs.* }} placeholders
+        current_task_name: Name of task being resolved (for error messages)
+        current_task_deps: List of dependency task names for the current task
+        resolved_tasks: Dictionary mapping task names to Task objects (already resolved)
+
+    Returns:
+        Text with all {{ dep.*.outputs.* }} placeholders replaced with output paths
+
+    Raises:
+        ValueError: If referenced task doesn't exist, isn't a dependency,
+                   or doesn't have the named output
+
+    Example:
+        >>> # Assuming build task has output { bundle: "dist/app.js" }
+        >>> substitute_dependency_outputs(
+        ...     "Deploy {{ dep.build.outputs.bundle }}",
+        ...     "deploy",
+        ...     ["build"],
+        ...     {"build": build_task}
+        ... )
+        'Deploy dist/app.js'
+    """
+    def replacer(match: re.Match) -> str:
+        dep_task_name = match.group(1)
+        output_name = match.group(2)
+
+        # Check if dependency task exists in resolved tasks
+        if dep_task_name not in resolved_tasks:
+            raise ValueError(
+                f"Task '{current_task_name}' references output from unknown task '{dep_task_name}'.\n"
+                f"Check the task name in {{{{ dep.{dep_task_name}.outputs.{output_name} }}}}"
+            )
+
+        # Check if current task depends on referenced task
+        if dep_task_name not in current_task_deps:
+            raise ValueError(
+                f"Task '{current_task_name}' references output from '{dep_task_name}' "
+                f"but does not list it as a dependency.\n"
+                f"Add '{dep_task_name}' to the deps list:\n"
+                f"  deps: [{', '.join(current_task_deps + [dep_task_name])}]"
+            )
+
+        # Get the dependency task
+        dep_task = resolved_tasks[dep_task_name]
+
+        # Look up the named output
+        if output_name not in dep_task._output_map:
+            available = list(dep_task._output_map.keys())
+            available_msg = ", ".join(available) if available else "(none - all outputs are anonymous)"
+            raise ValueError(
+                f"Task '{current_task_name}' references output '{output_name}' "
+                f"from task '{dep_task_name}', but '{dep_task_name}' has no output named '{output_name}'.\n"
+                f"Available named outputs in '{dep_task_name}': {available_msg}\n"
+                f"Hint: Define named outputs like: outputs: [{{ {output_name}: 'path/to/file' }}]"
+            )
+
+        return dep_task._output_map[output_name]
+
+    return DEP_OUTPUT_PATTERN.sub(replacer, text)

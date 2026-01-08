@@ -306,6 +306,114 @@ def resolve_execution_order(
         raise CycleError(f"Dependency cycle detected: {e}")
 
 
+def resolve_dependency_output_references(
+    recipe: Recipe,
+    ordered_tasks: list[tuple[str, dict[str, Any]]],
+) -> None:
+    """Resolve {{ dep.<task>.outputs.<name> }} references in topological order.
+
+    This function walks through tasks in dependency order (dependencies first) and
+    resolves any references to dependency outputs in task fields. Templates are
+    resolved in place, modifying the Task objects in the recipe.
+
+    Args:
+        recipe: Recipe containing task definitions
+        ordered_tasks: List of (task_name, args) tuples in topological order
+
+    Raises:
+        ValueError: If template references cannot be resolved (missing task,
+                   missing output, task not in dependencies, etc.)
+
+    Example:
+        Given tasks in topological order: [('build', {}), ('deploy', {})]
+        If deploy.cmd contains "{{ dep.build.outputs.bundle }}", it will be
+        resolved to the actual output path from the build task.
+    """
+    from tasktree.substitution import substitute_dependency_outputs
+
+    # Track which tasks have been resolved (for validation)
+    resolved_tasks = {}
+
+    for task_name, task_args in ordered_tasks:
+        task = recipe.tasks.get(task_name)
+        if task is None:
+            continue  # Skip if task doesn't exist (shouldn't happen)
+
+        # Get list of dependency task names for this task
+        dep_task_names = []
+        for dep_spec in task.deps:
+            # Handle both string and dict dependency specs
+            if isinstance(dep_spec, str):
+                dep_task_names.append(dep_spec)
+            elif isinstance(dep_spec, dict):
+                # Dict spec: {"task_name": [args]}
+                dep_task_names.append(list(dep_spec.keys())[0])
+
+        # Resolve output references in command
+        if task.cmd:
+            task.cmd = substitute_dependency_outputs(
+                task.cmd,
+                task_name,
+                dep_task_names,
+                resolved_tasks,
+            )
+
+        # Resolve output references in working_dir
+        if task.working_dir:
+            task.working_dir = substitute_dependency_outputs(
+                task.working_dir,
+                task_name,
+                dep_task_names,
+                resolved_tasks,
+            )
+
+        # Resolve output references in outputs
+        resolved_outputs = []
+        for output in task.outputs:
+            if isinstance(output, str):
+                resolved_outputs.append(
+                    substitute_dependency_outputs(
+                        output,
+                        task_name,
+                        dep_task_names,
+                        resolved_tasks,
+                    )
+                )
+            elif isinstance(output, dict):
+                # Named output: resolve the path value
+                resolved_dict = {}
+                for name, path in output.items():
+                    resolved_dict[name] = substitute_dependency_outputs(
+                        path,
+                        task_name,
+                        dep_task_names,
+                        resolved_tasks,
+                    )
+                resolved_outputs.append(resolved_dict)
+        task.outputs = resolved_outputs
+
+        # Rebuild output maps after resolution
+        task.__post_init__()
+
+        # Resolve output references in argument defaults
+        if task.args:
+            for arg_spec in task.args:
+                if isinstance(arg_spec, dict):
+                    # Get arg name and details
+                    for arg_name, arg_details in arg_spec.items():
+                        if isinstance(arg_details, dict) and "default" in arg_details:
+                            if isinstance(arg_details["default"], str):
+                                arg_details["default"] = substitute_dependency_outputs(
+                                    arg_details["default"],
+                                    task_name,
+                                    dep_task_names,
+                                    resolved_tasks,
+                                )
+
+        # Mark this task as resolved for future references
+        resolved_tasks[task_name] = task
+
+
 def get_implicit_inputs(recipe: Recipe, task: Task) -> list[str]:
     """Get implicit inputs for a task based on its dependencies.
 
@@ -336,7 +444,14 @@ def get_implicit_inputs(recipe: Recipe, task: Task) -> list[str]:
 
         # If dependency has outputs, inherit them
         if dep_task.outputs:
-            implicit_inputs.extend(dep_task.outputs)
+            # Extract paths from both named and anonymous outputs
+            for output in dep_task.outputs:
+                if isinstance(output, str):
+                    # Anonymous output: just the path
+                    implicit_inputs.append(output)
+                elif isinstance(output, dict):
+                    # Named output: extract path values
+                    implicit_inputs.extend(output.values())
         # If dependency has no outputs, inherit its inputs
         elif dep_task.inputs:
             implicit_inputs.extend(dep_task.inputs)

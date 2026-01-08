@@ -13,6 +13,7 @@ from tasktree.graph import (
     TaskNotFoundError,
     build_dependency_tree,
     get_implicit_inputs,
+    resolve_dependency_output_references,
     resolve_execution_order,
 )
 from tasktree.hasher import hash_args, hash_task, make_cache_key
@@ -28,6 +29,7 @@ __all__ = [
     "TaskNotFoundError",
     "build_dependency_tree",
     "get_implicit_inputs",
+    "resolve_dependency_output_references",
     "resolve_execution_order",
     "hash_args",
     "hash_task",

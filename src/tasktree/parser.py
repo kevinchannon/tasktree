@@ -58,14 +58,18 @@ class Task:
     desc: str = ""
     deps: list[str | dict[str, Any]] = field(default_factory=list)  # Can be strings or dicts with args
     inputs: list[str] = field(default_factory=list)
-    outputs: list[str] = field(default_factory=list)
+    outputs: list[str | dict[str, str]] = field(default_factory=list)  # Can be strings or dicts with named outputs
     working_dir: str = ""
     args: list[str | dict[str, Any]] = field(default_factory=list)  # Can be strings or dicts (each dict has single key: arg name)
     source_file: str = ""  # Track which file defined this task
     env: str = ""  # Environment name to use for execution
 
+    # Internal fields for efficient output lookup (built in __post_init__)
+    _output_map: dict[str, str] = field(init=False, default_factory=dict, repr=False)  # name → path mapping
+    _anonymous_outputs: list[str] = field(init=False, default_factory=list, repr=False)  # unnamed outputs
+
     def __post_init__(self):
-        """Ensure lists are always lists."""
+        """Ensure lists are always lists and build output maps."""
         if isinstance(self.deps, str):
             self.deps = [self.deps]
         if isinstance(self.inputs, str):
@@ -87,6 +91,45 @@ class Task:
                 f"    - {list(self.args.keys())[0] if self.args else 'key'}: ...\n\n"
                 f"Arguments must be defined as a list, not a dictionary."
             )
+
+        # Build output maps for efficient lookup
+        self._output_map = {}
+        self._anonymous_outputs = []
+
+        for idx, output in enumerate(self.outputs):
+            if isinstance(output, dict):
+                # Named output: validate and store
+                if len(output) != 1:
+                    raise ValueError(
+                        f"Task '{self.name}': Named output at index {idx} must have exactly one key-value pair, got {len(output)}: {output}"
+                    )
+
+                name, path = next(iter(output.items()))
+
+                if not isinstance(path, str):
+                    raise ValueError(
+                        f"Task '{self.name}': Named output '{name}' must have a string path, got {type(path).__name__}: {path}"
+                    )
+
+                if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', name):
+                    raise ValueError(
+                        f"Task '{self.name}': Named output '{name}' must be a valid identifier "
+                        f"(letters, numbers, underscores, cannot start with number)"
+                    )
+
+                if name in self._output_map:
+                    raise ValueError(
+                        f"Task '{self.name}': Duplicate output name '{name}' at index {idx}"
+                    )
+
+                self._output_map[name] = path
+            elif isinstance(output, str):
+                # Anonymous output: just store
+                self._anonymous_outputs.append(output)
+            else:
+                raise ValueError(
+                    f"Task '{self.name}': Output at index {idx} must be a string or dict, got {type(output).__name__}: {output}"
+                )
 
 
 @dataclass
@@ -266,9 +309,56 @@ class Recipe:
             task.desc = substitute_variables(task.desc, self.evaluated_variables)
             task.working_dir = substitute_variables(task.working_dir, self.evaluated_variables)
             task.inputs = [substitute_variables(inp, self.evaluated_variables) for inp in task.inputs]
-            task.outputs = [substitute_variables(out, self.evaluated_variables) for out in task.outputs]
-            # Substitute in argument default values (in arg spec strings)
-            task.args = [substitute_variables(arg, self.evaluated_variables) for arg in task.args]
+
+            # Substitute variables in outputs (handle both string and dict outputs)
+            resolved_outputs = []
+            for out in task.outputs:
+                if isinstance(out, str):
+                    resolved_outputs.append(substitute_variables(out, self.evaluated_variables))
+                elif isinstance(out, dict):
+                    # Named output: substitute the path value
+                    resolved_dict = {}
+                    for name, path in out.items():
+                        resolved_dict[name] = substitute_variables(path, self.evaluated_variables)
+                    resolved_outputs.append(resolved_dict)
+                else:
+                    resolved_outputs.append(out)
+            task.outputs = resolved_outputs
+
+            # Rebuild output maps after variable substitution
+            task.__post_init__()
+
+            # Substitute in argument default values (handle both string and dict args)
+            resolved_args = []
+            for arg in task.args:
+                if isinstance(arg, str):
+                    resolved_args.append(substitute_variables(arg, self.evaluated_variables))
+                elif isinstance(arg, dict):
+                    # Dict arg: substitute in nested values (like default values)
+                    resolved_dict = {}
+                    for arg_name, arg_spec in arg.items():
+                        if isinstance(arg_spec, dict):
+                            # Substitute in the nested dict values (e.g., default, help, choices)
+                            resolved_spec = {}
+                            for key, value in arg_spec.items():
+                                if isinstance(value, str):
+                                    resolved_spec[key] = substitute_variables(value, self.evaluated_variables)
+                                elif isinstance(value, list):
+                                    # Handle lists like 'choices'
+                                    resolved_spec[key] = [
+                                        substitute_variables(v, self.evaluated_variables) if isinstance(v, str) else v
+                                        for v in value
+                                    ]
+                                else:
+                                    resolved_spec[key] = value
+                            resolved_dict[arg_name] = resolved_spec
+                        else:
+                            # Simple value
+                            resolved_dict[arg_name] = substitute_variables(arg_spec, self.evaluated_variables) if isinstance(arg_spec, str) else arg_spec
+                    resolved_args.append(resolved_dict)
+                else:
+                    resolved_args.append(arg)
+            task.args = resolved_args
 
         # Substitute evaluated variables into all environments
         for env in self.environments.values():
@@ -1373,8 +1463,15 @@ def collect_reachable_variables(
         # Search in outputs
         if task.outputs:
             for output_pattern in task.outputs:
-                for match in var_pattern.finditer(output_pattern):
-                    variables.add(match.group(1))
+                if isinstance(output_pattern, str):
+                    for match in var_pattern.finditer(output_pattern):
+                        variables.add(match.group(1))
+                elif isinstance(output_pattern, dict):
+                    # Named output - check the path value
+                    for output_path in output_pattern.values():
+                        if isinstance(output_path, str):
+                            for match in var_pattern.finditer(output_path):
+                                variables.add(match.group(1))
 
         # Search in argument defaults
         if task.args:
