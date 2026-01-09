@@ -43,16 +43,25 @@
               "description": "Path to the shell executable (e.g., /bin/bash, python3, pwsh). Required for shell environments, optional for Docker environments (defaults to 'sh' inside container)."
             },
             "args": {
-              "description": "Arguments to pass to the shell",
+              "description": "Arguments to pass to the shell (for shell environments) or Docker build arguments (for Docker environments)",
               "oneOf": [
                 {
                   "type": "array",
                   "items": {
                     "type": "string"
-                  }
+                  },
+                  "description": "Shell arguments (e.g., ['-c'] for bash)"
                 },
                 {
-                  "type": "string"
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "description": "Docker build arguments (e.g., {BUILD_TAG: 'latest'})"
+                },
+                {
+                  "type": "string",
+                  "description": "Single shell argument"
                 }
               ]
             },
@@ -73,8 +82,7 @@
               "type": "array",
               "items": {
                 "type": "string"
-              },
-              "minItems": 1
+              }
             },
             "ports": {
               "description": "Port mappings for Docker container (format: 'host_port:container_port')",
@@ -99,8 +107,12 @@
               "type": "array",
               "items": {
                 "type": "string"
-              },
-              "minItems": 1
+              }
+            },
+            "run_as_root": {
+              "type": "boolean",
+              "description": "If true, run as root inside Docker container (skip user mapping). Default: false",
+              "default": false
             }
           },
           "additionalProperties": false
@@ -140,9 +152,12 @@
                   "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$"
                 },
                 "default": {
-                  "type": "string",
-                  "description": "Value to use if the environment variable is not defined",
-                  "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$"
+                  "oneOf": [
+                    {"type": "string"},
+                    {"type": "number"},
+                    {"type": "boolean"}
+                  ],
+                  "description": "Value to use if the environment variable is not defined"
                 }
               },
               "required": ["env"],
@@ -189,16 +204,42 @@
               "description": "Human-readable description of the task"
             },
             "deps": {
-              "description": "Task dependencies (must run before this task)",
+              "description": "Task dependencies (must run before this task). Can be simple task names or parameterized invocations.",
               "oneOf": [
                 {
                   "type": "array",
                   "items": {
-                    "type": "string"
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "description": "Simple dependency (task name)"
+                      },
+                      {
+                        "type": "object",
+                        "description": "Parameterized dependency (task with arguments)",
+                        "minProperties": 1,
+                        "maxProperties": 1,
+                        "additionalProperties": {
+                          "oneOf": [
+                            {
+                              "type": "array",
+                              "description": "Positional arguments",
+                              "items": {}
+                            },
+                            {
+                              "type": "object",
+                              "description": "Named arguments",
+                              "additionalProperties": {}
+                            }
+                          ]
+                        }
+                      }
+                    ]
                   }
                 },
                 {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Single dependency (task name)"
                 }
               ]
             },
@@ -250,30 +291,55 @@
               "description": "Directory to execute the command in (relative to recipe file)"
             },
             "args": {
-              "description": "Parameterized arguments for the task (format: name, name:type, name:type=default)",
-              "oneOf": [
-                {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },{
-                  "type": "array",
-                  "items": {
+              "description": "Parameterized arguments for the task. Each argument can be a simple name (string) or an object with a single key (argument name) mapping to a configuration object.",
+              "type": "array",
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "description": "Simple argument name (e.g., 'port') or exported argument (e.g., '$SERVER'). Exported arguments (prefixed with $) become environment variables."
+                  },
+                  {
                     "type": "object",
-                    "properties": {
-                      "type": {
-                        "type": "string",
-                        "description": "The type of the argument (int, float, bool, string, path, ip, ipv4, ipv6, email, hostname)"
+                    "description": "Argument with configuration (single key: argument name, value: config object)",
+                    "minProperties": 1,
+                    "maxProperties": 1,
+                    "additionalProperties": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "enum": ["int", "float", "bool", "str", "path", "datetime", "ip", "ipv4", "ipv6", "email", "hostname"],
+                          "description": "Type of the argument. Can be inferred from default/min/max/choices if not specified."
+                        },
+                        "default": {
+                          "description": "Default value for the argument (any type: string, number, or boolean)",
+                          "oneOf": [
+                            {"type": "string"},
+                            {"type": "number"},
+                            {"type": "boolean"}
+                          ]
+                        },
+                        "min": {
+                          "type": "number",
+                          "description": "Minimum value for numeric arguments (mutually exclusive with choices)"
+                        },
+                        "max": {
+                          "type": "number",
+                          "description": "Maximum value for numeric arguments (mutually exclusive with choices)"
+                        },
+                        "choices": {
+                          "type": "array",
+                          "description": "List of valid values for the argument (mutually exclusive with min/max)",
+                          "minItems": 1,
+                          "items": {}
+                        }
                       },
-                      "default": {
-                        "type": "string",
-                        "description": "The default value of the argument"
-                      }
+                      "additionalProperties": false
                     }
                   }
-                }
-              ]
+                ]
+              }
             },
             "env": {
               "type": "string",
