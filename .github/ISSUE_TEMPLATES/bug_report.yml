@@ -1,0 +1,75 @@
+name: Bug report
+description: Create a report to help us improve
+title: "[BUG] <describe bug>"
+labels: [bug]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Please fill out as much of this form as possible. Incomplete reports may slow triage.**
+
+  - type: input
+    id: summary
+    attributes:
+      label: Bug Summary
+      description: Short summary of the bug (1-2 sentences).
+      placeholder: "Unexpected crash when saving file"
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Step-by-step description to reproduce the bug.
+      placeholder: |
+        1. Open the application
+        2. Click on "Save"
+        3. Observe the error
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+      placeholder: App should save the file without errors.
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happens?
+      placeholder: "Error dialog appears: 'Failed to save'."
+
+  - type: dropdown
+    id: system
+    attributes:
+      label: Environment
+      multiple: true
+      options:
+        - Linux (Debian-based)
+        - Linux (other)
+        - Windows
+        - macOS
+        - Other (please describe below)
+      description: Select all platforms where this bug occurs.
+
+  - type: input
+    id: version
+    attributes:
+      label: Version(s)
+      description: App and/or OS version numbers (paste output, e.g. `git describe`, `uname -a`, etc.)
+      placeholder: "v1.2.3, Debian 12.4, kernel 6.1.0..."
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs/Backtrace
+      description: Paste relevant logs, stack traces, or error messages. Use triple backticks for code.
+      render: shell
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional Context
+      description: Anything else useful for diagnosis? (Configurations, screenshots, external resources, etc.)
+      placeholder: "N/A"
