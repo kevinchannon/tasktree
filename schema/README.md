@@ -44,7 +44,7 @@ tasks:
    - **Name**: Task Tree
    - **Schema file**: Point to `schema/tasktree-schema.json`
    - **Schema version**: JSON Schema version 7
-   - **File path pattern**: `tasktree.yaml` or `tt.yaml`
+   - **File path pattern**: `*.tasks`, `tasktree.yaml`, `tt.yaml`, `tasktree.yml` or `tt.yml`
 
 ### Command Line Validation
 
