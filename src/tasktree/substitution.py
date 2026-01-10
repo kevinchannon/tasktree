@@ -378,3 +378,70 @@ def substitute_dependency_outputs(
         return dep_task._output_map[output_name]
 
     return DEP_OUTPUT_PATTERN.sub(replacer, text)
+
+
+def substitute_self_references(
+    text: str,
+    task_name: str,
+    input_map: dict[str, str],
+    output_map: dict[str, str],
+) -> str:
+    """Substitute {{ self.inputs.name }} and {{ self.outputs.name }} placeholders.
+
+    This function resolves references to the task's own named inputs and outputs.
+    Only named entries are accessible; anonymous inputs/outputs cannot be referenced.
+    The substitution is literal string replacement - no glob expansion or path resolution.
+
+    Args:
+        text: Text containing {{ self.* }} placeholders
+        task_name: Name of current task (for error messages)
+        input_map: Dictionary mapping input names to path strings
+        output_map: Dictionary mapping output names to path strings
+
+    Returns:
+        Text with all {{ self.* }} placeholders replaced with literal path strings
+
+    Raises:
+        ValueError: If referenced name doesn't exist in input_map or output_map
+
+    Example:
+        >>> input_map = {"src": "*.txt"}
+        >>> output_map = {"dest": "out/result.txt"}
+        >>> substitute_self_references(
+        ...     "cp {{ self.inputs.src }} {{ self.outputs.dest }}",
+        ...     "copy",
+        ...     input_map,
+        ...     output_map
+        ... )
+        'cp *.txt out/result.txt'
+    """
+    def replacer(match: re.Match) -> str:
+        field = match.group(1)  # "inputs" or "outputs"
+        name = match.group(2)
+
+        # Select appropriate map
+        if field == "inputs":
+            name_map = input_map
+            field_display = "input"
+        else:  # field == "outputs"
+            name_map = output_map
+            field_display = "output"
+
+        # Check if name exists in map
+        if name not in name_map:
+            available = list(name_map.keys())
+            if available:
+                available_msg = ", ".join(available)
+            else:
+                available_msg = f"(none - all {field} are anonymous)"
+
+            raise ValueError(
+                f"Task '{task_name}' references {field_display} '{name}' "
+                f"but has no {field_display} named '{name}'.\n"
+                f"Available named {field}: {available_msg}\n"
+                f"Hint: Define named {field} like: {field}: [{{ {name}: 'path/to/file' }}]"
+            )
+
+        return name_map[name]
+
+    return SELF_REFERENCE_PATTERN.sub(replacer, text)

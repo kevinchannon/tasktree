@@ -12,6 +12,7 @@ from tasktree.substitution import (
     substitute_builtin_variables,
     substitute_dependency_outputs,
     substitute_environment,
+    substitute_self_references,
     substitute_variables,
 )
 from tasktree.parser import Task
@@ -813,6 +814,144 @@ class TestSelfReferencePattern(unittest.TestCase):
         self.assertEqual(len(matches), 2)
         self.assertEqual(matches[0].group(2), "src")
         self.assertEqual(matches[1].group(2), "bin")
+
+
+class TestSubstituteSelfReferences(unittest.TestCase):
+    """Test substitute_self_references function."""
+
+    def test_substitute_single_input(self):
+        """Test substituting a single input reference."""
+        input_map = {"src": "src/app.js"}
+        output_map = {}
+        text = "cat {{ self.inputs.src }}"
+        result = substitute_self_references(text, "build", input_map, output_map)
+        self.assertEqual(result, "cat src/app.js")
+
+    def test_substitute_single_output(self):
+        """Test substituting a single output reference."""
+        input_map = {}
+        output_map = {"dest": "dist/app.js"}
+        text = "echo {{ self.outputs.dest }}"
+        result = substitute_self_references(text, "build", input_map, output_map)
+        self.assertEqual(result, "echo dist/app.js")
+
+    def test_substitute_multiple_references(self):
+        """Test substituting multiple self-references in same text."""
+        input_map = {"src": "src/main.c", "headers": "include/*.h"}
+        output_map = {"binary": "build/app"}
+        text = "gcc {{ self.inputs.src }} -I {{ self.inputs.headers }} -o {{ self.outputs.binary }}"
+        result = substitute_self_references(text, "compile", input_map, output_map)
+        self.assertEqual(result, "gcc src/main.c -I include/*.h -o build/app")
+
+    def test_substitute_mixed_inputs_and_outputs(self):
+        """Test substituting both inputs and outputs in same command."""
+        input_map = {"config": "config.json"}
+        output_map = {"log": "build.log"}
+        text = "build --config {{ self.inputs.config }} --log {{ self.outputs.log }}"
+        result = substitute_self_references(text, "build", input_map, output_map)
+        self.assertEqual(result, "build --config config.json --log build.log")
+
+    def test_substitute_glob_pattern_verbatim(self):
+        """Test that glob patterns are substituted as-is without expansion."""
+        input_map = {"sources": "src/**/*.js"}
+        output_map = {"bundle": "dist/*.min.js"}
+        text = "bundle {{ self.inputs.sources }} to {{ self.outputs.bundle }}"
+        result = substitute_self_references(text, "bundle", input_map, output_map)
+        # Glob patterns should be substituted verbatim, not expanded
+        self.assertEqual(result, "bundle src/**/*.js to dist/*.min.js")
+
+    def test_substitute_no_placeholders(self):
+        """Test that text without placeholders is unchanged."""
+        input_map = {"src": "file.txt"}
+        output_map = {"dest": "out.txt"}
+        text = "echo hello world"
+        result = substitute_self_references(text, "test", input_map, output_map)
+        self.assertEqual(result, "echo hello world")
+
+    def test_error_on_missing_input_name(self):
+        """Test that referencing non-existent input raises error with available names."""
+        input_map = {"src": "file.txt", "config": "config.json"}
+        output_map = {}
+        text = "cat {{ self.inputs.missing }}"
+        with self.assertRaises(ValueError) as cm:
+            substitute_self_references(text, "build", input_map, output_map)
+        error_msg = str(cm.exception)
+        self.assertIn("build", error_msg)
+        self.assertIn("missing", error_msg)
+        self.assertIn("src", error_msg)
+        self.assertIn("config", error_msg)
+        self.assertIn("input", error_msg)
+
+    def test_error_on_missing_output_name(self):
+        """Test that referencing non-existent output raises error with available names."""
+        input_map = {}
+        output_map = {"bundle": "dist/app.js", "sourcemap": "dist/app.js.map"}
+        text = "deploy {{ self.outputs.missing }}"
+        with self.assertRaises(ValueError) as cm:
+            substitute_self_references(text, "deploy", input_map, output_map)
+        error_msg = str(cm.exception)
+        self.assertIn("deploy", error_msg)
+        self.assertIn("missing", error_msg)
+        self.assertIn("bundle", error_msg)
+        self.assertIn("sourcemap", error_msg)
+        self.assertIn("output", error_msg)
+
+    def test_error_with_empty_input_map(self):
+        """Test error message when all inputs are anonymous."""
+        input_map = {}
+        output_map = {}
+        text = "cat {{ self.inputs.src }}"
+        with self.assertRaises(ValueError) as cm:
+            substitute_self_references(text, "build", input_map, output_map)
+        error_msg = str(cm.exception)
+        self.assertIn("build", error_msg)
+        self.assertIn("src", error_msg)
+        self.assertIn("anonymous", error_msg)
+
+    def test_error_with_empty_output_map(self):
+        """Test error message when all outputs are anonymous."""
+        input_map = {}
+        output_map = {}
+        text = "echo {{ self.outputs.dest }}"
+        with self.assertRaises(ValueError) as cm:
+            substitute_self_references(text, "build", input_map, output_map)
+        error_msg = str(cm.exception)
+        self.assertIn("build", error_msg)
+        self.assertIn("dest", error_msg)
+        self.assertIn("anonymous", error_msg)
+
+    def test_substitute_ignores_other_placeholders(self):
+        """Test that other placeholder types are not touched."""
+        input_map = {"src": "file.txt"}
+        output_map = {"dest": "out.txt"}
+        text = "cp {{ self.inputs.src }} {{ var.temp }} {{ arg.mode }} {{ env.USER }} {{ self.outputs.dest }}"
+        result = substitute_self_references(text, "copy", input_map, output_map)
+        # Only self references should be substituted
+        self.assertEqual(result, "cp file.txt {{ var.temp }} {{ arg.mode }} {{ env.USER }} out.txt")
+
+    def test_substitute_same_reference_multiple_times(self):
+        """Test substituting the same reference multiple times."""
+        input_map = {"config": "app.json"}
+        output_map = {}
+        text = "validate {{ self.inputs.config }} && deploy {{ self.inputs.config }}"
+        result = substitute_self_references(text, "task", input_map, output_map)
+        self.assertEqual(result, "validate app.json && deploy app.json")
+
+    def test_substitute_with_underscores(self):
+        """Test that names with underscores work correctly."""
+        input_map = {"source_file": "src/main.c", "header_files": "include/*.h"}
+        output_map = {"output_binary": "bin/app"}
+        text = "gcc {{ self.inputs.source_file }} -I {{ self.inputs.header_files }} -o {{ self.outputs.output_binary }}"
+        result = substitute_self_references(text, "compile", input_map, output_map)
+        self.assertEqual(result, "gcc src/main.c -I include/*.h -o bin/app")
+
+    def test_substitute_empty_string(self):
+        """Test that empty string is handled correctly."""
+        input_map = {"src": "file.txt"}
+        output_map = {}
+        text = ""
+        result = substitute_self_references(text, "task", input_map, output_map)
+        self.assertEqual(result, "")
 
 
 if __name__ == "__main__":
