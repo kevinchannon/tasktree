@@ -21,6 +21,12 @@ DEP_OUTPUT_PATTERN = re.compile(
     r'\{\{\s*dep\.([a-zA-Z_][a-zA-Z0-9_.-]*)\.outputs\.([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}'
 )
 
+# Pattern matches: {{ self.(inputs|outputs).name }} with optional whitespace
+# Groups: (1) field (inputs|outputs), (2) name (identifier)
+SELF_REFERENCE_PATTERN = re.compile(
+    r'\{\{\s*self\.(inputs|outputs)\.([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}'
+)
+
 
 def substitute_variables(text: str | dict[str, Any], variables: dict[str, str]) -> str | dict[str, Any]:
     """Substitute {{ var.name }} placeholders with variable values.

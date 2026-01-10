@@ -6,6 +6,7 @@ import unittest
 from tasktree.substitution import (
     DEP_OUTPUT_PATTERN,
     PLACEHOLDER_PATTERN,
+    SELF_REFERENCE_PATTERN,
     substitute_arguments,
     substitute_all,
     substitute_builtin_variables,
@@ -701,6 +702,117 @@ class TestSubstituteDependencyOutputs(unittest.TestCase):
 
         # Only dep placeholder should be substituted
         self.assertEqual(result, "Deploy dist/app.js to {{ env.SERVER }}")
+
+
+class TestSelfReferencePattern(unittest.TestCase):
+    """Test the regex pattern for matching self-reference placeholders."""
+
+    def test_pattern_matches_self_inputs(self):
+        """Test pattern matches {{ self.inputs.name }} syntax."""
+        match = SELF_REFERENCE_PATTERN.search("{{ self.inputs.src }}")
+        self.assertIsNotNone(match)
+        self.assertEqual(match.group(1), "inputs")
+        self.assertEqual(match.group(2), "src")
+
+    def test_pattern_matches_self_outputs(self):
+        """Test pattern matches {{ self.outputs.name }} syntax."""
+        match = SELF_REFERENCE_PATTERN.search("{{ self.outputs.dest }}")
+        self.assertIsNotNone(match)
+        self.assertEqual(match.group(1), "outputs")
+        self.assertEqual(match.group(2), "dest")
+
+    def test_pattern_with_whitespace(self):
+        """Test pattern allows various whitespace configurations."""
+        patterns = [
+            "{{self.inputs.foo}}",
+            "{{ self.inputs.foo }}",
+            "{{  self.inputs.foo  }}",
+            "{{ self.outputs.bar }}",
+        ]
+        for pattern in patterns:
+            match = SELF_REFERENCE_PATTERN.search(pattern)
+            self.assertIsNotNone(match, f"Failed to match: {pattern}")
+
+    def test_pattern_captures_field_and_name(self):
+        """Test pattern correctly captures field (inputs/outputs) and name."""
+        match_input = SELF_REFERENCE_PATTERN.search("{{ self.inputs.config }}")
+        self.assertEqual(match_input.group(1), "inputs")
+        self.assertEqual(match_input.group(2), "config")
+
+        match_output = SELF_REFERENCE_PATTERN.search("{{ self.outputs.bundle }}")
+        self.assertEqual(match_output.group(1), "outputs")
+        self.assertEqual(match_output.group(2), "bundle")
+
+    def test_pattern_requires_valid_identifier(self):
+        """Test pattern only matches valid identifier names."""
+        # Valid identifiers should match
+        valid = [
+            "{{ self.inputs.foo }}",
+            "{{ self.inputs.foo_bar }}",
+            "{{ self.inputs._private }}",
+            "{{ self.inputs.FOO }}",
+            "{{ self.inputs.foo123 }}",
+        ]
+        for text in valid:
+            match = SELF_REFERENCE_PATTERN.search(text)
+            self.assertIsNotNone(match, f"Should match: {text}")
+
+        # Invalid identifiers should not match
+        invalid = [
+            "{{ self.inputs.123foo }}",  # Starts with number
+            "{{ self.inputs.foo-bar }}",  # Contains hyphen
+            "{{ self.inputs.foo.bar }}",  # Contains dot
+        ]
+        for text in invalid:
+            match = SELF_REFERENCE_PATTERN.search(text)
+            self.assertIsNone(match, f"Should not match: {text}")
+
+    def test_pattern_does_not_match_other_prefixes(self):
+        """Test pattern does not match non-self prefixes."""
+        non_matches = [
+            "{{ var.foo }}",
+            "{{ arg.bar }}",
+            "{{ env.BAZ }}",
+            "{{ tt.qux }}",
+            "{{ dep.task.outputs.name }}",
+        ]
+        for text in non_matches:
+            match = SELF_REFERENCE_PATTERN.search(text)
+            self.assertIsNone(match, f"Should not match: {text}")
+
+    def test_pattern_finds_multiple_references(self):
+        """Test pattern finds all self-references in text."""
+        text = "cp {{ self.inputs.src }} {{ self.outputs.dest }}"
+        matches = list(SELF_REFERENCE_PATTERN.finditer(text))
+        self.assertEqual(len(matches), 2)
+        self.assertEqual(matches[0].group(1), "inputs")
+        self.assertEqual(matches[0].group(2), "src")
+        self.assertEqual(matches[1].group(1), "outputs")
+        self.assertEqual(matches[1].group(2), "dest")
+
+    def test_pattern_matches_underscores(self):
+        """Test pattern matches names with underscores."""
+        match = SELF_REFERENCE_PATTERN.search("{{ self.inputs.my_input_file }}")
+        self.assertIsNotNone(match)
+        self.assertEqual(match.group(2), "my_input_file")
+
+    def test_pattern_case_sensitive(self):
+        """Test pattern is case-sensitive for field names."""
+        # 'inputs' and 'outputs' are lowercase
+        match_inputs = SELF_REFERENCE_PATTERN.search("{{ self.inputs.foo }}")
+        self.assertIsNotNone(match_inputs)
+
+        # Capital letters should not match the field
+        match_inputs_caps = SELF_REFERENCE_PATTERN.search("{{ self.INPUTS.foo }}")
+        self.assertIsNone(match_inputs_caps)
+
+    def test_pattern_mixed_in_text(self):
+        """Test pattern works when mixed with other text and placeholders."""
+        text = "Build {{ self.inputs.src }} using {{ var.compiler }} to {{ self.outputs.bin }}"
+        matches = list(SELF_REFERENCE_PATTERN.finditer(text))
+        self.assertEqual(len(matches), 2)
+        self.assertEqual(matches[0].group(2), "src")
+        self.assertEqual(matches[1].group(2), "bin")
 
 
 if __name__ == "__main__":
