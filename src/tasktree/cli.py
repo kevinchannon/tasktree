@@ -464,13 +464,17 @@ def _execute_dynamic_task(args: list[str], force: bool = False, only: bool = Fal
     # This is important for correct state pruning after template substitution
     execution_order = resolve_execution_order(recipe, task_name, args_dict)
 
-    # Resolve dependency output references in topological order
-    # This substitutes {{ dep.*.outputs.* }} templates before execution
-    resolve_dependency_output_references(recipe, execution_order)
+    try:
+        # Resolve dependency output references in topological order
+        # This substitutes {{ dep.*.outputs.* }} templates before execution
+        resolve_dependency_output_references(recipe, execution_order)
 
-    # Resolve self-references in topological order
-    # This substitutes {{ self.inputs.* }} and {{ self.outputs.* }} templates
-    resolve_self_references(recipe, execution_order)
+        # Resolve self-references in topological order
+        # This substitutes {{ self.inputs.* }} and {{ self.outputs.* }} templates
+        resolve_self_references(recipe, execution_order)
+    except ValueError as e:
+        console.print(f"[red]Error in task template: {e}[/red]")
+        raise typer.Exit(1)
 
     # Prune state based on tasks that will actually execute (with their specific arguments)
     # This ensures template-substituted dependencies are handled correctly
