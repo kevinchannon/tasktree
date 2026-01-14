@@ -656,5 +656,676 @@ tasks:
                 os.chdir(original_cwd)
 
 
+class TestSelfReferencesWithDependencyOutputs(unittest.TestCase):
+    """Test interaction between self-references and dependency output references."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.runner = CliRunner()
+        self.env = {"NO_COLOR": "1"}
+
+    def test_self_and_dep_references_in_same_cmd(self):
+        """Test both self and dep references in the same command."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create recipe with dependency chain using both reference types
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+tasks:
+  build:
+    outputs:
+      - artifact: dist/app.js
+    cmd: echo "console.log('app');" > {{ self.outputs.artifact }}
+
+  package:
+    deps: [build]
+    inputs:
+      - config: package.json
+    outputs:
+      - tarball: release.tar.gz
+    cmd: tar czf {{ self.outputs.tarball }} {{ self.inputs.config }} {{ dep.build.outputs.artifact }}
+""")
+
+            # Create required files
+            (project_root / "dist").mkdir()
+            (project_root / "package.json").write_text('{"name": "app"}')
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Run package task
+                result = self.runner.invoke(app, ["package"], env=self.env)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+
+                # Verify tarball was created
+                tarball = project_root / "release.tar.gz"
+                self.assertTrue(tarball.exists(), "Tarball should exist")
+            finally:
+                os.chdir(original_cwd)
+
+    def test_self_output_contains_dep_reference(self):
+        """Test that self-reference works when output path contains dep reference."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create recipe where output path uses dep reference
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+tasks:
+  prepare:
+    outputs:
+      - outdir: build/v1
+    cmd: mkdir -p {{ self.outputs.outdir }}
+
+  compile:
+    deps: [prepare]
+    outputs:
+      - binary: "{{ dep.prepare.outputs.outdir }}/app.bin"
+    cmd: echo "binary" > {{ self.outputs.binary }}
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Run compile task
+                result = self.runner.invoke(app, ["compile"], env=self.env)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+
+                # Verify binary was created at correct location
+                binary = project_root / "build" / "v1" / "app.bin"
+                self.assertTrue(binary.exists(), "Binary should exist at dep-referenced path")
+                self.assertEqual(binary.read_text(), "binary\n")
+            finally:
+                os.chdir(original_cwd)
+
+    def test_dep_reference_resolved_before_self_ref(self):
+        """Test that dependency references are resolved before self-references."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create recipe showing resolution order
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+tasks:
+  generate:
+    outputs:
+      - filename: data.json
+    cmd: echo '{"version":"1.0"}' > {{ self.outputs.filename }}
+
+  process:
+    deps: [generate]
+    inputs:
+      - source: "{{ dep.generate.outputs.filename }}"
+    outputs:
+      - result: processed.txt
+    cmd: cat {{ self.inputs.source }} > {{ self.outputs.result }}
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Run process task
+                result = self.runner.invoke(app, ["process"], env=self.env)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+
+                # Verify result file contains correct data
+                result_file = project_root / "processed.txt"
+                self.assertTrue(result_file.exists(), "Result file should exist")
+                self.assertIn("1.0", result_file.read_text())
+            finally:
+                os.chdir(original_cwd)
+
+    def test_multiple_deps_with_self_refs(self):
+        """Test self-references with multiple dependencies."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create recipe with diamond dependency pattern
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+tasks:
+  prep:
+    outputs:
+      - config: config.txt
+    cmd: echo "config" > {{ self.outputs.config }}
+
+  buildA:
+    deps: [prep]
+    outputs:
+      - moduleA: moduleA.js
+    cmd: echo "moduleA" > {{ self.outputs.moduleA }}
+
+  buildB:
+    deps: [prep]
+    outputs:
+      - moduleB: moduleB.js
+    cmd: echo "moduleB" > {{ self.outputs.moduleB }}
+
+  bundle:
+    deps: [buildA, buildB]
+    outputs:
+      - bundle: app.js
+    cmd: cat {{ dep.buildA.outputs.moduleA }} {{ dep.buildB.outputs.moduleB }} > {{ self.outputs.bundle }}
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Run bundle task
+                result = self.runner.invoke(app, ["bundle"], env=self.env)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+
+                # Verify bundle contains both modules
+                bundle_file = project_root / "app.js"
+                self.assertTrue(bundle_file.exists(), "Bundle should exist")
+                content = bundle_file.read_text()
+                self.assertIn("moduleA", content)
+                self.assertIn("moduleB", content)
+            finally:
+                os.chdir(original_cwd)
+
+
+class TestSelfReferencesWithParameterizedTasks(unittest.TestCase):
+    """Test self-references with parameterized tasks."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.runner = CliRunner()
+        self.env = {"NO_COLOR": "1"}
+
+    def test_self_references_in_parameterized_task(self):
+        """Test that self-references work in parameterized tasks."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create source files
+            (project_root / "input-debug.txt").write_text("Debug mode")
+            (project_root / "input-release.txt").write_text("Release mode")
+
+            # Create recipe with parameterized task using self-references
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+tasks:
+  build:
+    args: [mode]
+    inputs:
+      - src: input-{{ arg.mode }}.txt
+    outputs:
+      - dest: output-{{ arg.mode }}.txt
+    cmd: cat {{ self.inputs.src }} > {{ self.outputs.dest }}
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Run task with mode=debug
+                result = self.runner.invoke(app, ["build", "mode=debug"], env=self.env)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+
+                # Verify debug output
+                output_file = project_root / "output-debug.txt"
+                self.assertTrue(output_file.exists(), "Debug output should exist")
+                self.assertEqual(output_file.read_text(), "Debug mode")
+
+                # Run task with mode=release
+                result = self.runner.invoke(app, ["build", "mode=release"], env=self.env)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+
+                # Verify release output
+                output_file = project_root / "output-release.txt"
+                self.assertTrue(output_file.exists(), "Release output should exist")
+                self.assertEqual(output_file.read_text(), "Release mode")
+            finally:
+                os.chdir(original_cwd)
+
+    def test_arg_in_input_path_with_self_ref(self):
+        """Test arguments in input paths combined with self-references."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create directory structure with different configurations
+            (project_root / "configs" / "dev").mkdir(parents=True)
+            (project_root / "configs" / "prod").mkdir(parents=True)
+            (project_root / "configs" / "dev" / "app.yaml").write_text("env: dev")
+            (project_root / "configs" / "prod" / "app.yaml").write_text("env: prod")
+
+            # Create recipe with arg in input path
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+tasks:
+  deploy:
+    args: [environment]
+    inputs:
+      - config: configs/{{ arg.environment }}/app.yaml
+    outputs:
+      - deployed: deployed-{{ arg.environment }}.yaml
+    cmd: cp {{ self.inputs.config }} {{ self.outputs.deployed }}
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Deploy dev
+                result = self.runner.invoke(app, ["deploy", "environment=dev"], env=self.env)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+
+                deployed_file = project_root / "deployed-dev.yaml"
+                self.assertTrue(deployed_file.exists())
+                self.assertEqual(deployed_file.read_text(), "env: dev")
+
+                # Deploy prod
+                result = self.runner.invoke(app, ["deploy", "environment=prod"], env=self.env)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+
+                deployed_file = project_root / "deployed-prod.yaml"
+                self.assertTrue(deployed_file.exists())
+                self.assertEqual(deployed_file.read_text(), "env: prod")
+            finally:
+                os.chdir(original_cwd)
+
+    def test_multiple_args_with_self_refs(self):
+        """Test multiple arguments in paths with self-references."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create source structure
+            (project_root / "src" / "v1" / "stable").mkdir(parents=True)
+            (project_root / "src" / "v2" / "beta").mkdir(parents=True)
+            (project_root / "src" / "v1" / "stable" / "lib.js").write_text("v1-stable")
+            (project_root / "src" / "v2" / "beta" / "lib.js").write_text("v2-beta")
+
+            # Create recipe with multiple args
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+tasks:
+  package:
+    args: [version, channel]
+    inputs:
+      - lib: src/{{ arg.version }}/{{ arg.channel }}/lib.js
+    outputs:
+      - bundle: dist-{{ arg.version }}-{{ arg.channel }}.js
+    cmd: cp {{ self.inputs.lib }} {{ self.outputs.bundle }}
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Package v1-stable
+                result = self.runner.invoke(app, ["package", "version=v1", "channel=stable"], env=self.env)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+
+                bundle = project_root / "dist-v1-stable.js"
+                self.assertTrue(bundle.exists())
+                self.assertEqual(bundle.read_text(), "v1-stable")
+
+                # Package v2-beta
+                result = self.runner.invoke(app, ["package", "version=v2", "channel=beta"], env=self.env)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+
+                bundle = project_root / "dist-v2-beta.js"
+                self.assertTrue(bundle.exists())
+                self.assertEqual(bundle.read_text(), "v2-beta")
+            finally:
+                os.chdir(original_cwd)
+
+    def test_parameterized_deps_with_self_refs(self):
+        """Test self-references in tasks with parameterized dependencies."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create recipe with parameterized dependency chain
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+tasks:
+  compile:
+    args: [platform]
+    outputs:
+      - binary: bin-{{ arg.platform }}.exe
+    cmd: echo "binary for {{ arg.platform }}" > {{ self.outputs.binary }}
+
+  package:
+    args: [platform]
+    deps:
+      - compile:
+          platform: "{{ arg.platform }}"
+    inputs:
+      - installer: package.nsi
+    outputs:
+      - setup: setup-{{ arg.platform }}.exe
+    cmd: cat {{ self.inputs.installer }} {{ dep.compile.outputs.binary }} > {{ self.outputs.setup }}
+""")
+
+            # Create installer script
+            (project_root / "package.nsi").write_text("installer\n")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Package for windows
+                result = self.runner.invoke(app, ["package", "platform=windows"], env=self.env)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+
+                setup = project_root / "setup-windows.exe"
+                self.assertTrue(setup.exists())
+                content = setup.read_text()
+                self.assertIn("installer", content)
+                self.assertIn("windows", content)
+            finally:
+                os.chdir(original_cwd)
+
+
+class TestSelfReferencesWithStateManagement(unittest.TestCase):
+    """Test state management and incremental execution with self-references."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.runner = CliRunner()
+        self.env = {"NO_COLOR": "1"}
+
+    def test_self_references_with_state_tracking(self):
+        """Test that state tracking works with self-references."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create source file
+            src_file = project_root / "input.txt"
+            src_file.write_text("Version 1")
+
+            # Create recipe with self-references
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+tasks:
+  build:
+    inputs:
+      - src: input.txt
+    outputs:
+      - dest: output.txt
+    cmd: cat {{ self.inputs.src }} > {{ self.outputs.dest }}
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # First run
+                result = self.runner.invoke(app, ["build"], env=self.env)
+                self.assertEqual(result.exit_code, 0, f"First run failed: {result.stdout}")
+
+                output_file = project_root / "output.txt"
+                self.assertTrue(output_file.exists())
+                self.assertEqual(output_file.read_text(), "Version 1")
+
+                # Second run without changes - should skip
+                result = self.runner.invoke(app, ["build"], env=self.env)
+                self.assertEqual(result.exit_code, 0, f"Second run failed: {result.stdout}")
+                # Task should be skipped (no "Running:" message for build)
+                output = strip_ansi_codes(result.stdout)
+                self.assertNotIn("Running: build", output)
+            finally:
+                os.chdir(original_cwd)
+
+    def test_input_change_triggers_rerun(self):
+        """Test that changing input file triggers rerun with self-references."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create source file
+            src_file = project_root / "data.txt"
+            src_file.write_text("Original")
+
+            # Create recipe
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+tasks:
+  process:
+    inputs:
+      - source: data.txt
+    outputs:
+      - result: processed.txt
+    cmd: cat {{ self.inputs.source }} > {{ self.outputs.result }}
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # First run
+                result = self.runner.invoke(app, ["process"], env=self.env)
+                self.assertEqual(result.exit_code, 0)
+
+                output_file = project_root / "processed.txt"
+                self.assertEqual(output_file.read_text(), "Original")
+
+                # Modify input file
+                import time
+                time.sleep(0.01)  # Ensure timestamp changes
+                src_file.write_text("Modified")
+
+                # Second run - should detect change and rerun
+                result = self.runner.invoke(app, ["process"], env=self.env)
+                self.assertEqual(result.exit_code, 0)
+                output = strip_ansi_codes(result.stdout)
+                self.assertIn("Running: process", output)
+
+                # Verify output updated
+                self.assertEqual(output_file.read_text(), "Modified")
+            finally:
+                os.chdir(original_cwd)
+
+    def test_output_change_triggers_rerun(self):
+        """Test that missing or modified output triggers rerun."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create recipe
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+tasks:
+  generate:
+    outputs:
+      - artifact: build.txt
+    cmd: echo "Build output" > {{ self.outputs.artifact }}
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # First run
+                result = self.runner.invoke(app, ["generate"], env=self.env)
+                self.assertEqual(result.exit_code, 0)
+
+                output_file = project_root / "build.txt"
+                self.assertTrue(output_file.exists())
+
+                # Delete output file
+                output_file.unlink()
+
+                # Second run - should detect missing output and rerun
+                result = self.runner.invoke(app, ["generate"], env=self.env)
+                self.assertEqual(result.exit_code, 0)
+                output = strip_ansi_codes(result.stdout)
+                self.assertIn("Running: generate", output)
+
+                # Verify output recreated
+                self.assertTrue(output_file.exists())
+            finally:
+                os.chdir(original_cwd)
+
+    def test_task_definition_change_triggers_rerun(self):
+        """Test that changing task command triggers rerun."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create source file
+            (project_root / "input.txt").write_text("Data")
+
+            # Create initial recipe
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+tasks:
+  transform:
+    inputs:
+      - src: input.txt
+    outputs:
+      - dest: output.txt
+    cmd: cat {{ self.inputs.src }} > {{ self.outputs.dest }}
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # First run
+                result = self.runner.invoke(app, ["transform"], env=self.env)
+                self.assertEqual(result.exit_code, 0)
+
+                # Modify command (add tr to uppercase)
+                recipe_file.write_text("""
+tasks:
+  transform:
+    inputs:
+      - src: input.txt
+    outputs:
+      - dest: output.txt
+    cmd: cat {{ self.inputs.src }} | tr '[:lower:]' '[:upper:]' > {{ self.outputs.dest }}
+""")
+
+                # Second run - should detect command change and rerun
+                result = self.runner.invoke(app, ["transform"], env=self.env)
+                self.assertEqual(result.exit_code, 0)
+                output = strip_ansi_codes(result.stdout)
+                self.assertIn("Running: transform", output)
+
+                # Verify output reflects new command
+                output_file = project_root / "output.txt"
+                self.assertEqual(output_file.read_text(), "DATA")
+            finally:
+                os.chdir(original_cwd)
+
+    def test_force_execution_with_self_refs(self):
+        """Test --force flag forces rerun with self-references."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create source file
+            (project_root / "source.txt").write_text("Content")
+
+            # Create recipe
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+tasks:
+  copy:
+    inputs:
+      - file: source.txt
+    outputs:
+      - copy: dest.txt
+    cmd: cp {{ self.inputs.file }} {{ self.outputs.copy }}
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # First run
+                result = self.runner.invoke(app, ["copy"], env=self.env)
+                self.assertEqual(result.exit_code, 0)
+
+                # Second run without changes - should skip
+                result = self.runner.invoke(app, ["copy"], env=self.env)
+                self.assertEqual(result.exit_code, 0)
+                output = strip_ansi_codes(result.stdout)
+                self.assertNotIn("Running: copy", output)
+
+                # Third run with --force - should run
+                result = self.runner.invoke(app, ["--force", "copy"], env=self.env)
+                self.assertEqual(result.exit_code, 0)
+                output = strip_ansi_codes(result.stdout)
+                self.assertIn("Running: copy", output)
+            finally:
+                os.chdir(original_cwd)
+
+    def test_incremental_with_dependency_chain(self):
+        """Test incremental execution with dependency chain using self-refs."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create source files
+            src_file = project_root / "main.c"
+            src_file.write_text("int main() { return 0; }")
+
+            header_file = project_root / "config.h"
+            header_file.write_text("#define VERSION 1")
+
+            # Create recipe with dependency chain using implicit inputs
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+tasks:
+  compile:
+    inputs:
+      - src: main.c
+      - header: config.h
+    outputs:
+      - obj: main.o
+    cmd: cat {{ self.inputs.src }} {{ self.inputs.header }} > {{ self.outputs.obj }}
+
+  link:
+    deps: [compile]
+    outputs:
+      - exe: app.exe
+    cmd: cat main.o > {{ self.outputs.exe }}
+
+  package:
+    deps: [link]
+    outputs:
+      - archive: app.tar.gz
+    cmd: tar czf {{ self.outputs.archive }} app.exe
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # First run - all tasks execute
+                result = self.runner.invoke(app, ["package"], env=self.env)
+                self.assertEqual(result.exit_code, 0)
+                output = strip_ansi_codes(result.stdout)
+                self.assertIn("Running: compile", output)
+                self.assertIn("Running: link", output)
+                self.assertIn("Running: package", output)
+
+                # Second run without changes - all tasks skip
+                result = self.runner.invoke(app, ["package"], env=self.env)
+                self.assertEqual(result.exit_code, 0)
+                output = strip_ansi_codes(result.stdout)
+                self.assertNotIn("Running: compile", output)
+                self.assertNotIn("Running: link", output)
+                self.assertNotIn("Running: package", output)
+
+                # Modify source file
+                import time
+                time.sleep(0.01)
+                src_file.write_text("int main() { return 1; }")
+
+                # Third run - all tasks in chain should execute
+                result = self.runner.invoke(app, ["package"], env=self.env)
+                self.assertEqual(result.exit_code, 0)
+                output = strip_ansi_codes(result.stdout)
+                self.assertIn("Running: compile", output)
+                self.assertIn("Running: link", output)
+                self.assertIn("Running: package", output)
+            finally:
+                os.chdir(original_cwd)
+
+
 if __name__ == "__main__":
     unittest.main()

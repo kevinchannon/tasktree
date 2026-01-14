@@ -818,6 +818,241 @@ Hint: Define named outputs like: outputs: [{ missing: 'path/to/file' }]
 - **Deployment pipelines**: Reference exact artifacts to deploy
 - **Configuration propagation**: Pass generated config files through build stages
 
+### Self-References
+
+Tasks can reference their own named inputs and outputs using `{{ self.inputs.name }}` and `{{ self.outputs.name }}` templates. This eliminates repetition when paths contain variables or when tasks have multiple inputs/outputs.
+
+**Named Inputs and Outputs:**
+
+Just like dependency output references, inputs and outputs can have names:
+
+```yaml
+tasks:
+  process:
+    inputs:
+      - src: "data/input.json"      # Named input
+      - config: "config.yaml"        # Named input
+    outputs:
+      - result: "output/result.json" # Named output
+      - log: "output/process.log"    # Named output
+    cmd: |
+      process-tool \
+        --input {{ self.inputs.src }} \
+        --config {{ self.inputs.config }} \
+        --output {{ self.outputs.result }} \
+        --log {{ self.outputs.log }}
+```
+
+**Syntax:**
+
+- **Defining named inputs**: `inputs: [{ name: "path/to/file" }]`
+- **Defining named outputs**: `outputs: [{ name: "path/to/file" }]`
+- **Referencing inputs**: `{{ self.inputs.input_name }}`
+- **Referencing outputs**: `{{ self.outputs.output_name }}`
+- **Mixed format**: Can combine named and anonymous inputs/outputs in the same task
+
+**Why Use Self-References?**
+
+Self-references follow the DRY (Don't Repeat Yourself) principle:
+
+```yaml
+# Without self-references - repetitive
+tasks:
+  build:
+    inputs: [src/app-{{ var.version }}.c]
+    outputs: [build/app-{{ var.version }}.o]
+    cmd: gcc src/app-{{ var.version }}.c -o build/app-{{ var.version }}.o
+
+# With self-references - DRY
+tasks:
+  build:
+    inputs:
+      - source: src/app-{{ var.version }}.c
+    outputs:
+      - object: build/app-{{ var.version }}.o
+    cmd: gcc {{ self.inputs.source }} -o {{ self.outputs.object }}
+```
+
+**Working with Variables:**
+
+Self-references work seamlessly with variables:
+
+```yaml
+variables:
+  platform: linux
+  arch: x86_64
+
+tasks:
+  compile:
+    inputs:
+      - src: src/{{ var.platform }}/main.c
+      - header: include/{{ var.arch }}/defs.h
+    outputs:
+      - binary: build/{{ var.platform }}-{{ var.arch }}/app
+    cmd: |
+      gcc {{ self.inputs.src }} \
+        -include {{ self.inputs.header }} \
+        -o {{ self.outputs.binary }}
+```
+
+Variables are evaluated first, then self-references substitute the expanded paths.
+
+**Working with Arguments:**
+
+Self-references work with parameterized tasks:
+
+```yaml
+tasks:
+  deploy:
+    args: [environment]
+    inputs:
+      - config: configs/{{ arg.environment }}/app.yaml
+    outputs:
+      - deployed: deployed-{{ arg.environment }}.yaml
+    cmd: |
+      validate {{ self.inputs.config }}
+      deploy {{ self.inputs.config }} > {{ self.outputs.deployed }}
+```
+
+```bash
+tt deploy production  # Uses configs/production/app.yaml
+tt deploy staging     # Uses configs/staging/app.yaml
+```
+
+**Working with Dependency Outputs:**
+
+Self-references and dependency references can be used together:
+
+```yaml
+tasks:
+  build:
+    outputs:
+      - artifact: dist/app.js
+    cmd: webpack build
+
+  package:
+    deps: [build]
+    inputs:
+      - manifest: package.json
+    outputs:
+      - tarball: release.tar.gz
+    cmd: tar czf {{ self.outputs.tarball }} \
+           {{ self.inputs.manifest }} \
+           {{ dep.build.outputs.artifact }}
+```
+
+**Mixed Named and Anonymous:**
+
+Tasks can mix named and anonymous inputs/outputs:
+
+```yaml
+tasks:
+  build:
+    inputs:
+      - config: build.yaml  # Named - can reference
+      - src/**/*.c          # Anonymous - tracked but not referenceable
+    outputs:
+      - binary: bin/app     # Named - can reference
+      - bin/app.debug       # Anonymous - tracked but not referenceable
+    cmd: build-tool --config {{ self.inputs.config }} --output {{ self.outputs.binary }}
+```
+
+**Error Messages:**
+
+If you reference a non-existent input or output:
+
+```yaml
+tasks:
+  build:
+    inputs:
+      - src: input.txt
+    cmd: cat {{ self.inputs.missing }}  # Error!
+```
+
+You'll get a clear error before execution:
+
+```
+Task 'build' references input 'missing' but has no input named 'missing'.
+Available named inputs: src
+Hint: Define named inputs like: inputs: [{ missing: 'path/to/file' }]
+```
+
+Similarly, if you try to reference an anonymous input:
+
+```yaml
+tasks:
+  build:
+    inputs: [file.txt]  # Anonymous input
+    cmd: cat {{ self.inputs.src }}  # Error!
+```
+
+You'll get:
+
+```
+Task 'build' references input 'src' but has no input named 'src'.
+Available named inputs: (none - all inputs are anonymous)
+Hint: Define named inputs like: inputs: [{ src: 'file.txt' }]
+```
+
+**Key Behaviors:**
+
+- **Template resolution**: Self-references are resolved during dependency graph planning
+- **Substitution order**: Variables → Dependency outputs → Self-references → Arguments/Environment
+- **Fail-fast validation**: Errors are caught before execution begins
+- **Clear error messages**: Lists available names if reference doesn't exist
+- **Backward compatible**: Existing anonymous inputs/outputs work unchanged
+- **State tracking**: Works correctly with incremental execution and freshness checks
+
+**Limitations:**
+
+- **Anonymous not referenceable**: Only named inputs/outputs can be referenced
+- **Case sensitive**: `{{ self.inputs.Src }}` and `{{ self.inputs.src }}` are different
+- **Argument defaults**: Self-references in argument defaults are not supported (arguments are evaluated before self-references)
+
+**Use Cases:**
+
+- **Eliminate repetition**: Define complex paths once, use them multiple times
+- **Variable composition**: Combine variables with self-references for clean commands
+- **Multiple inputs/outputs**: Reference specific files when tasks have many
+- **Complex build pipelines**: Keep commands readable with named artifacts
+- **Glob patterns**: Use self-references with glob patterns for dynamic inputs
+
+**Example: Multi-Stage Build:**
+
+```yaml
+variables:
+  version: "2.1.0"
+  platform: "linux"
+
+tasks:
+  prepare:
+    outputs:
+      - builddir: build/{{ var.platform }}-{{ var.version }}
+    cmd: mkdir -p {{ self.outputs.builddir }}
+
+  compile:
+    deps: [prepare]
+    inputs:
+      - source: src/main.c
+      - headers: include/*.h
+    outputs:
+      - object: build/{{ var.platform }}-{{ var.version }}/main.o
+    cmd: |
+      gcc -c {{ self.inputs.source }} \
+        -I include \
+        -o {{ self.outputs.object }}
+
+  link:
+    deps: [compile]
+    outputs:
+      - executable: build/{{ var.platform }}-{{ var.version }}/app
+      - symbols: build/{{ var.platform }}-{{ var.version }}/app.sym
+    cmd: |
+      gcc build/{{ var.platform }}-{{ var.version }}/main.o \
+        -o {{ self.outputs.executable }}
+      objcopy --only-keep-debug {{ self.outputs.executable }} {{ self.outputs.symbols }}
+```
+
 
 ### Private Tasks
 
