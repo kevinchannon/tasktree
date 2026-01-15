@@ -9,7 +9,7 @@ tasks:
     desc: Run the test suite
     deps: []
     inputs: [src/**/*.py, tests/**/*.py]
-    cmd: PYTHONPATH=src python3 -m pytest tests/ -v
+    cmd: uv run pytest
 
   build:
     desc: Build distribution packages (wheel and sdist)
