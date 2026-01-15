@@ -189,7 +189,7 @@ tasks:
             self.assertNotEqual(result.exit_code, 0)
             # Error messages are in the exception, not stdout
             self.assertIsNotNone(result.exception)
-            error_msg = str(result.exception)
+            error_msg = str(result.output)
             self.assertIn("no output named 'missing'", error_msg)
             self.assertIn("Available named outputs", error_msg)
             self.assertIn("bundle", error_msg)
@@ -223,7 +223,7 @@ tasks:
             self.assertNotEqual(result.exit_code, 0)
             # Error messages are in the exception, not stdout
             self.assertIsNotNone(result.exception)
-            error_msg = str(result.exception)
+            error_msg = str(result.output)
             # The task isn't in resolved_tasks because it's not a dependency
             self.assertIn("unknown task", error_msg)
             self.assertIn("build", error_msg)

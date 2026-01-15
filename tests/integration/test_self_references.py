@@ -307,7 +307,7 @@ tasks:
                 self.assertNotEqual(result.exit_code, 0, "Task should fail with missing input reference")
 
                 # Check error message contains useful information
-                output = strip_ansi_codes(result.stdout)
+                output = strip_ansi_codes(result.output)
                 self.assertIn("missing", output.lower())
                 self.assertIn("src", output)  # Available input should be mentioned
                 self.assertIn("config", output)  # Available input should be mentioned
@@ -339,7 +339,7 @@ tasks:
                 self.assertNotEqual(result.exit_code, 0, "Task should fail with missing output reference")
 
                 # Check error message contains useful information
-                output = strip_ansi_codes(result.stdout)
+                output = strip_ansi_codes(result.output)
                 self.assertIn("missing", output.lower())
                 self.assertIn("bundle", output)  # Available output should be mentioned
                 self.assertIn("sourcemap", output)  # Available output should be mentioned
@@ -370,7 +370,7 @@ tasks:
                 self.assertNotEqual(result.exit_code, 0, "Task should fail when referencing anonymous inputs")
 
                 # Check error message mentions anonymous
-                output = strip_ansi_codes(result.stdout)
+                output = strip_ansi_codes(result.output)
                 self.assertIn("anonymous", output.lower())
             finally:
                 os.chdir(original_cwd)
@@ -398,7 +398,7 @@ tasks:
                 self.assertNotEqual(result.exit_code, 0, "Task should fail when referencing anonymous outputs")
 
                 # Check error message mentions anonymous
-                output = strip_ansi_codes(result.stdout)
+                output = strip_ansi_codes(result.output)
                 self.assertIn("anonymous", output.lower())
             finally:
                 os.chdir(original_cwd)
@@ -426,7 +426,7 @@ tasks:
                 self.assertNotEqual(result.exit_code, 0, "Task should fail when no inputs exist")
 
                 # Check error message
-                output = strip_ansi_codes(result.stdout)
+                output = strip_ansi_codes(result.output)
                 self.assertIn("anonymous", output.lower())
             finally:
                 os.chdir(original_cwd)
@@ -453,7 +453,7 @@ tasks:
                 self.assertNotEqual(result.exit_code, 0, "Task should fail when no outputs exist")
 
                 # Check error message
-                output = strip_ansi_codes(result.stdout)
+                output = strip_ansi_codes(result.output)
                 self.assertIn("anonymous", output.lower())
             finally:
                 os.chdir(original_cwd)
@@ -483,7 +483,7 @@ tasks:
                 self.assertNotEqual(result.exit_code, 0, "Task should fail due to case mismatch")
 
                 # Check error message mentions available name
-                output = strip_ansi_codes(result.stdout)
+                output = strip_ansi_codes(result.output)
                 self.assertIn("src", output)  # The actual lowercase name should be in error
             finally:
                 os.chdir(original_cwd)
@@ -604,7 +604,7 @@ tasks:
 
                 # Run task
                 result = self.runner.invoke(app, ["process"], env=self.env)
-                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+                self.assertEqual(result.exit_code, 0, f"Command failed: {result.output}")
 
                 # Verify output file was created with correct name and content
                 output_file = project_root / "myapp-v2-output.txt"
