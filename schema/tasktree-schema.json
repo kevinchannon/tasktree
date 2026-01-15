@@ -244,21 +244,36 @@
               ]
             },
             "inputs": {
-              "description": "Input file patterns (glob supported). Task re-runs if inputs change.",
+              "description": "Input file patterns (glob supported). Supports anonymous inputs (strings) and named inputs (objects). Named inputs can be referenced in the same task using {{ self.inputs.name }}. Task re-runs if inputs change.",
               "oneOf": [
                 {
                   "type": "array",
                   "items": {
-                    "type": "string"
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "description": "Anonymous input file pattern"
+                      },
+                      {
+                        "type": "object",
+                        "description": "Named input (format: { name: 'path/to/file' })",
+                        "minProperties": 1,
+                        "maxProperties": 1,
+                        "additionalProperties": {
+                          "type": "string"
+                        }
+                      }
+                    ]
                   }
                 },
                 {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Single anonymous input file pattern"
                 }
               ]
             },
             "outputs": {
-              "description": "Output file patterns (glob supported). Supports anonymous outputs (strings) and named outputs (objects). Named outputs can be referenced by dependent tasks using {{ dep.task.outputs.name }}. Task re-runs if outputs missing.",
+              "description": "Output file patterns (glob supported). Supports anonymous outputs (strings) and named outputs (objects). Named outputs can be referenced by dependent tasks using {{ dep.task.outputs.name }} or in the same task using {{ self.outputs.name }}. Task re-runs if outputs missing.",
               "oneOf": [
                 {
                   "type": "array",
@@ -352,7 +367,7 @@
             },
             "cmd": {
               "type": "string",
-              "description": "Shell command to execute. Use {{arg}} for parameter substitution."
+              "description": "Shell command to execute. Supports template substitution: {{ arg.name }} for arguments, {{ var.name }} for variables, {{ env.NAME }} for environment variables, {{ dep.task.outputs.name }} for dependency outputs, {{ self.inputs.name }} and {{ self.outputs.name }} for own inputs/outputs, {{ tt.* }} for built-in variables."
             }
           },
           "required": ["cmd"],

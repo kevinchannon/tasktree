@@ -31,6 +31,33 @@ tasks:
     outputs: [archive.tar.gz]
     cmd: echo "making archive.tar.gz..."
 
+  transform:
+    desc: Transform data using self-references (demonstrates named inputs/outputs)
+    inputs:
+      - source: build/output-debug-x86_64.txt  # Named input - can reference with {{ self.inputs.source }}
+      - config: config.yaml                     # Named input
+    outputs:
+      - result: processed/result.txt            # Named output - can reference with {{ self.outputs.result }}
+      - log: processed/transform.log            # Named output
+    cmd: |
+      mkdir -p processed
+      echo "Processing {{ self.inputs.source }} with config {{ self.inputs.config }}" > {{ self.outputs.log }}
+      cat {{ self.inputs.source }} | tr '[:lower:]' '[:upper:]' > {{ self.outputs.result }}
+      echo "Done" >> {{ self.outputs.log }}
+
+  deploy:
+    desc: Deploy using dependency outputs and self-references
+    deps: [transform]
+    inputs:
+      - manifest: deploy-manifest.yaml
+    outputs:
+      - deployed: deployed/app.tar.gz
+    cmd: |
+      mkdir -p deployed
+      echo "Deploying with manifest {{ self.inputs.manifest }}"
+      tar czf {{ self.outputs.deployed }} {{ dep.transform.outputs.result }} {{ self.inputs.manifest }}
+      echo "Deployed to {{ self.outputs.deployed }}"
+
   clean:
     desc: Clean generated files
     inputs: [ archive.tar.gz ]

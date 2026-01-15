@@ -62,11 +62,14 @@ check-jsonschema --schemafile schema/tasktree-schema.json tasktree.yaml
 
 The schema validates:
 
-- **Top-level structure**: Only `imports`, `environments`, and `tasks` are allowed at root
+- **Top-level structure**: Only `imports`, `environments`, `variables`, and `tasks` are allowed at root
 - **Required fields**: Tasks must have a `cmd` field
 - **Field types**: Ensures strings, arrays, and objects are used correctly
 - **Naming patterns**: Task names and namespaces must match `^[a-zA-Z][a-zA-Z0-9_-]*$`
-- **Environment requirements**: Environments must specify a `shell`
+- **Named inputs/outputs**: Supports both anonymous (strings) and named (objects) format
+- **Self-references**: Named inputs/outputs can be referenced with `{{ self.inputs.name }}` and `{{ self.outputs.name }}`
+- **Dependency outputs**: Named outputs can be referenced with `{{ dep.task.outputs.name }}`
+- **Environment requirements**: Environments must specify a `shell` (or `dockerfile` for Docker environments)
 
 ## Example
 
@@ -85,25 +88,40 @@ tasks:
   build:
     desc: Build the application
     deps: [base.setup]
-    inputs: ["src/**/*.rs"]
+    inputs:
+      - sources: "src/**/*.rs"        # Named input - can use {{ self.inputs.sources }}
     outputs:
       - binary: target/release/bin    # Named output - can be referenced
       - target/release/bin.map        # Anonymous output
-    cmd: cargo build --release
+    cmd: cargo build --release --manifest-path {{ self.inputs.sources }}/../Cargo.toml
 
   test:
     desc: Run tests
     deps: [build]
     cmd: cargo test
 
+  package:
+    desc: Package the application
+    deps: [build]
+    inputs:
+      - manifest: package.yaml        # Named input
+    outputs:
+      - archive: dist/app.tar.gz      # Named output
+    cmd: |
+      mkdir -p dist
+      # Use self-references for own inputs/outputs
+      tar czf {{ self.outputs.archive }} \
+        {{ dep.build.outputs.binary }} \
+        {{ self.inputs.manifest }}
+
   deploy:
     desc: Deploy to environment
-    deps: [build]
+    deps: [package]
     args: [environment, region=us-west-1]
     cmd: |
       echo "Deploying to {{ arg.environment }} in {{ arg.region }}"
       # Reference named output from dependency
-      scp {{ dep.build.outputs.binary }} server:/opt/
+      scp {{ dep.package.outputs.archive }} server:/opt/
       ./deploy.sh {{ arg.environment }} {{ arg.region }}
 ```
 
