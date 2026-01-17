@@ -74,15 +74,22 @@ Your sponsor is not made of money! Try to minimise token useage, so that we can 
 
 ## Development Commands
 
+## IMPORTANT! Tool use
+You have the following additional CLI tools available:
+- **athena** - Use for locating entities such as functions and classes by name.
+  - **Prefer this to reading files with grep or find.**
+  - Examples:
+    - `athena locate some_function` - Find the location(s) of a function
+    - `athena info some/path/to/file.py:some_function` - find out what a function does and how to call it
+
 ### Testing
 ```bash
 python3 -m pytest tests/
 ```
-
-The project has **656 tests** across three categories:
-- **Unit tests** (`tests/unit/`): 15 test files covering parser, executor, graph, hasher, types, substitution, state
-- **Integration tests** (`tests/integration/`): 21 test files for CLI options, parameterized tasks, Docker, variables, arg validation
-- **E2E tests** (`tests/e2e/`): 5 test files for Docker volumes, ownership, environment, and basic functionality
+The project has tests across three categories:
+- **Unit tests** (`tests/unit/`): Should always be updated for any change. Makes up the bulk of code coverage
+- **Integration tests** (`tests/integration/`): Test changes using the Typer CliRunner to cover end-to-end workflows across multiple modules
+- **E2E tests** (`tests/e2e/`): Heavyweight tests that cover running the tool in a subprocess and/or containerized environment 
 
 ### Running the Application
 ```bash
