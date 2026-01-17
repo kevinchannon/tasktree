@@ -11,15 +11,24 @@ from tasktree.cli import app
 
 
 class TestVariablesIntegration(unittest.TestCase):
-    """Test end-to-end variables functionality through CLI."""
+    """
+    Test end-to-end variables functionality through CLI.
+    @athena: c5793bc08fa0
+    """
 
     def setUp(self):
-        """Set up test fixtures."""
+        """
+        Set up test fixtures.
+        @athena: 36a706d60319
+        """
         self.runner = CliRunner()
         self.env = {"NO_COLOR": "1"}
 
     def test_variables_in_command_execution(self):
-        """Test task actually runs with variables substituted."""
+        """
+        Test task actually runs with variables substituted.
+        @athena: 3ba99d99cca9
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -52,7 +61,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_variables_with_args_combined(self):
-        """Test both vars and args in same command execute correctly."""
+        """
+        Test both vars and args in same command execute correctly.
+        @athena: fc3e55a92f29
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -87,7 +99,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_variable_types_stringify(self):
-        """Test int/bool/float become strings in output."""
+        """
+        Test int/bool/float become strings in output.
+        @athena: 301ab448016b
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -121,7 +136,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_complex_variable_chain(self):
-        """Test A uses B, B uses C, all resolve correctly."""
+        """
+        Test A uses B, B uses C, all resolve correctly.
+        @athena: b68ee090e351
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -161,7 +179,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_variables_in_working_dir_execution(self):
-        """Test working_dir with variables actually changes execution directory."""
+        """
+        Test working_dir with variables actually changes execution directory.
+        @athena: a02715969521
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -200,7 +221,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_variables_in_multiple_tasks(self):
-        """Test same variables used across multiple tasks."""
+        """
+        Test same variables used across multiple tasks.
+        @athena: e7fe32583abc
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -240,7 +264,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_error_undefined_variable_at_runtime(self):
-        """Test clear error message when variable is undefined."""
+        """
+        Test clear error message when variable is undefined.
+        @athena: 5a58a5b5df4a
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -270,7 +297,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_error_circular_reference_at_parse_time(self):
-        """Test circular reference error is caught at parse time."""
+        """
+        Test circular reference error is caught at parse time.
+        @athena: eb07b6e30e1c
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -301,7 +331,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_variables_with_special_characters(self):
-        """Test variables containing special shell characters."""
+        """
+        Test variables containing special shell characters.
+        @athena: 8e292c5cb6a1
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -334,7 +367,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_env_variable_in_command_execution(self):
-        """Test task runs with environment variable substituted."""
+        """
+        Test task runs with environment variable substituted.
+        @athena: 4eff668b5ad1
+        """
         # Set environment variable for test
         os.environ["TEST_API_KEY"] = "secret123"
         os.environ["TEST_DB_HOST"] = "localhost"
@@ -379,7 +415,10 @@ tasks:
             del os.environ["TEST_DB_HOST"]
 
     def test_env_variable_undefined_at_runtime(self):
-        """Test clear error when environment variable not set."""
+        """
+        Test clear error when environment variable not set.
+        @athena: 19ca0b188ef6
+        """
         # Ensure env var is NOT set
         if "TEST_UNDEFINED_VAR" in os.environ:
             del os.environ["TEST_UNDEFINED_VAR"]
@@ -414,7 +453,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_environment_variable_substitution_in_command(self):
-        """Test {{ env.VAR }} substitution works in actual execution."""
+        """
+        Test {{ env.VAR }} substitution works in actual execution.
+        @athena: d6e1a78327ae
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -447,7 +489,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_mixed_substitution_var_arg_env(self):
-        """Test all three substitution types work together."""
+        """
+        Test all three substitution types work together.
+        @athena: 82db9dca989c
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -481,7 +526,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_undefined_env_var_error(self):
-        """Test clear error when environment variable is not set."""
+        """
+        Test clear error when environment variable is not set.
+        @athena: c5305f3a35bd
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -505,7 +553,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_env_substitution_in_working_dir(self):
-        """Test environment variable substitution works in working_dir."""
+        """
+        Test environment variable substitution works in working_dir.
+        @athena: 39b49575f4d6
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -539,7 +590,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_file_read_in_command_execution(self):
-        """Test file content is actually used in task execution."""
+        """
+        Test file content is actually used in task execution.
+        @athena: cc85f850143a
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -577,7 +631,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_file_read_with_variable_expansion(self):
-        """Test file contains variable references."""
+        """
+        Test file contains variable references.
+        @athena: ec0eb5671ae2
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -615,7 +672,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_file_read_and_env_combined(self):
-        """Test mix of file read and env variables in same recipe."""
+        """
+        Test mix of file read and env variables in same recipe.
+        @athena: bd5a8187d0e8
+        """
         # Set environment variable for test
         os.environ["TEST_DEPLOY_USER"] = "admin"
 
@@ -661,7 +721,10 @@ tasks:
             del os.environ["TEST_DEPLOY_USER"]
 
     def test_file_read_error_not_found(self):
-        """Test missing file produces clear error."""
+        """
+        Test missing file produces clear error.
+        @athena: 47ccbd99a0fa
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -694,7 +757,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_env_variable_with_default_when_not_set(self):
-        """Test default value is used when environment variable is not set."""
+        """
+        Test default value is used when environment variable is not set.
+        @athena: 021ee43cdbdc
+        """
         # Ensure env var is NOT set
         if "TEST_PORT_DEFAULT" in os.environ:
             del os.environ["TEST_PORT_DEFAULT"]
@@ -731,7 +797,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_env_variable_with_default_when_set(self):
-        """Test environment variable value is used when set, ignoring default."""
+        """
+        Test environment variable value is used when set, ignoring default.
+        @athena: 361746e25186
+        """
         # Set environment variable
         os.environ["TEST_PORT_OVERRIDE"] = "9000"
 
@@ -771,7 +840,10 @@ tasks:
             del os.environ["TEST_PORT_OVERRIDE"]
 
     def test_env_variable_empty_string_vs_default(self):
-        """Test that empty string env var is used, not the default."""
+        """
+        Test that empty string env var is used, not the default.
+        @athena: 5f2a9c0ee823
+        """
         # Set environment variable to empty string
         os.environ["TEST_EMPTY_VAR"] = ""
 
@@ -811,7 +883,10 @@ tasks:
             del os.environ["TEST_EMPTY_VAR"]
 
     def test_env_variable_default_must_be_string(self):
-        """Test that non-string defaults are rejected."""
+        """
+        Test that non-string defaults are rejected.
+        @athena: a6a12ad2797a
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -842,7 +917,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_env_variable_multiple_with_defaults(self):
-        """Test multiple env variables with defaults work together."""
+        """
+        Test multiple env variables with defaults work together.
+        @athena: 57cf412ab768
+        """
         # Set only one env var
         os.environ["TEST_HOST"] = "prod.example.com"
 
@@ -888,7 +966,10 @@ tasks:
             del os.environ["TEST_HOST"]
 
     def test_env_variable_default_with_variable_substitution(self):
-        """Test default value can contain variable references."""
+        """
+        Test default value can contain variable references.
+        @athena: 397cf2de3326
+        """
         # Ensure env var is NOT set
         if "TEST_OVERRIDE" in os.environ:
             del os.environ["TEST_OVERRIDE"]

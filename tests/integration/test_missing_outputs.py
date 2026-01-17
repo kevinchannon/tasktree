@@ -10,13 +10,18 @@ from tasktree.state import StateManager
 
 
 class TestMissingOutputsIntegration(unittest.TestCase):
+    """
+    @athena: 1f63af9e940d
+    """
     def test_missing_outputs_integration(self):
-        """Integration test for missing outputs scenario.
+        """
+        Integration test for missing outputs scenario.
 
         1. Run task with outputs successfully
         2. Delete one output file
         3. Run again - should execute and warn
         4. Run third time - should skip (outputs now exist)
+        @athena: 4bb3c6a8724f
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -61,10 +66,12 @@ class TestMissingOutputsIntegration(unittest.TestCase):
             self.assertEqual(statuses["build"].reason, "fresh")
 
     def test_partial_outputs_missing_triggers_rerun(self):
-        """Test that missing some (but not all) outputs triggers rebuild.
+        """
+        Test that missing some (but not all) outputs triggers rebuild.
 
         When a task declares multiple outputs but only some exist,
         the task should run to regenerate all outputs.
+        @athena: 2f92abc88ead
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)

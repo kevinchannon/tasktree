@@ -12,20 +12,32 @@ from tasktree.state import StateManager
 
 
 class TestBuiltinVariables(unittest.TestCase):
-    """Test built-in variable substitution in task execution."""
+    """
+    Test built-in variable substitution in task execution.
+    @athena: 1c591ffb9b84
+    """
 
     def setUp(self):
-        """Create temporary directory for test recipes."""
+        """
+        Create temporary directory for test recipes.
+        @athena: 1fdfc01517da
+        """
         self.test_dir = tempfile.mkdtemp()
         self.recipe_file = Path(self.test_dir) / "tasktree.yaml"
 
     def tearDown(self):
-        """Clean up temporary directory."""
+        """
+        Clean up temporary directory.
+        @athena: a5513988aa81
+        """
         import shutil
         shutil.rmtree(self.test_dir, ignore_errors=True)
 
     def test_all_builtin_variables_in_command(self):
-        """Test that all 8 built-in variables work in task commands."""
+        """
+        Test that all 8 built-in variables work in task commands.
+        @athena: 7475ff9ab274
+        """
         # Create output file path
         output_file = Path(self.test_dir) / "output.txt"
 
@@ -86,7 +98,10 @@ tasks:
         self.assertTrue(len(lines["user_name"]) > 0)
 
     def test_timestamp_consistency_within_task(self):
-        """Test that timestamp is consistent throughout a single task execution."""
+        """
+        Test that timestamp is consistent throughout a single task execution.
+        @athena: f4218b7b36aa
+        """
         output_file = Path(self.test_dir) / "timestamps.txt"
 
         recipe_content = f"""
@@ -116,7 +131,10 @@ tasks:
         self.assertEqual(lines[2], lines[3], "Unix timestamps should be consistent")
 
     def test_builtin_vars_with_working_dir(self):
-        """Test that tt.working_dir reflects the task's working_dir setting."""
+        """
+        Test that tt.working_dir reflects the task's working_dir setting.
+        @athena: a86743048406
+        """
         # Create subdirectory
         subdir = Path(self.test_dir) / "subdir"
         subdir.mkdir()
@@ -141,7 +159,10 @@ tasks:
         self.assertEqual(output, str(subdir.resolve()))
 
     def test_builtin_vars_in_multiline_command(self):
-        """Test that built-in variables work in multi-line commands."""
+        """
+        Test that built-in variables work in multi-line commands.
+        @athena: 23073e8f1c79
+        """
         output_file = Path(self.test_dir) / "multiline.txt"
 
         recipe_content = f"""
@@ -165,7 +186,10 @@ tasks:
         self.assertEqual(output, expected)
 
     def test_recipe_dir_differs_from_project_root_when_recipe_in_subdir(self):
-        """Test that recipe_dir points to recipe file location, not project root."""
+        """
+        Test that recipe_dir points to recipe file location, not project root.
+        @athena: b6973ac2072a
+        """
         # Create recipe in a subdirectory
         recipe_subdir = Path(self.test_dir) / "config"
         recipe_subdir.mkdir()
@@ -197,7 +221,10 @@ tasks:
         self.assertEqual(lines["recipe"], str(recipe_subdir.resolve()))
 
     def test_builtin_vars_mixed_with_other_vars(self):
-        """Test built-in variables work alongside regular variables and arguments."""
+        """
+        Test built-in variables work alongside regular variables and arguments.
+        @athena: 14cee950d69d
+        """
         output_file = Path(self.test_dir) / "mixed.txt"
 
         recipe_content = f"""
@@ -233,7 +260,10 @@ tasks:
         self.assertTrue(lines[4].startswith("User: "))
 
     def test_builtin_vars_in_working_dir(self):
-        """Test that non-circular builtin variables can be used in working_dir."""
+        """
+        Test that non-circular builtin variables can be used in working_dir.
+        @athena: 4aafa319abad
+        """
         # Create a directory that matches the task name
         task_dir = Path(self.test_dir) / "build-task"
         task_dir.mkdir()
@@ -264,7 +294,10 @@ tasks:
         self.assertEqual(lines["wd"], str(task_dir.resolve()))
 
     def test_builtin_vars_in_environment_volumes(self):
-        """Test that builtin variables are substituted in environment volume mounts."""
+        """
+        Test that builtin variables are substituted in environment volume mounts.
+        @athena: 7655e3c1fe2d
+        """
         from unittest.mock import patch, Mock
         import platform
 
@@ -366,7 +399,10 @@ tasks:
             "TASK_NAME_VAR should contain the task name")
 
     def test_env_vars_in_environment_fields(self):
-        """Test that {{ env.* }} variables are substituted in environment fields."""
+        """
+        Test that {{ env.* }} variables are substituted in environment fields.
+        @athena: 6577b3cabf13
+        """
         from unittest.mock import patch, Mock
         import platform
         import os
@@ -467,7 +503,10 @@ tasks:
             os.environ.pop("TEST_ENV_VALUE", None)
 
     def test_var_vars_in_environment_fields(self):
-        """Test that {{ var.* }} variables are substituted in environment fields."""
+        """
+        Test that {{ var.* }} variables are substituted in environment fields.
+        @athena: ade7a52fd275
+        """
         from unittest.mock import patch, Mock
 
         recipe_content = f"""

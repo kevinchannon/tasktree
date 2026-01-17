@@ -10,10 +10,16 @@ from pathlib import Path
 
 
 class TestParameterizedDependenciesWithTemplates:
-    """Test template substitution in dependency arguments."""
+    """
+    Test template substitution in dependency arguments.
+    @athena: 98e6139cdc98
+    """
 
     def test_simple_template_substitution(self):
-        """Test basic {{ arg.* }} template substitution in dependency args."""
+        """
+        Test basic {{ arg.* }} template substitution in dependency args.
+        @athena: 955de4510516
+        """
         recipe_content = """
 tasks:
   foo:
@@ -45,7 +51,10 @@ tasks:
             assert "bar_env=production" in result.stdout
 
     def test_template_with_string_type(self):
-        """Test template substitution with string types (safer than int)."""
+        """
+        Test template substitution with string types (safer than int).
+        @athena: 1a865ba0a251
+        """
         recipe_content = """
 tasks:
   build:
@@ -77,7 +86,10 @@ tasks:
             assert "deploy_mode=release" in result.stdout
 
     def test_multiple_templates_in_one_dependency(self):
-        """Test multiple template substitutions in a single dependency."""
+        """
+        Test multiple template substitutions in a single dependency.
+        @athena: 1fcdc3ec034b
+        """
         recipe_content = """
 tasks:
   compile:
@@ -108,7 +120,10 @@ tasks:
             assert "test_done" in result.stdout
 
     def test_named_args_with_templates(self):
-        """Test template substitution with named arguments."""
+        """
+        Test template substitution with named arguments.
+        @athena: 21c32062ceed
+        """
         recipe_content = """
 tasks:
   build:
@@ -139,7 +154,10 @@ tasks:
             assert "test_env=debug" in result.stdout
 
     def test_backward_compatibility_literal_args(self):
-        """Test that literal dependency args still work (backward compatibility)."""
+        """
+        Test that literal dependency args still work (backward compatibility).
+        @athena: 893161e3c845
+        """
         recipe_content = """
 tasks:
   build:
@@ -169,7 +187,10 @@ tasks:
             assert "test_done" in result.stdout
 
     def test_template_with_choices_validation(self):
-        """Test that type validation works after template substitution."""
+        """
+        Test that type validation works after template substitution.
+        @athena: c6dd72e1a80a
+        """
         recipe_content = """
 tasks:
   build:
@@ -201,7 +222,10 @@ tasks:
             assert "test_env=release" in result.stdout
 
     def test_invalid_template_reference(self):
-        """Test that referencing undefined parent arg fails with clear error."""
+        """
+        Test that referencing undefined parent arg fails with clear error.
+        @athena: 22125cec994e
+        """
         recipe_content = """
 tasks:
   build:

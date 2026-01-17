@@ -12,21 +12,33 @@ from tasktree.cli import app
 
 
 def strip_ansi_codes(text: str) -> str:
-    """Remove ANSI escape sequences from text."""
+    """
+    Remove ANSI escape sequences from text.
+    @athena: 90023a269128
+    """
     ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
     return ansi_escape.sub('', text)
 
 
 class TestWorkingDirectory(unittest.TestCase):
-    """Test that tasks execute in correct working directory."""
+    """
+    Test that tasks execute in correct working directory.
+    @athena: 7e69e14f69b1
+    """
 
     def setUp(self):
-        """Set up test fixtures."""
+        """
+        Set up test fixtures.
+        @athena: 36a706d60319
+        """
         self.runner = CliRunner()
         self.env = {"NO_COLOR": "1"}
 
     def test_task_executes_in_working_dir(self):
-        """Test task runs in specified working_dir subdirectory."""
+        """
+        Test task runs in specified working_dir subdirectory.
+        @athena: 12253bd4064f
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -65,7 +77,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_output_paths_resolved_with_working_dir(self):
-        """Test outputs are created relative to working_dir."""
+        """
+        Test outputs are created relative to working_dir.
+        @athena: 36ae64514250
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -103,7 +118,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_default_working_dir_is_invocation_dir_not_tasks_file_dir(self):
-        """Test that without explicit working_dir, tasks run from where tt is invoked, not where the tasks file is."""
+        """
+        Test that without explicit working_dir, tasks run from where tt is invoked, not where the tasks file is.
+        @athena: 5988c6fff43d
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 

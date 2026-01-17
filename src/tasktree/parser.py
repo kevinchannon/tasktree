@@ -16,17 +16,22 @@ from tasktree.types import get_click_type
 
 
 class CircularImportError(Exception):
-    """Raised when a circular import is detected."""
+    """
+    Raised when a circular import is detected.
+    @athena: 935d53bc7d05
+    """
     pass
 
 
 @dataclass
 class Environment:
-    """Represents an execution environment configuration.
+    """
+    Represents an execution environment configuration.
 
     Can be either a shell environment or a Docker environment:
     - Shell environment: has 'shell' field, executes directly on host
     - Docker environment: has 'dockerfile' field, executes in container
+    @athena: cfe3f8754968
     """
 
     name: str
@@ -44,14 +49,20 @@ class Environment:
     run_as_root: bool = False  # If True, skip user mapping (run as root in container)
 
     def __post_init__(self):
-        """Ensure args is in the correct format."""
+        """
+        Ensure args is in the correct format.
+        @athena: a4292f3f4150
+        """
         if isinstance(self.args, str):
             self.args = [self.args]
 
 
 @dataclass
 class Task:
-    """Represents a task definition."""
+    """
+    Represents a task definition.
+    @athena: 34fdaf703d02
+    """
 
     name: str
     cmd: str
@@ -74,7 +85,10 @@ class Task:
     _anonymous_inputs: list[str] = field(init=False, default_factory=list, repr=False)  # unnamed inputs
 
     def __post_init__(self):
-        """Ensure lists are always lists and build output maps."""
+        """
+        Ensure lists are always lists and build output maps.
+        @athena: 18c6b1274a01
+        """
         if isinstance(self.deps, str):
             self.deps = [self.deps]
         if isinstance(self.inputs, str):
@@ -178,23 +192,28 @@ class Task:
 
 @dataclass
 class DependencySpec:
-    """Parsed dependency specification with potential template placeholders.
+    """
+    Parsed dependency specification with potential template placeholders.
 
     This represents a dependency as defined in the recipe file, before template
     substitution. Argument values may contain {{ arg.* }} templates that will be
     substituted with parent task's argument values during graph construction.
 
     Attributes:
-        task_name: Name of the dependency task
-        arg_templates: Dictionary mapping argument names to string templates
-                      (None if no args specified). All values are strings, even
-                      for numeric types, to preserve template placeholders.
+    task_name: Name of the dependency task
+    arg_templates: Dictionary mapping argument names to string templates
+    (None if no args specified). All values are strings, even
+    for numeric types, to preserve template placeholders.
+    @athena: 7b2f8a15d312
     """
     task_name: str
     arg_templates: dict[str, str] | None = None
 
     def __str__(self) -> str:
-        """String representation for display."""
+        """
+        String representation for display.
+        @athena: e5669be6329b
+        """
         if not self.arg_templates:
             return self.task_name
         args_str = ", ".join(f"{k}={v}" for k, v in self.arg_templates.items())
@@ -203,17 +222,22 @@ class DependencySpec:
 
 @dataclass
 class DependencyInvocation:
-    """Represents a task dependency invocation with optional arguments.
+    """
+    Represents a task dependency invocation with optional arguments.
 
     Attributes:
-        task_name: Name of the dependency task
-        args: Dictionary of argument names to values (None if no args specified)
+    task_name: Name of the dependency task
+    args: Dictionary of argument names to values (None if no args specified)
+    @athena: 0c023366160b
     """
     task_name: str
     args: dict[str, Any] | None = None
 
     def __str__(self) -> str:
-        """String representation for display."""
+        """
+        String representation for display.
+        @athena: 22fc0502192b
+        """
         if not self.args:
             return self.task_name
         args_str = ", ".join(f"{k}={v}" for k, v in self.args.items())
@@ -222,16 +246,18 @@ class DependencyInvocation:
 
 @dataclass
 class ArgSpec:
-    """Represents a parsed argument specification.
+    """
+    Represents a parsed argument specification.
 
     Attributes:
-        name: Argument name
-        arg_type: Type of the argument (str, int, float, bool, path)
-        default: Default value as a string (None if no default)
-        is_exported: Whether the argument is exported as an environment variable
-        min_val: Minimum value for numeric arguments (None if not specified)
-        max_val: Maximum value for numeric arguments (None if not specified)
-        choices: List of valid choices for the argument (None if not specified)
+    name: Argument name
+    arg_type: Type of the argument (str, int, float, bool, path)
+    default: Default value as a string (None if no default)
+    is_exported: Whether the argument is exported as an environment variable
+    min_val: Minimum value for numeric arguments (None if not specified)
+    max_val: Maximum value for numeric arguments (None if not specified)
+    choices: List of valid choices for the argument (None if not specified)
+    @athena: fcaf20fb1ca2
     """
     name: str
     arg_type: str
@@ -244,7 +270,10 @@ class ArgSpec:
 
 @dataclass
 class Recipe:
-    """Represents a parsed recipe file with all tasks."""
+    """
+    Represents a parsed recipe file with all tasks.
+    @athena: 47f568c77013
+    """
 
     tasks: dict[str, Task]
     project_root: Path
@@ -259,33 +288,41 @@ class Recipe:
     _original_yaml_data: dict[str, Any] = field(default_factory=dict)  # Store original YAML data for lazy evaluation context
 
     def get_task(self, name: str) -> Task | None:
-        """Get task by name.
+        """
+        Get task by name.
 
         Args:
-            name: Task name (may be namespaced like 'build.compile')
+        name: Task name (may be namespaced like 'build.compile')
 
         Returns:
-            Task if found, None otherwise
+        Task if found, None otherwise
+        @athena: 3f8137d71757
         """
         return self.tasks.get(name)
 
     def task_names(self) -> list[str]:
-        """Get all task names."""
+        """
+        Get all task names.
+        @athena: 1df54563a7b6
+        """
         return list(self.tasks.keys())
 
     def get_environment(self, name: str) -> Environment | None:
-        """Get environment by name.
+        """
+        Get environment by name.
 
         Args:
-            name: Environment name
+        name: Environment name
 
         Returns:
-            Environment if found, None otherwise
+        Environment if found, None otherwise
+        @athena: 098227ca38a2
         """
         return self.environments.get(name)
 
     def evaluate_variables(self, root_task: str | None = None) -> None:
-        """Evaluate variables lazily based on task reachability.
+        """
+        Evaluate variables lazily based on task reachability.
 
         This method implements lazy variable evaluation, which only evaluates
         variables that are actually reachable from the target task. This provides:
@@ -299,15 +336,16 @@ class Recipe:
         This method is idempotent - calling it multiple times is safe (uses caching).
 
         Args:
-            root_task: Optional task name to determine reachability (None = evaluate all)
+        root_task: Optional task name to determine reachability (None = evaluate all)
 
         Raises:
-            ValueError: If variable evaluation or substitution fails
+        ValueError: If variable evaluation or substitution fails
 
         Example:
-            >>> recipe = parse_recipe(path)  # Variables not yet evaluated
-            >>> recipe.evaluate_variables("build")  # Evaluate only reachable variables
-            >>> # Now recipe.evaluated_variables contains only vars used by "build" task
+        >>> recipe = parse_recipe(path)  # Variables not yet evaluated
+        >>> recipe.evaluate_variables("build")  # Evaluate only reachable variables
+        >>> # Now recipe.evaluated_variables contains only vars used by "build" task
+        @athena: d8de7b5f42b6
         """
         if self._variables_evaluated:
             return  # Already evaluated, skip (idempotent)
@@ -454,7 +492,8 @@ class Recipe:
 
 
 def find_recipe_file(start_dir: Path | None = None) -> Path | None:
-    """Find recipe file in current or parent directories.
+    """
+    Find recipe file in current or parent directories.
 
     Looks for recipe files matching these patterns (in order of preference):
     - tasktree.yaml
@@ -466,13 +505,14 @@ def find_recipe_file(start_dir: Path | None = None) -> Path | None:
     with instructions to use --tasks option.
 
     Args:
-        start_dir: Directory to start searching from (defaults to cwd)
+    start_dir: Directory to start searching from (defaults to cwd)
 
     Returns:
-        Path to recipe file if found, None otherwise
+    Path to recipe file if found, None otherwise
 
     Raises:
-        ValueError: If multiple recipe files found in the same directory
+    ValueError: If multiple recipe files found in the same directory
+    @athena: 38ccb0c1bb86
     """
     if start_dir is None:
         start_dir = Path.cwd()
@@ -532,13 +572,15 @@ def find_recipe_file(start_dir: Path | None = None) -> Path | None:
 
 
 def _validate_variable_name(name: str) -> None:
-    """Validate that a variable name is a valid identifier.
+    """
+    Validate that a variable name is a valid identifier.
 
     Args:
-        name: Variable name to validate
+    name: Variable name to validate
 
     Raises:
-        ValueError: If name is not a valid identifier
+    ValueError: If name is not a valid identifier
+    @athena: 61f92f7ad278
     """
     if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', name):
         raise ValueError(
@@ -548,16 +590,18 @@ def _validate_variable_name(name: str) -> None:
 
 
 def _infer_variable_type(value: Any) -> str:
-    """Infer type name from Python value.
+    """
+    Infer type name from Python value.
 
     Args:
-        value: Python value from YAML
+    value: Python value from YAML
 
     Returns:
-        Type name string (str, int, float, bool)
+    Type name string (str, int, float, bool)
 
     Raises:
-        ValueError: If value type is not supported
+    ValueError: If value type is not supported
+    @athena: 335ae24e1504
     """
     type_map = {
         str: "str",
@@ -575,29 +619,33 @@ def _infer_variable_type(value: Any) -> str:
 
 
 def _is_env_variable_reference(value: Any) -> bool:
-    """Check if value is an environment variable reference.
+    """
+    Check if value is an environment variable reference.
 
     Args:
-        value: Raw value from YAML
+    value: Raw value from YAML
 
     Returns:
-        True if value is { env: VAR_NAME } dict
+    True if value is { env: VAR_NAME } dict
+    @athena: c01927ec19ef
     """
     return isinstance(value, dict) and "env" in value
 
 
 def _validate_env_variable_reference(var_name: str, value: dict) -> tuple[str, str | None]:
-    """Validate and extract environment variable name and optional default from reference.
+    """
+    Validate and extract environment variable name and optional default from reference.
 
     Args:
-        var_name: Name of the variable being defined
-        value: Dict that should be { env: ENV_VAR_NAME } or { env: ENV_VAR_NAME, default: "value" }
+    var_name: Name of the variable being defined
+    value: Dict that should be { env: ENV_VAR_NAME } or { env: ENV_VAR_NAME, default: "value" }
 
     Returns:
-        Tuple of (environment variable name, default value or None)
+    Tuple of (environment variable name, default value or None)
 
     Raises:
-        ValueError: If reference is invalid
+    ValueError: If reference is invalid
+    @athena: 9fc8b2333b54
     """
     # Validate dict structure - allow 'env' and optionally 'default'
     valid_keys = {"env", "default"}
@@ -651,18 +699,20 @@ def _validate_env_variable_reference(var_name: str, value: dict) -> tuple[str, s
 
 
 def _resolve_env_variable(var_name: str, env_var_name: str, default: str | None = None) -> str:
-    """Resolve environment variable value.
+    """
+    Resolve environment variable value.
 
     Args:
-        var_name: Name of the variable being defined
-        env_var_name: Name of environment variable to read
-        default: Optional default value to use if environment variable is not set
+    var_name: Name of the variable being defined
+    env_var_name: Name of environment variable to read
+    default: Optional default value to use if environment variable is not set
 
     Returns:
-        Environment variable value as string, or default if not set and default provided
+    Environment variable value as string, or default if not set and default provided
 
     Raises:
-        ValueError: If environment variable is not set and no default provided
+    ValueError: If environment variable is not set and no default provided
+    @athena: c00d3a241a99
     """
     value = os.environ.get(env_var_name, default)
 
@@ -680,29 +730,33 @@ def _resolve_env_variable(var_name: str, env_var_name: str, default: str | None 
 
 
 def _is_file_read_reference(value: Any) -> bool:
-    """Check if value is a file read reference.
+    """
+    Check if value is a file read reference.
 
     Args:
-        value: Raw value from YAML
+    value: Raw value from YAML
 
     Returns:
-        True if value is { read: filepath } dict
+    True if value is { read: filepath } dict
+    @athena: da129db1b17b
     """
     return isinstance(value, dict) and "read" in value
 
 
 def _validate_file_read_reference(var_name: str, value: dict) -> str:
-    """Validate and extract filepath from file read reference.
+    """
+    Validate and extract filepath from file read reference.
 
     Args:
-        var_name: Name of the variable being defined
-        value: Dict that should be { read: filepath }
+    var_name: Name of the variable being defined
+    value: Dict that should be { read: filepath }
 
     Returns:
-        Filepath string
+    Filepath string
 
     Raises:
-        ValueError: If reference is invalid
+    ValueError: If reference is invalid
+    @athena: 2615951372fc
     """
     # Validate dict structure (only "read" key allowed)
     if len(value) != 1:
@@ -728,7 +782,8 @@ def _validate_file_read_reference(var_name: str, value: dict) -> str:
 
 
 def _resolve_file_path(filepath: str, recipe_file_path: Path) -> Path:
-    """Resolve file path relative to recipe file location.
+    """
+    Resolve file path relative to recipe file location.
 
     Handles three path types:
     1. Tilde paths (~): Expand to user home directory
@@ -736,11 +791,12 @@ def _resolve_file_path(filepath: str, recipe_file_path: Path) -> Path:
     3. Relative paths: Resolve relative to recipe file's directory
 
     Args:
-        filepath: Path string from YAML (may be relative, absolute, or tilde)
-        recipe_file_path: Path to the recipe file containing the variable
+    filepath: Path string from YAML (may be relative, absolute, or tilde)
+    recipe_file_path: Path to the recipe file containing the variable
 
     Returns:
-        Resolved absolute Path object
+    Resolved absolute Path object
+    @athena: e80470e9c7d6
     """
     # Expand tilde to home directory
     if filepath.startswith("~"):
@@ -758,18 +814,20 @@ def _resolve_file_path(filepath: str, recipe_file_path: Path) -> Path:
 
 
 def _resolve_file_variable(var_name: str, filepath: str, resolved_path: Path) -> str:
-    """Read file contents for variable value.
+    """
+    Read file contents for variable value.
 
     Args:
-        var_name: Name of the variable being defined
-        filepath: Original filepath string (for error messages)
-        resolved_path: Resolved absolute path to the file
+    var_name: Name of the variable being defined
+    filepath: Original filepath string (for error messages)
+    resolved_path: Resolved absolute path to the file
 
     Returns:
-        File contents as string (with trailing newline stripped)
+    File contents as string (with trailing newline stripped)
 
     Raises:
-        ValueError: If file doesn't exist, can't be read, or contains invalid UTF-8
+    ValueError: If file doesn't exist, can't be read, or contains invalid UTF-8
+    @athena: cab84337f145
     """
     # Check file exists
     if not resolved_path.exists():
@@ -811,29 +869,33 @@ def _resolve_file_variable(var_name: str, filepath: str, resolved_path: Path) ->
 
 
 def _is_eval_reference(value: Any) -> bool:
-    """Check if value is an eval command reference.
+    """
+    Check if value is an eval command reference.
 
     Args:
-        value: Raw value from YAML
+    value: Raw value from YAML
 
     Returns:
-        True if value is { eval: command } dict
+    True if value is { eval: command } dict
+    @athena: 121784f6d4ab
     """
     return isinstance(value, dict) and "eval" in value
 
 
 def _validate_eval_reference(var_name: str, value: dict) -> str:
-    """Validate and extract command from eval reference.
+    """
+    Validate and extract command from eval reference.
 
     Args:
-        var_name: Name of the variable being defined
-        value: Dict that should be { eval: command }
+    var_name: Name of the variable being defined
+    value: Dict that should be { eval: command }
 
     Returns:
-        Command string
+    Command string
 
     Raises:
-        ValueError: If reference is invalid
+    ValueError: If reference is invalid
+    @athena: f3cde1011d2d
     """
     # Validate dict structure (only "eval" key allowed)
     if len(value) != 1:
@@ -859,10 +921,12 @@ def _validate_eval_reference(var_name: str, value: dict) -> str:
 
 
 def _get_default_shell_and_args() -> tuple[str, list[str]]:
-    """Get default shell and args for current platform.
+    """
+    Get default shell and args for current platform.
 
     Returns:
-        Tuple of (shell, args) for platform default
+    Tuple of (shell, args) for platform default
+    @athena: 68a19449a035
     """
     is_windows = platform.system() == "Windows"
     if is_windows:
@@ -877,19 +941,21 @@ def _resolve_eval_variable(
     recipe_file_path: Path,
     recipe_data: dict
 ) -> str:
-    """Execute command and capture output for variable value.
+    """
+    Execute command and capture output for variable value.
 
     Args:
-        var_name: Name of the variable being defined
-        command: Command to execute
-        recipe_file_path: Path to recipe file (for working directory)
-        recipe_data: Parsed YAML data (for accessing default_env)
+    var_name: Name of the variable being defined
+    command: Command to execute
+    recipe_file_path: Path to recipe file (for working directory)
+    recipe_data: Parsed YAML data (for accessing default_env)
 
     Returns:
-        Command stdout as string (with trailing newline stripped)
+    Command stdout as string (with trailing newline stripped)
 
     Raises:
-        ValueError: If command fails or cannot be executed
+    ValueError: If command fails or cannot be executed
+    @athena: 647d3a310c77
     """
     # Determine shell to use
     shell = None
@@ -968,21 +1034,23 @@ def _resolve_variable_value(
     file_path: Path,
     recipe_data: dict | None = None
 ) -> str:
-    """Resolve a single variable value with circular reference detection.
+    """
+    Resolve a single variable value with circular reference detection.
 
     Args:
-        name: Variable name being resolved
-        raw_value: Raw value from YAML (int, str, bool, float, dict with env/read/eval)
-        resolved: Dictionary of already-resolved variables
-        resolution_stack: Stack of variables currently being resolved (for circular detection)
-        file_path: Path to recipe file (for resolving relative file paths in { read: ... })
-        recipe_data: Parsed YAML data (for accessing default_env in { eval: ... })
+    name: Variable name being resolved
+    raw_value: Raw value from YAML (int, str, bool, float, dict with env/read/eval)
+    resolved: Dictionary of already-resolved variables
+    resolution_stack: Stack of variables currently being resolved (for circular detection)
+    file_path: Path to recipe file (for resolving relative file paths in { read: ... })
+    recipe_data: Parsed YAML data (for accessing default_env in { eval: ... })
 
     Returns:
-        Resolved string value
+    Resolved string value
 
     Raises:
-        ValueError: If circular reference detected or validation fails
+    ValueError: If circular reference detected or validation fails
+    @athena: da94de106756
     """
     # Check for circular reference
     if name in resolution_stack:
@@ -1114,20 +1182,22 @@ def _resolve_variable_value(
 
 
 def _parse_variables_section(data: dict, file_path: Path) -> dict[str, str]:
-    """Parse and resolve the variables section from YAML data.
+    """
+    Parse and resolve the variables section from YAML data.
 
     Variables are resolved in order, allowing variables to reference
     previously-defined variables using {{ var.name }} syntax.
 
     Args:
-        data: Parsed YAML data (root level)
-        file_path: Path to the recipe file (for resolving relative file paths)
+    data: Parsed YAML data (root level)
+    file_path: Path to the recipe file (for resolving relative file paths)
 
     Returns:
-        Dictionary mapping variable names to resolved string values
+    Dictionary mapping variable names to resolved string values
 
     Raises:
-        ValueError: For validation errors, undefined refs, or circular refs
+    ValueError: For validation errors, undefined refs, or circular refs
+    @athena: aa45e860a958
     """
     if "variables" not in data:
         return {}
@@ -1152,26 +1222,28 @@ def _expand_variable_dependencies(
     variable_names: set[str],
     raw_variables: dict[str, Any]
 ) -> set[str]:
-    """Expand variable set to include all transitively referenced variables.
+    """
+    Expand variable set to include all transitively referenced variables.
 
     If variable A references variable B, and B references C, then requesting A
     should also evaluate B and C.
 
     Args:
-        variable_names: Initial set of variable names
-        raw_variables: Raw variable definitions from YAML
+    variable_names: Initial set of variable names
+    raw_variables: Raw variable definitions from YAML
 
     Returns:
-        Expanded set including all transitively referenced variables
+    Expanded set including all transitively referenced variables
 
     Example:
-        >>> raw_vars = {
-        ...     "a": "{{ var.b }}",
-        ...     "b": "{{ var.c }}",
-        ...     "c": "value"
-        ... }
-        >>> _expand_variable_dependencies({"a"}, raw_vars)
-        {"a", "b", "c"}
+    >>> raw_vars = {
+    ...     "a": "{{ var.b }}",
+    ...     "b": "{{ var.c }}",
+    ...     "c": "value"
+    ... }
+    >>> _expand_variable_dependencies({"a"}, raw_vars)
+    {"a", "b", "c"}
+    @athena: e7ec4a4a6db3
     """
     expanded = set(variable_names)
     to_process = list(variable_names)
@@ -1235,7 +1307,8 @@ def _evaluate_variable_subset(
     file_path: Path,
     data: dict
 ) -> dict[str, str]:
-    """Evaluate only specified variables from raw specs (for lazy evaluation).
+    """
+    Evaluate only specified variables from raw specs (for lazy evaluation).
 
     This function is similar to _parse_variables_section but only evaluates
     a subset of variables. This enables lazy evaluation where only reachable
@@ -1245,21 +1318,22 @@ def _evaluate_variable_subset(
     variable B, both will be evaluated even if only A was explicitly requested.
 
     Args:
-        raw_variables: Raw variable definitions from YAML (not yet evaluated)
-        variable_names: Set of variable names to evaluate
-        file_path: Recipe file path (for relative file resolution)
-        data: Full YAML data (for context in _resolve_variable_value)
+    raw_variables: Raw variable definitions from YAML (not yet evaluated)
+    variable_names: Set of variable names to evaluate
+    file_path: Recipe file path (for relative file resolution)
+    data: Full YAML data (for context in _resolve_variable_value)
 
     Returns:
-        Dictionary of evaluated variable values (for specified variables and their dependencies)
+    Dictionary of evaluated variable values (for specified variables and their dependencies)
 
     Raises:
-        ValueError: For validation errors, undefined refs, or circular refs
+    ValueError: For validation errors, undefined refs, or circular refs
 
     Example:
-        >>> raw_vars = {"a": "{{ var.b }}", "b": "value", "c": "unused"}
-        >>> _evaluate_variable_subset(raw_vars, {"a"}, path, data)
-        {"a": "value", "b": "value"}  # "a" and its dependency "b", but not "c"
+    >>> raw_vars = {"a": "{{ var.b }}", "b": "value", "c": "unused"}
+    >>> _evaluate_variable_subset(raw_vars, {"a"}, path, data)
+    {"a": "value", "b": "value"}  # "a" and its dependency "b", but not "c"
+    @athena: 1e9d491d7404
     """
     if not isinstance(raw_variables, dict):
         raise ValueError("'variables' must be a dictionary")
@@ -1287,17 +1361,19 @@ def _parse_file_with_env(
     project_root: Path,
     import_stack: list[Path] | None = None,
 ) -> tuple[dict[str, Task], dict[str, Environment], str, dict[str, Any], dict[str, Any]]:
-    """Parse file and extract tasks, environments, and variables.
+    """
+    Parse file and extract tasks, environments, and variables.
 
     Args:
-        file_path: Path to YAML file
-        namespace: Optional namespace prefix for tasks
-        project_root: Root directory of the project
-        import_stack: Stack of files being imported (for circular detection)
+    file_path: Path to YAML file
+    namespace: Optional namespace prefix for tasks
+    project_root: Root directory of the project
+    import_stack: Stack of files being imported (for circular detection)
 
     Returns:
-        Tuple of (tasks, environments, default_env_name, raw_variables, yaml_data)
-        Note: Variables are NOT evaluated here - they're stored as raw specs for lazy evaluation
+    Tuple of (tasks, environments, default_env_name, raw_variables, yaml_data)
+    Note: Variables are NOT evaluated here - they're stored as raw specs for lazy evaluation
+    @athena: b2dced506787
     """
     # Parse tasks normally
     tasks = _parse_file(file_path, namespace, project_root, import_stack)
@@ -1420,25 +1496,27 @@ def _parse_file_with_env(
 
 
 def collect_reachable_tasks(tasks: dict[str, Task], root_task: str) -> set[str]:
-    """Collect all tasks reachable from the root task via dependencies.
+    """
+    Collect all tasks reachable from the root task via dependencies.
 
     Uses BFS to traverse the dependency graph and collect all task names
     that could potentially be executed when running the root task.
 
     Args:
-        tasks: Dictionary mapping task names to Task objects
-        root_task: Name of the root task to start traversal from
+    tasks: Dictionary mapping task names to Task objects
+    root_task: Name of the root task to start traversal from
 
     Returns:
-        Set of task names reachable from root_task (includes root_task itself)
+    Set of task names reachable from root_task (includes root_task itself)
 
     Raises:
-        ValueError: If root_task doesn't exist
+    ValueError: If root_task doesn't exist
 
     Example:
-        >>> tasks = {"a": Task("a", deps=["b"]), "b": Task("b", deps=[]), "c": Task("c", deps=[])}
-        >>> collect_reachable_tasks(tasks, "a")
-        {"a", "b"}
+    >>> tasks = {"a": Task("a", deps=["b"]), "b": Task("b", deps=[]), "c": Task("c", deps=[])}
+    >>> collect_reachable_tasks(tasks, "a")
+    {"a", "b"}
+    @athena: fe29d8558be3
     """
     if root_task not in tasks:
         raise ValueError(f"Root task '{root_task}' not found in recipe")
@@ -1482,23 +1560,25 @@ def collect_reachable_variables(
     environments: dict[str, Environment],
     reachable_task_names: set[str]
 ) -> set[str]:
-    """Extract variable names used by reachable tasks.
+    """
+    Extract variable names used by reachable tasks.
 
     Searches for {{ var.* }} placeholders in task and environment definitions to determine
     which variables are actually needed for execution.
 
     Args:
-        tasks: Dictionary mapping task names to Task objects
-        environments: Dictionary mapping environment names to Environment objects
-        reachable_task_names: Set of task names that will be executed
+    tasks: Dictionary mapping task names to Task objects
+    environments: Dictionary mapping environment names to Environment objects
+    reachable_task_names: Set of task names that will be executed
 
     Returns:
-        Set of variable names referenced by reachable tasks
+    Set of variable names referenced by reachable tasks
 
     Example:
-        >>> task = Task("build", cmd="echo {{ var.version }}")
-        >>> collect_reachable_variables({"build": task}, {"build"})
-        {"version"}
+    >>> task = Task("build", cmd="echo {{ var.version }}")
+    >>> collect_reachable_variables({"build": task}, {"build"})
+    {"version"}
+    @athena: fc2a03927486
     """
     import re
 
@@ -1626,28 +1706,30 @@ def parse_recipe(
     project_root: Path | None = None,
     root_task: str | None = None
 ) -> Recipe:
-    """Parse a recipe file and handle imports recursively.
+    """
+    Parse a recipe file and handle imports recursively.
 
     This function now implements lazy variable evaluation: if root_task is provided,
     only variables reachable from that task will be evaluated. This provides significant
     performance and security benefits for recipes with many variables.
 
     Args:
-        recipe_path: Path to the main recipe file
-        project_root: Optional project root directory. If not provided, uses recipe file's parent directory.
-                     When using --tasks option, this should be the current working directory.
-        root_task: Optional root task for lazy variable evaluation. If provided, only variables
-                  used by tasks reachable from root_task will be evaluated (optimization).
-                  If None, all variables will be evaluated (for --list command compatibility).
+    recipe_path: Path to the main recipe file
+    project_root: Optional project root directory. If not provided, uses recipe file's parent directory.
+    When using --tasks option, this should be the current working directory.
+    root_task: Optional root task for lazy variable evaluation. If provided, only variables
+    used by tasks reachable from root_task will be evaluated (optimization).
+    If None, all variables will be evaluated (for --list command compatibility).
 
     Returns:
-        Recipe object with all tasks (including recursively imported tasks) and evaluated variables
+    Recipe object with all tasks (including recursively imported tasks) and evaluated variables
 
     Raises:
-        FileNotFoundError: If recipe file doesn't exist
-        CircularImportError: If circular imports are detected
-        yaml.YAMLError: If YAML is invalid
-        ValueError: If recipe structure is invalid
+    FileNotFoundError: If recipe file doesn't exist
+    CircularImportError: If circular imports are detected
+    yaml.YAMLError: If YAML is invalid
+    ValueError: If recipe structure is invalid
+    @athena: 27326e37d5f3
     """
     if not recipe_path.exists():
         raise FileNotFoundError(f"Recipe file not found: {recipe_path}")
@@ -1690,21 +1772,23 @@ def _parse_file(
     project_root: Path,
     import_stack: list[Path] | None = None,
 ) -> dict[str, Task]:
-    """Parse a single YAML file and return tasks, recursively processing imports.
+    """
+    Parse a single YAML file and return tasks, recursively processing imports.
 
     Args:
-        file_path: Path to YAML file
-        namespace: Optional namespace prefix for tasks
-        project_root: Root directory of the project
-        import_stack: Stack of files being imported (for circular detection)
+    file_path: Path to YAML file
+    namespace: Optional namespace prefix for tasks
+    project_root: Root directory of the project
+    import_stack: Stack of files being imported (for circular detection)
 
     Returns:
-        Dictionary of task name to Task objects
+    Dictionary of task name to Task objects
 
     Raises:
-        CircularImportError: If a circular import is detected
-        FileNotFoundError: If an imported file doesn't exist
-        ValueError: If task structure is invalid
+    CircularImportError: If a circular import is detected
+    FileNotFoundError: If an imported file doesn't exist
+    ValueError: If task structure is invalid
+    @athena: f2a1f2c70240
     """
     # Initialize import stack if not provided
     if import_stack is None:
@@ -1893,15 +1977,17 @@ def _parse_file(
 
 
 def _check_case_sensitive_arg_collisions(args: list[str], task_name: str) -> None:
-    """Check for exported arguments that differ only in case.
+    """
+    Check for exported arguments that differ only in case.
 
     On Unix systems, environment variables are case-sensitive, but having
     args that differ only in case (e.g., $Server and $server) can be confusing.
     This function emits a warning if such collisions are detected.
 
     Args:
-        args: List of argument specifications
-        task_name: Name of the task (for warning message)
+    args: List of argument specifications
+    task_name: Name of the task (for warning message)
+    @athena: a3f0f3b184a8
     """
     import sys
 
@@ -1931,41 +2017,43 @@ def _check_case_sensitive_arg_collisions(args: list[str], task_name: str) -> Non
 
 
 def parse_arg_spec(arg_spec: str | dict) -> ArgSpec:
-    """Parse argument specification from YAML.
+    """
+    Parse argument specification from YAML.
 
     Supports both string format and dictionary format:
 
     String format (simple names only):
-        - Simple name: "argname"
-        - Exported (becomes env var): "$argname"
+    - Simple name: "argname"
+    - Exported (becomes env var): "$argname"
 
     Dictionary format:
-        - argname: { default: "value" }
-        - argname: { type: int, default: 42 }
-        - argname: { type: int, min: 1, max: 100 }
-        - argname: { type: str, choices: ["dev", "staging", "prod"] }
-        - $argname: { default: "value" }  # Exported (type not allowed)
+    - argname: { default: "value" }
+    - argname: { type: int, default: 42 }
+    - argname: { type: int, min: 1, max: 100 }
+    - argname: { type: str, choices: ["dev", "staging", "prod"] }
+    - $argname: { default: "value" }  # Exported (type not allowed)
 
     Args:
-        arg_spec: Argument specification (string or dict with single key)
+    arg_spec: Argument specification (string or dict with single key)
 
     Returns:
-        ArgSpec object containing parsed argument information
+    ArgSpec object containing parsed argument information
 
     Examples:
-        >>> parse_arg_spec("environment")
-        ArgSpec(name='environment', arg_type='str', default=None, is_exported=False, min_val=None, max_val=None, choices=None)
-        >>> parse_arg_spec({"key2": {"default": "foo"}})
-        ArgSpec(name='key2', arg_type='str', default='foo', is_exported=False, min_val=None, max_val=None, choices=None)
-        >>> parse_arg_spec({"key3": {"type": "int", "default": 42}})
-        ArgSpec(name='key3', arg_type='int', default='42', is_exported=False, min_val=None, max_val=None, choices=None)
-        >>> parse_arg_spec({"replicas": {"type": "int", "min": 1, "max": 100}})
-        ArgSpec(name='replicas', arg_type='int', default=None, is_exported=False, min_val=1, max_val=100, choices=None)
-        >>> parse_arg_spec({"env": {"type": "str", "choices": ["dev", "prod"]}})
-        ArgSpec(name='env', arg_type='str', default=None, is_exported=False, min_val=None, max_val=None, choices=['dev', 'prod'])
+    >>> parse_arg_spec("environment")
+    ArgSpec(name='environment', arg_type='str', default=None, is_exported=False, min_val=None, max_val=None, choices=None)
+    >>> parse_arg_spec({"key2": {"default": "foo"}})
+    ArgSpec(name='key2', arg_type='str', default='foo', is_exported=False, min_val=None, max_val=None, choices=None)
+    >>> parse_arg_spec({"key3": {"type": "int", "default": 42}})
+    ArgSpec(name='key3', arg_type='int', default='42', is_exported=False, min_val=None, max_val=None, choices=None)
+    >>> parse_arg_spec({"replicas": {"type": "int", "min": 1, "max": 100}})
+    ArgSpec(name='replicas', arg_type='int', default=None, is_exported=False, min_val=1, max_val=100, choices=None)
+    >>> parse_arg_spec({"env": {"type": "str", "choices": ["dev", "prod"]}})
+    ArgSpec(name='env', arg_type='str', default=None, is_exported=False, min_val=None, max_val=None, choices=['dev', 'prod'])
 
     Raises:
-        ValueError: If argument specification is invalid
+    ValueError: If argument specification is invalid
+    @athena: 2a4c7e804622
     """
     # Handle dictionary format: { argname: { type: ..., default: ... } }
     if isinstance(arg_spec, dict):
@@ -2028,18 +2116,20 @@ def parse_arg_spec(arg_spec: str | dict) -> ArgSpec:
 
 
 def _parse_arg_dict(arg_name: str, config: dict, is_exported: bool) -> ArgSpec:
-    """Parse argument specification from dictionary format.
+    """
+    Parse argument specification from dictionary format.
 
     Args:
-        arg_name: Name of the argument
-        config: Dictionary with optional keys: type, default, min, max, choices
-        is_exported: Whether argument should be exported to environment
+    arg_name: Name of the argument
+    config: Dictionary with optional keys: type, default, min, max, choices
+    is_exported: Whether argument should be exported to environment
 
     Returns:
-        ArgSpec object containing the parsed argument specification
+    ArgSpec object containing the parsed argument specification
 
     Raises:
-        ValueError: If dictionary format is invalid
+    ValueError: If dictionary format is invalid
+    @athena: 5b6b93a3612a
     """
     # Validate dictionary keys
     valid_keys = {"type", "default", "min", "max", "choices"}
@@ -2275,7 +2365,8 @@ def _parse_arg_dict(arg_name: str, config: dict, is_exported: bool) -> ArgSpec:
 
 
 def parse_dependency_spec(dep_spec: str | dict[str, Any], recipe: Recipe) -> DependencyInvocation:
-    """Parse a dependency specification into a DependencyInvocation.
+    """
+    Parse a dependency specification into a DependencyInvocation.
 
     Supports three forms:
     1. Simple string: "task_name" -> DependencyInvocation(task_name, None)
@@ -2283,14 +2374,15 @@ def parse_dependency_spec(dep_spec: str | dict[str, Any], recipe: Recipe) -> Dep
     3. Named args: {"task_name": {arg1: val1}} -> DependencyInvocation(task_name, {arg1: val1})
 
     Args:
-        dep_spec: Dependency specification (string or dict)
-        recipe: Recipe containing task definitions (for arg normalization)
+    dep_spec: Dependency specification (string or dict)
+    recipe: Recipe containing task definitions (for arg normalization)
 
     Returns:
-        DependencyInvocation object with normalized args
+    DependencyInvocation object with normalized args
 
     Raises:
-        ValueError: If dependency specification is invalid
+    ValueError: If dependency specification is invalid
+    @athena: d30ff06259c2
     """
     # Simple string case
     if isinstance(dep_spec, str):
@@ -2339,17 +2431,19 @@ def parse_dependency_spec(dep_spec: str | dict[str, Any], recipe: Recipe) -> Dep
 
 
 def _get_validated_task(task_name: str, recipe: Recipe) -> Task:
-    """Get and validate that a task exists in the recipe.
+    """
+    Get and validate that a task exists in the recipe.
 
     Args:
-        task_name: Name of the task to retrieve
-        recipe: Recipe containing task definitions
+    task_name: Name of the task to retrieve
+    recipe: Recipe containing task definitions
 
     Returns:
-        The validated Task object
+    The validated Task object
 
     Raises:
-        ValueError: If task is not found
+    ValueError: If task is not found
+    @athena: 674f077e3977
     """
     task = recipe.get_task(task_name)
     if task is None:
@@ -2360,18 +2454,20 @@ def _get_validated_task(task_name: str, recipe: Recipe) -> Task:
 def _parse_positional_dependency_args(
     task_name: str, args_list: list[Any], recipe: Recipe
 ) -> DependencyInvocation:
-    """Parse positional dependency arguments.
+    """
+    Parse positional dependency arguments.
 
     Args:
-        task_name: Name of the dependency task
-        args_list: List of positional argument values
-        recipe: Recipe containing task definitions
+    task_name: Name of the dependency task
+    args_list: List of positional argument values
+    recipe: Recipe containing task definitions
 
     Returns:
-        DependencyInvocation with normalized named args
+    DependencyInvocation with normalized named args
 
     Raises:
-        ValueError: If validation fails
+    ValueError: If validation fails
+    @athena: 4d1c7957e2dd
     """
     # Get the task to validate against
     task = _get_validated_task(task_name, recipe)
@@ -2420,18 +2516,20 @@ def _parse_positional_dependency_args(
 def _parse_named_dependency_args(
     task_name: str, args_dict: dict[str, Any], recipe: Recipe
 ) -> DependencyInvocation:
-    """Parse named dependency arguments.
+    """
+    Parse named dependency arguments.
 
     Args:
-        task_name: Name of the dependency task
-        args_dict: Dictionary of argument names to values
-        recipe: Recipe containing task definitions
+    task_name: Name of the dependency task
+    args_dict: Dictionary of argument names to values
+    recipe: Recipe containing task definitions
 
     Returns:
-        DependencyInvocation with normalized args (defaults filled)
+    DependencyInvocation with normalized args (defaults filled)
 
     Raises:
-        ValueError: If validation fails
+    ValueError: If validation fails
+    @athena: c522211de525
     """
     # Get the task to validate against
     task = _get_validated_task(task_name, recipe)

@@ -8,10 +8,16 @@ from . import run_tasktree_cli
 
 
 class TestNonDockerEnvironment(unittest.TestCase):
-    """Test basic task execution without Docker."""
+    """
+    Test basic task execution without Docker.
+    @athena: 9e49299c6108
+    """
 
     def test_simple_parameterized_task(self):
-        """Test that parameterized task executes with default environment value."""
+        """
+        Test that parameterized task executes with default environment value.
+        @athena: e940b9a7297f
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -50,7 +56,10 @@ tasks:
             self.assertIn("foo was 42", result.stdout)
 
     def test_parameterized_task_with_custom_environment(self):
-        """Test that parameterized task executes with explicit environment value."""
+        """
+        Test that parameterized task executes with explicit environment value.
+        @athena: 9b95fa4dfe5d
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -89,7 +98,10 @@ tasks:
             self.assertIn("foo was 42", result.stdout)
 
     def test_list_tasks_output(self):
-        """Test that --list displays tasks with correct formatting."""
+        """
+        Test that --list displays tasks with correct formatting.
+        @athena: 179c25e64ce2
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 

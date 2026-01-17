@@ -12,24 +12,35 @@ from tasktree.cli import app
 
 
 def strip_ansi_codes(text: str) -> str:
-    """Remove ANSI escape sequences from text."""
+    """
+    Remove ANSI escape sequences from text.
+    @athena: 90023a269128
+    """
     ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
     return ansi_escape.sub('', text)
 
 
 class TestCLIOptionsNoClash(unittest.TestCase):
-    """Test that CLI options (--show, --tree, etc.) don't clash with user task names."""
+    """
+    Test that CLI options (--show, --tree, etc.) don't clash with user task names.
+    @athena: 11e5a51c6ab2
+    """
 
     def setUp(self):
-        """Set up test fixtures."""
+        """
+        Set up test fixtures.
+        @athena: 563ac9b21ae9
+        """
         self.runner = CliRunner()
         self.env = {"NO_COLOR": "1"}  # Disable color output for consistent assertions
 
     def test_user_tasks_with_builtin_names(self):
-        """Test that user can create tasks named 'show', 'tree', 'init', etc.
+        """
+        Test that user can create tasks named 'show', 'tree', 'init', etc.
 
         This verifies that built-in options (--show, --tree, --init) don't prevent
         users from creating tasks with those names.
+        @athena: be2dae716151
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -79,7 +90,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_builtin_options_still_work(self):
-        """Test that built-in options still work when user has tasks with same names."""
+        """
+        Test that built-in options still work when user has tasks with same names.
+        @athena: 96cd6e4cc466
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -139,7 +153,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_double_dash_required_for_options(self):
-        """Test that single-word options don't work - must use double-dash."""
+        """
+        Test that single-word options don't work - must use double-dash.
+        @athena: 992a0bc37ed4
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -170,7 +187,10 @@ tasks:
 
 
     def test_help_option_works(self):
-        """Test that --help and -h options work correctly."""
+        """
+        Test that --help and -h options work correctly.
+        @athena: a695874c7456
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -210,15 +230,24 @@ tasks:
 
 
 class TestShowOption(unittest.TestCase):
-    """Test the --show option displays task definitions correctly."""
+    """
+    Test the --show option displays task definitions correctly.
+    @athena: f5101689f66b
+    """
 
     def setUp(self):
-        """Set up test fixtures."""
+        """
+        Set up test fixtures.
+        @athena: 36a706d60319
+        """
         self.runner = CliRunner()
         self.env = {"NO_COLOR": "1"}
 
     def test_show_multiline_command_preserves_newlines(self):
-        """Test that --show displays multiline commands with proper newlines, not escaped \\n."""
+        """
+        Test that --show displays multiline commands with proper newlines, not escaped \\n.
+        @athena: d9d3967156db
+        """
         with self.runner.isolated_filesystem():
             recipe_file = Path("tasktree.yaml")
             recipe_file.write_text(
@@ -249,7 +278,10 @@ tasks:
             self.assertNotIn("\\n", result.stdout)
 
     def test_show_single_line_command(self):
-        """Test that --show displays single-line commands cleanly."""
+        """
+        Test that --show displays single-line commands cleanly.
+        @athena: 397fd79bcff4
+        """
         with self.runner.isolated_filesystem():
             recipe_file = Path("tasktree.yaml")
             recipe_file.write_text(
@@ -273,15 +305,24 @@ tasks:
 
 
 class TestForceOption(unittest.TestCase):
-    """Test the --force/-f option forces re-run of all tasks."""
+    """
+    Test the --force/-f option forces re-run of all tasks.
+    @athena: 81835c010360
+    """
 
     def setUp(self):
-        """Set up test fixtures."""
+        """
+        Set up test fixtures.
+        @athena: 36a706d60319
+        """
         self.runner = CliRunner()
         self.env = {"NO_COLOR": "1"}
 
     def test_force_option_reruns_fresh_tasks(self):
-        """Test --force causes fresh tasks to re-run."""
+        """
+        Test --force causes fresh tasks to re-run.
+        @athena: 63f4064f9545
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -326,7 +367,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_force_short_flag_works(self):
-        """Test -f short flag works as alias for --force."""
+        """
+        Test -f short flag works as alias for --force.
+        @athena: 19efcaa653ad
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -359,7 +403,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_force_reruns_dependencies(self):
-        """Test --force re-runs all dependencies in chain."""
+        """
+        Test --force re-runs all dependencies in chain.
+        @athena: fb6e2d3318fe
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -419,15 +466,24 @@ tasks:
 
 
 class TestOnlyOption(unittest.TestCase):
-    """Test the --only/-o option that skips dependencies."""
+    """
+    Test the --only/-o option that skips dependencies.
+    @athena: 92fba10ae72c
+    """
 
     def setUp(self):
-        """Set up test fixtures."""
+        """
+        Set up test fixtures.
+        @athena: 36a706d60319
+        """
         self.runner = CliRunner()
         self.env = {"NO_COLOR": "1"}
 
     def test_only_option_skips_dependencies(self):
-        """Test --only executes only the target task, not dependencies."""
+        """
+        Test --only executes only the target task, not dependencies.
+        @athena: 53de59d67eed
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -462,7 +518,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_only_short_flag_works(self):
-        """Test -o short flag works as alias for --only."""
+        """
+        Test -o short flag works as alias for --only.
+        @athena: d12dec82777c
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -497,7 +556,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_only_option_with_dependency_chain(self):
-        """Test --only skips entire dependency chain."""
+        """
+        Test --only skips entire dependency chain.
+        @athena: ff5e0c93d81d
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -536,7 +598,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_only_option_forces_execution(self):
-        """Test --only forces execution (ignores freshness)."""
+        """
+        Test --only forces execution (ignores freshness).
+        @athena: c0fcd2b39abc
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -572,15 +637,24 @@ tasks:
 
 
 class TestListOptionWithImports(unittest.TestCase):
-    """Test that --list option shows imported tasks."""
+    """
+    Test that --list option shows imported tasks.
+    @athena: 40f51d775852
+    """
 
     def setUp(self):
-        """Set up test fixtures."""
+        """
+        Set up test fixtures.
+        @athena: 36a706d60319
+        """
         self.runner = CliRunner()
         self.env = {"NO_COLOR": "1"}
 
     def test_list_shows_imported_tasks(self):
-        """Test that imported tasks are shown in --list output with namespaced names."""
+        """
+        Test that imported tasks are shown in --list output with namespaced names.
+        @athena: cddf9bc98562
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -659,7 +733,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_list_shows_single_level_import(self):
-        """Test that --list shows tasks from a single-level import."""
+        """
+        Test that --list shows tasks from a single-level import.
+        @athena: 1815f0644c87
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -713,15 +790,24 @@ tasks:
 
 
 class TestTasksFileOption(unittest.TestCase):
-    """Test the --tasks/-T option for specifying recipe files."""
+    """
+    Test the --tasks/-T option for specifying recipe files.
+    @athena: 1c5f6e7e8ad5
+    """
 
     def setUp(self):
-        """Set up test fixtures."""
+        """
+        Set up test fixtures.
+        @athena: 36a706d60319
+        """
         self.runner = CliRunner()
         self.env = {"NO_COLOR": "1"}
 
     def test_tasks_option_with_yml_extension(self):
-        """Test --tasks option works with .yml extension."""
+        """
+        Test --tasks option works with .yml extension.
+        @athena: 601d9ae96d6f
+        """
         with self.runner.isolated_filesystem():
             recipe_file = Path("tasktree.yml")
             recipe_file.write_text(
@@ -740,7 +826,10 @@ tasks:
             self.assertIn("completed successfully", result.stdout)
 
     def test_tasks_option_with_tasks_extension(self):
-        """Test --tasks option works with .tasks extension."""
+        """
+        Test --tasks option works with .tasks extension.
+        @athena: 330959035d69
+        """
         with self.runner.isolated_filesystem():
             recipe_file = Path("build.tasks")
             recipe_file.write_text(
@@ -759,7 +848,10 @@ tasks:
             self.assertIn("completed successfully", result.stdout)
 
     def test_tasks_option_with_short_flag(self):
-        """Test -T short flag works."""
+        """
+        Test -T short flag works.
+        @athena: a7474f9ccd37
+        """
         with self.runner.isolated_filesystem():
             recipe_file = Path("my.tasks")
             recipe_file.write_text(
@@ -777,7 +869,10 @@ tasks:
             self.assertIn("completed successfully", result.stdout)
 
     def test_multiple_recipe_files_without_tasks_option_fails(self):
-        """Test that having multiple recipe files without --tasks raises error."""
+        """
+        Test that having multiple recipe files without --tasks raises error.
+        @athena: 5b05c53fcc90
+        """
         with self.runner.isolated_filesystem():
             # Create multiple recipe files
             Path("tasktree.yaml").write_text("tasks:\n  build:\n    cmd: echo yaml")
@@ -791,7 +886,10 @@ tasks:
             self.assertIn("--tasks", result.stdout)
 
     def test_tasks_option_selects_specific_file_when_multiple_exist(self):
-        """Test --tasks option selects specific file when multiple exist."""
+        """
+        Test --tasks option selects specific file when multiple exist.
+        @athena: 635c5b99ff23
+        """
         with self.runner.isolated_filesystem():
             # Create multiple recipe files with different task names
             Path("tasktree.yaml").write_text(
@@ -820,7 +918,10 @@ tasks:
             self.assertIn("Task not found", result.stdout)
 
     def test_tasks_option_with_list(self):
-        """Test --tasks option works with --list."""
+        """
+        Test --tasks option works with --list.
+        @athena: 52f256c2d46a
+        """
         with self.runner.isolated_filesystem():
             recipe_file = Path("custom.tasks")
             recipe_file.write_text(
@@ -843,7 +944,10 @@ tasks:
             self.assertIn("First task", result.stdout)
 
     def test_tasks_option_with_show(self):
-        """Test --tasks option works with --show."""
+        """
+        Test --tasks option works with --show.
+        @athena: 7d4af79b25cc
+        """
         with self.runner.isolated_filesystem():
             recipe_file = Path("my.tasks")
             recipe_file.write_text(
@@ -862,7 +966,10 @@ tasks:
             self.assertIn("desc: Build task", result.stdout)
 
     def test_tasks_option_with_nonexistent_file(self):
-        """Test --tasks option with nonexistent file shows error."""
+        """
+        Test --tasks option with nonexistent file shows error.
+        @athena: 9a05d881404c
+        """
         with self.runner.isolated_filesystem():
             result = self.runner.invoke(app, ["--tasks", "nonexistent.yaml", "build"], env=self.env)
 

@@ -11,10 +11,16 @@ from tasktree.state import StateManager, TaskState
 
 
 class TestHashEnvironmentDefinition(unittest.TestCase):
-    """Test environment definition hashing."""
+    """
+    Test environment definition hashing.
+    @athena: fbb73ccc237c
+    """
 
     def test_hash_environment_definition_deterministic(self):
-        """Test that hashing same environment twice produces same hash."""
+        """
+        Test that hashing same environment twice produces same hash.
+        @athena: 37a4cfe4b1a0
+        """
         env = Environment(
             name="test",
             shell="/bin/bash",
@@ -29,7 +35,10 @@ class TestHashEnvironmentDefinition(unittest.TestCase):
         self.assertEqual(len(hash1), 16)  # 16-character hash
 
     def test_hash_environment_definition_shell_change(self):
-        """Test that changing shell produces different hash."""
+        """
+        Test that changing shell produces different hash.
+        @athena: a8fdcd0bd181
+        """
         env1 = Environment(
             name="test",
             shell="/bin/bash",
@@ -47,7 +56,10 @@ class TestHashEnvironmentDefinition(unittest.TestCase):
         self.assertNotEqual(hash1, hash2)
 
     def test_hash_environment_definition_args_change(self):
-        """Test that changing args produces different hash."""
+        """
+        Test that changing args produces different hash.
+        @athena: e15d7b6812ba
+        """
         env1 = Environment(
             name="test",
             shell="/bin/bash",
@@ -65,7 +77,10 @@ class TestHashEnvironmentDefinition(unittest.TestCase):
         self.assertNotEqual(hash1, hash2)
 
     def test_hash_environment_definition_preamble_change(self):
-        """Test that changing preamble produces different hash."""
+        """
+        Test that changing preamble produces different hash.
+        @athena: e59fe9e22990
+        """
         env1 = Environment(
             name="test",
             shell="/bin/bash",
@@ -85,7 +100,10 @@ class TestHashEnvironmentDefinition(unittest.TestCase):
         self.assertNotEqual(hash1, hash2)
 
     def test_hash_environment_definition_docker_fields(self):
-        """Test that changing Docker fields produces different hash."""
+        """
+        Test that changing Docker fields produces different hash.
+        @athena: 52d0d07aedf0
+        """
         env1 = Environment(
             name="test",
             dockerfile="Dockerfile",
@@ -104,7 +122,10 @@ class TestHashEnvironmentDefinition(unittest.TestCase):
         self.assertNotEqual(hash1, hash2)
 
     def test_hash_environment_definition_args_order_independent(self):
-        """Test that args order doesn't matter (they're sorted)."""
+        """
+        Test that args order doesn't matter (they're sorted).
+        @athena: 2327b764e6b0
+        """
         env1 = Environment(
             name="test",
             shell="/bin/bash",
@@ -123,10 +144,16 @@ class TestHashEnvironmentDefinition(unittest.TestCase):
 
 
 class TestCheckEnvironmentChanged(unittest.TestCase):
-    """Test environment change detection in executor."""
+    """
+    Test environment change detection in executor.
+    @athena: b42390cf0de2
+    """
 
     def setUp(self):
-        """Set up test environment."""
+        """
+        Set up test environment.
+        @athena: 8c8fc79aa030
+        """
         self.project_root = Path("/tmp/test")
         self.env = Environment(
             name="test",
@@ -143,7 +170,10 @@ class TestCheckEnvironmentChanged(unittest.TestCase):
         self.executor = Executor(self.recipe, self.state_manager)
 
     def test_check_environment_changed_no_env(self):
-        """Test that platform default (no env) returns False."""
+        """
+        Test that platform default (no env) returns False.
+        @athena: 10b3a2c6bc27
+        """
         task = Task(name="test", cmd="echo test")
         cached_state = TaskState(last_run=123.0, input_state={})
 
@@ -152,7 +182,10 @@ class TestCheckEnvironmentChanged(unittest.TestCase):
         self.assertFalse(result)
 
     def test_check_environment_changed_first_run(self):
-        """Test that missing cached hash returns True."""
+        """
+        Test that missing cached hash returns True.
+        @athena: 54b0622d0eb0
+        """
         task = Task(name="test", cmd="echo test", env="test")
         cached_state = TaskState(last_run=123.0, input_state={})
 
@@ -161,7 +194,10 @@ class TestCheckEnvironmentChanged(unittest.TestCase):
         self.assertTrue(result)
 
     def test_check_environment_changed_unchanged(self):
-        """Test that matching hash returns False."""
+        """
+        Test that matching hash returns False.
+        @athena: 4d10c2c7fcd2
+        """
         task = Task(name="test", cmd="echo test", env="test")
 
         # Compute hash and store in cached state
@@ -175,7 +211,10 @@ class TestCheckEnvironmentChanged(unittest.TestCase):
         self.assertFalse(result)
 
     def test_check_environment_changed_shell_modified(self):
-        """Test that modified shell is detected."""
+        """
+        Test that modified shell is detected.
+        @athena: 1df7ba624294
+        """
         task = Task(name="test", cmd="echo test", env="test")
 
         # Store old hash
@@ -196,7 +235,10 @@ class TestCheckEnvironmentChanged(unittest.TestCase):
         self.assertTrue(result)
 
     def test_check_environment_changed_deleted_env(self):
-        """Test that deleted environment returns True."""
+        """
+        Test that deleted environment returns True.
+        @athena: ab19e56fb26c
+        """
         task = Task(name="test", cmd="echo test", env="test")
         cached_state = TaskState(
             last_run=123.0, input_state={f"_env_hash_test": "somehash"}
@@ -211,10 +253,16 @@ class TestCheckEnvironmentChanged(unittest.TestCase):
 
 
 class TestCheckDockerImageChanged(unittest.TestCase):
-    """Test Docker image ID change detection in executor."""
+    """
+    Test Docker image ID change detection in executor.
+    @athena: 34c813c4622f
+    """
 
     def setUp(self):
-        """Set up test environment."""
+        """
+        Set up test environment.
+        @athena: baa2603ffab2
+        """
         from unittest.mock import Mock
 
         self.project_root = Path("/tmp/test")
@@ -235,7 +283,10 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         self.executor = Executor(self.recipe, self.state_manager)
 
     def test_check_docker_image_changed_no_cached_id(self):
-        """Test that missing cached image ID returns True (first run)."""
+        """
+        Test that missing cached image ID returns True (first run).
+        @athena: c8ce33886b1d
+        """
         task = Task(name="test", cmd="echo test", env="builder")
 
         # Cached state has env hash but no image ID (old state file)
@@ -257,7 +308,10 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         self.assertTrue(result)
 
     def test_check_docker_image_changed_same_id(self):
-        """Test that matching image ID returns False."""
+        """
+        Test that matching image ID returns False.
+        @athena: 9e50aee15bc7
+        """
         task = Task(name="test", cmd="echo test", env="builder")
 
         # Cached state with image ID
@@ -278,7 +332,10 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         self.assertFalse(result)
 
     def test_check_docker_image_changed_different_id(self):
-        """Test that different image ID returns True (unpinned base updated)."""
+        """
+        Test that different image ID returns True (unpinned base updated).
+        @athena: 71d86b1fb8ca
+        """
         task = Task(name="test", cmd="echo test", env="builder")
 
         # Cached state with old image ID
@@ -300,7 +357,10 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         self.assertTrue(result)
 
     def test_check_environment_changed_docker_yaml_and_image(self):
-        """Test that Docker environment checks both YAML hash and image ID."""
+        """
+        Test that Docker environment checks both YAML hash and image ID.
+        @athena: a1722cdc17bf
+        """
         task = Task(name="test", cmd="echo test", env="builder")
 
         # Cached state with matching env hash AND matching image ID
@@ -326,7 +386,10 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         self.assertFalse(result)
 
     def test_check_environment_changed_docker_yaml_changed(self):
-        """Test that YAML change detected without checking image ID."""
+        """
+        Test that YAML change detected without checking image ID.
+        @athena: bb6e09710e73
+        """
         task = Task(name="test", cmd="echo test", env="builder")
 
         # Cached state with OLD env hash (YAML changed)

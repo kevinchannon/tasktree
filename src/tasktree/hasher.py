@@ -4,13 +4,15 @@ from typing import Any, Optional
 
 
 def _arg_sort_key(arg: str | dict[str, Any]) -> str:
-    """Extract the sort key from an arg for deterministic hashing.
+    """
+    Extract the sort key from an arg for deterministic hashing.
 
     Args:
-        arg: Either a string arg or dict arg specification
+    arg: Either a string arg or dict arg specification
 
     Returns:
-        The argument name to use as a sort key
+    The argument name to use as a sort key
+    @athena: c88bb2cf696b
     """
     if isinstance(arg, dict):
         # Dict args have exactly one key - the argument name
@@ -20,6 +22,9 @@ def _arg_sort_key(arg: str | dict[str, Any]) -> str:
 
 
 def _normalize_choices_lists(args: list[str | dict[str, Any]]) ->  list[str | dict[str, Any]]:
+    """
+    @athena: 7512379275e3
+    """
     normalized_args = []
     for arg in args:
         if isinstance(arg, dict):
@@ -38,20 +43,22 @@ def _normalize_choices_lists(args: list[str | dict[str, Any]]) ->  list[str | di
 
 
 def _serialize_outputs_for_hash(outputs: list[str | dict[str, str]]) -> list[str]:
-    """Serialize outputs to consistent list of strings for hashing.
+    """
+    Serialize outputs to consistent list of strings for hashing.
 
     Converts both named outputs (dicts) and anonymous outputs (strings)
     into a consistent, sortable format.
 
     Args:
-        outputs: List of output specifications (strings or dicts)
+    outputs: List of output specifications (strings or dicts)
 
     Returns:
-        List of serialized output strings in sorted order
+    List of serialized output strings in sorted order
 
     Example:
-        >>> _serialize_outputs_for_hash(["file.txt", {"bundle": "app.js"}])
-        ['bundle:app.js', 'file.txt']
+    >>> _serialize_outputs_for_hash(["file.txt", {"bundle": "app.js"}])
+    ['bundle:app.js', 'file.txt']
+    @athena: 933995400691
     """
     serialized = []
     for output in outputs:
@@ -74,18 +81,20 @@ def hash_task(
     env: str = "",
     deps: list[str | dict[str, Any]] | None = None
 ) -> str:
-    """Hash task definition including dependencies.
+    """
+    Hash task definition including dependencies.
 
     Args:
-        cmd: Task command
-        outputs: Task outputs (strings or named dicts)
-        working_dir: Working directory
-        args: Task argument specifications
-        env: Environment name
-        deps: Dependency specifications (optional, for dependency hash)
+    cmd: Task command
+    outputs: Task outputs (strings or named dicts)
+    working_dir: Working directory
+    args: Task argument specifications
+    env: Environment name
+    deps: Dependency specifications (optional, for dependency hash)
 
     Returns:
-        8-character hash of task definition
+    8-character hash of task definition
+    @athena: 7a461d51a8bb
     """
     data = {
         "cmd": cmd,
@@ -117,18 +126,23 @@ def hash_task(
 
 
 def hash_args(args_dict: dict[str, Any]) -> str:
+    """
+    @athena: 768e562bff64
+    """
     serialized = json.dumps(args_dict, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(serialized.encode()).hexdigest()[:8]
 
 
 def hash_environment_definition(env) -> str:
-    """Hash environment definition fields that affect task execution.
+    """
+    Hash environment definition fields that affect task execution.
 
     Args:
-        env: Environment to hash
+    env: Environment to hash
 
     Returns:
-        16-character hash of environment definition
+    16-character hash of environment definition
+    @athena: 2de34f1a0b4a
     """
     # Import inside function to avoid circular dependency
     from tasktree.parser import Environment
@@ -156,6 +170,9 @@ def hash_environment_definition(env) -> str:
 
 
 def make_cache_key(task_hash: str, args_hash: Optional[str] = None) -> str:
+    """
+    @athena: c85093f485c7
+    """
     if args_hash:
         return f"{task_hash}__{args_hash}"
     return task_hash

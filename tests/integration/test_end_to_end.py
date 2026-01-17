@@ -12,21 +12,33 @@ from tasktree.cli import app
 
 
 def strip_ansi_codes(text: str) -> str:
-    """Remove ANSI escape sequences from text."""
+    """
+    Remove ANSI escape sequences from text.
+    @athena: 90023a269128
+    """
     ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
     return ansi_escape.sub('', text)
 
 
 class TestEndToEnd(unittest.TestCase):
-    """Test complete CLI workflows from argument parsing to execution."""
+    """
+    Test complete CLI workflows from argument parsing to execution.
+    @athena: ff98db395d9e
+    """
 
     def setUp(self):
-        """Set up test fixtures."""
+        """
+        Set up test fixtures.
+        @athena: 36a706d60319
+        """
         self.runner = CliRunner()
         self.env = {"NO_COLOR": "1"}
 
     def test_args_flow_cli_to_subprocess(self):
-        """Test arguments flow from CLI -> parser -> executor -> subprocess."""
+        """
+        Test arguments flow from CLI -> parser -> executor -> subprocess.
+        @athena: 8becd5de5044
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -96,7 +108,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_task_execution_failure_shows_user_friendly_error(self):
-        """Test task failure shows error message, not Python traceback."""
+        """
+        Test task failure shows error message, not Python traceback.
+        @athena: 621eec1d3dc7
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 

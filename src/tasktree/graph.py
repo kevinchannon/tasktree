@@ -16,19 +16,21 @@ from tasktree.substitution import substitute_dependency_args
 
 
 def _get_exported_arg_names(task: Task) -> set[str]:
-    """Extract names of exported arguments from a task.
+    """
+    Extract names of exported arguments from a task.
 
     Exported arguments are identified by the '$' prefix in their definition.
 
     Args:
-        task: Task to extract exported arg names from
+    task: Task to extract exported arg names from
 
     Returns:
-        Set of exported argument names (without the '$' prefix)
+    Set of exported argument names (without the '$' prefix)
 
     Example:
-        Task with args: ["$server", "port"]
-        Returns: {"server"}
+    Task with args: ["$server", "port"]
+    Returns: {"server"}
+    @athena: 706576271735
     """
     if not task.args:
         return set()
@@ -55,7 +57,8 @@ def resolve_dependency_invocation(
     parent_exported_args: set[str],
     recipe: Recipe
 ) -> DependencyInvocation:
-    """Parse dependency specification and substitute parent argument templates.
+    """
+    Parse dependency specification and substitute parent argument templates.
 
     This function handles template substitution in dependency arguments. It:
     1. Checks if dependency arguments contain {{ arg.* }} templates
@@ -63,37 +66,38 @@ def resolve_dependency_invocation(
     3. Delegates to parse_dependency_spec for type conversion and validation
 
     Args:
-        dep_spec: Dependency specification (str or dict with task name and args)
-        parent_task_name: Name of the parent task (for error messages)
-        parent_args: Parent task's argument values (for template substitution)
-        parent_exported_args: Set of parent's exported argument names
-        recipe: Recipe containing task definitions
+    dep_spec: Dependency specification (str or dict with task name and args)
+    parent_task_name: Name of the parent task (for error messages)
+    parent_args: Parent task's argument values (for template substitution)
+    parent_exported_args: Set of parent's exported argument names
+    recipe: Recipe containing task definitions
 
     Returns:
-        DependencyInvocation with typed, validated arguments
+    DependencyInvocation with typed, validated arguments
 
     Raises:
-        ValueError: If template substitution fails, argument validation fails,
-                   or dependency task doesn't exist
+    ValueError: If template substitution fails, argument validation fails,
+    or dependency task doesn't exist
 
     Examples:
-        Simple string (no templates):
-        >>> resolve_dependency_invocation("build", "test", {}, set(), recipe)
-        DependencyInvocation("build", None)
+    Simple string (no templates):
+    >>> resolve_dependency_invocation("build", "test", {}, set(), recipe)
+    DependencyInvocation("build", None)
 
-        Literal arguments (no templates):
-        >>> resolve_dependency_invocation({"build": ["debug"]}, "test", {}, set(), recipe)
-        DependencyInvocation("build", {"mode": "debug"})
+    Literal arguments (no templates):
+    >>> resolve_dependency_invocation({"build": ["debug"]}, "test", {}, set(), recipe)
+    DependencyInvocation("build", {"mode": "debug"})
 
-        Template substitution:
-        >>> resolve_dependency_invocation(
-        ...     {"build": ["{{ arg.env }}"]},
-        ...     "test",
-        ...     {"env": "production"},
-        ...     set(),
-        ...     recipe
-        ... )
-        DependencyInvocation("build", {"mode": "production"})
+    Template substitution:
+    >>> resolve_dependency_invocation(
+    ...     {"build": ["{{ arg.env }}"]},
+    ...     "test",
+    ...     {"env": "production"},
+    ...     set(),
+    ...     recipe
+    ... )
+    DependencyInvocation("build", {"mode": "production"})
+    @athena: 968bae796809
     """
     # Simple string case - no args to substitute
     if isinstance(dep_spec, str):
@@ -163,30 +167,44 @@ def resolve_dependency_invocation(
 
 
 class CycleError(Exception):
-    """Raised when a dependency cycle is detected."""
+    """
+    Raised when a dependency cycle is detected.
+    @athena: 80f584af9b92
+    """
 
     pass
 
 
 class TaskNotFoundError(Exception):
-    """Raised when a task dependency doesn't exist."""
+    """
+    Raised when a task dependency doesn't exist.
+    @athena: f838e39564ae
+    """
 
     pass
 
 
 class TaskNode:
-    """Represents a node in the dependency graph (task + arguments).
+    """
+    Represents a node in the dependency graph (task + arguments).
 
     Each node represents a unique invocation of a task with specific arguments.
     Tasks invoked with different arguments are considered different nodes.
+    @athena: b5ff009e2f60
     """
 
     def __init__(self, task_name: str, args: dict[str, Any] | None = None):
+        """
+        @athena: 24d686697ce3
+        """
         self.task_name = task_name
         self.args = args  # Keep None as None
 
     def __hash__(self):
-        """Hash based on task name and sorted args."""
+        """
+        Hash based on task name and sorted args.
+        @athena: 16615e007076
+        """
         # Treat None and {} as equivalent for hashing
         if not self.args:
             return hash(self.task_name)
@@ -194,7 +212,10 @@ class TaskNode:
         return hash((self.task_name, args_hash))
 
     def __eq__(self, other):
-        """Equality based on task name and args."""
+        """
+        Equality based on task name and args.
+        @athena: 139d5234448f
+        """
         if not isinstance(other, TaskNode):
             return False
         # Treat None and {} as equivalent
@@ -203,12 +224,18 @@ class TaskNode:
         return self.task_name == other.task_name and self_args == other_args
 
     def __repr__(self):
+        """
+        @athena: dd99b6a7835e
+        """
         if not self.args:
             return f"TaskNode({self.task_name})"
         args_str = ", ".join(f"{k}={v}" for k, v in sorted(self.args.items()))
         return f"TaskNode({self.task_name}, {{{args_str}}})"
 
     def __str__(self):
+        """
+        @athena: 2d82ca4b9d41
+        """
         if not self.args:
             return self.task_name
         args_str = ", ".join(f"{k}={v}" for k, v in sorted(self.args.items()))
@@ -220,19 +247,21 @@ def resolve_execution_order(
     target_task: str,
     target_args: dict[str, Any] | None = None
 ) -> list[tuple[str, dict[str, Any]]]:
-    """Resolve execution order for a task and its dependencies.
+    """
+    Resolve execution order for a task and its dependencies.
 
     Args:
-        recipe: Parsed recipe containing all tasks
-        target_task: Name of the task to execute
-        target_args: Arguments for the target task (optional)
+    recipe: Parsed recipe containing all tasks
+    target_task: Name of the task to execute
+    target_args: Arguments for the target task (optional)
 
     Returns:
-        List of (task_name, args_dict) tuples in execution order (dependencies first)
+    List of (task_name, args_dict) tuples in execution order (dependencies first)
 
     Raises:
-        TaskNotFoundError: If target task or any dependency doesn't exist
-        CycleError: If a dependency cycle is detected
+    TaskNotFoundError: If target task or any dependency doesn't exist
+    CycleError: If a dependency cycle is detected
+    @athena: b4443e1cb45d
     """
     if target_task not in recipe.tasks:
         raise TaskNotFoundError(f"Task not found: {target_task}")
@@ -310,24 +339,26 @@ def resolve_dependency_output_references(
     recipe: Recipe,
     ordered_tasks: list[tuple[str, dict[str, Any]]],
 ) -> None:
-    """Resolve {{ dep.<task>.outputs.<name> }} references in topological order.
+    """
+    Resolve {{ dep.<task>.outputs.<name> }} references in topological order.
 
     This function walks through tasks in dependency order (dependencies first) and
     resolves any references to dependency outputs in task fields. Templates are
     resolved in place, modifying the Task objects in the recipe.
 
     Args:
-        recipe: Recipe containing task definitions
-        ordered_tasks: List of (task_name, args) tuples in topological order
+    recipe: Recipe containing task definitions
+    ordered_tasks: List of (task_name, args) tuples in topological order
 
     Raises:
-        ValueError: If template references cannot be resolved (missing task,
-                   missing output, task not in dependencies, etc.)
+    ValueError: If template references cannot be resolved (missing task,
+    missing output, task not in dependencies, etc.)
 
     Example:
-        Given tasks in topological order: [('build', {}), ('deploy', {})]
-        If deploy.cmd contains "{{ dep.build.outputs.bundle }}", it will be
-        resolved to the actual output path from the build task.
+    Given tasks in topological order: [('build', {}), ('deploy', {})]
+    If deploy.cmd contains "{{ dep.build.outputs.bundle }}", it will be
+    resolved to the actual output path from the build task.
+    @athena: 6dce9dbe6286
     """
     from tasktree.substitution import substitute_dependency_outputs
 
@@ -418,22 +449,24 @@ def resolve_self_references(
     recipe: Recipe,
     ordered_tasks: list[tuple[str, dict[str, Any]]],
 ) -> None:
-    """Resolve {{ self.inputs.name }} and {{ self.outputs.name }} references.
+    """
+    Resolve {{ self.inputs.name }} and {{ self.outputs.name }} references.
 
     This function walks through tasks and resolves self-references to task's own
     inputs/outputs. Must be called AFTER resolve_dependency_output_references()
     so that dependency outputs are already resolved in output paths.
 
     Args:
-        recipe: Recipe containing task definitions
-        ordered_tasks: List of (task_name, args) tuples in topological order
+    recipe: Recipe containing task definitions
+    ordered_tasks: List of (task_name, args) tuples in topological order
 
     Raises:
-        ValueError: If self-reference cannot be resolved (missing name, etc.)
+    ValueError: If self-reference cannot be resolved (missing name, etc.)
 
     Example:
-        If task.cmd contains "{{ self.inputs.src }}" and task has input {src: "*.txt"},
-        it will be resolved to "*.txt" (literal string, no glob expansion).
+    If task.cmd contains "{{ self.inputs.src }}" and task has input {src: "*.txt"},
+    it will be resolved to "*.txt" (literal string, no glob expansion).
+    @athena: a5ea8bef55b7
     """
     from tasktree.substitution import substitute_self_references
 
@@ -476,22 +509,24 @@ def resolve_self_references(
 
 
 def get_implicit_inputs(recipe: Recipe, task: Task) -> list[str]:
-    """Get implicit inputs for a task based on its dependencies.
+    """
+    Get implicit inputs for a task based on its dependencies.
 
     Tasks automatically inherit inputs from dependencies:
     1. All outputs from dependency tasks become implicit inputs
     2. All inputs from dependency tasks that don't declare outputs are inherited
     3. If task uses a Docker environment, Docker artifacts become implicit inputs:
-       - Dockerfile
-       - .dockerignore (if present)
-       - Special markers for context directory and base image digests
+    - Dockerfile
+    - .dockerignore (if present)
+    - Special markers for context directory and base image digests
 
     Args:
-        recipe: Parsed recipe containing all tasks
-        task: Task to get implicit inputs for
+    recipe: Parsed recipe containing all tasks
+    task: Task to get implicit inputs for
 
     Returns:
-        List of glob patterns for implicit inputs, including Docker-specific markers
+    List of glob patterns for implicit inputs, including Docker-specific markers
+    @athena: da25e64fbd2b
     """
     implicit_inputs = []
 
@@ -544,19 +579,21 @@ def get_implicit_inputs(recipe: Recipe, task: Task) -> list[str]:
 
 
 def build_dependency_tree(recipe: Recipe, target_task: str, target_args: dict[str, Any] | None = None) -> dict:
-    """Build a tree structure representing dependencies for visualization.
+    """
+    Build a tree structure representing dependencies for visualization.
 
     Note: This builds a true tree representation where shared dependencies may
     appear multiple times. Each dependency is shown in the context of its parent,
     allowing the full dependency path to be visible from any node.
 
     Args:
-        recipe: Parsed recipe containing all tasks
-        target_task: Name of the task to build tree for
-        target_args: Arguments for the target task (optional)
+    recipe: Parsed recipe containing all tasks
+    target_task: Name of the task to build tree for
+    target_args: Arguments for the target task (optional)
 
     Returns:
-        Nested dictionary representing the dependency tree
+    Nested dictionary representing the dependency tree
+    @athena: 570e5c663887
     """
     if target_task not in recipe.tasks:
         raise TaskNotFoundError(f"Task not found: {target_task}")

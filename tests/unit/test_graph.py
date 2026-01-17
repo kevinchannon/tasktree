@@ -15,8 +15,14 @@ from tasktree.parser import Recipe, Task
 
 
 class TestResolveExecutionOrder(unittest.TestCase):
+    """
+    @athena: bddf5f60de23
+    """
     def test_single_task(self):
-        """Test execution order for single task with no dependencies."""
+        """
+        Test execution order for single task with no dependencies.
+        @athena: 25b6e4458e0b
+        """
         tasks = {"build": Task(name="build", cmd="cargo build")}
         recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
 
@@ -24,7 +30,10 @@ class TestResolveExecutionOrder(unittest.TestCase):
         self.assertEqual(order, [("build", None)])
 
     def test_linear_dependencies(self):
-        """Test execution order for linear dependency chain."""
+        """
+        Test execution order for linear dependency chain.
+        @athena: 36db80f88e0d
+        """
         tasks = {
             "lint": Task(name="lint", cmd="cargo clippy"),
             "build": Task(name="build", cmd="cargo build", deps=["lint"]),
@@ -36,7 +45,10 @@ class TestResolveExecutionOrder(unittest.TestCase):
         self.assertEqual(order, [("lint", None), ("build", None), ("test", None)])
 
     def test_diamond_dependencies(self):
-        """Test execution order for diamond dependency pattern."""
+        """
+        Test execution order for diamond dependency pattern.
+        @athena: e6229248ac25
+        """
         tasks = {
             "a": Task(name="a", cmd="echo a"),
             "b": Task(name="b", cmd="echo b", deps=["a"]),
@@ -58,7 +70,10 @@ class TestResolveExecutionOrder(unittest.TestCase):
         self.assertLess(task_names.index("c"), task_names.index("d"))
 
     def test_task_not_found(self):
-        """Test error when task doesn't exist."""
+        """
+        Test error when task doesn't exist.
+        @athena: 03d6846673d2
+        """
         tasks = {"build": Task(name="build", cmd="cargo build")}
         recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
 
@@ -67,8 +82,14 @@ class TestResolveExecutionOrder(unittest.TestCase):
 
 
 class TestGetImplicitInputs(unittest.TestCase):
+    """
+    @athena: af2a76679f91
+    """
     def test_no_dependencies(self):
-        """Test implicit inputs for task with no dependencies."""
+        """
+        Test implicit inputs for task with no dependencies.
+        @athena: b85caf97f461
+        """
         tasks = {"build": Task(name="build", cmd="cargo build")}
         recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
 
@@ -76,7 +97,10 @@ class TestGetImplicitInputs(unittest.TestCase):
         self.assertEqual(implicit, [])
 
     def test_inherit_from_dependency_with_outputs(self):
-        """Test inheriting outputs from dependency."""
+        """
+        Test inheriting outputs from dependency.
+        @athena: b1eda5964e2d
+        """
         tasks = {
             "build": Task(name="build", cmd="cargo build", outputs=["target/bin"]),
             "package": Task(
@@ -89,7 +113,10 @@ class TestGetImplicitInputs(unittest.TestCase):
         self.assertEqual(implicit, ["target/bin"])
 
     def test_inherit_from_dependency_without_outputs(self):
-        """Test inheriting inputs from dependency without outputs."""
+        """
+        Test inheriting inputs from dependency without outputs.
+        @athena: 9b258fa6f4fc
+        """
         tasks = {
             "lint": Task(name="lint", cmd="cargo clippy", inputs=["src/**/*.rs"]),
             "build": Task(name="build", cmd="cargo build", deps=["lint"]),
@@ -101,10 +128,16 @@ class TestGetImplicitInputs(unittest.TestCase):
 
 
 class TestGraphErrors(unittest.TestCase):
-    """Tests for graph error conditions."""
+    """
+    Tests for graph error conditions.
+    @athena: 9e00702d4e11
+    """
 
     def test_graph_cycle_error(self):
-        """Test CycleError raised for circular dependencies."""
+        """
+        Test CycleError raised for circular dependencies.
+        @athena: 623dc07ceacc
+        """
         # Create a circular dependency: A -> B -> C -> A
         tasks = {
             "a": Task(name="a", cmd="echo a", deps=["b"]),
@@ -119,7 +152,10 @@ class TestGraphErrors(unittest.TestCase):
             resolve_execution_order(recipe, "a")
 
     def test_graph_build_tree_missing_task(self):
-        """Test TaskNotFoundError in build_dependency_tree()."""
+        """
+        Test TaskNotFoundError in build_dependency_tree().
+        @athena: 188311aaf016
+        """
         tasks = {
             "build": Task(name="build", cmd="echo build"),
         }
@@ -132,10 +168,16 @@ class TestGraphErrors(unittest.TestCase):
 
 
 class TestBuildDependencyTree(unittest.TestCase):
-    """Tests for build_dependency_tree() function."""
+    """
+    Tests for build_dependency_tree() function.
+    @athena: d08a468e3300
+    """
 
     def test_build_tree_single_task(self):
-        """Test tree for task with no dependencies."""
+        """
+        Test tree for task with no dependencies.
+        @athena: 1244c78bcdf3
+        """
         tasks = {"build": Task(name="build", cmd="cargo build")}
         recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
 
@@ -145,7 +187,10 @@ class TestBuildDependencyTree(unittest.TestCase):
         self.assertEqual(tree["deps"], [])
 
     def test_build_tree_with_dependencies(self):
-        """Test tree structure for task with deps."""
+        """
+        Test tree structure for task with deps.
+        @athena: a310fef1d0af
+        """
         tasks = {
             "lint": Task(name="lint", cmd="cargo clippy"),
             "build": Task(name="build", cmd="cargo build", deps=["lint"]),
@@ -167,7 +212,10 @@ class TestBuildDependencyTree(unittest.TestCase):
         self.assertEqual(tree["deps"][0]["deps"][0]["deps"], [])
 
     def test_build_tree_missing_task(self):
-        """Test raises TaskNotFoundError for nonexistent task."""
+        """
+        Test raises TaskNotFoundError for nonexistent task.
+        @athena: 70062ae2c66d
+        """
         tasks = {"build": Task(name="build", cmd="echo build")}
         recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
 
@@ -175,7 +223,10 @@ class TestBuildDependencyTree(unittest.TestCase):
             build_dependency_tree(recipe, "nonexistent")
 
     def test_build_tree_includes_task_info(self):
-        """Test tree includes task name and deps structure."""
+        """
+        Test tree includes task name and deps structure.
+        @athena: aa72fa35fc90
+        """
         tasks = {
             "a": Task(name="a", cmd="echo a"),
             "b": Task(name="b", cmd="echo b", deps=["a"]),
@@ -196,10 +247,16 @@ class TestBuildDependencyTree(unittest.TestCase):
 
 
 class TestResolveSelfReferences(unittest.TestCase):
-    """Test resolve_self_references function."""
+    """
+    Test resolve_self_references function.
+    @athena: 616b3369d1f0
+    """
 
     def test_resolve_self_references_in_command(self):
-        """Test that self-references in cmd field are resolved."""
+        """
+        Test that self-references in cmd field are resolved.
+        @athena: 95791267b955
+        """
         task = Task(
             name="copy",
             cmd="cp {{ self.inputs.src }} {{ self.outputs.dest }}",
@@ -215,7 +272,10 @@ class TestResolveSelfReferences(unittest.TestCase):
         self.assertEqual(task.cmd, "cp input.txt output.txt")
 
     def test_resolve_self_references_in_working_dir(self):
-        """Test that self-references in working_dir field are resolved."""
+        """
+        Test that self-references in working_dir field are resolved.
+        @athena: 13752a32f485
+        """
         task = Task(
             name="build",
             cmd="make",
@@ -231,7 +291,10 @@ class TestResolveSelfReferences(unittest.TestCase):
         self.assertEqual(task.working_dir, "myproject/build")
 
     def test_resolve_self_references_in_arg_defaults(self):
-        """Test that self-references in argument defaults are resolved."""
+        """
+        Test that self-references in argument defaults are resolved.
+        @athena: 266f9b3c4467
+        """
         task = Task(
             name="deploy",
             cmd="deploy",
@@ -248,7 +311,10 @@ class TestResolveSelfReferences(unittest.TestCase):
         self.assertEqual(task.args[0]["target"]["default"], "dist/app.js")
 
     def test_resolve_self_references_multiple_tasks(self):
-        """Test that self-references are resolved for multiple tasks."""
+        """
+        Test that self-references are resolved for multiple tasks.
+        @athena: 1f6b57be8641
+        """
         task1 = Task(
             name="task1",
             cmd="process {{ self.inputs.in1 }}",
@@ -269,7 +335,10 @@ class TestResolveSelfReferences(unittest.TestCase):
         self.assertEqual(task2.cmd, "process file2.txt")
 
     def test_resolve_self_references_no_refs(self):
-        """Test that tasks without self-references are unchanged."""
+        """
+        Test that tasks without self-references are unchanged.
+        @athena: d0c6812747a8
+        """
         task = Task(
             name="build",
             cmd="make build",
@@ -286,7 +355,10 @@ class TestResolveSelfReferences(unittest.TestCase):
         self.assertEqual(task.cmd, "make build")
 
     def test_resolve_self_references_error_propagates(self):
-        """Test that validation errors from substitute_self_references propagate."""
+        """
+        Test that validation errors from substitute_self_references propagate.
+        @athena: 72fc599ff001
+        """
         task = Task(
             name="build",
             cmd="cp {{ self.inputs.missing }}",  # Reference to non-existent input

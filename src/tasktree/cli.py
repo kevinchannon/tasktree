@@ -29,10 +29,12 @@ console = Console()
 
 
 def _supports_unicode() -> bool:
-    """Check if the terminal supports Unicode characters.
+    """
+    Check if the terminal supports Unicode characters.
 
     Returns:
-        True if terminal supports UTF-8, False otherwise
+    True if terminal supports UTF-8, False otherwise
+    @athena: 68f62a942a95
     """
     # Hard stop: classic Windows console (conhost)
     if os.name == "nt" and "WT_SESSION" not in os.environ:
@@ -51,37 +53,43 @@ def _supports_unicode() -> bool:
 
 
 def get_action_success_string() -> str:
-    """Get the appropriate success symbol based on terminal capabilities.
+    """
+    Get the appropriate success symbol based on terminal capabilities.
 
     Returns:
-        Unicode tick symbol (✓) if terminal supports UTF-8, otherwise "[ OK ]"
+    Unicode tick symbol (✓) if terminal supports UTF-8, otherwise "[ OK ]"
+    @athena: 39d9966ee6c8
     """
     return "✓" if _supports_unicode() else "[ OK ]"
 
 
 def get_action_failure_string() -> str:
-    """Get the appropriate failure symbol based on terminal capabilities.
+    """
+    Get the appropriate failure symbol based on terminal capabilities.
 
     Returns:
-        Unicode cross symbol (✗) if terminal supports UTF-8, otherwise "[ FAIL ]"
+    Unicode cross symbol (✗) if terminal supports UTF-8, otherwise "[ FAIL ]"
+    @athena: 5dd1111f8d74
     """
     return "✗" if _supports_unicode() else "[ FAIL ]"
 
 
 def _format_task_arguments(arg_specs: list[str | dict]) -> str:
-    """Format task arguments for display in list output.
+    """
+    Format task arguments for display in list output.
 
     Args:
-        arg_specs: List of argument specifications from task definition (strings or dicts)
+    arg_specs: List of argument specifications from task definition (strings or dicts)
 
     Returns:
-        Formatted string showing arguments with types and defaults
+    Formatted string showing arguments with types and defaults
 
     Examples:
-        ["mode", "target"] -> "mode:str target:str"
-        ["mode=debug", "target=x86_64"] -> "mode:str [=debug] target:str [=x86_64]"
-        ["port:int", "debug:bool=false"] -> "port:int debug:bool [=false]"
-        [{"timeout": {"type": "int", "default": 30}}] -> "timeout:int [=30]"
+    ["mode", "target"] -> "mode:str target:str"
+    ["mode=debug", "target=x86_64"] -> "mode:str [=debug] target:str [=x86_64]"
+    ["port:int", "debug:bool=false"] -> "port:int debug:bool [=false]"
+    [{"timeout": {"type": "int", "default": 30}}] -> "timeout:int [=30]"
+    @athena: fc3d6da90aeb
     """
     if not arg_specs:
         return ""
@@ -104,7 +112,10 @@ def _format_task_arguments(arg_specs: list[str | dict]) -> str:
 
 
 def _list_tasks(tasks_file: Optional[str] = None):
-    """List all available tasks with descriptions."""
+    """
+    List all available tasks with descriptions.
+    @athena: 778f231737a1
+    """
     recipe = _get_recipe(tasks_file)
     if recipe is None:
         console.print("[red]No recipe file found (tasktree.yaml, tasktree.yml, tt.yaml, or *.tasks)[/red]")
@@ -144,7 +155,10 @@ def _list_tasks(tasks_file: Optional[str] = None):
 
 
 def _show_task(task_name: str, tasks_file: Optional[str] = None):
-    """Show task definition with syntax highlighting."""
+    """
+    Show task definition with syntax highlighting.
+    @athena: 79ae3e330662
+    """
     # Pass task_name as root_task for lazy variable evaluation
     recipe = _get_recipe(tasks_file, root_task=task_name)
     if recipe is None:
@@ -194,7 +208,10 @@ def _show_task(task_name: str, tasks_file: Optional[str] = None):
 
 
 def _show_tree(task_name: str, tasks_file: Optional[str] = None):
-    """Show dependency tree structure."""
+    """
+    Show dependency tree structure.
+    @athena: a906cef99324
+    """
     # Pass task_name as root_task for lazy variable evaluation
     recipe = _get_recipe(tasks_file, root_task=task_name)
     if recipe is None:
@@ -219,7 +236,10 @@ def _show_tree(task_name: str, tasks_file: Optional[str] = None):
 
 
 def _init_recipe():
-    """Create a blank recipe file with commented examples."""
+    """
+    Create a blank recipe file with commented examples.
+    @athena: 189726c9b6c0
+    """
     recipe_path = Path("tasktree.yaml")
     if recipe_path.exists():
         console.print("[red]tasktree.yaml already exists[/red]")
@@ -260,7 +280,10 @@ tasks:
 
 
 def _version_callback(value: bool):
-    """Show version and exit."""
+    """
+    Show version and exit.
+    @athena: abaed96ac23b
+    """
     if value:
         console.print(f"task-tree version {__version__}")
         raise typer.Exit()
@@ -306,17 +329,19 @@ def main(
         None, help="Task name and arguments"
     ),
 ):
-    """Task Tree - A task automation tool with incremental execution.
+    """
+    Task Tree - A task automation tool with incremental execution.
 
     Run tasks defined in tasktree.yaml with dependency tracking
     and incremental execution.
 
     Examples:
 
-      tt build                     # Run the 'build' task
-      tt deploy prod region=us-1   # Run 'deploy' with arguments
-      tt --list                    # List all tasks
-      tt --tree test               # Show dependency tree for 'test'
+    tt build                     # Run the 'build' task
+    tt deploy prod region=us-1   # Run 'deploy' with arguments
+    tt --list                    # List all tasks
+    tt --tree test               # Show dependency tree for 'test'
+    @athena: f76c75c12d10
     """
 
     if list_opt:
@@ -360,7 +385,10 @@ def main(
 
 
 def _clean_state(tasks_file: Optional[str] = None) -> None:
-    """Remove the .tasktree-state file to reset task execution state."""
+    """
+    Remove the .tasktree-state file to reset task execution state.
+    @athena: a0ddf4b333d4
+    """
     if tasks_file:
         recipe_path = Path(tasks_file)
         if not recipe_path.exists():
@@ -385,12 +413,14 @@ def _clean_state(tasks_file: Optional[str] = None) -> None:
 
 
 def _get_recipe(recipe_file: Optional[str] = None, root_task: Optional[str] = None) -> Optional[Recipe]:
-    """Get parsed recipe or None if not found.
+    """
+    Get parsed recipe or None if not found.
 
     Args:
-        recipe_file: Optional path to recipe file. If not provided, searches for recipe file.
-        root_task: Optional root task for lazy variable evaluation. If provided, only variables
-                  reachable from this task will be evaluated (performance optimization).
+    recipe_file: Optional path to recipe file. If not provided, searches for recipe file.
+    root_task: Optional root task for lazy variable evaluation. If provided, only variables
+    reachable from this task will be evaluated (performance optimization).
+    @athena: 0ee00c67df25
     """
     if recipe_file:
         recipe_path = Path(recipe_file)
@@ -419,6 +449,9 @@ def _get_recipe(recipe_file: Optional[str] = None, root_task: Optional[str] = No
 
 
 def _execute_dynamic_task(args: list[str], force: bool = False, only: bool = False, env: Optional[str] = None, tasks_file: Optional[str] = None) -> None:
+    """
+    @athena: 207f7635a60d
+    """
     if not args:
         return
 
@@ -511,6 +544,9 @@ def _execute_dynamic_task(args: list[str], force: bool = False, only: bool = Fal
 
 
 def _parse_task_args(arg_specs: list[str], arg_values: list[str]) -> dict[str, Any]:
+    """
+    @athena: 2072a35f9d11
+    """
     if not arg_specs:
         if arg_values:
             console.print(f"[red]Task does not accept arguments[/red]")
@@ -579,6 +615,9 @@ def _parse_task_args(arg_specs: list[str], arg_values: list[str]) -> dict[str, A
 
 
 def _build_rich_tree(dep_tree: dict) -> Tree:
+    """
+    @athena: 62472c8ca729
+    """
     task_name = dep_tree["name"]
     tree = Tree(task_name)
 
@@ -591,7 +630,10 @@ def _build_rich_tree(dep_tree: dict) -> Tree:
 
 
 def cli():
-    """Entry point for the CLI."""
+    """
+    Entry point for the CLI.
+    @athena: 3b3cccd1ff6f
+    """
     app()
 
 

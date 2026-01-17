@@ -22,7 +22,10 @@ from tasktree.state import StateManager, TaskState
 
 @dataclass
 class TaskStatus:
-    """Status of a task for execution planning."""
+    """
+    Status of a task for execution planning.
+    @athena: a718e784981d
+    """
 
     task_name: str
     will_run: bool
@@ -33,13 +36,19 @@ class TaskStatus:
 
 
 class ExecutionError(Exception):
-    """Raised when task execution fails."""
+    """
+    Raised when task execution fails.
+    @athena: f22d72903ee4
+    """
 
     pass
 
 
 class Executor:
-    """Executes tasks with incremental execution logic."""
+    """
+    Executes tasks with incremental execution logic.
+    @athena: ac1e2fc7b82b
+    """
 
     # Protected environment variables that cannot be overridden by exported args
     PROTECTED_ENV_VARS = {
@@ -54,24 +63,28 @@ class Executor:
     }
 
     def __init__(self, recipe: Recipe, state_manager: StateManager):
-        """Initialize executor.
+        """
+        Initialize executor.
 
         Args:
-            recipe: Parsed recipe containing all tasks
-            state_manager: State manager for tracking task execution
+        recipe: Parsed recipe containing all tasks
+        state_manager: State manager for tracking task execution
+        @athena: 21b65db48bca
         """
         self.recipe = recipe
         self.state = state_manager
         self.docker_manager = docker_module.DockerManager(recipe.project_root)
 
     def _has_regular_args(self, task: Task) -> bool:
-        """Check if a task has any regular (non-exported) arguments.
+        """
+        Check if a task has any regular (non-exported) arguments.
 
         Args:
-            task: Task to check
+        task: Task to check
 
         Returns:
-            True if task has at least one regular (non-exported) argument, False otherwise
+        True if task has at least one regular (non-exported) argument, False otherwise
+        @athena: 0fc46146eed3
         """
         if not task.args:
             return False
@@ -93,14 +106,16 @@ class Executor:
         return False
 
     def _filter_regular_args(self, task: Task, task_args: dict[str, Any]) -> dict[str, Any]:
-        """Filter task_args to only include regular (non-exported) arguments.
+        """
+        Filter task_args to only include regular (non-exported) arguments.
 
         Args:
-            task: Task definition
-            task_args: Dictionary of all task arguments
+        task: Task definition
+        task_args: Dictionary of all task arguments
 
         Returns:
-            Dictionary containing only regular (non-exported) arguments
+        Dictionary containing only regular (non-exported) arguments
+        @athena: 811abd3a56f9
         """
         if not task.args or not task_args:
             return {}
@@ -121,19 +136,21 @@ class Executor:
         return {k: v for k, v in task_args.items() if k not in exported_names}
 
     def _collect_early_builtin_variables(self, task: Task, timestamp: datetime) -> dict[str, str]:
-        """Collect built-in variables that don't depend on working_dir.
+        """
+        Collect built-in variables that don't depend on working_dir.
 
         These variables can be used in the working_dir field itself.
 
         Args:
-            task: Task being executed
-            timestamp: Timestamp when task started execution
+        task: Task being executed
+        timestamp: Timestamp when task started execution
 
         Returns:
-            Dictionary mapping built-in variable names to their string values
+        Dictionary mapping built-in variable names to their string values
 
         Raises:
-            ExecutionError: If any built-in variable fails to resolve
+        ExecutionError: If any built-in variable fails to resolve
+        @athena: 0b348e67ce4c
         """
         import os
 
@@ -174,18 +191,20 @@ class Executor:
         return builtin_vars
 
     def _collect_builtin_variables(self, task: Task, working_dir: Path, timestamp: datetime) -> dict[str, str]:
-        """Collect built-in variables for task execution.
+        """
+        Collect built-in variables for task execution.
 
         Args:
-            task: Task being executed
-            working_dir: Resolved working directory for the task
-            timestamp: Timestamp when task started execution
+        task: Task being executed
+        working_dir: Resolved working directory for the task
+        timestamp: Timestamp when task started execution
 
         Returns:
-            Dictionary mapping built-in variable names to their string values
+        Dictionary mapping built-in variable names to their string values
 
         Raises:
-            ExecutionError: If any built-in variable fails to resolve
+        ExecutionError: If any built-in variable fails to resolve
+        @athena: bb8c385cb0a5
         """
         # Get early builtin vars (those that don't depend on working_dir)
         builtin_vars = self._collect_early_builtin_variables(task, timestamp)
@@ -197,16 +216,18 @@ class Executor:
         return builtin_vars
 
     def _prepare_env_with_exports(self, exported_env_vars: dict[str, str] | None = None) -> dict[str, str]:
-        """Prepare environment with exported arguments.
+        """
+        Prepare environment with exported arguments.
 
         Args:
-            exported_env_vars: Exported arguments to set as environment variables
+        exported_env_vars: Exported arguments to set as environment variables
 
         Returns:
-            Environment dict with exported args merged
+        Environment dict with exported args merged
 
         Raises:
-            ValueError: If an exported arg attempts to override a protected environment variable
+        ValueError: If an exported arg attempts to override a protected environment variable
+        @athena: 5340be771194
         """
         env = os.environ.copy()
         if exported_env_vars:
@@ -221,10 +242,12 @@ class Executor:
         return env
 
     def _get_platform_default_environment(self) -> tuple[str, list[str]]:
-        """Get default shell and args for current platform.
+        """
+        Get default shell and args for current platform.
 
         Returns:
-            Tuple of (shell, args) for platform default
+        Tuple of (shell, args) for platform default
+        @athena: b67799671787
         """
         is_windows = platform.system() == "Windows"
         if is_windows:
@@ -233,7 +256,8 @@ class Executor:
             return ("bash", ["-c"])
 
     def _get_effective_env_name(self, task: Task) -> str:
-        """Get the effective environment name for a task.
+        """
+        Get the effective environment name for a task.
 
         Resolution order:
         1. Recipe's global_env_override (from CLI --env)
@@ -242,10 +266,11 @@ class Executor:
         4. Empty string (for platform default)
 
         Args:
-            task: Task to get environment name for
+        task: Task to get environment name for
 
         Returns:
-            Environment name (empty string if using platform default)
+        Environment name (empty string if using platform default)
+        @athena: e5bface8a3a2
         """
         # Check for global override first
         if self.recipe.global_env_override:
@@ -263,7 +288,8 @@ class Executor:
         return ""
 
     def _resolve_environment(self, task: Task) -> tuple[str, list[str], str]:
-        """Resolve which environment to use for a task.
+        """
+        Resolve which environment to use for a task.
 
         Resolution order:
         1. Recipe's global_env_override (from CLI --env)
@@ -272,10 +298,11 @@ class Executor:
         4. Platform default (bash on Unix, cmd on Windows)
 
         Args:
-            task: Task to resolve environment for
+        task: Task to resolve environment for
 
         Returns:
-            Tuple of (shell, args, preamble)
+        Tuple of (shell, args, preamble)
+        @athena: b919568f73fc
         """
         # Check for global override first
         env_name = self.recipe.global_env_override
@@ -305,7 +332,8 @@ class Executor:
         args_dict: dict[str, Any],
         force: bool = False,
     ) -> TaskStatus:
-        """Check if a task needs to run.
+        """
+        Check if a task needs to run.
 
         A task executes if ANY of these conditions are met:
         1. Force flag is set (--force)
@@ -318,12 +346,13 @@ class Executor:
         8. Different arguments than any cached execution
 
         Args:
-            task: Task to check
-            args_dict: Arguments for this task execution
-            force: If True, ignore freshness and force execution
+        task: Task to check
+        args_dict: Arguments for this task execution
+        force: If True, ignore freshness and force execution
 
         Returns:
-            TaskStatus indicating whether task will run and why
+        TaskStatus indicating whether task will run and why
+        @athena: 7252f5db8a4d
         """
         # If force flag is set, always run
         if force:
@@ -404,19 +433,21 @@ class Executor:
         force: bool = False,
         only: bool = False,
     ) -> dict[str, TaskStatus]:
-        """Execute a task and its dependencies.
+        """
+        Execute a task and its dependencies.
 
         Args:
-            task_name: Name of task to execute
-            args_dict: Arguments to pass to the task
-            force: If True, ignore freshness and re-run all tasks
-            only: If True, run only the specified task without dependencies (implies force=True)
+        task_name: Name of task to execute
+        args_dict: Arguments to pass to the task
+        force: If True, ignore freshness and re-run all tasks
+        only: If True, run only the specified task without dependencies (implies force=True)
 
         Returns:
-            Dictionary of task names to their execution status
+        Dictionary of task names to their execution status
 
         Raises:
-            ExecutionError: If task execution fails
+        ExecutionError: If task execution fails
+        @athena: 1c293ee6a6fa
         """
         if args_dict is None:
             args_dict = {}
@@ -485,14 +516,16 @@ class Executor:
         return statuses
 
     def _run_task(self, task: Task, args_dict: dict[str, Any]) -> None:
-        """Execute a single task.
+        """
+        Execute a single task.
 
         Args:
-            task: Task to execute
-            args_dict: Arguments to substitute in command
+        task: Task to execute
+        args_dict: Arguments to substitute in command
 
         Raises:
-            ExecutionError: If task execution fails
+        ExecutionError: If task execution fails
+        @athena: 885c66658550
         """
         # Capture timestamp at task start for consistency (in UTC)
         task_start_time = datetime.now(timezone.utc)
@@ -566,18 +599,20 @@ class Executor:
         self, cmd: str, working_dir: Path, task_name: str, shell: str, shell_args: list[str],
         exported_env_vars: dict[str, str] | None = None
     ) -> None:
-        """Execute a single-line command via shell.
+        """
+        Execute a single-line command via shell.
 
         Args:
-            cmd: Command string
-            working_dir: Working directory
-            task_name: Task name (for error messages)
-            shell: Shell executable to use
-            shell_args: Arguments to pass to shell
-            exported_env_vars: Exported arguments to set as environment variables
+        cmd: Command string
+        working_dir: Working directory
+        task_name: Task name (for error messages)
+        shell: Shell executable to use
+        shell_args: Arguments to pass to shell
+        exported_env_vars: Exported arguments to set as environment variables
 
         Raises:
-            ExecutionError: If command execution fails
+        ExecutionError: If command execution fails
+        @athena: 46849e6a0bbb
         """
         # Prepare environment with exported args
         env = self._prepare_env_with_exports(exported_env_vars)
@@ -601,18 +636,20 @@ class Executor:
         self, cmd: str, working_dir: Path, task_name: str, shell: str, preamble: str,
         exported_env_vars: dict[str, str] | None = None
     ) -> None:
-        """Execute a multi-line command via temporary script file.
+        """
+        Execute a multi-line command via temporary script file.
 
         Args:
-            cmd: Multi-line command string
-            working_dir: Working directory
-            task_name: Task name (for error messages)
-            shell: Shell to use for script execution
-            preamble: Preamble text to prepend to script
-            exported_env_vars: Exported arguments to set as environment variables
+        cmd: Multi-line command string
+        working_dir: Working directory
+        task_name: Task name (for error messages)
+        shell: Shell to use for script execution
+        preamble: Preamble text to prepend to script
+        exported_env_vars: Exported arguments to set as environment variables
 
         Raises:
-            ExecutionError: If command execution fails
+        ExecutionError: If command execution fails
+        @athena: 825892b6db05
         """
         # Prepare environment with exported args
         env = self._prepare_env_with_exports(exported_env_vars)
@@ -671,17 +708,19 @@ class Executor:
                 pass  # Ignore cleanup errors
 
     def _substitute_builtin_in_environment(self, env: Environment, builtin_vars: dict[str, str]) -> Environment:
-        """Substitute builtin and environment variables in environment fields.
+        """
+        Substitute builtin and environment variables in environment fields.
 
         Args:
-            env: Environment to process
-            builtin_vars: Built-in variable values
+        env: Environment to process
+        builtin_vars: Built-in variable values
 
         Returns:
-            New Environment with builtin and environment variables substituted
+        New Environment with builtin and environment variables substituted
 
         Raises:
-            ValueError: If builtin variable or environment variable is not defined
+        ValueError: If builtin variable or environment variable is not defined
+        @athena: 21e2ccd27dbb
         """
         from dataclasses import replace
 
@@ -728,17 +767,19 @@ class Executor:
         self, task: Task, env: Any, cmd: str, working_dir: Path,
         exported_env_vars: dict[str, str] | None = None
     ) -> None:
-        """Execute task inside Docker container.
+        """
+        Execute task inside Docker container.
 
         Args:
-            task: Task to execute
-            env: Docker environment configuration
-            cmd: Command to execute
-            working_dir: Host working directory
-            exported_env_vars: Exported arguments to set as environment variables
+        task: Task to execute
+        env: Docker environment configuration
+        cmd: Command to execute
+        working_dir: Host working directory
+        exported_env_vars: Exported arguments to set as environment variables
 
         Raises:
-            ExecutionError: If Docker execution fails
+        ExecutionError: If Docker execution fails
+        @athena: fe972e4c97a3
         """
         # Get builtin variables for substitution in environment fields
         task_start_time = datetime.now(timezone.utc)
@@ -780,15 +821,17 @@ class Executor:
             raise ExecutionError(str(e)) from e
 
     def _validate_no_working_dir_circular_ref(self, text: str) -> None:
-        """Validate that working_dir field does not contain {{ tt.working_dir }}.
+        """
+        Validate that working_dir field does not contain {{ tt.working_dir }}.
 
         Using {{ tt.working_dir }} in the working_dir field creates a circular dependency.
 
         Args:
-            text: The working_dir field value to validate
+        text: The working_dir field value to validate
 
         Raises:
-            ExecutionError: If {{ tt.working_dir }} placeholder is found
+        ExecutionError: If {{ tt.working_dir }} placeholder is found
+        @athena: 5dc6ee41d403
         """
         import re
         # Pattern to match {{ tt.working_dir }} specifically
@@ -802,68 +845,76 @@ class Executor:
             )
 
     def _substitute_builtin(self, text: str, builtin_vars: dict[str, str]) -> str:
-        """Substitute {{ tt.name }} placeholders in text.
+        """
+        Substitute {{ tt.name }} placeholders in text.
 
         Built-in variables are resolved at execution time.
 
         Args:
-            text: Text with {{ tt.name }} placeholders
-            builtin_vars: Built-in variable values
+        text: Text with {{ tt.name }} placeholders
+        builtin_vars: Built-in variable values
 
         Returns:
-            Text with built-in variables substituted
+        Text with built-in variables substituted
 
         Raises:
-            ValueError: If built-in variable is not defined
+        ValueError: If built-in variable is not defined
+        @athena: 463600a203f4
         """
         from tasktree.substitution import substitute_builtin_variables
         return substitute_builtin_variables(text, builtin_vars)
 
     def _substitute_args(self, cmd: str, args_dict: dict[str, Any], exported_args: set[str] | None = None) -> str:
-        """Substitute {{ arg.name }} placeholders in command string.
+        """
+        Substitute {{ arg.name }} placeholders in command string.
 
         Variables are already substituted at parse time by the parser.
         This only handles runtime argument substitution.
 
         Args:
-            cmd: Command with {{ arg.name }} placeholders
-            args_dict: Argument values to substitute (only regular args)
-            exported_args: Set of argument names that are exported (not available for substitution)
+        cmd: Command with {{ arg.name }} placeholders
+        args_dict: Argument values to substitute (only regular args)
+        exported_args: Set of argument names that are exported (not available for substitution)
 
         Returns:
-            Command with arguments substituted
+        Command with arguments substituted
 
         Raises:
-            ValueError: If an exported argument is used in template substitution
+        ValueError: If an exported argument is used in template substitution
+        @athena: 4261a91c6a98
         """
         from tasktree.substitution import substitute_arguments
         return substitute_arguments(cmd, args_dict, exported_args)
 
     def _substitute_env(self, text: str) -> str:
-        """Substitute {{ env.NAME }} placeholders in text.
+        """
+        Substitute {{ env.NAME }} placeholders in text.
 
         Environment variables are resolved at execution time from os.environ.
 
         Args:
-            text: Text with {{ env.NAME }} placeholders
+        text: Text with {{ env.NAME }} placeholders
 
         Returns:
-            Text with environment variables substituted
+        Text with environment variables substituted
 
         Raises:
-            ValueError: If environment variable is not set
+        ValueError: If environment variable is not set
+        @athena: 63becab531cd
         """
         from tasktree.substitution import substitute_environment
         return substitute_environment(text)
 
     def _get_all_inputs(self, task: Task) -> list[str]:
-        """Get all inputs for a task (explicit + implicit from dependencies).
+        """
+        Get all inputs for a task (explicit + implicit from dependencies).
 
         Args:
-            task: Task to get inputs for
+        task: Task to get inputs for
 
         Returns:
-            List of input glob patterns
+        List of input glob patterns
+        @athena: ca7ed7a6682f
         """
         # Extract paths from inputs (handle both anonymous strings and named dicts)
         all_inputs = []
@@ -881,18 +932,20 @@ class Executor:
     def _check_environment_changed(
         self, task: Task, cached_state: TaskState, env_name: str
     ) -> bool:
-        """Check if environment definition has changed since last run.
+        """
+        Check if environment definition has changed since last run.
 
         For shell environments: checks YAML definition hash
         For Docker environments: checks YAML hash AND Docker image ID
 
         Args:
-            task: Task to check
-            cached_state: Cached state from previous run
-            env_name: Effective environment name (from _get_effective_env_name)
+        task: Task to check
+        cached_state: Cached state from previous run
+        env_name: Effective environment name (from _get_effective_env_name)
 
         Returns:
-            True if environment definition changed, False otherwise
+        True if environment definition changed, False otherwise
+        @athena: 052561b75455
         """
         # If using platform default (no environment), no definition to track
         if not env_name:
@@ -931,18 +984,20 @@ class Executor:
     def _check_docker_image_changed(
         self, env: Environment, cached_state: TaskState, env_name: str
     ) -> bool:
-        """Check if Docker image ID has changed.
+        """
+        Check if Docker image ID has changed.
 
         Builds the image and compares the resulting image ID with the cached ID.
         This detects changes from unpinned base images, network-dependent builds, etc.
 
         Args:
-            env: Docker environment definition
-            cached_state: Cached state from previous run
-            env_name: Environment name
+        env: Docker environment definition
+        cached_state: Cached state from previous run
+        env_name: Environment name
 
         Returns:
-            True if image ID changed, False otherwise
+        True if image ID changed, False otherwise
+        @athena: 8af77cb1be44
         """
         # Build/ensure image is built and get its ID
         try:
@@ -965,7 +1020,8 @@ class Executor:
     def _check_inputs_changed(
         self, task: Task, cached_state: TaskState, all_inputs: list[str]
     ) -> list[str]:
-        """Check if any input files have changed since last run.
+        """
+        Check if any input files have changed since last run.
 
         Handles both regular file inputs and Docker-specific inputs:
         - Regular files: checked via mtime
@@ -973,12 +1029,13 @@ class Executor:
         - Dockerfile digests: checked via parsing and comparison
 
         Args:
-            task: Task to check
-            cached_state: Cached state from previous run
-            all_inputs: All input glob patterns
+        task: Task to check
+        cached_state: Cached state from previous run
+        all_inputs: All input glob patterns
 
         Returns:
-            List of changed file paths
+        List of changed file paths
+        @athena: 15b13fd181bf
         """
         changed_files = []
 
@@ -1059,13 +1116,15 @@ class Executor:
         return changed_files
 
     def _expand_output_paths(self, task: Task) -> list[str]:
-        """Extract all output paths from task outputs (both named and anonymous).
+        """
+        Extract all output paths from task outputs (both named and anonymous).
 
         Args:
-            task: Task with outputs to extract
+        task: Task with outputs to extract
 
         Returns:
-            List of output path patterns (glob patterns as strings)
+        List of output path patterns (glob patterns as strings)
+        @athena: 848a28564b14
         """
         paths = []
         for output in task.outputs:
@@ -1078,13 +1137,15 @@ class Executor:
         return paths
 
     def _check_outputs_missing(self, task: Task) -> list[str]:
-        """Check if any declared outputs are missing.
+        """
+        Check if any declared outputs are missing.
 
         Args:
-            task: Task to check
+        task: Task to check
 
         Returns:
-            List of output patterns that have no matching files
+        List of output patterns that have no matching files
+        @athena: 9ceac49b4e68
         """
         if not task.outputs:
             return []
@@ -1104,14 +1165,16 @@ class Executor:
         return missing_patterns
 
     def _expand_globs(self, patterns: list[str], working_dir: str) -> list[str]:
-        """Expand glob patterns to actual file paths.
+        """
+        Expand glob patterns to actual file paths.
 
         Args:
-            patterns: List of glob patterns
-            working_dir: Working directory to resolve patterns from
+        patterns: List of glob patterns
+        working_dir: Working directory to resolve patterns from
 
         Returns:
-            List of file paths (relative to working_dir)
+        List of file paths (relative to working_dir)
+        @athena: 5ba093866558
         """
         files = []
         base_path = self.recipe.project_root / working_dir
@@ -1128,11 +1191,13 @@ class Executor:
         return files
 
     def _update_state(self, task: Task, args_dict: dict[str, Any]) -> None:
-        """Update state after task execution.
+        """
+        Update state after task execution.
 
         Args:
-            task: Task that was executed
-            args_dict: Arguments used for execution
+        task: Task that was executed
+        args_dict: Arguments used for execution
+        @athena: 1fcfdfcb9be9
         """
         # Compute hashes (include effective environment and dependencies)
         effective_env = self._get_effective_env_name(task)

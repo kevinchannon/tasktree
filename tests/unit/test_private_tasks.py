@@ -8,10 +8,16 @@ from tasktree.parser import parse_recipe
 
 
 class TestPrivateTaskParsing(unittest.TestCase):
-    """Test parsing of private field in task definitions."""
+    """
+    Test parsing of private field in task definitions.
+    @athena: c91bbe0f6382
+    """
 
     def test_parse_task_with_private_true(self):
-        """Test parsing task with private: true."""
+        """
+        Test parsing task with private: true.
+        @athena: c77b5c3d42a0
+        """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
             recipe_path.write_text("""
@@ -26,7 +32,10 @@ tasks:
             self.assertTrue(task.private)
 
     def test_parse_task_with_private_false(self):
-        """Test parsing task with explicit private: false."""
+        """
+        Test parsing task with explicit private: false.
+        @athena: 38be68dbfa72
+        """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
             recipe_path.write_text("""
@@ -41,7 +50,10 @@ tasks:
             self.assertFalse(task.private)
 
     def test_parse_task_without_private_field(self):
-        """Test parsing task without private field (defaults to false)."""
+        """
+        Test parsing task without private field (defaults to false).
+        @athena: 7eccf2eb2e9d
+        """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
             recipe_path.write_text("""
@@ -55,7 +67,10 @@ tasks:
             self.assertFalse(task.private)
 
     def test_parse_multiple_tasks_with_mixed_privacy(self):
-        """Test parsing multiple tasks with different privacy settings."""
+        """
+        Test parsing multiple tasks with different privacy settings.
+        @athena: 90f648c7c461
+        """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
             recipe_path.write_text("""
@@ -86,7 +101,10 @@ tasks:
             self.assertTrue(recipe.get_task("private2").private)
 
     def test_private_task_with_dependencies(self):
-        """Test that private tasks can have dependencies."""
+        """
+        Test that private tasks can have dependencies.
+        @athena: 284ed037fcaf
+        """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
             recipe_path.write_text("""
@@ -109,7 +127,10 @@ tasks:
             self.assertEqual(main.deps, ["helper"])
 
     def test_private_task_with_all_fields(self):
-        """Test that private field works with all other task fields."""
+        """
+        Test that private field works with all other task fields.
+        @athena: d2a3b9ae8b8f
+        """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
             recipe_path.write_text("""

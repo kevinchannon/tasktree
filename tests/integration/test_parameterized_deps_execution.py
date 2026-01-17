@@ -13,21 +13,33 @@ from tasktree.cli import app
 
 
 def strip_ansi_codes(text: str) -> str:
-    """Remove ANSI escape sequences from text."""
+    """
+    Remove ANSI escape sequences from text.
+    @athena: 90023a269128
+    """
     ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
     return ansi_escape.sub('', text)
 
 
 class TestParameterizedDependencyExecution(unittest.TestCase):
-    """Test that parameterized dependencies execute correctly end-to-end."""
+    """
+    Test that parameterized dependencies execute correctly end-to-end.
+    @athena: 655cdc016fb4
+    """
 
     def setUp(self):
-        """Set up test fixtures."""
+        """
+        Set up test fixtures.
+        @athena: 36a706d60319
+        """
         self.runner = CliRunner()
         self.env = {"NO_COLOR": "1"}
 
     def test_parameterized_dependency_with_different_args(self):
-        """Test that tasks can invoke same dependency with different arguments."""
+        """
+        Test that tasks can invoke same dependency with different arguments.
+        @athena: c47478126ebd
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -93,7 +105,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_multiple_invocations_same_task(self):
-        """Test task with multiple invocations of same dependency with different args."""
+        """
+        Test task with multiple invocations of same dependency with different args.
+        @athena: 3464b6d3289b
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -141,7 +156,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_named_argument_dependency(self):
-        """Test dependencies using named argument syntax."""
+        """
+        Test dependencies using named argument syntax.
+        @athena: e1a990fa28a6
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 

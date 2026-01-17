@@ -8,11 +8,17 @@ from . import is_docker_available, run_tasktree_cli
 
 
 class TestDockerEnvironment(unittest.TestCase):
-    """Test Docker environment variable and configuration features."""
+    """
+    Test Docker environment variable and configuration features.
+    @athena: bbec6d8f7a15
+    """
 
     @classmethod
     def setUpClass(cls):
-        """Ensure Docker is available before running tests."""
+        """
+        Ensure Docker is available before running tests.
+        @athena: c8c40c167b6e
+        """
         if not is_docker_available():
             raise RuntimeError(
                 "Docker is not available or not running. "
@@ -20,7 +26,10 @@ class TestDockerEnvironment(unittest.TestCase):
             )
 
     def test_environment_variable_injection(self):
-        """Test that env_vars are passed to container correctly."""
+        """
+        Test that env_vars are passed to container correctly.
+        @athena: 94effb1f30be
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -74,7 +83,10 @@ tasks:
             self.assertIn("DEBUG=false", content)
 
     def test_container_working_directory(self):
-        """Test that container working_dir is set correctly."""
+        """
+        Test that container working_dir is set correctly.
+        @athena: 5055a66d1b47
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -121,7 +133,10 @@ tasks:
             self.assertEqual(pwd, "/app", f"Unexpected working directory: {pwd}")
 
     def test_extra_docker_args(self):
-        """Test that extra_args are passed to docker run."""
+        """
+        Test that extra_args are passed to docker run.
+        @athena: b5e7e4e4c590
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 

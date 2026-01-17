@@ -12,21 +12,33 @@ from tasktree.cli import app
 
 
 def strip_ansi_codes(text: str) -> str:
-    """Remove ANSI escape sequences from text."""
+    """
+    Remove ANSI escape sequences from text.
+    @athena: 90023a269128
+    """
     ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
     return ansi_escape.sub('', text)
 
 
 class TestNestedImports(unittest.TestCase):
-    """Integration tests for nested import execution."""
+    """
+    Integration tests for nested import execution.
+    @athena: 8a7d4d69938e
+    """
 
     def setUp(self):
-        """Set up test fixtures."""
+        """
+        Set up test fixtures.
+        @athena: 36a706d60319
+        """
         self.runner = CliRunner()
         self.env = {"NO_COLOR": "1"}
 
     def test_nested_import_task_execution(self):
-        """Test that tasks from nested imports execute correctly."""
+        """
+        Test that tasks from nested imports execute correctly.
+        @athena: 20a8920dc54c
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -89,7 +101,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_nested_import_dependency_chain(self):
-        """Test dependency resolution across nested imports."""
+        """
+        Test dependency resolution across nested imports.
+        @athena: 51ce04113795
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -171,7 +186,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_diamond_import_execution(self):
-        """Test diamond import pattern executes correctly."""
+        """
+        Test diamond import pattern executes correctly.
+        @athena: 0beec7ecf115
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 

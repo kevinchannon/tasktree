@@ -13,21 +13,33 @@ from tasktree.cli import app
 
 
 def strip_ansi_codes(text: str) -> str:
-    """Remove ANSI escape sequences from text."""
+    """
+    Remove ANSI escape sequences from text.
+    @athena: 90023a269128
+    """
     ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
     return ansi_escape.sub('', text)
 
 
 class TestStatePersistence(unittest.TestCase):
-    """Test that state is correctly saved/loaded across multiple invocations."""
+    """
+    Test that state is correctly saved/loaded across multiple invocations.
+    @athena: feec77dd1364
+    """
 
     def setUp(self):
-        """Set up test fixtures."""
+        """
+        Set up test fixtures.
+        @athena: 36a706d60319
+        """
         self.runner = CliRunner()
         self.env = {"NO_COLOR": "1"}
 
     def test_state_preserved_across_runs(self):
-        """Test state is saved and reused across multiple tt invocations."""
+        """
+        Test state is saved and reused across multiple tt invocations.
+        @athena: 04b9bb6bfdfb
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -84,7 +96,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_task_args_are_cached_separately(self):
-        """Test same task with different args has separate state entries."""
+        """
+        Test same task with different args has separate state entries.
+        @athena: 6913c6e7ef72
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -128,7 +143,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_clean_state_enables_fresh_run(self):
-        """Test --clean-state removes state and forces rebuild."""
+        """
+        Test --clean-state removes state and forces rebuild.
+        @athena: 352ed4145e55
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 

@@ -12,21 +12,33 @@ from tasktree.cli import app
 
 
 def strip_ansi_codes(text: str) -> str:
-    """Remove ANSI escape sequences from text."""
+    """
+    Remove ANSI escape sequences from text.
+    @athena: 90023a269128
+    """
     ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
     return ansi_escape.sub('', text)
 
 
 class TestBasicSelfReferences(unittest.TestCase):
-    """Test basic self-reference functionality."""
+    """
+    Test basic self-reference functionality.
+    @athena: 16d30f7c6406
+    """
 
     def setUp(self):
-        """Set up test fixtures."""
+        """
+        Set up test fixtures.
+        @athena: 36a706d60319
+        """
         self.runner = CliRunner()
         self.env = {"NO_COLOR": "1"}
 
     def test_basic_self_input_reference(self):
-        """Test simple {{ self.inputs.src }} in command."""
+        """
+        Test simple {{ self.inputs.src }} in command.
+        @athena: 1aee5331c8b5
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -61,7 +73,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_basic_self_output_reference(self):
-        """Test simple {{ self.outputs.dest }} in command."""
+        """
+        Test simple {{ self.outputs.dest }} in command.
+        @athena: a9687a34858f
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -91,7 +106,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_mixed_self_references(self):
-        """Test both inputs and outputs in same command."""
+        """
+        Test both inputs and outputs in same command.
+        @athena: 2456620823bf
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -127,7 +145,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_self_references_with_glob_patterns(self):
-        """Test that glob patterns are substituted verbatim."""
+        """
+        Test that glob patterns are substituted verbatim.
+        @athena: b74f930dc716
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -165,7 +186,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_anonymous_inputs_still_work(self):
-        """Test backward compatibility - anonymous inputs work without self-references."""
+        """
+        Test backward compatibility - anonymous inputs work without self-references.
+        @athena: 5fd4323a7db8
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -198,7 +222,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_anonymous_outputs_still_work(self):
-        """Test backward compatibility - anonymous outputs work without self-references."""
+        """
+        Test backward compatibility - anonymous outputs work without self-references.
+        @athena: 7dd90bd4b456
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -227,7 +254,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_mixed_named_and_anonymous(self):
-        """Test both named and anonymous inputs/outputs in same task."""
+        """
+        Test both named and anonymous inputs/outputs in same task.
+        @athena: 22784ccf6dfa
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -274,15 +304,24 @@ tasks:
 
 
 class TestSelfReferenceValidation(unittest.TestCase):
-    """Test validation and error handling for self-references."""
+    """
+    Test validation and error handling for self-references.
+    @athena: f86c53a9b77c
+    """
 
     def setUp(self):
-        """Set up test fixtures."""
+        """
+        Set up test fixtures.
+        @athena: 36a706d60319
+        """
         self.runner = CliRunner()
         self.env = {"NO_COLOR": "1"}
 
     def test_error_on_missing_input_name(self):
-        """Test that referencing non-existent input raises error."""
+        """
+        Test that referencing non-existent input raises error.
+        @athena: 7894592f1142
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -315,7 +354,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_error_on_missing_output_name(self):
-        """Test that referencing non-existent output raises error."""
+        """
+        Test that referencing non-existent output raises error.
+        @athena: 8dafbf752dd4
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -347,7 +389,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_error_on_anonymous_input_reference(self):
-        """Test that trying to reference anonymous input fails with clear message."""
+        """
+        Test that trying to reference anonymous input fails with clear message.
+        @athena: f8a74d3ef088
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -376,7 +421,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_error_on_anonymous_output_reference(self):
-        """Test that trying to reference anonymous output fails with clear message."""
+        """
+        Test that trying to reference anonymous output fails with clear message.
+        @athena: 063c82fa9e68
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -404,7 +452,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_error_with_empty_inputs(self):
-        """Test error when task has no inputs but tries to reference one."""
+        """
+        Test error when task has no inputs but tries to reference one.
+        @athena: 068a1ba1fb67
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -432,7 +483,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_error_with_empty_outputs(self):
-        """Test error when task has no outputs but tries to reference one."""
+        """
+        Test error when task has no outputs but tries to reference one.
+        @athena: bbbc9c76b063
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -459,7 +513,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_error_case_sensitive(self):
-        """Test that input/output names are case-sensitive."""
+        """
+        Test that input/output names are case-sensitive.
+        @athena: b23885b2a413
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -490,15 +547,24 @@ tasks:
 
 
 class TestSelfReferencesWithVariables(unittest.TestCase):
-    """Test interaction between self-references and variable substitution."""
+    """
+    Test interaction between self-references and variable substitution.
+    @athena: 6981258eb27b
+    """
 
     def setUp(self):
-        """Set up test fixtures."""
+        """
+        Set up test fixtures.
+        @athena: 36a706d60319
+        """
         self.runner = CliRunner()
         self.env = {"NO_COLOR": "1"}
 
     def test_self_reference_with_var_in_input_path(self):
-        """Test that variables in input paths are resolved before self-references."""
+        """
+        Test that variables in input paths are resolved before self-references.
+        @athena: c8f3efd0569e
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -537,7 +603,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_self_reference_with_var_in_output_path(self):
-        """Test that variables in output paths are resolved before self-references."""
+        """
+        Test that variables in output paths are resolved before self-references.
+        @athena: 359e4e67c8da
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -573,7 +642,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_multiple_vars_in_paths(self):
-        """Test multiple variables in same input/output path."""
+        """
+        Test multiple variables in same input/output path.
+        @athena: 34afbcd98aa3
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -614,7 +686,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_var_in_path_evaluated_before_self_ref(self):
-        """Test that variable substitution happens before self-reference substitution."""
+        """
+        Test that variable substitution happens before self-reference substitution.
+        @athena: 4968a1332aa2
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -657,15 +732,24 @@ tasks:
 
 
 class TestSelfReferencesWithDependencyOutputs(unittest.TestCase):
-    """Test interaction between self-references and dependency output references."""
+    """
+    Test interaction between self-references and dependency output references.
+    @athena: c310f2ba995e
+    """
 
     def setUp(self):
-        """Set up test fixtures."""
+        """
+        Set up test fixtures.
+        @athena: 36a706d60319
+        """
         self.runner = CliRunner()
         self.env = {"NO_COLOR": "1"}
 
     def test_self_and_dep_references_in_same_cmd(self):
-        """Test both self and dep references in the same command."""
+        """
+        Test both self and dep references in the same command.
+        @athena: 67f085e28e67
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -706,7 +790,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_self_output_contains_dep_reference(self):
-        """Test that self-reference works when output path contains dep reference."""
+        """
+        Test that self-reference works when output path contains dep reference.
+        @athena: bb59c9a99b08
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -742,7 +829,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_dep_reference_resolved_before_self_ref(self):
-        """Test that dependency references are resolved before self-references."""
+        """
+        Test that dependency references are resolved before self-references.
+        @athena: e1e057c76d21
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -780,7 +870,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_multiple_deps_with_self_refs(self):
-        """Test self-references with multiple dependencies."""
+        """
+        Test self-references with multiple dependencies.
+        @athena: 7ed490ba201a
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -831,15 +924,24 @@ tasks:
 
 
 class TestSelfReferencesWithParameterizedTasks(unittest.TestCase):
-    """Test self-references with parameterized tasks."""
+    """
+    Test self-references with parameterized tasks.
+    @athena: 7b7024c3d7bc
+    """
 
     def setUp(self):
-        """Set up test fixtures."""
+        """
+        Set up test fixtures.
+        @athena: 36a706d60319
+        """
         self.runner = CliRunner()
         self.env = {"NO_COLOR": "1"}
 
     def test_self_references_in_parameterized_task(self):
-        """Test that self-references work in parameterized tasks."""
+        """
+        Test that self-references work in parameterized tasks.
+        @athena: e849f7415652
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -885,7 +987,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_arg_in_input_path_with_self_ref(self):
-        """Test arguments in input paths combined with self-references."""
+        """
+        Test arguments in input paths combined with self-references.
+        @athena: 491963b10568
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -931,7 +1036,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_multiple_args_with_self_refs(self):
-        """Test multiple arguments in paths with self-references."""
+        """
+        Test multiple arguments in paths with self-references.
+        @athena: 82bbc64c2547
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -977,7 +1085,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_parameterized_deps_with_self_refs(self):
-        """Test self-references in tasks with parameterized dependencies."""
+        """
+        Test self-references in tasks with parameterized dependencies.
+        @athena: f3e1b1ac82b9
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -1024,15 +1135,24 @@ tasks:
 
 
 class TestSelfReferencesWithStateManagement(unittest.TestCase):
-    """Test state management and incremental execution with self-references."""
+    """
+    Test state management and incremental execution with self-references.
+    @athena: f8ec96aee4fd
+    """
 
     def setUp(self):
-        """Set up test fixtures."""
+        """
+        Set up test fixtures.
+        @athena: 36a706d60319
+        """
         self.runner = CliRunner()
         self.env = {"NO_COLOR": "1"}
 
     def test_self_references_with_state_tracking(self):
-        """Test that state tracking works with self-references."""
+        """
+        Test that state tracking works with self-references.
+        @athena: 1fa03ebf56ac
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -1074,7 +1194,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_input_change_triggers_rerun(self):
-        """Test that changing input file triggers rerun with self-references."""
+        """
+        Test that changing input file triggers rerun with self-references.
+        @athena: eede516acfe1
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -1122,7 +1245,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_output_change_triggers_rerun(self):
-        """Test that missing or modified output triggers rerun."""
+        """
+        Test that missing or modified output triggers rerun.
+        @athena: 0a141b7f9634
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -1162,7 +1288,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_task_definition_change_triggers_rerun(self):
-        """Test that changing task command triggers rerun."""
+        """
+        Test that changing task command triggers rerun.
+        @athena: d551f4b3d513
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -1213,7 +1342,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_force_execution_with_self_refs(self):
-        """Test --force flag forces rerun with self-references."""
+        """
+        Test --force flag forces rerun with self-references.
+        @athena: c431685dfbc1
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -1255,7 +1387,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_incremental_with_dependency_chain(self):
-        """Test incremental execution with dependency chain using self-refs."""
+        """
+        Test incremental execution with dependency chain using self-refs.
+        @athena: 9cf327c1ba33
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 

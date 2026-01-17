@@ -12,21 +12,33 @@ from tasktree.cli import app
 
 
 def strip_ansi_codes(text: str) -> str:
-    """Remove ANSI escape sequences from text."""
+    """
+    Remove ANSI escape sequences from text.
+    @athena: 90023a269128
+    """
     ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
     return ansi_escape.sub('', text)
 
 
 class TestArgChoices(unittest.TestCase):
-    """Test choices constraints on arguments in end-to-end workflows."""
+    """
+    Test choices constraints on arguments in end-to-end workflows.
+    @athena: 7835267888cd
+    """
 
     def setUp(self):
-        """Set up test fixtures."""
+        """
+        Set up test fixtures.
+        @athena: 36a706d60319
+        """
         self.runner = CliRunner()
         self.env = {"NO_COLOR": "1"}
 
     def test_valid_choice_succeeds(self):
-        """Test that a valid choice value succeeds."""
+        """
+        Test that a valid choice value succeeds.
+        @athena: 9aa6401a7162
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -55,7 +67,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_invalid_choice_fails(self):
-        """Test that an invalid choice value fails with clear error."""
+        """
+        Test that an invalid choice value fails with clear error.
+        @athena: db53449e3d99
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -83,7 +98,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_int_choices(self):
-        """Test integer choices work correctly."""
+        """
+        Test integer choices work correctly.
+        @athena: 6fe126ef7dd1
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -121,7 +139,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_type_inferred_from_choices(self):
-        """Test that type is correctly inferred from choices."""
+        """
+        Test that type is correctly inferred from choices.
+        @athena: 626c41709e51
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -150,7 +171,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_default_value_in_choices(self):
-        """Test that default value works with choices."""
+        """
+        Test that default value works with choices.
+        @athena: 324a51a7d307
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -179,7 +203,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_named_argument_with_choices(self):
-        """Test named argument invocation respects choices."""
+        """
+        Test named argument invocation respects choices.
+        @athena: ad0620bf55df
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -209,7 +236,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_error_message_shows_valid_choices(self):
-        """Test that error message includes list of valid choices."""
+        """
+        Test that error message includes list of valid choices.
+        @athena: a3de8c6ebcfb
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -238,7 +268,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_multiple_args_with_choices(self):
-        """Test multiple arguments with choices validate independently."""
+        """
+        Test multiple arguments with choices validate independently.
+        @athena: 92dff9f1b18a
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -279,7 +312,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_string_choices_with_special_characters(self):
-        """Test string choices containing spaces and special characters."""
+        """
+        Test string choices containing spaces and special characters.
+        @athena: 22fc0966062e
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 

@@ -12,21 +12,33 @@ from tasktree.cli import app
 
 
 def strip_ansi_codes(text: str) -> str:
-    """Remove ANSI escape sequences from text."""
+    """
+    Remove ANSI escape sequences from text.
+    @athena: 90023a269128
+    """
     ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
     return ansi_escape.sub('', text)
 
 
 class TestCleanState(unittest.TestCase):
-    """Test that --clean-state and its aliases work correctly."""
+    """
+    Test that --clean-state and its aliases work correctly.
+    @athena: 4391efb2c247
+    """
 
     def setUp(self):
-        """Set up test fixtures."""
+        """
+        Set up test fixtures.
+        @athena: 563ac9b21ae9
+        """
         self.runner = CliRunner()
         self.env = {"NO_COLOR": "1"}  # Disable color output for consistent assertions
 
     def test_clean_state_removes_state_file(self):
-        """Test that --clean-state removes the .tasktree-state file."""
+        """
+        Test that --clean-state removes the .tasktree-state file.
+        @athena: 545ac4a8ddca
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -62,7 +74,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_clean_alias_works(self):
-        """Test that --clean works as an alias for --clean-state."""
+        """
+        Test that --clean works as an alias for --clean-state.
+        @athena: 441da0f55d71
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -98,7 +113,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_reset_alias_works(self):
-        """Test that --reset works as an alias for --clean-state."""
+        """
+        Test that --reset works as an alias for --clean-state.
+        @athena: 14b5d2958890
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -134,7 +152,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_clean_state_when_no_state_file(self):
-        """Test that --clean-state handles missing state file gracefully."""
+        """
+        Test that --clean-state handles missing state file gracefully.
+        @athena: 5b5f8d270dc9
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 

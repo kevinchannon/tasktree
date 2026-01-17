@@ -10,7 +10,10 @@ import click
 
 
 class HostnameType(click.ParamType):
-    """Validates hostname format (not DNS resolution)."""
+    """
+    Validates hostname format (not DNS resolution).
+    @athena: 84a721c40458
+    """
 
     name = "hostname"
 
@@ -20,6 +23,9 @@ class HostnameType(click.ParamType):
     )
 
     def convert(self, value: Any, param: Optional[click.Parameter], ctx: Optional[click.Context]) -> str:
+        """
+        @athena: 8d921e52bcf2
+        """
         if isinstance(value, str):
             if self.HOSTNAME_PATTERN.match(value):
                 return value
@@ -27,7 +33,10 @@ class HostnameType(click.ParamType):
 
 
 class EmailType(click.ParamType):
-    """Validates email format (not deliverability)."""
+    """
+    Validates email format (not deliverability).
+    @athena: 95cfacc3f4cd
+    """
 
     name = "email"
 
@@ -37,6 +46,9 @@ class EmailType(click.ParamType):
     )
 
     def convert(self, value: Any, param: Optional[click.Parameter], ctx: Optional[click.Context]) -> str:
+        """
+        @athena: 25046aeb6e6f
+        """
         if isinstance(value, str):
             if self.EMAIL_PATTERN.match(value):
                 return value
@@ -44,11 +56,17 @@ class EmailType(click.ParamType):
 
 
 class IPType(click.ParamType):
-    """Validates IP address (IPv4 or IPv6)."""
+    """
+    Validates IP address (IPv4 or IPv6).
+    @athena: dac837bf4894
+    """
 
     name = "ip"
 
     def convert(self, value: Any, param: Optional[click.Parameter], ctx: Optional[click.Context]) -> str:
+        """
+        @athena: d57618e5ad89
+        """
         try:
             ip_address(value)
             return str(value)
@@ -57,11 +75,17 @@ class IPType(click.ParamType):
 
 
 class IPv4Type(click.ParamType):
-    """Validates IPv4 address."""
+    """
+    Validates IPv4 address.
+    @athena: ea5957643fe5
+    """
 
     name = "ipv4"
 
     def convert(self, value: Any, param: Optional[click.Parameter], ctx: Optional[click.Context]) -> str:
+        """
+        @athena: 7ed2d17d1f1a
+        """
         try:
             IPv4Address(value)
             return str(value)
@@ -70,11 +94,17 @@ class IPv4Type(click.ParamType):
 
 
 class IPv6Type(click.ParamType):
-    """Validates IPv6 address."""
+    """
+    Validates IPv6 address.
+    @athena: 9bc5b38d4f23
+    """
 
     name = "ipv6"
 
     def convert(self, value: Any, param: Optional[click.Parameter], ctx: Optional[click.Context]) -> str:
+        """
+        @athena: 4b101e4d54cf
+        """
         try:
             IPv6Address(value)
             return str(value)
@@ -83,11 +113,17 @@ class IPv6Type(click.ParamType):
 
 
 class DateTimeType(click.ParamType):
-    """Validates datetime in format YYYY-MM-DDTHH:MM:SS."""
+    """
+    Validates datetime in format YYYY-MM-DDTHH:MM:SS.
+    @athena: c3bafa3e22e3
+    """
 
     name = "datetime"
 
     def convert(self, value: Any, param: Optional[click.Parameter], ctx: Optional[click.Context]) -> str:
+        """
+        @athena: 13fa66adfe94
+        """
         if isinstance(value, str):
             try:
                 datetime.fromisoformat(value)
@@ -114,18 +150,20 @@ TYPE_MAPPING = {
 
 
 def get_click_type(type_name: str, min_val: int | float | None = None, max_val: int | float | None = None) -> click.ParamType:
-    """Get Click parameter type by name with optional range constraints.
+    """
+    Get Click parameter type by name with optional range constraints.
 
     Args:
-        type_name: Type name from task definition (e.g., 'str', 'int', 'hostname')
-        min_val: Optional minimum value for numeric types
-        max_val: Optional maximum value for numeric types
+    type_name: Type name from task definition (e.g., 'str', 'int', 'hostname')
+    min_val: Optional minimum value for numeric types
+    max_val: Optional maximum value for numeric types
 
     Returns:
-        Click parameter type instance
+    Click parameter type instance
 
     Raises:
-        ValueError: If type_name is not recognized
+    ValueError: If type_name is not recognized
+    @athena: d0912868676f
     """
     if type_name not in TYPE_MAPPING:
         raise ValueError(f"Unknown type: {type_name}")

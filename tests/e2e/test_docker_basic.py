@@ -8,11 +8,17 @@ from . import is_docker_available, run_tasktree_cli
 
 
 class TestDockerBasic(unittest.TestCase):
-    """Test basic Docker container execution."""
+    """
+    Test basic Docker container execution.
+    @athena: 56ab22ddddea
+    """
 
     @classmethod
     def setUpClass(cls):
-        """Ensure Docker is available before running tests."""
+        """
+        Ensure Docker is available before running tests.
+        @athena: c8c40c167b6e
+        """
         if not is_docker_available():
             raise RuntimeError(
                 "Docker is not available or not running. "
@@ -20,7 +26,10 @@ class TestDockerBasic(unittest.TestCase):
             )
 
     def test_simple_echo_in_container(self):
-        """Test that basic command executes in Docker container."""
+        """
+        Test that basic command executes in Docker container.
+        @athena: 4de3af376d71
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -66,7 +75,10 @@ tasks:
             )
 
     def test_file_creation_persists_to_host(self):
-        """Test that files created in container appear on host via volume mount."""
+        """
+        Test that files created in container appear on host via volume mount.
+        @athena: b60f7276401c
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -115,7 +127,10 @@ tasks:
             self.assertIn("line 2", content)
 
     def test_multiline_command_execution(self):
-        """Test that multi-line commands execute correctly in Docker container."""
+        """
+        Test that multi-line commands execute correctly in Docker container.
+        @athena: aa37bb20a18d
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 

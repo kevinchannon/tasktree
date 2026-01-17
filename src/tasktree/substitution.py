@@ -29,17 +29,19 @@ SELF_REFERENCE_PATTERN = re.compile(
 
 
 def substitute_variables(text: str | dict[str, Any], variables: dict[str, str]) -> str | dict[str, Any]:
-    """Substitute {{ var.name }} placeholders with variable values.
+    """
+    Substitute {{ var.name }} placeholders with variable values.
 
     Args:
-        text: Text containing {{ var.name }} placeholders, or an argument dict with elements to be substituted
-        variables: Dictionary mapping variable names to their string values
+    text: Text containing {{ var.name }} placeholders, or an argument dict with elements to be substituted
+    variables: Dictionary mapping variable names to their string values
 
     Returns:
-        Text with all {{ var.name }} placeholders replaced
+    Text with all {{ var.name }} placeholders replaced
 
     Raises:
-        ValueError: If a referenced variable is not defined
+    ValueError: If a referenced variable is not defined
+    @athena: 93e0fbbe447c
     """
     if isinstance(text, dict):
         # The dict will only contain a single key, the value of this key should also be a dictionary, which contains
@@ -85,18 +87,20 @@ def substitute_variables(text: str | dict[str, Any], variables: dict[str, str]) 
 
 
 def substitute_arguments(text: str, args: dict[str, Any], exported_args: set[str] | None = None) -> str:
-    """Substitute {{ arg.name }} placeholders with argument values.
+    """
+    Substitute {{ arg.name }} placeholders with argument values.
 
     Args:
-        text: Text containing {{ arg.name }} placeholders
-        args: Dictionary mapping argument names to their values
-        exported_args: Set of argument names that are exported (not available for substitution)
+    text: Text containing {{ arg.name }} placeholders
+    args: Dictionary mapping argument names to their values
+    exported_args: Set of argument names that are exported (not available for substitution)
 
     Returns:
-        Text with all {{ arg.name }} placeholders replaced
+    Text with all {{ arg.name }} placeholders replaced
 
     Raises:
-        ValueError: If a referenced argument is not provided or is exported
+    ValueError: If a referenced argument is not provided or is exported
+    @athena: 39577c2b74a6
     """
     # Use empty set if None for cleaner handling
     exported_args = exported_args or set()
@@ -134,23 +138,25 @@ def substitute_arguments(text: str, args: dict[str, Any], exported_args: set[str
 
 
 def substitute_environment(text: str) -> str:
-    """Substitute {{ env.NAME }} placeholders with environment variable values.
+    """
+    Substitute {{ env.NAME }} placeholders with environment variable values.
 
     Environment variables are read from os.environ at substitution time.
 
     Args:
-        text: Text containing {{ env.NAME }} placeholders
+    text: Text containing {{ env.NAME }} placeholders
 
     Returns:
-        Text with all {{ env.NAME }} placeholders replaced
+    Text with all {{ env.NAME }} placeholders replaced
 
     Raises:
-        ValueError: If a referenced environment variable is not set
+    ValueError: If a referenced environment variable is not set
 
     Example:
-        >>> os.environ['USER'] = 'alice'
-        >>> substitute_environment("Hello {{ env.USER }}")
-        'Hello alice'
+    >>> os.environ['USER'] = 'alice'
+    >>> substitute_environment("Hello {{ env.USER }}")
+    'Hello alice'
+    @athena: 4f2afd2e0da2
     """
     import os
 
@@ -174,24 +180,26 @@ def substitute_environment(text: str) -> str:
 
 
 def substitute_builtin_variables(text: str, builtin_vars: dict[str, str]) -> str:
-    """Substitute {{ tt.name }} placeholders with built-in variable values.
+    """
+    Substitute {{ tt.name }} placeholders with built-in variable values.
 
     Built-in variables are system-provided values that tasks can reference.
 
     Args:
-        text: Text containing {{ tt.name }} placeholders
-        builtin_vars: Dictionary mapping built-in variable names to their string values
+    text: Text containing {{ tt.name }} placeholders
+    builtin_vars: Dictionary mapping built-in variable names to their string values
 
     Returns:
-        Text with all {{ tt.name }} placeholders replaced
+    Text with all {{ tt.name }} placeholders replaced
 
     Raises:
-        ValueError: If a referenced built-in variable is not defined
+    ValueError: If a referenced built-in variable is not defined
 
     Example:
-        >>> builtin_vars = {'project_root': '/home/user/project', 'task_name': 'build'}
-        >>> substitute_builtin_variables("Root: {{ tt.project_root }}", builtin_vars)
-        'Root: /home/user/project'
+    >>> builtin_vars = {'project_root': '/home/user/project', 'task_name': 'build'}
+    >>> substitute_builtin_variables("Root: {{ tt.project_root }}", builtin_vars)
+    'Root: /home/user/project'
+    @athena: 716250e3a71f
     """
     def replace_match(match: re.Match) -> str:
         prefix = match.group(1)
@@ -218,27 +226,29 @@ def substitute_dependency_args(
     parent_args: dict[str, Any],
     exported_args: set[str] | None = None
 ) -> str:
-    """Substitute {{ arg.* }} templates in dependency argument values.
+    """
+    Substitute {{ arg.* }} templates in dependency argument values.
 
     This function substitutes parent task's arguments into dependency argument
     templates. Only {{ arg.* }} placeholders are allowed in dependency arguments.
 
     Args:
-        template_value: String that may contain {{ arg.* }} placeholders
-        parent_task_name: Name of parent task (for error messages)
-        parent_args: Parent task's argument values
-        exported_args: Set of parent's exported argument names
+    template_value: String that may contain {{ arg.* }} placeholders
+    parent_task_name: Name of parent task (for error messages)
+    parent_args: Parent task's argument values
+    exported_args: Set of parent's exported argument names
 
     Returns:
-        String with {{ arg.* }} placeholders substituted
+    String with {{ arg.* }} placeholders substituted
 
     Raises:
-        ValueError: If template references undefined arg, uses exported arg,
-                   or contains non-arg placeholders ({{ var.* }}, {{ env.* }}, {{ tt.* }})
+    ValueError: If template references undefined arg, uses exported arg,
+    or contains non-arg placeholders ({{ var.* }}, {{ env.* }}, {{ tt.* }})
 
     Example:
-        >>> substitute_dependency_args("{{ arg.mode }}", "build", {"mode": "debug"})
-        'debug'
+    >>> substitute_dependency_args("{{ arg.mode }}", "build", {"mode": "debug"})
+    'debug'
+    @athena: 3d07a1b4e6bc
     """
     # Check for disallowed placeholder types in dependency args
     # Only {{ arg.* }} is allowed, not {{ var.* }}, {{ env.* }}, or {{ tt.* }}
@@ -282,21 +292,23 @@ def substitute_dependency_args(
 
 
 def substitute_all(text: str, variables: dict[str, str], args: dict[str, Any]) -> str:
-    """Substitute all placeholder types: variables, arguments, environment.
+    """
+    Substitute all placeholder types: variables, arguments, environment.
 
     Substitution order: variables → arguments → environment.
     This allows variables to contain arg/env placeholders.
 
     Args:
-        text: Text containing placeholders
-        variables: Dictionary mapping variable names to their string values
-        args: Dictionary mapping argument names to their values
+    text: Text containing placeholders
+    variables: Dictionary mapping variable names to their string values
+    args: Dictionary mapping argument names to their values
 
     Returns:
-        Text with all placeholders replaced
+    Text with all placeholders replaced
 
     Raises:
-        ValueError: If any referenced variable, argument, or environment variable is not defined
+    ValueError: If any referenced variable, argument, or environment variable is not defined
+    @athena: c3fe48d3df5a
     """
     text = substitute_variables(text, variables)
     text = substitute_arguments(text, args)
@@ -310,7 +322,8 @@ def substitute_dependency_outputs(
     current_task_deps: list[str],
     resolved_tasks: dict[str, Any],
 ) -> str:
-    """Substitute {{ dep.<task>.outputs.<name> }} placeholders with dependency output paths.
+    """
+    Substitute {{ dep.<task>.outputs.<name> }} placeholders with dependency output paths.
 
     This function resolves references to named outputs from dependency tasks.
     It validates that:
@@ -319,27 +332,28 @@ def substitute_dependency_outputs(
     - The referenced output name exists in the dependency task
 
     Args:
-        text: Text containing {{ dep.*.outputs.* }} placeholders
-        current_task_name: Name of task being resolved (for error messages)
-        current_task_deps: List of dependency task names for the current task
-        resolved_tasks: Dictionary mapping task names to Task objects (already resolved)
+    text: Text containing {{ dep.*.outputs.* }} placeholders
+    current_task_name: Name of task being resolved (for error messages)
+    current_task_deps: List of dependency task names for the current task
+    resolved_tasks: Dictionary mapping task names to Task objects (already resolved)
 
     Returns:
-        Text with all {{ dep.*.outputs.* }} placeholders replaced with output paths
+    Text with all {{ dep.*.outputs.* }} placeholders replaced with output paths
 
     Raises:
-        ValueError: If referenced task doesn't exist, isn't a dependency,
-                   or doesn't have the named output
+    ValueError: If referenced task doesn't exist, isn't a dependency,
+    or doesn't have the named output
 
     Example:
-        >>> # Assuming build task has output { bundle: "dist/app.js" }
-        >>> substitute_dependency_outputs(
-        ...     "Deploy {{ dep.build.outputs.bundle }}",
-        ...     "deploy",
-        ...     ["build"],
-        ...     {"build": build_task}
-        ... )
-        'Deploy dist/app.js'
+    >>> # Assuming build task has output { bundle: "dist/app.js" }
+    >>> substitute_dependency_outputs(
+    ...     "Deploy {{ dep.build.outputs.bundle }}",
+    ...     "deploy",
+    ...     ["build"],
+    ...     {"build": build_task}
+    ... )
+    'Deploy dist/app.js'
+    @athena: 1e537c8d579c
     """
     def replacer(match: re.Match) -> str:
         dep_task_name = match.group(1)
@@ -386,34 +400,36 @@ def substitute_self_references(
     input_map: dict[str, str],
     output_map: dict[str, str],
 ) -> str:
-    """Substitute {{ self.inputs.name }} and {{ self.outputs.name }} placeholders.
+    """
+    Substitute {{ self.inputs.name }} and {{ self.outputs.name }} placeholders.
 
     This function resolves references to the task's own named inputs and outputs.
     Only named entries are accessible; anonymous inputs/outputs cannot be referenced.
     The substitution is literal string replacement - no glob expansion or path resolution.
 
     Args:
-        text: Text containing {{ self.* }} placeholders
-        task_name: Name of current task (for error messages)
-        input_map: Dictionary mapping input names to path strings
-        output_map: Dictionary mapping output names to path strings
+    text: Text containing {{ self.* }} placeholders
+    task_name: Name of current task (for error messages)
+    input_map: Dictionary mapping input names to path strings
+    output_map: Dictionary mapping output names to path strings
 
     Returns:
-        Text with all {{ self.* }} placeholders replaced with literal path strings
+    Text with all {{ self.* }} placeholders replaced with literal path strings
 
     Raises:
-        ValueError: If referenced name doesn't exist in input_map or output_map
+    ValueError: If referenced name doesn't exist in input_map or output_map
 
     Example:
-        >>> input_map = {"src": "*.txt"}
-        >>> output_map = {"dest": "out/result.txt"}
-        >>> substitute_self_references(
-        ...     "cp {{ self.inputs.src }} {{ self.outputs.dest }}",
-        ...     "copy",
-        ...     input_map,
-        ...     output_map
-        ... )
-        'cp *.txt out/result.txt'
+    >>> input_map = {"src": "*.txt"}
+    >>> output_map = {"dest": "out/result.txt"}
+    >>> substitute_self_references(
+    ...     "cp {{ self.inputs.src }} {{ self.outputs.dest }}",
+    ...     "copy",
+    ...     input_map,
+    ...     output_map
+    ... )
+    'cp *.txt out/result.txt'
+    @athena: c42c1c534c55
     """
     def replacer(match: re.Match) -> str:
         field = match.group(1)  # "inputs" or "outputs"

@@ -23,31 +23,41 @@ if TYPE_CHECKING:
 
 
 class DockerError(Exception):
-    """Raised when Docker operations fail."""
+    """
+    Raised when Docker operations fail.
+    @athena: 876629e35765
+    """
 
     pass
 
 
 class DockerManager:
-    """Manages Docker image building and container execution."""
+    """
+    Manages Docker image building and container execution.
+    @athena: ef3cc3d7bcbe
+    """
 
     def __init__(self, project_root: Path):
-        """Initialize Docker manager.
+        """
+        Initialize Docker manager.
 
         Args:
-            project_root: Root directory of the project (where tasktree.yaml is located)
+        project_root: Root directory of the project (where tasktree.yaml is located)
+        @athena: eb7d4c5a27aa
         """
         self._project_root = project_root
         self._built_images: dict[str, tuple[str, str]] = {}  # env_name -> (image_tag, image_id) cache
 
     def _should_add_user_flag(self) -> bool:
-        """Check if --user flag should be added to docker run.
+        """
+        Check if --user flag should be added to docker run.
 
         Returns False on Windows (where Docker Desktop handles UID mapping automatically).
         Returns True on Linux/macOS where os.getuid() and os.getgid() are available.
 
         Returns:
-            True if --user flag should be added, False otherwise
+        True if --user flag should be added, False otherwise
+        @athena: 6a872eea6a10
         """
         # Skip on Windows - Docker Desktop handles UID mapping differently
         if platform.system() == "Windows":
@@ -57,18 +67,20 @@ class DockerManager:
         return hasattr(os, "getuid") and hasattr(os, "getgid")
 
     def ensure_image_built(self, env: Environment) -> tuple[str, str]:
-        """Build Docker image if not already built this invocation.
+        """
+        Build Docker image if not already built this invocation.
 
         Args:
-            env: Environment definition with dockerfile and context
+        env: Environment definition with dockerfile and context
 
         Returns:
-            Tuple of (image_tag, image_id)
-            - image_tag: Tag like "tt-env-builder"
-            - image_id: Full image ID like "sha256:abc123..."
+        Tuple of (image_tag, image_id)
+        - image_tag: Tag like "tt-env-builder"
+        - image_id: Full image ID like "sha256:abc123..."
 
         Raises:
-            DockerError: If docker command not available or build fails
+        DockerError: If docker command not available or build fails
+        @athena: 9b3c11c29fbb
         """
         # Check if already built this invocation
         if env.name in self._built_images:
@@ -132,19 +144,21 @@ class DockerManager:
         working_dir: Path,
         container_working_dir: str,
     ) -> subprocess.CompletedProcess:
-        """Execute command inside Docker container.
+        """
+        Execute command inside Docker container.
 
         Args:
-            env: Environment definition
-            cmd: Command to execute
-            working_dir: Host working directory (for resolving relative volume paths)
-            container_working_dir: Working directory inside container
+        env: Environment definition
+        cmd: Command to execute
+        working_dir: Host working directory (for resolving relative volume paths)
+        container_working_dir: Working directory inside container
 
         Returns:
-            CompletedProcess from subprocess.run
+        CompletedProcess from subprocess.run
 
         Raises:
-            DockerError: If docker run fails
+        DockerError: If docker run fails
+        @athena: 2c963babb5ca
         """
         # Ensure image is built (returns tag and ID)
         image_tag, image_id = self.ensure_image_built(env)
@@ -200,7 +214,8 @@ class DockerManager:
             ) from e
 
     def _resolve_volume_mount(self, volume: str) -> str:
-        """Resolve volume mount specification.
+        """
+        Resolve volume mount specification.
 
         Handles:
         - Relative paths (resolved relative to project_root)
@@ -208,10 +223,11 @@ class DockerManager:
         - Absolute paths (used as-is)
 
         Args:
-            volume: Volume specification (e.g., "./src:/workspace/src" or "~/.cargo:/root/.cargo")
+        volume: Volume specification (e.g., "./src:/workspace/src" or "~/.cargo:/root/.cargo")
 
         Returns:
-            Resolved volume specification with absolute host path
+        Resolved volume specification with absolute host path
+        @athena: c7661050443e
         """
         if ":" not in volume:
             raise ValueError(
@@ -235,10 +251,12 @@ class DockerManager:
         return f"{resolved_host_path}:{container_path}"
 
     def _check_docker_available(self) -> None:
-        """Check if docker command is available.
+        """
+        Check if docker command is available.
 
         Raises:
-            DockerError: If docker is not available
+        DockerError: If docker is not available
+        @athena: 16ba713e3962
         """
         try:
             subprocess.run(
@@ -254,16 +272,18 @@ class DockerManager:
             )
 
     def _get_image_id(self, image_tag: str) -> str:
-        """Get the full image ID for a given tag.
+        """
+        Get the full image ID for a given tag.
 
         Args:
-            image_tag: Docker image tag (e.g., "tt-env-builder")
+        image_tag: Docker image tag (e.g., "tt-env-builder")
 
         Returns:
-            Full image ID (e.g., "sha256:abc123def456...")
+        Full image ID (e.g., "sha256:abc123def456...")
 
         Raises:
-            DockerError: If cannot inspect image
+        DockerError: If cannot inspect image
+        @athena: e4bc075fe857
         """
         try:
             result = subprocess.run(
@@ -279,13 +299,15 @@ class DockerManager:
 
 
 def is_docker_environment(env: Environment) -> bool:
-    """Check if environment is Docker-based.
+    """
+    Check if environment is Docker-based.
 
     Args:
-        env: Environment to check
+    env: Environment to check
 
     Returns:
-        True if environment has a dockerfile field, False otherwise
+    True if environment has a dockerfile field, False otherwise
+    @athena: 1ffd255a4e90
     """
     return bool(env.dockerfile)
 
@@ -293,7 +315,8 @@ def is_docker_environment(env: Environment) -> bool:
 def resolve_container_working_dir(
     env_working_dir: str, task_working_dir: str
 ) -> str:
-    """Resolve working directory inside container.
+    """
+    Resolve working directory inside container.
 
     Combines environment's working_dir with task's working_dir:
     - If task specifies working_dir: container_dir = env_working_dir / task_working_dir
@@ -301,11 +324,12 @@ def resolve_container_working_dir(
     - If neither specify: container_dir = "/" (Docker default)
 
     Args:
-        env_working_dir: Working directory from environment definition
-        task_working_dir: Working directory from task definition
+    env_working_dir: Working directory from environment definition
+    task_working_dir: Working directory from task definition
 
     Returns:
-        Resolved working directory path
+    Resolved working directory path
+    @athena: bb13d00dd07d
     """
     if not env_working_dir and not task_working_dir:
         return "/"
@@ -322,13 +346,15 @@ def resolve_container_working_dir(
 
 
 def parse_dockerignore(dockerignore_path: Path) -> "pathspec.PathSpec | None":
-    """Parse .dockerignore file into pathspec matcher.
+    """
+    Parse .dockerignore file into pathspec matcher.
 
     Args:
-        dockerignore_path: Path to .dockerignore file
+    dockerignore_path: Path to .dockerignore file
 
     Returns:
-        PathSpec object for matching, or None if file doesn't exist or pathspec not available
+    PathSpec object for matching, or None if file doesn't exist or pathspec not available
+    @athena: 62bc07a3c6d0
     """
     if pathspec is None:
         # pathspec library not available - can't parse .dockerignore
@@ -351,17 +377,19 @@ def context_changed_since(
     dockerignore_path: Path | None,
     last_run_time: float,
 ) -> bool:
-    """Check if any file in Docker build context has changed since last run.
+    """
+    Check if any file in Docker build context has changed since last run.
 
     Uses early-exit optimization: stops on first changed file found.
 
     Args:
-        context_path: Path to Docker build context directory
-        dockerignore_path: Optional path to .dockerignore file
-        last_run_time: Unix timestamp of last task run
+    context_path: Path to Docker build context directory
+    dockerignore_path: Optional path to .dockerignore file
+    last_run_time: Unix timestamp of last task run
 
     Returns:
-        True if any file changed, False otherwise
+    True if any file changed, False otherwise
+    @athena: 556acb1ed6ca
     """
     # Parse .dockerignore
     dockerignore_spec = None
@@ -395,14 +423,16 @@ def context_changed_since(
 
 
 def extract_from_images(dockerfile_content: str) -> list[tuple[str, str | None]]:
-    """Extract image references from FROM lines in Dockerfile.
+    """
+    Extract image references from FROM lines in Dockerfile.
 
     Args:
-        dockerfile_content: Content of Dockerfile
+    dockerfile_content: Content of Dockerfile
 
     Returns:
-        List of (image_reference, digest) tuples where digest may be None for unpinned images
-        Example: [("rust:1.75", None), ("rust", "sha256:abc123...")]
+    List of (image_reference, digest) tuples where digest may be None for unpinned images
+    Example: [("rust:1.75", None), ("rust", "sha256:abc123...")]
+    @athena: ede7ed483bdd
     """
     # Regex pattern to match FROM lines
     # Handles: FROM [--platform=...] image[:tag][@digest] [AS alias]
@@ -421,26 +451,30 @@ def extract_from_images(dockerfile_content: str) -> list[tuple[str, str | None]]
 
 
 def check_unpinned_images(dockerfile_content: str) -> list[str]:
-    """Check for unpinned base images in Dockerfile.
+    """
+    Check for unpinned base images in Dockerfile.
 
     Args:
-        dockerfile_content: Content of Dockerfile
+    dockerfile_content: Content of Dockerfile
 
     Returns:
-        List of unpinned image references (images without @sha256:... digests)
+    List of unpinned image references (images without @sha256:... digests)
+    @athena: 58cc6de8fc96
     """
     images = extract_from_images(dockerfile_content)
     return [image for image, digest in images if digest is None]
 
 
 def parse_base_image_digests(dockerfile_content: str) -> list[str]:
-    """Parse pinned base image digests from Dockerfile.
+    """
+    Parse pinned base image digests from Dockerfile.
 
     Args:
-        dockerfile_content: Content of Dockerfile
+    dockerfile_content: Content of Dockerfile
 
     Returns:
-        List of digests (e.g., ["sha256:abc123...", "sha256:def456..."])
+    List of digests (e.g., ["sha256:abc123...", "sha256:def456..."])
+    @athena: c4d1da6b067c
     """
     images = extract_from_images(dockerfile_content)
     return [digest for _image, digest in images if digest is not None]

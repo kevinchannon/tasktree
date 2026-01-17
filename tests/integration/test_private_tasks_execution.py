@@ -12,21 +12,33 @@ from tasktree.cli import app
 
 
 def strip_ansi_codes(text: str) -> str:
-    """Remove ANSI escape sequences from text."""
+    """
+    Remove ANSI escape sequences from text.
+    @athena: 90023a269128
+    """
     ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
     return ansi_escape.sub('', text)
 
 
 class TestPrivateTasksExecution(unittest.TestCase):
-    """Test execution of private tasks."""
+    """
+    Test execution of private tasks.
+    @athena: 5cb8f47d75b2
+    """
 
     def setUp(self):
-        """Set up test fixtures."""
+        """
+        Set up test fixtures.
+        @athena: 563ac9b21ae9
+        """
         self.runner = CliRunner()
         self.env = {"NO_COLOR": "1"}  # Disable color output for consistent assertions
 
     def test_private_task_hidden_from_list(self):
-        """Test that private tasks are hidden from --list output."""
+        """
+        Test that private tasks are hidden from --list output.
+        @athena: 05e1919f6d50
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             recipe_file = project_root / "tasktree.yaml"
@@ -59,7 +71,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_private_task_can_be_executed(self):
-        """Test that private tasks can still be executed directly."""
+        """
+        Test that private tasks can still be executed directly.
+        @athena: 02a99c1f0dfd
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             recipe_file = project_root / "tasktree.yaml"
@@ -80,7 +95,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_private_task_as_dependency(self):
-        """Test that private tasks work as dependencies."""
+        """
+        Test that private tasks work as dependencies.
+        @athena: 482c672f95ff
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             recipe_file = project_root / "tasktree.yaml"
@@ -111,7 +129,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_private_task_with_arguments(self):
-        """Test that private tasks with arguments can be executed."""
+        """
+        Test that private tasks with arguments can be executed.
+        @athena: 22b16f934150
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             recipe_file = project_root / "tasktree.yaml"
@@ -134,7 +155,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_mixed_private_and_public_tasks_in_list(self):
-        """Test list output with mix of private and public tasks."""
+        """
+        Test list output with mix of private and public tasks.
+        @athena: 8cd838a12987
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             recipe_file = project_root / "tasktree.yaml"
@@ -178,7 +202,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_private_task_in_namespace(self):
-        """Test private tasks in imported namespaces."""
+        """
+        Test private tasks in imported namespaces.
+        @athena: e29221f61d64
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -230,7 +257,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_all_tasks_private_shows_empty_list(self):
-        """Test that list shows empty when all tasks are private."""
+        """
+        Test that list shows empty when all tasks are private.
+        @athena: 12e9ecbf2925
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             recipe_file = project_root / "tasktree.yaml"

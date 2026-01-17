@@ -9,11 +9,17 @@ from . import is_docker_available, run_tasktree_cli
 
 
 class TestDockerVolumes(unittest.TestCase):
-    """Test Docker volume mount functionality."""
+    """
+    Test Docker volume mount functionality.
+    @athena: efe7420ca237
+    """
 
     @classmethod
     def setUpClass(cls):
-        """Ensure Docker is available before running tests."""
+        """
+        Ensure Docker is available before running tests.
+        @athena: c8c40c167b6e
+        """
         if not is_docker_available():
             raise RuntimeError(
                 "Docker is not available or not running. "
@@ -21,7 +27,10 @@ class TestDockerVolumes(unittest.TestCase):
             )
 
     def test_relative_volume_mount(self):
-        """Test that relative volume paths resolve correctly."""
+        """
+        Test that relative volume paths resolve correctly.
+        @athena: 0176ff8422fb
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -67,7 +76,10 @@ tasks:
             )
 
     def test_absolute_volume_mount(self):
-        """Test that absolute volume paths work correctly."""
+        """
+        Test that absolute volume paths work correctly.
+        @athena: efd1ccaeff8e
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             absolute_data_dir = project_root / "data"
@@ -112,7 +124,10 @@ tasks:
             )
 
     def test_multiple_volume_mounts(self):
-        """Test that multiple volumes can be mounted simultaneously."""
+        """
+        Test that multiple volumes can be mounted simultaneously.
+        @athena: 256e5ae3df06
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -170,7 +185,10 @@ tasks:
             self.assertIn("processed", content)
 
     def test_read_and_write_to_volume(self):
-        """Test bidirectional access to volume (read and write)."""
+        """
+        Test bidirectional access to volume (read and write).
+        @athena: fdce3e652473
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 

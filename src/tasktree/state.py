@@ -10,13 +10,19 @@ from typing import Any
 
 @dataclass
 class TaskState:
-    """State for a single task execution."""
+    """
+    State for a single task execution.
+    @athena: b08a937b7f2f
+    """
 
     last_run: float
     input_state: dict[str, float | str] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for JSON serialization."""
+        """
+        Convert to dictionary for JSON serialization.
+        @athena: 5f42efc35e77
+        """
         return {
             "last_run": self.last_run,
             "input_state": self.input_state,
@@ -24,7 +30,10 @@ class TaskState:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "TaskState":
-        """Create from dictionary loaded from JSON."""
+        """
+        Create from dictionary loaded from JSON.
+        @athena: d9237db7e7e7
+        """
         return cls(
             last_run=data["last_run"],
             input_state=data.get("input_state", {}),
@@ -32,15 +41,20 @@ class TaskState:
 
 
 class StateManager:
-    """Manages the .tasktree-state file."""
+    """
+    Manages the .tasktree-state file.
+    @athena: 44713c70e04e
+    """
 
     STATE_FILE = ".tasktree-state"
 
     def __init__(self, project_root: Path):
-        """Initialize state manager.
+        """
+        Initialize state manager.
 
         Args:
-            project_root: Root directory of the project
+        project_root: Root directory of the project
+        @athena: a0afbd8ae591
         """
         self.project_root = project_root
         self.state_path = project_root / self.STATE_FILE
@@ -48,7 +62,10 @@ class StateManager:
         self._loaded = False
 
     def load(self) -> None:
-        """Load state from file if it exists."""
+        """
+        Load state from file if it exists.
+        @athena: 11748af0886c
+        """
         if self.state_path.exists():
             try:
                 with open(self.state_path, "r") as f:
@@ -63,40 +80,49 @@ class StateManager:
         self._loaded = True
 
     def save(self) -> None:
-        """Save state to file."""
+        """
+        Save state to file.
+        @athena: 11e4a9761e4d
+        """
         data = {key: value.to_dict() for key, value in self._state.items()}
         with open(self.state_path, "w") as f:
             json.dump(data, f, indent=2)
 
     def get(self, cache_key: str) -> TaskState | None:
-        """Get state for a task.
+        """
+        Get state for a task.
 
         Args:
-            cache_key: Cache key (task_hash or task_hash__args_hash)
+        cache_key: Cache key (task_hash or task_hash__args_hash)
 
         Returns:
-            TaskState if found, None otherwise
+        TaskState if found, None otherwise
+        @athena: fe5b27e855eb
         """
         if not self._loaded:
             self.load()
         return self._state.get(cache_key)
 
     def set(self, cache_key: str, state: TaskState) -> None:
-        """Set state for a task.
+        """
+        Set state for a task.
 
         Args:
-            cache_key: Cache key (task_hash or task_hash__args_hash)
-            state: TaskState to store
+        cache_key: Cache key (task_hash or task_hash__args_hash)
+        state: TaskState to store
+        @athena: 244f16ea0ebc
         """
         if not self._loaded:
             self.load()
         self._state[cache_key] = state
 
     def prune(self, valid_task_hashes: set[str]) -> None:
-        """Remove state entries for tasks that no longer exist.
+        """
+        Remove state entries for tasks that no longer exist.
 
         Args:
-            valid_task_hashes: Set of valid task hashes from current recipe
+        valid_task_hashes: Set of valid task hashes from current recipe
+        @athena: ce21bb523d49
         """
         if not self._loaded:
             self.load()
@@ -114,6 +140,9 @@ class StateManager:
             del self._state[key]
 
     def clear(self) -> None:
-        """Clear all state (useful for testing)."""
+        """
+        Clear all state (useful for testing).
+        @athena: 3a92e36d9f83
+        """
         self._state = {}
         self._loaded = True

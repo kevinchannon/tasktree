@@ -18,21 +18,33 @@ from tasktree.state import StateManager
 
 
 def strip_ansi_codes(text: str) -> str:
-    """Remove ANSI escape sequences from text."""
+    """
+    Remove ANSI escape sequences from text.
+    @athena: 90023a269128
+    """
     ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
     return ansi_escape.sub('', text)
 
 
 class TestDependencyExecution(unittest.TestCase):
-    """Test that dependency chains execute correctly end-to-end."""
+    """
+    Test that dependency chains execute correctly end-to-end.
+    @athena: 93e9b0c24e68
+    """
 
     def setUp(self):
-        """Set up test fixtures."""
+        """
+        Set up test fixtures.
+        @athena: 36a706d60319
+        """
         self.runner = CliRunner()
         self.env = {"NO_COLOR": "1"}
 
     def test_linear_dependency_execution(self):
-        """Test linear chain executes in correct order: lint -> build -> test."""
+        """
+        Test linear chain executes in correct order: lint -> build -> test.
+        @athena: 5448dfd465ac
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -85,7 +97,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_diamond_dependency_execution(self):
-        """Test diamond pattern: setup -> (build, test) -> deploy runs shared dep once."""
+        """
+        Test diamond pattern: setup -> (build, test) -> deploy runs shared dep once.
+        @athena: 95484a33f092
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -148,7 +163,10 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_dependency_triggered_rerun(self):
-        """Test modifying dependency input triggers dependent tasks."""
+        """
+        Test modifying dependency input triggers dependent tasks.
+        @athena: 3bb6f03ca19d
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -213,7 +231,8 @@ tasks:
                 os.chdir(original_cwd)
 
     def test_dependency_runs_but_produces_no_changes(self):
-        """Test that a task whose dependency runs but produces no output changes
+        """
+        Test that a task whose dependency runs but produces no output changes
         does NOT trigger re-execution.
 
         Scenario:
@@ -222,6 +241,7 @@ tasks:
         - Task 'package' depends on 'build' (implicitly gets build outputs as inputs)
         - Expected: 'package' should NOT run because build's outputs didn't change
         - Bug (if present): 'package' runs because 'build' has will_run=True
+        @athena: 54669115d3bd
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -302,9 +322,11 @@ tasks:
             ), f"Package should be fresh, but reason={statuses['package'].reason}"
 
     def test_dependency_actually_changes_outputs(self):
-        """Test that tasks DO run when dependency outputs actually change.
+        """
+        Test that tasks DO run when dependency outputs actually change.
 
         This is the positive test case - ensure we didn't break normal behavior.
+        @athena: 47401bca0465
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
