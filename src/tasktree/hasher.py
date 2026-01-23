@@ -1,3 +1,10 @@
+"""Task and argument hashing for incremental execution.
+
+Provides functions to compute deterministic hashes of task definitions,
+arguments, and environment configurations. These hashes are used to detect
+changes that require task re-execution in the incremental build system.
+"""
+
 import hashlib
 import json
 from typing import Any, Optional
@@ -23,6 +30,14 @@ def _arg_sort_key(arg: str | dict[str, Any]) -> str:
 
 def _normalize_choices_lists(args: list[str | dict[str, Any]]) ->  list[str | dict[str, Any]]:
     """
+    Normalize argument choices lists by sorting them for deterministic hashing.
+
+    Args:
+        args: List of argument specifications (strings or dicts)
+
+    Returns:
+        List of argument specs with sorted choices lists
+
     @athena: 7512379275e3
     """
     normalized_args = []
@@ -127,6 +142,14 @@ def hash_task(
 
 def hash_args(args_dict: dict[str, Any]) -> str:
     """
+    Hash task argument values for cache key generation.
+
+    Args:
+        args_dict: Dictionary mapping argument names to their values
+
+    Returns:
+        8-character hash of the argument dictionary
+
     @athena: 768e562bff64
     """
     serialized = json.dumps(args_dict, sort_keys=True, separators=(",", ":"))
@@ -171,6 +194,15 @@ def hash_environment_definition(env) -> str:
 
 def make_cache_key(task_hash: str, args_hash: Optional[str] = None) -> str:
     """
+    Combine task and argument hashes into a cache key.
+
+    Args:
+        task_hash: Hash of the task definition
+        args_hash: Optional hash of task arguments
+
+    Returns:
+        Combined cache key string in format "task_hash__args_hash" or just "task_hash"
+
     @athena: c85093f485c7
     """
     if args_hash:

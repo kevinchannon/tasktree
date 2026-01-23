@@ -1,3 +1,10 @@
+"""Command-line interface for Task Tree.
+
+Provides a Typer-based CLI with commands for listing, showing, executing,
+and managing task definitions. Supports task execution with incremental builds,
+dependency resolution, and rich terminal output via the Rich library.
+"""
+
 from __future__ import annotations
 
 import os
@@ -450,6 +457,15 @@ def _get_recipe(recipe_file: Optional[str] = None, root_task: Optional[str] = No
 
 def _execute_dynamic_task(args: list[str], force: bool = False, only: bool = False, env: Optional[str] = None, tasks_file: Optional[str] = None) -> None:
     """
+    Execute a task with its dependencies and handle argument parsing.
+
+    Args:
+        args: Task name followed by optional task arguments
+        force: Force re-execution even if task is up-to-date
+        only: Execute only the specified task, skip dependencies
+        env: Override environment for task execution
+        tasks_file: Path to recipe file (optional)
+
     @athena: 207f7635a60d
     """
     if not args:
@@ -545,6 +561,18 @@ def _execute_dynamic_task(args: list[str], force: bool = False, only: bool = Fal
 
 def _parse_task_args(arg_specs: list[str], arg_values: list[str]) -> dict[str, Any]:
     """
+    Parse and validate task arguments from command line values.
+
+    Args:
+        arg_specs: Task argument specifications with types and defaults
+        arg_values: Raw argument values from command line (positional or named)
+
+    Returns:
+        Dictionary mapping argument names to typed, validated values
+
+    Raises:
+        typer.Exit: If arguments are invalid, missing, or unknown
+
     @athena: 2072a35f9d11
     """
     if not arg_specs:
@@ -616,6 +644,14 @@ def _parse_task_args(arg_specs: list[str], arg_values: list[str]) -> dict[str, A
 
 def _build_rich_tree(dep_tree: dict) -> Tree:
     """
+    Build a Rich Tree visualization from a dependency tree structure.
+
+    Args:
+        dep_tree: Nested dictionary representing task dependencies
+
+    Returns:
+        Rich Tree object for terminal display
+
     @athena: 62472c8ca729
     """
     task_name = dep_tree["name"]

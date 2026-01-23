@@ -15,7 +15,9 @@
       "Bash(cat:*)",
       "Bash(tt --help:*)",
       "Bash(head:*)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(athena status:*)",
+      "Bash(athena sync:*)"
     ]
   }
 }

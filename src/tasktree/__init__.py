@@ -1,4 +1,7 @@
-"""Task Tree - A task automation tool with intelligent incremental execution."""
+"""
+Task Tree - A task automation tool with intelligent incremental execution.
+@athena: 1b4a97c4bc42
+"""
 
 try:
     from importlib.metadata import version
