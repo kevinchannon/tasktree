@@ -287,7 +287,7 @@ class Executor:
         # Platform default (no env name)
         return ""
 
-    def _resolve_environment(self, task: Task) -> tuple[str, list[str], str]:
+    def _resolve_environment(self, task: Task) -> tuple[str, str]:
         """
         Resolve which environment to use for a task.
 
@@ -301,7 +301,7 @@ class Executor:
         task: Task to resolve environment for
 
         Returns:
-        Tuple of (shell, args, preamble)
+        Tuple of (shell, preamble)
         @athena: 843700029078
         """
         # Check for global override first
@@ -319,12 +319,12 @@ class Executor:
         if env_name:
             env = self.recipe.get_environment(env_name)
             if env:
-                return env.shell, env.args, env.preamble
+                return env.shell, env.preamble
             # If env not found, fall through to platform default
 
         # Use platform default
-        shell, args = self._get_platform_default_environment()
-        return shell, args, ""
+        shell, _ = self._get_platform_default_environment()
+        return shell, ""
 
     def check_task_status(
             self,
@@ -584,7 +584,7 @@ class Executor:
             self._run_task_in_docker(task, env, cmd, working_dir, exported_env_vars)
         else:
             # Regular execution path - use unified script-based execution
-            shell, shell_args, preamble = self._resolve_environment(task)
+            shell, preamble = self._resolve_environment(task)
             self._run_command_as_script(cmd, working_dir, task.name, shell, preamble, exported_env_vars)
 
         # Update state
