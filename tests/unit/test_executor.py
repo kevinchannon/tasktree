@@ -94,8 +94,7 @@ class TestExecutor(unittest.TestCase):
     """
     @patch("subprocess.run")
     @patch("os.chmod")
-    @patch("os.unlink")
-    def test_execute_simple_task(self, mock_unlink, mock_chmod, mock_run):
+    def test_execute_simple_task(self, mock_chmod, mock_run):
         """
         Test executing a simple task.
         @athena: 6317905c844f
@@ -143,8 +142,7 @@ class TestExecutor(unittest.TestCase):
 
     @patch("subprocess.run")
     @patch("os.chmod")
-    @patch("os.unlink")
-    def test_execute_with_args(self, mock_unlink, mock_chmod, mock_run):
+    def test_execute_with_args(self, mock_chmod, mock_run):
         """
         Test executing task with arguments.
         @athena: 73be40a7105b
@@ -854,8 +852,7 @@ class TestOnlyMode(unittest.TestCase):
 
     @patch("subprocess.run")
     @patch("os.chmod")
-    @patch("os.unlink")
-    def test_only_mode_skips_dependencies(self, mock_unlink, mock_chmod, mock_run):
+    def test_only_mode_skips_dependencies(self, mock_chmod, mock_run):
         """
         Test that only=True executes only the target task, not dependencies.
         @athena: c6f1351d6ce1
@@ -888,8 +885,7 @@ class TestOnlyMode(unittest.TestCase):
 
     @patch("subprocess.run")
     @patch("os.chmod")
-    @patch("os.unlink")
-    def test_only_mode_with_multiple_dependencies(self, mock_unlink, mock_chmod, mock_run):
+    def test_only_mode_with_multiple_dependencies(self, mock_chmod, mock_run):
         """
         Test that only=True skips all dependencies in a chain.
         @athena: 26e51dc2998b
@@ -976,8 +972,7 @@ class TestMultilineExecution(unittest.TestCase):
 
     @patch("subprocess.run")
     @patch("os.chmod")
-    @patch("os.unlink")
-    def test_single_line_command_uses_shell(self, mock_unlink, mock_chmod, mock_run):
+    def test_single_line_command_uses_shell(self, mock_chmod, mock_run):
         """
         Test single-line commands execute via unified script execution.
         @athena: 39c1c27db0db
@@ -1004,8 +999,7 @@ class TestMultilineExecution(unittest.TestCase):
 
     @patch("subprocess.run")
     @patch("os.chmod")
-    @patch("os.unlink")
-    def test_folded_block_uses_single_line_execution(self, mock_unlink, mock_chmod, mock_run):
+    def test_folded_block_uses_single_line_execution(self, mock_chmod, mock_run):
         """
         Test that YAML folded blocks (>) execute via unified script execution.
         @athena: da835b76999d
@@ -1246,6 +1240,15 @@ class TestEnvironmentResolution(unittest.TestCase):
         """
         import platform
 
+        captured_script_content = []
+
+        def capture_script_content(*args, **kwargs):
+            # Read the script before subprocess.run returns
+            script_path = args[0][0]
+            with open(script_path, 'r') as f:
+                captured_script_content.append(f.read())
+            return MagicMock(returncode=0)
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -1260,19 +1263,16 @@ class TestEnvironmentResolution(unittest.TestCase):
             )
             executor = Executor(recipe, state_manager)
 
-            mock_run.return_value = MagicMock(returncode=0)
+            mock_run.side_effect = capture_script_content
             executor.execute_task("build")
 
-            # Verify script execution was used
-            call_args = mock_run.call_args[0][0]
-            script_path = call_args[0]
-            self.assertTrue(script_path.endswith(".sh") or script_path.endswith(".bat"))
+            # Verify script execution was used and contains fish shell
+            self.assertEqual(len(captured_script_content), 1)
+            script_content = captured_script_content[0]
 
             # Read the script to verify it uses fish shell
             if not platform.system() == "Windows":
-                with open(script_path, 'r') as f:
-                    script_content = f.read()
-                    self.assertIn("fish", script_content)
+                self.assertIn("fish", script_content)
 
     def test_hash_changes_with_environment(self):
         """
@@ -1299,6 +1299,15 @@ class TestEnvironmentResolution(unittest.TestCase):
         @athena: 5d62ad3e3913
         """
         os.environ['TEST_ENV_VAR'] = 'test_value'
+        captured_script_content = []
+
+        def capture_script_content(*args, **kwargs):
+            # Read the script before subprocess.run returns
+            script_path = args[0][0]
+            with open(script_path, 'r') as f:
+                captured_script_content.append(f.read())
+            return MagicMock(returncode=0)
+
         try:
             with TemporaryDirectory() as tmpdir:
                 project_root = Path(tmpdir)
@@ -1313,19 +1322,14 @@ class TestEnvironmentResolution(unittest.TestCase):
                 recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
                 executor = Executor(recipe, state_manager)
 
-                mock_run.return_value = MagicMock(returncode=0)
+                mock_run.side_effect = capture_script_content
                 executor._run_task(tasks["test"], {})
 
                 # Verify command has env var substituted in the script
-                called_cmd = mock_run.call_args[0][0]
-                script_path = called_cmd[0]
-                self.assertTrue(script_path.endswith(".sh") or script_path.endswith(".bat"))
-
-                # Read the script to verify env var was substituted
-                with open(script_path, 'r') as f:
-                    script_content = f.read()
-                    self.assertIn('test_value', script_content)
-                    self.assertNotIn('{{ env.TEST_ENV_VAR }}', script_content)
+                self.assertEqual(len(captured_script_content), 1)
+                script_content = captured_script_content[0]
+                self.assertIn('test_value', script_content)
+                self.assertNotIn('{{ env.TEST_ENV_VAR }}', script_content)
         finally:
             del os.environ['TEST_ENV_VAR']
 
