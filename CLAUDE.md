@@ -154,6 +154,8 @@ environments:
   env-name:
     default: true  # Make this the default environment
     shell: /bin/bash  # Shell environment
+    preamble: |  # Optional preamble prepended to all commands
+      set -euo pipefail
     # OR
     dockerfile: path/to/Dockerfile  # Docker environment
     context: build-context-dir

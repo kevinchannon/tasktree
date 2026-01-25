@@ -242,18 +242,13 @@ tasks:
 
 ### Commands
 
-**Single-line commands** are executed directly via the configured shell:
+All commands are executed by writing them to temporary script files. This provides consistent behavior and better shell syntax support:
 
 ```yaml
 tasks:
   build:
     cmd: cargo build --release
-```
 
-**Multi-line commands** are written to temporary script files for proper execution:
-
-```yaml
-tasks:
   deploy:
     cmd: |
       mkdir -p dist
@@ -261,7 +256,7 @@ tasks:
       rsync -av dist/ server:/opt/app/
 ```
 
-Multi-line commands preserve shell syntax (line continuations, heredocs, etc.) and support shebangs on Unix/macOS.
+Commands preserve shell syntax (line continuations, heredocs, etc.) and support shebangs on Unix/macOS.
 
 Or use folded blocks for long single-line commands:
 
@@ -277,7 +272,7 @@ tasks:
 
 ### Execution Environments
 
-Configure custom shell environments for task execution:
+Configure custom shell environments for task execution. Use the `preamble` field to add initialization code to all commands:
 
 ```yaml
 environments:
@@ -285,17 +280,14 @@ environments:
 
   bash-strict:
     shell: bash
-    args: ['-c']              # For single-line: bash -c "command"
-    preamble: |               # For multi-line: prepended to script
+    preamble: |               # Prepended to all commands
       set -euo pipefail
 
   python:
     shell: python
-    args: ['-c']
 
   powershell:
     shell: powershell
-    args: ['-ExecutionPolicy', 'Bypass', '-Command']
     preamble: |
       $ErrorActionPreference = 'Stop'
 
@@ -324,8 +316,8 @@ tasks:
 4. Platform default (bash on Unix, cmd on Windows)
 
 **Platform defaults** when no environments are configured:
-- **Unix/macOS**: bash with `-c` args
-- **Windows**: cmd with `/c` args
+- **Unix/macOS**: bash
+- **Windows**: cmd
 
 ### Docker Environments
 
