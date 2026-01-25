@@ -28,32 +28,38 @@ class TestUnifiedExecution(unittest.TestCase):
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
+            original_cwd = os.getcwd()
 
-            # Create output file path
-            output_file = project_root / "output.txt"
+            try:
+                # Change to project directory
+                os.chdir(project_root)
 
-            # Create recipe with single-line command
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text(f"""
+                # Create output file path
+                output_file = project_root / "output.txt"
+
+                # Create recipe with single-line command
+                recipe_file = project_root / "tasktree.yaml"
+                recipe_file.write_text(f"""
 tasks:
   test-single:
     cmd: echo "Hello World" > {output_file}
 """)
 
-            # Run task
-            result = self.runner.invoke(
-                app,
-                ["test-single"],
-                cwd=project_root,
-                env=self.env
-            )
+                # Run task
+                result = self.runner.invoke(
+                    app,
+                    ["test-single"],
+                    env=self.env
+                )
 
-            # Verify execution succeeded
-            self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+                # Verify execution succeeded
+                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}\n{result.stderr}")
 
-            # Verify output file was created
-            self.assertTrue(output_file.exists(), "Output file was not created")
-            self.assertIn("Hello World", output_file.read_text())
+                # Verify output file was created
+                self.assertTrue(output_file.exists(), "Output file was not created")
+                self.assertIn("Hello World", output_file.read_text())
+            finally:
+                os.chdir(original_cwd)
 
     def test_multiline_command_execution(self):
         """
@@ -61,13 +67,18 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
+            original_cwd = os.getcwd()
 
-            # Create output file path
-            output_file = project_root / "output.txt"
+            try:
+                # Change to project directory
+                os.chdir(project_root)
 
-            # Create recipe with multi-line command
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text(f"""
+                # Create output file path
+                output_file = project_root / "output.txt"
+
+                # Create recipe with multi-line command
+                recipe_file = project_root / "tasktree.yaml"
+                recipe_file.write_text(f"""
 tasks:
   test-multi:
     cmd: |
@@ -75,22 +86,23 @@ tasks:
       echo "Line 2" >> {output_file}
 """)
 
-            # Run task
-            result = self.runner.invoke(
-                app,
-                ["test-multi"],
-                cwd=project_root,
-                env=self.env
-            )
+                # Run task
+                result = self.runner.invoke(
+                    app,
+                    ["test-multi"],
+                    env=self.env
+                )
 
-            # Verify execution succeeded
-            self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+                # Verify execution succeeded
+                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}\n{result.stderr}")
 
-            # Verify output file was created with both lines
-            self.assertTrue(output_file.exists(), "Output file was not created")
-            content = output_file.read_text()
-            self.assertIn("Line 1", content)
-            self.assertIn("Line 2", content)
+                # Verify output file was created with both lines
+                self.assertTrue(output_file.exists(), "Output file was not created")
+                content = output_file.read_text()
+                self.assertIn("Line 1", content)
+                self.assertIn("Line 2", content)
+            finally:
+                os.chdir(original_cwd)
 
     def test_single_line_command_with_preamble(self):
         """
@@ -98,13 +110,18 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
+            original_cwd = os.getcwd()
 
-            # Create output file path
-            output_file = project_root / "output.txt"
+            try:
+                # Change to project directory
+                os.chdir(project_root)
 
-            # Create recipe with environment that has preamble
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text(f"""
+                # Create output file path
+                output_file = project_root / "output.txt"
+
+                # Create recipe with environment that has preamble
+                recipe_file = project_root / "tasktree.yaml"
+                recipe_file.write_text(f"""
 environments:
   strict:
     shell: bash
@@ -118,20 +135,21 @@ tasks:
     cmd: echo "$TEST_VAR" > {output_file}
 """)
 
-            # Run task
-            result = self.runner.invoke(
-                app,
-                ["test-preamble"],
-                cwd=project_root,
-                env=self.env
-            )
+                # Run task
+                result = self.runner.invoke(
+                    app,
+                    ["test-preamble"],
+                    env=self.env
+                )
 
-            # Verify execution succeeded
-            self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+                # Verify execution succeeded
+                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}\n{result.stderr}")
 
-            # Verify preamble environment variable was set
-            self.assertTrue(output_file.exists(), "Output file was not created")
-            self.assertIn("from_preamble", output_file.read_text())
+                # Verify preamble environment variable was set
+                self.assertTrue(output_file.exists(), "Output file was not created")
+                self.assertIn("from_preamble", output_file.read_text())
+            finally:
+                os.chdir(original_cwd)
 
     def test_multiline_command_with_preamble(self):
         """
@@ -139,13 +157,18 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
+            original_cwd = os.getcwd()
 
-            # Create output file path
-            output_file = project_root / "output.txt"
+            try:
+                # Change to project directory
+                os.chdir(project_root)
 
-            # Create recipe with environment that has preamble
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text(f"""
+                # Create output file path
+                output_file = project_root / "output.txt"
+
+                # Create recipe with environment that has preamble
+                recipe_file = project_root / "tasktree.yaml"
+                recipe_file.write_text(f"""
 environments:
   strict:
     shell: bash
@@ -162,23 +185,24 @@ tasks:
       echo "End" >> {output_file}
 """)
 
-            # Run task
-            result = self.runner.invoke(
-                app,
-                ["test-multi-preamble"],
-                cwd=project_root,
-                env=self.env
-            )
+                # Run task
+                result = self.runner.invoke(
+                    app,
+                    ["test-multi-preamble"],
+                    env=self.env
+                )
 
-            # Verify execution succeeded
-            self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+                # Verify execution succeeded
+                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}\n{result.stderr}")
 
-            # Verify preamble variable was used
-            self.assertTrue(output_file.exists(), "Output file was not created")
-            content = output_file.read_text()
-            self.assertIn("Start", content)
-            self.assertIn("preamble_value", content)
-            self.assertIn("End", content)
+                # Verify preamble variable was used
+                self.assertTrue(output_file.exists(), "Output file was not created")
+                content = output_file.read_text()
+                self.assertIn("Start", content)
+                self.assertIn("preamble_value", content)
+                self.assertIn("End", content)
+            finally:
+                os.chdir(original_cwd)
 
 
 if __name__ == "__main__":
