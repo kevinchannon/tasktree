@@ -445,7 +445,7 @@ def substitute_self_references(
     ...     indexed_outputs
     ... )
     'cp *.txt out/result.txt'
-    @athena: c42c1c534c55
+    @athena: 9d997ff08eef
     """
     def replacer(match: re.Match) -> str:
         field = match.group(1)  # "inputs" or "outputs"

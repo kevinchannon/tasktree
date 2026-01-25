@@ -64,7 +64,7 @@ class Environment:
 class Task:
     """
     Represents a task definition.
-    @athena: 34fdaf703d02
+    @athena: f516b5ae61c5
     """
 
     name: str
@@ -93,8 +93,8 @@ class Task:
 
     def __post_init__(self):
         """
-        Ensure lists are always lists and build output maps.
-        @athena: 18c6b1274a01
+        Ensure lists are always lists and build input/output maps and indexed lists.
+        @athena: a48b1eba81cd
         """
         if isinstance(self.deps, str):
             self.deps = [self.deps]

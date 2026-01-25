@@ -1,4 +1,7 @@
-"""Unit tests for substitution module."""
+"""
+Unit tests for substitution module.
+@athena: 6d71fa7b1f77
+"""
 
 import os
 import unittest
@@ -930,7 +933,7 @@ class TestSubstituteDependencyOutputs(unittest.TestCase):
 class TestSelfReferencePattern(unittest.TestCase):
     """
     Test the regex pattern for matching self-reference placeholders.
-    @athena: 506bd3623300
+    @athena: f782f128e72f
     """
 
     def test_pattern_matches_self_inputs(self):
@@ -1073,6 +1076,7 @@ class TestSelfReferencePattern(unittest.TestCase):
     def test_pattern_matches_numeric_index(self):
         """
         Test pattern matches {{ self.inputs.0 }} syntax.
+        @athena: 17f767495483
         """
         match = SELF_REFERENCE_PATTERN.search("{{ self.inputs.0 }}")
         self.assertIsNotNone(match)
@@ -1082,6 +1086,7 @@ class TestSelfReferencePattern(unittest.TestCase):
     def test_pattern_matches_multidigit_index(self):
         """
         Test pattern matches multi-digit indices.
+        @athena: 0e6c5bac2ab5
         """
         test_cases = [
             ("{{ self.inputs.42 }}", "42"),
@@ -1096,6 +1101,7 @@ class TestSelfReferencePattern(unittest.TestCase):
     def test_pattern_rejects_negative_indices(self):
         """
         Test pattern does not match negative indices.
+        @athena: fbee773da2fe
         """
         invalid = [
             "{{ self.inputs.-1 }}",
@@ -1108,6 +1114,7 @@ class TestSelfReferencePattern(unittest.TestCase):
     def test_pattern_rejects_float_indices(self):
         """
         Test pattern does not match floating point indices.
+        @athena: d2ecfcc42ea8
         """
         invalid = [
             "{{ self.inputs.1.5 }}",
@@ -1121,13 +1128,13 @@ class TestSelfReferencePattern(unittest.TestCase):
 class TestSubstituteSelfReferences(unittest.TestCase):
     """
     Test substitute_self_references function.
-    @athena: a09cceef5c80
+    @athena: a75c47a1b237
     """
 
     def test_substitute_single_input(self):
         """
         Test substituting a single input reference.
-        @athena: abfd6816a1fe
+        @athena: f5aa8b4425d6
         """
         input_map = {"src": "src/app.js"}
         output_map = {}
@@ -1138,7 +1145,7 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_substitute_single_output(self):
         """
         Test substituting a single output reference.
-        @athena: a373b682d5fd
+        @athena: 7a9312269af1
         """
         input_map = {}
         output_map = {"dest": "dist/app.js"}
@@ -1149,7 +1156,7 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_substitute_multiple_references(self):
         """
         Test substituting multiple self-references in same text.
-        @athena: bb9d436f08cb
+        @athena: 642fd8b4df2f
         """
         input_map = {"src": "src/main.c", "headers": "include/*.h"}
         output_map = {"binary": "build/app"}
@@ -1160,7 +1167,7 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_substitute_mixed_inputs_and_outputs(self):
         """
         Test substituting both inputs and outputs in same command.
-        @athena: 727bef69191f
+        @athena: a8c4b4693397
         """
         input_map = {"config": "config.json"}
         output_map = {"log": "build.log"}
@@ -1171,7 +1178,7 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_substitute_glob_pattern_verbatim(self):
         """
         Test that glob patterns are substituted as-is without expansion.
-        @athena: a9d50a74811b
+        @athena: 6f1555a6e38d
         """
         input_map = {"sources": "src/**/*.js"}
         output_map = {"bundle": "dist/*.min.js"}
@@ -1183,7 +1190,7 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_substitute_no_placeholders(self):
         """
         Test that text without placeholders is unchanged.
-        @athena: 6eb29a31a91a
+        @athena: 31af1437d1be
         """
         input_map = {"src": "file.txt"}
         output_map = {"dest": "out.txt"}
@@ -1194,7 +1201,7 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_error_on_missing_input_name(self):
         """
         Test that referencing non-existent input raises error with available names.
-        @athena: b216b282f7de
+        @athena: 6206dde09c5a
         """
         input_map = {"src": "file.txt", "config": "config.json"}
         output_map = {}
@@ -1211,7 +1218,7 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_error_on_missing_output_name(self):
         """
         Test that referencing non-existent output raises error with available names.
-        @athena: a50ccd461cc1
+        @athena: 8c7525c15305
         """
         input_map = {}
         output_map = {"bundle": "dist/app.js", "sourcemap": "dist/app.js.map"}
@@ -1228,7 +1235,7 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_error_with_empty_input_map(self):
         """
         Test error message when all inputs are anonymous.
-        @athena: 7c41dc7b56b1
+        @athena: 982070c53bb3
         """
         input_map = {}
         output_map = {}
@@ -1243,7 +1250,7 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_error_with_empty_output_map(self):
         """
         Test error message when all outputs are anonymous.
-        @athena: 1e732071e93e
+        @athena: 0f14b88b5156
         """
         input_map = {}
         output_map = {}
@@ -1258,7 +1265,7 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_substitute_ignores_other_placeholders(self):
         """
         Test that other placeholder types are not touched.
-        @athena: 188ba0ae0fef
+        @athena: d6102023946f
         """
         input_map = {"src": "file.txt"}
         output_map = {"dest": "out.txt"}
@@ -1270,7 +1277,7 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_substitute_same_reference_multiple_times(self):
         """
         Test substituting the same reference multiple times.
-        @athena: d84ca1b51580
+        @athena: 4b88c1d3cbd4
         """
         input_map = {"config": "app.json"}
         output_map = {}
@@ -1281,7 +1288,7 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_substitute_with_underscores(self):
         """
         Test that names with underscores work correctly.
-        @athena: 479c86e47779
+        @athena: 32da29013926
         """
         input_map = {"source_file": "src/main.c", "header_files": "include/*.h"}
         output_map = {"output_binary": "bin/app"}
@@ -1292,7 +1299,7 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_substitute_empty_string(self):
         """
         Test that empty string is handled correctly.
-        @athena: c367228275c4
+        @athena: eff5e22f5a6e
         """
         input_map = {"src": "file.txt"}
         output_map = {}
@@ -1303,6 +1310,7 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_substitute_positional_input(self):
         """
         Test basic positional input access.
+        @athena: cd6b985862bf
         """
         input_map = {}
         output_map = {}
@@ -1315,6 +1323,7 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_substitute_positional_output(self):
         """
         Test basic positional output access.
+        @athena: d22906dd4714
         """
         input_map = {}
         output_map = {}
@@ -1327,6 +1336,7 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_substitute_multiple_positional_references(self):
         """
         Test multiple positional references in same text.
+        @athena: c615e1c19418
         """
         input_map = {}
         output_map = {}
@@ -1339,6 +1349,7 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_substitute_mixed_named_and_positional(self):
         """
         Test mixing named and positional access in same text.
+        @athena: 626f1b67e8db
         """
         input_map = {"config": "app.json"}
         output_map = {"log": "build.log"}
@@ -1351,6 +1362,7 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_substitute_same_item_by_name_and_index(self):
         """
         Test accessing same item by both name and positional index.
+        @athena: 313e1c3198da
         """
         input_map = {"src": "src/app.js"}
         output_map = {}
@@ -1363,6 +1375,7 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_error_on_out_of_bounds_input_index(self):
         """
         Test error when input index is out of bounds.
+        @athena: 252c60951baa
         """
         input_map = {}
         output_map = {}
@@ -1380,6 +1393,7 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_error_on_out_of_bounds_output_index(self):
         """
         Test error when output index is out of bounds.
+        @athena: 7391f6ffcaee
         """
         input_map = {}
         output_map = {}
@@ -1397,6 +1411,7 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_error_on_empty_inputs_with_index(self):
         """
         Test error when referencing index on empty inputs list.
+        @athena: 123459084e84
         """
         input_map = {}
         output_map = {}
@@ -1413,6 +1428,7 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_error_on_empty_outputs_with_index(self):
         """
         Test error when referencing index on empty outputs list.
+        @athena: 38ef4134d8f8
         """
         input_map = {}
         output_map = {}
@@ -1429,6 +1445,7 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_substitute_positional_with_glob_patterns(self):
         """
         Test positional access with glob patterns (substituted as-is).
+        @athena: a65e3f4936eb
         """
         input_map = {}
         output_map = {}

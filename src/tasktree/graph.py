@@ -453,23 +453,28 @@ def resolve_self_references(
     ordered_tasks: list[tuple[str, dict[str, Any]]],
 ) -> None:
     """
-    Resolve {{ self.inputs.name }} and {{ self.outputs.name }} references.
+    Resolve {{ self.inputs.name }} and {{ self.inputs.0 }} style references.
 
     This function walks through tasks and resolves self-references to task's own
-    inputs/outputs. Must be called AFTER resolve_dependency_output_references()
-    so that dependency outputs are already resolved in output paths.
+    inputs/outputs. Supports both named access ({{ self.inputs.name }}) and
+    positional access ({{ self.inputs.0 }}, {{ self.inputs.1 }}, etc.).
+
+    Must be called AFTER resolve_dependency_output_references() so that
+    dependency outputs are already resolved in output paths.
 
     Args:
     recipe: Recipe containing task definitions
     ordered_tasks: List of (task_name, args) tuples in topological order
 
     Raises:
-    ValueError: If self-reference cannot be resolved (missing name, etc.)
+    ValueError: If self-reference cannot be resolved (missing name, out of bounds index, etc.)
 
     Example:
     If task.cmd contains "{{ self.inputs.src }}" and task has input {src: "*.txt"},
     it will be resolved to "*.txt" (literal string, no glob expansion).
-    @athena: a5ea8bef55b7
+    If task.cmd contains "{{ self.inputs.0 }}" and task has inputs ["*.txt", "*.md"],
+    it will be resolved to "*.txt" (first input in YAML order).
+    @athena: 641e28567d1d
     """
     from tasktree.substitution import substitute_self_references
 

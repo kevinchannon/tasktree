@@ -4043,11 +4043,13 @@ tasks:
 class TestIndexedInputsOutputs(unittest.TestCase):
     """
     Tests for indexed input/output lists used for positional access.
+    @athena: f266dd19ee3c
     """
 
     def test_indexed_outputs_maintain_yaml_order(self):
         """
         Test that _indexed_outputs maintains YAML declaration order.
+        @athena: 22724c77940f
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
@@ -4077,6 +4079,7 @@ tasks:
     def test_indexed_inputs_maintain_yaml_order(self):
         """
         Test that _indexed_inputs maintains YAML declaration order.
+        @athena: cc83bcfbda74
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
@@ -4106,6 +4109,7 @@ tasks:
     def test_indexed_outputs_named_only(self):
         """
         Test indexed list with only named outputs.
+        @athena: 16bf77a5e80d
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
@@ -4130,6 +4134,7 @@ tasks:
     def test_indexed_inputs_anonymous_only(self):
         """
         Test indexed list with only anonymous inputs.
+        @athena: 891dcf512e77
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
@@ -4153,6 +4158,7 @@ tasks:
     def test_indexed_lists_empty_when_no_inputs_outputs(self):
         """
         Test that indexed lists are empty when no inputs/outputs defined.
+        @athena: 6a4b58eb75f8
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
