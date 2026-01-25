@@ -1249,7 +1249,7 @@ class TestEnvironmentResolution(unittest.TestCase):
 
     def test_resolve_environment_with_custom_env(self):
         """
-        Test resolving environment with custom shell and args.
+        Test resolving environment with custom shell and preamble.
         @athena: 82fd09bacad8
         """
         with TemporaryDirectory() as tmpdir:
@@ -1270,9 +1270,8 @@ class TestEnvironmentResolution(unittest.TestCase):
             )
             executor = Executor(recipe, state_manager)
 
-            shell, args, preamble = executor._resolve_environment(tasks["build"])
+            shell, preamble = executor._resolve_environment(tasks["build"])
             self.assertEqual(shell, "zsh")
-            self.assertEqual(args, ["-c"])
             self.assertEqual(preamble, "set -e\n")
 
     @patch("subprocess.run")

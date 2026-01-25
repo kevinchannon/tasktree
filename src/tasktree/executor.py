@@ -287,7 +287,7 @@ class Executor:
         # Platform default (no env name)
         return ""
 
-    def _resolve_environment(self, task: Task) -> tuple[str, list[str], str]:
+    def _resolve_environment(self, task: Task) -> tuple[str, str]:
         """
         Resolve which environment to use for a task.
 
@@ -301,7 +301,7 @@ class Executor:
         task: Task to resolve environment for
 
         Returns:
-        Tuple of (shell, args, preamble)
+        Tuple of (shell, preamble)
         @athena: 843700029078
         """
         # Check for global override first
@@ -319,12 +319,12 @@ class Executor:
         if env_name:
             env = self.recipe.get_environment(env_name)
             if env:
-                return env.shell, env.args, env.preamble
+                return env.shell, env.preamble
             # If env not found, fall through to platform default
 
         # Use platform default
-        shell, args = self._get_platform_default_environment()
-        return shell, args, ""
+        shell, _ = self._get_platform_default_environment()
+        return shell, ""
 
     def check_task_status(
             self,
@@ -584,123 +584,11 @@ class Executor:
             self._run_task_in_docker(task, env, cmd, working_dir, exported_env_vars)
         else:
             # Regular execution path - use unified script-based execution
-            shell, shell_args, preamble = self._resolve_environment(task)
+            shell, preamble = self._resolve_environment(task)
             self._run_command_as_script(cmd, working_dir, task.name, shell, preamble, exported_env_vars)
 
         # Update state
         self._update_state(task, args_dict)
-
-    def _run_single_line_command(
-            self, cmd: str, working_dir: Path, task_name: str, shell: str, shell_args: list[str],
-            exported_env_vars: dict[str, str] | None = None
-    ) -> None:
-        """
-        Execute a single-line command via shell.
-
-        Args:
-        cmd: Command string
-        working_dir: Working directory
-        task_name: Task name (for error messages)
-        shell: Shell executable to use
-        shell_args: Arguments to pass to shell
-        exported_env_vars: Exported arguments to set as environment variables
-
-        Raises:
-        ExecutionError: If command execution fails
-        @athena: 46849e6a0bbb
-        """
-        # Prepare environment with exported args
-        env = self._prepare_env_with_exports(exported_env_vars)
-
-        try:
-            # Build command: shell + args + cmd
-            full_cmd = [shell] + shell_args + [cmd]
-            subprocess.run(
-                full_cmd,
-                cwd=working_dir,
-                check=True,
-                capture_output=False,
-                env=env,
-            )
-        except subprocess.CalledProcessError as e:
-            raise ExecutionError(
-                f"Task '{task_name}' failed with exit code {e.returncode}"
-            )
-
-    def _run_multiline_command(
-            self, cmd: str, working_dir: Path, task_name: str, shell: str, preamble: str,
-            exported_env_vars: dict[str, str] | None = None
-    ) -> None:
-        """
-        Execute a multi-line command via temporary script file.
-
-        Args:
-        cmd: Multi-line command string
-        working_dir: Working directory
-        task_name: Task name (for error messages)
-        shell: Shell to use for script execution
-        preamble: Preamble text to prepend to script
-        exported_env_vars: Exported arguments to set as environment variables
-
-        Raises:
-        ExecutionError: If command execution fails
-        @athena: 825892b6db05
-        """
-        # Prepare environment with exported args
-        env = self._prepare_env_with_exports(exported_env_vars)
-
-        # Determine file extension based on platform
-        is_windows = platform.system() == "Windows"
-        script_ext = ".bat" if is_windows else ".sh"
-
-        # Create temporary script file
-        with tempfile.NamedTemporaryFile(
-                mode="w",
-                suffix=script_ext,
-                delete=False,
-        ) as script_file:
-            script_path = script_file.name
-
-            # On Unix/macOS, add shebang if not present
-            if not is_windows and not cmd.startswith("#!"):
-                # Use the configured shell in shebang
-                shebang = f"#!/usr/bin/env {shell}\n"
-                script_file.write(shebang)
-
-            # Add preamble if provided
-            if preamble:
-                script_file.write(preamble)
-                if not preamble.endswith("\n"):
-                    script_file.write("\n")
-
-            # Write command to file
-            script_file.write(cmd)
-            script_file.flush()
-
-        try:
-            # Make executable on Unix/macOS
-            if not is_windows:
-                os.chmod(script_path, os.stat(script_path).st_mode | stat.S_IEXEC)
-
-            # Execute script file
-            try:
-                subprocess.run(
-                    [script_path],
-                    cwd=working_dir,
-                    check=True,
-                    capture_output=False,
-                    env=env,
-                )
-            except subprocess.CalledProcessError as e:
-                raise ExecutionError(
-                    f"Task '{task_name}' failed with exit code {e.returncode}"
-                )
-        finally:
-            # Clean up temporary file
-            try:
-                os.unlink(script_path)
-            except OSError:
-                pass  # Ignore cleanup errors
 
     def _run_command_as_script(
             self, cmd: str, working_dir: Path, task_name: str, shell: str, preamble: str,
