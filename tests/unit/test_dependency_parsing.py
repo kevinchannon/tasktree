@@ -5,8 +5,6 @@ from tasktree.parser import (
     Task,
     parse_dependency_spec,
     DependencyInvocation,
-    _parse_positional_dependency_args,
-    _parse_named_dependency_args,
 )
 
 

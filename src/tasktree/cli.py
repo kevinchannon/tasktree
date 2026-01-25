@@ -139,7 +139,7 @@ def _list_tasks(tasks_file: Optional[str] = None):
     # Create borderless table with three columns
     table = Table(show_edge=False, show_header=False, box=None, padding=(0, 2))
 
-    # Command column: fixed width to accommodate longest task name
+    # Command column: fixed width to accommodate the longest task name
     table.add_column("Command", style="bold cyan", no_wrap=True, width=max_task_name_len)
 
     # Arguments column: allow wrapping with sensible max width

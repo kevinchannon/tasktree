@@ -435,13 +435,13 @@ def extract_from_images(dockerfile_content: str) -> list[tuple[str, str | None]]
     Returns:
     List of (image_reference, digest) tuples where digest may be None for unpinned images
     Example: [("rust:1.75", None), ("rust", "sha256:abc123...")]
-    @athena: ede7ed483bdd
+    @athena: de0d013fdd05
     """
     # Regex pattern to match FROM lines
     # Handles: FROM [--platform=...] image[:tag][@digest] [AS alias]
     from_pattern = re.compile(
         r"^\s*FROM\s+"  # FROM keyword
-        r"(?:--platform=[^\s]+\s+)?"  # Optional platform flag
+        r"(?:--platform=\S+\s+)?"  # Optional platform flag
         r"([^\s@]+)"  # Image name (possibly with :tag)
         r"(?:@(sha256:[a-f0-9]+))?"  # Optional @digest
         r"(?:\s+AS\s+\w+)?"  # Optional AS alias

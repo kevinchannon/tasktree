@@ -286,7 +286,7 @@ class TestResolveContainerWorkingDir(unittest.TestCase):
 class TestDockerManager(unittest.TestCase):
     """
     Test DockerManager class.
-    @athena: 44d847327cd2
+    @athena: aaeffe586f1b
     """
 
     def setUp(self):
@@ -301,7 +301,7 @@ class TestDockerManager(unittest.TestCase):
     def test_ensure_image_built_caching(self, mock_run):
         """
         Test that images are cached per invocation.
-        @athena: 4e2e1b6d6c21
+        @athena: e02d8a260122
         """
         env = Environment(
             name="builder",
@@ -339,7 +339,7 @@ class TestDockerManager(unittest.TestCase):
     def test_build_command_structure(self, mock_run):
         """
         Test that docker build command is structured correctly.
-        @athena: 30ab87a79ec0
+        @athena: 39d801beba77
         """
         env = Environment(
             name="builder",
@@ -372,7 +372,7 @@ class TestDockerManager(unittest.TestCase):
     def test_build_command_with_build_args(self, mock_run):
         """
         Test that docker build command includes --build-arg flags.
-        @athena: 71d7636fa64b
+        @athena: 52ab7507bef3
         """
         env = Environment(
             name="builder",
@@ -423,7 +423,7 @@ class TestDockerManager(unittest.TestCase):
     def test_build_command_with_empty_build_args(self, mock_run):
         """
         Test that docker build command works with empty build args dict.
-        @athena: 80af1c668b3f
+        @athena: ab6aed370b6d
         """
         env = Environment(
             name="builder",
@@ -459,7 +459,7 @@ class TestDockerManager(unittest.TestCase):
     def test_build_command_with_special_characters_in_args(self, mock_run):
         """
         Test that build args with special characters are handled correctly.
-        @athena: b07df0823d4d
+        @athena: e7b4f0147089
         """
         env = Environment(
             name="builder",
@@ -577,7 +577,7 @@ class TestDockerManager(unittest.TestCase):
     ):
         """
         Test that --user flag is added by default on Linux.
-        @athena: d743f7bb3971
+        @athena: d054aa129d81
         """
         mock_platform.return_value = "Linux"
         mock_getuid.return_value = 1000
@@ -621,7 +621,7 @@ class TestDockerManager(unittest.TestCase):
     def test_run_in_container_skips_user_flag_on_windows(self, mock_platform, mock_run):
         """
         Test that --user flag is NOT added on Windows.
-        @athena: 0c07a3f85462
+        @athena: 9895a4a884d6
         """
         mock_platform.return_value = "Windows"
 
@@ -665,7 +665,7 @@ class TestDockerManager(unittest.TestCase):
     ):
         """
         Test that run_as_root=True prevents --user flag from being added.
-        @athena: 84e5c4ca0e1e
+        @athena: 47ae8b1d0bdc
         """
         mock_platform.return_value = "Linux"
         mock_getuid.return_value = 1000
@@ -708,7 +708,7 @@ class TestDockerManager(unittest.TestCase):
     def test_run_in_container_includes_extra_args(self, mock_platform, mock_run):
         """
         Test that extra_args are properly included in docker run command.
-        @athena: fbd3fa0dc249
+        @athena: 7fcf0e6f7cfd
         """
         mock_platform.return_value = "Windows"  # Skip user flag for simplicity
 
@@ -763,7 +763,7 @@ class TestDockerManager(unittest.TestCase):
     def test_run_in_container_with_empty_extra_args(self, mock_platform, mock_run):
         """
         Test that empty extra_args list works correctly.
-        @athena: 21ed577b0151
+        @athena: 3a4ef02a0dfc
         """
         mock_platform.return_value = "Windows"
 
@@ -806,7 +806,7 @@ class TestDockerManager(unittest.TestCase):
     def test_run_in_container_with_shell_args(self, mock_platform, mock_run):
         """
         Test that shell args list works correctly.
-        @athena: 7e42f206119d
+        @athena: ed24f4a0da40
         """
         mock_platform.return_value = "Windows"
 
@@ -852,7 +852,7 @@ class TestDockerManager(unittest.TestCase):
 
         Note: Variable substitution happens in the executor before calling docker manager.
         This test verifies that the docker manager correctly handles already-substituted paths.
-        @athena: 040a64ca5b9f
+        @athena: dd5188cdc5b3
         """
         mock_platform.return_value = "Linux"
 
