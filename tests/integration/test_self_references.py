@@ -1,4 +1,7 @@
-"""Integration tests for self-reference templates."""
+"""
+Integration tests for self-reference templates.
+@athena: c14fc2c96447
+"""
 
 import os
 import re
@@ -1458,6 +1461,366 @@ tasks:
                 self.assertIn("Running: compile", output)
                 self.assertIn("Running: link", output)
                 self.assertIn("Running: package", output)
+            finally:
+                os.chdir(original_cwd)
+
+
+class TestPositionalSelfReferences(unittest.TestCase):
+    """
+    Test positional self-reference functionality ({{ self.inputs.0 }}, etc.).
+    @athena: 2f4524625849
+    """
+
+    def setUp(self):
+        """
+        Set up test fixtures.
+        @athena: 36a706d60319
+        """
+        self.runner = CliRunner()
+        self.env = {"NO_COLOR": "1"}
+
+    def test_basic_positional_input(self):
+        """
+        Test basic positional input access {{ self.inputs.0 }}.
+        @athena: 28758fde1a39
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create source files
+            (project_root / "file1.txt").write_text("First")
+            (project_root / "file2.txt").write_text("Second")
+
+            # Create recipe with positional input references
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+tasks:
+  concat:
+    inputs: ["file1.txt", "file2.txt"]
+    outputs: [result.txt]
+    cmd: cat {{ self.inputs.0 }} {{ self.inputs.1 }} > result.txt
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Run task
+                result = self.runner.invoke(app, ["concat"], env=self.env)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+
+                # Verify output file contains both files in order
+                output_file = project_root / "result.txt"
+                self.assertTrue(output_file.exists(), "Output file should exist")
+                content = output_file.read_text()
+                self.assertIn("First", content)
+                self.assertIn("Second", content)
+            finally:
+                os.chdir(original_cwd)
+
+    def test_basic_positional_output(self):
+        """
+        Test basic positional output access {{ self.outputs.0 }}.
+        @athena: a828e9799336
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create recipe with positional output reference
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+tasks:
+  generate:
+    outputs: ["first.txt", "second.txt"]
+    cmd: |
+      echo "Output 1" > {{ self.outputs.0 }}
+      echo "Output 2" > {{ self.outputs.1 }}
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Run task
+                result = self.runner.invoke(app, ["generate"], env=self.env)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+
+                # Verify both output files were created
+                first_file = project_root / "first.txt"
+                second_file = project_root / "second.txt"
+                self.assertTrue(first_file.exists(), "First output should exist")
+                self.assertTrue(second_file.exists(), "Second output should exist")
+                self.assertEqual(first_file.read_text().strip(), "Output 1")
+                self.assertEqual(second_file.read_text().strip(), "Output 2")
+            finally:
+                os.chdir(original_cwd)
+
+    def test_mixed_named_and_positional(self):
+        """
+        Test mixing named and positional access in same command.
+        @athena: fd0cad02b965
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create source files
+            (project_root / "named.txt").write_text("Named")
+            (project_root / "anon.txt").write_text("Anonymous")
+
+            # Create recipe with both named and positional references
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+tasks:
+  process:
+    inputs:
+      - config: named.txt
+      - anon.txt
+    outputs:
+      - result: output.txt
+      - debug.log
+    cmd: |
+      cat {{ self.inputs.config }} {{ self.inputs.1 }} > {{ self.outputs.result }}
+      echo "Processed" > {{ self.outputs.1 }}
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Run task
+                result = self.runner.invoke(app, ["process"], env=self.env)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+
+                # Verify both output files
+                output_file = project_root / "output.txt"
+                self.assertTrue(output_file.exists(), "Result file should exist")
+                content = output_file.read_text()
+                self.assertIn("Named", content)
+                self.assertIn("Anonymous", content)
+
+                debug_file = project_root / "debug.log"
+                self.assertTrue(debug_file.exists(), "Debug file should exist")
+                self.assertEqual(debug_file.read_text().strip(), "Processed")
+            finally:
+                os.chdir(original_cwd)
+
+    def test_same_item_by_name_and_index(self):
+        """
+        Test accessing same item by both name and positional index.
+        @athena: b7c108b53f88
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create source file
+            (project_root / "data.txt").write_text("Data")
+
+            # Create recipe accessing same input by name and index
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+tasks:
+  duplicate:
+    inputs:
+      - source: data.txt
+    outputs: [copy1.txt, copy2.txt]
+    cmd: |
+      cat {{ self.inputs.source }} > {{ self.outputs.0 }}
+      cat {{ self.inputs.0 }} > {{ self.outputs.1 }}
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Run task
+                result = self.runner.invoke(app, ["duplicate"], env=self.env)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+
+                # Verify both copies have same content
+                copy1 = project_root / "copy1.txt"
+                copy2 = project_root / "copy2.txt"
+                self.assertTrue(copy1.exists())
+                self.assertTrue(copy2.exists())
+                self.assertEqual(copy1.read_text(), "Data")
+                self.assertEqual(copy2.read_text(), "Data")
+            finally:
+                os.chdir(original_cwd)
+
+    def test_positional_with_variables(self):
+        """
+        Test positional access with variables in input paths.
+        @athena: 1509537e05f3
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create source file with variable-expanded name
+            (project_root / "file-1.0.txt").write_text("Version 1.0")
+
+            # Create recipe with variable in input path accessed positionally
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+variables:
+  version: "1.0"
+
+tasks:
+  process:
+    inputs: ["file-{{ var.version }}.txt"]
+    outputs: [result.txt]
+    cmd: cat {{ self.inputs.0 }} > {{ self.outputs.0 }}
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Run task
+                result = self.runner.invoke(app, ["process"], env=self.env)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+
+                # Verify output
+                output_file = project_root / "result.txt"
+                self.assertTrue(output_file.exists())
+                self.assertEqual(output_file.read_text(), "Version 1.0")
+            finally:
+                os.chdir(original_cwd)
+
+    def test_error_on_out_of_bounds_input_index(self):
+        """
+        Test error when input index is out of bounds.
+        @athena: b84afdf547e1
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create recipe with out-of-bounds index
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+tasks:
+  build:
+    inputs: ["file1.txt", "file2.txt"]
+    outputs: [output.txt]
+    cmd: cat {{ self.inputs.5 }} > output.txt
+""")
+
+            # Create input files
+            (project_root / "file1.txt").write_text("File 1")
+            (project_root / "file2.txt").write_text("File 2")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Run task - should fail
+                result = self.runner.invoke(app, ["build"], env=self.env)
+                self.assertNotEqual(result.exit_code, 0, "Task should fail with out-of-bounds index")
+
+                # Check error message
+                output = strip_ansi_codes(result.output)
+                self.assertIn("index '5'", output.lower())
+                self.assertIn("only has 2", output.lower())
+            finally:
+                os.chdir(original_cwd)
+
+    def test_error_on_out_of_bounds_output_index(self):
+        """
+        Test error when output index is out of bounds.
+        @athena: cbc5df124846
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create recipe with out-of-bounds output index
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+tasks:
+  generate:
+    outputs: [output.txt]
+    cmd: echo "test" > {{ self.outputs.3 }}
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Run task - should fail
+                result = self.runner.invoke(app, ["generate"], env=self.env)
+                self.assertNotEqual(result.exit_code, 0, "Task should fail with out-of-bounds index")
+
+                # Check error message
+                output = strip_ansi_codes(result.output)
+                self.assertIn("index '3'", output.lower())
+                self.assertIn("1 outputs", output.lower())
+            finally:
+                os.chdir(original_cwd)
+
+    def test_error_on_empty_inputs_with_index(self):
+        """
+        Test error when referencing index on task with no inputs.
+        @athena: 807447c6b396
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create recipe with no inputs but positional reference
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+tasks:
+  build:
+    outputs: [output.txt]
+    cmd: cat {{ self.inputs.0 }} > output.txt
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Run task - should fail
+                result = self.runner.invoke(app, ["build"], env=self.env)
+                self.assertNotEqual(result.exit_code, 0, "Task should fail when no inputs exist")
+
+                # Check error message
+                output = strip_ansi_codes(result.output)
+                self.assertIn("inputs defined", output.lower())
+            finally:
+                os.chdir(original_cwd)
+
+    def test_positional_with_glob_patterns(self):
+        """
+        Test positional access with glob patterns substituted verbatim.
+        @athena: e480ee8eddf7
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create source files
+            (project_root / "a.txt").write_text("A")
+            (project_root / "b.txt").write_text("B")
+
+            # Create recipe with glob pattern accessed positionally
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+tasks:
+  concat:
+    inputs: ["*.txt"]
+    outputs: [all.txt]
+    cmd: cat {{ self.inputs.0 }} > {{ self.outputs.0 }}
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Run task
+                result = self.runner.invoke(app, ["concat"], env=self.env)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+
+                # Verify output file contains both files (glob expanded by shell)
+                output_file = project_root / "all.txt"
+                self.assertTrue(output_file.exists())
+                content = output_file.read_text()
+                # Shell expands *.txt to both files
+                self.assertTrue("A" in content or "B" in content)
             finally:
                 os.chdir(original_cwd)
 
