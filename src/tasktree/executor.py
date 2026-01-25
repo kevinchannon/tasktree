@@ -583,14 +583,9 @@ class Executor:
             # Docker execution path
             self._run_task_in_docker(task, env, cmd, working_dir, exported_env_vars)
         else:
-            # Regular execution path
+            # Regular execution path - use unified script-based execution
             shell, shell_args, preamble = self._resolve_environment(task)
-
-            # Detect multi-line commands (ignore trailing newlines from YAML folded blocks)
-            if "\n" in cmd.rstrip():
-                self._run_multiline_command(cmd, working_dir, task.name, shell, preamble, exported_env_vars)
-            else:
-                self._run_single_line_command(cmd, working_dir, task.name, shell, shell_args, exported_env_vars)
+            self._run_command_as_script(cmd, working_dir, task.name, shell, preamble, exported_env_vars)
 
         # Update state
         self._update_state(task, args_dict)
