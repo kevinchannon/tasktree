@@ -165,6 +165,111 @@ class TestExecutor(unittest.TestCase):
             call_args = mock_run.call_args
             self.assertEqual(call_args[0][0], ["bash", "-c", "echo Deploying to production"])
 
+    @patch("subprocess.run")
+    @patch("os.chmod")
+    @patch("os.unlink")
+    def test_run_command_as_script_single_line(self, mock_unlink, mock_chmod, mock_run):
+        """
+        Test _run_command_as_script with single-line command.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+            tasks = {"test": Task(name="test", cmd="echo hello")}
+            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
+            executor = Executor(recipe, state_manager)
+
+            mock_run.return_value = MagicMock(returncode=0)
+
+            # Call the unified method directly
+            executor._run_command_as_script(
+                cmd="echo hello",
+                working_dir=project_root,
+                task_name="test",
+                shell="bash",
+                preamble=""
+            )
+
+            # Verify subprocess.run was called with a script path
+            mock_run.assert_called_once()
+            call_args = mock_run.call_args
+            script_path = call_args[0][0][0]
+            self.assertTrue(script_path.endswith(".sh"))
+
+            # Verify chmod was called to make script executable
+            mock_chmod.assert_called_once()
+
+            # Verify cleanup (unlink) was called
+            mock_unlink.assert_called_once()
+
+    @patch("subprocess.run")
+    @patch("os.chmod")
+    @patch("os.unlink")
+    def test_run_command_as_script_with_preamble(self, mock_unlink, mock_chmod, mock_run):
+        """
+        Test _run_command_as_script with preamble.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+            tasks = {"test": Task(name="test", cmd="echo hello")}
+            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
+            executor = Executor(recipe, state_manager)
+
+            mock_run.return_value = MagicMock(returncode=0)
+
+            # Call with preamble
+            executor._run_command_as_script(
+                cmd="echo hello",
+                working_dir=project_root,
+                task_name="test",
+                shell="bash",
+                preamble="set -e\n"
+            )
+
+            # Verify subprocess.run was called
+            mock_run.assert_called_once()
+
+            # Verify chmod was called
+            mock_chmod.assert_called_once()
+
+            # Verify cleanup
+            mock_unlink.assert_called_once()
+
+    @patch("subprocess.run")
+    @patch("os.chmod")
+    @patch("os.unlink")
+    def test_run_command_as_script_multiline(self, mock_unlink, mock_chmod, mock_run):
+        """
+        Test _run_command_as_script with multi-line command.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+            tasks = {"test": Task(name="test", cmd="echo hello\necho world")}
+            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
+            executor = Executor(recipe, state_manager)
+
+            mock_run.return_value = MagicMock(returncode=0)
+
+            # Call with multi-line command
+            executor._run_command_as_script(
+                cmd="echo hello\necho world",
+                working_dir=project_root,
+                task_name="test",
+                shell="bash",
+                preamble=""
+            )
+
+            # Verify subprocess.run was called
+            mock_run.assert_called_once()
+
+            # Verify chmod was called
+            mock_chmod.assert_called_once()
+
+            # Verify cleanup
+            mock_unlink.assert_called_once()
+
 
 class TestMissingOutputs(unittest.TestCase):
     """

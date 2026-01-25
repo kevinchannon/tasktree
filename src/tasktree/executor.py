@@ -707,6 +707,85 @@ class Executor:
             except OSError:
                 pass  # Ignore cleanup errors
 
+    def _run_command_as_script(
+            self, cmd: str, working_dir: Path, task_name: str, shell: str, preamble: str,
+            exported_env_vars: dict[str, str] | None = None
+    ) -> None:
+        """
+        Execute a command via temporary script file (unified execution path).
+
+        This method handles both single-line and multi-line commands by writing
+        them to a temporary script file and executing the script. This provides
+        consistent behavior and allows preamble to work with all commands.
+
+        Args:
+        cmd: Command string (single-line or multi-line)
+        working_dir: Working directory
+        task_name: Task name (for error messages)
+        shell: Shell to use for script execution
+        preamble: Preamble text to prepend to script
+        exported_env_vars: Exported arguments to set as environment variables
+
+        Raises:
+        ExecutionError: If command execution fails
+        @athena: TBD
+        """
+        # Prepare environment with exported args
+        env = self._prepare_env_with_exports(exported_env_vars)
+
+        # Determine file extension based on platform
+        is_windows = platform.system() == "Windows"
+        script_ext = ".bat" if is_windows else ".sh"
+
+        # Create temporary script file
+        with tempfile.NamedTemporaryFile(
+                mode="w",
+                suffix=script_ext,
+                delete=False,
+        ) as script_file:
+            script_path = script_file.name
+
+            # On Unix/macOS, add shebang if not present
+            if not is_windows and not cmd.startswith("#!"):
+                # Use the configured shell in shebang
+                shebang = f"#!/usr/bin/env {shell}\n"
+                script_file.write(shebang)
+
+            # Add preamble if provided
+            if preamble:
+                script_file.write(preamble)
+                if not preamble.endswith("\n"):
+                    script_file.write("\n")
+
+            # Write command to file
+            script_file.write(cmd)
+            script_file.flush()
+
+        try:
+            # Make executable on Unix/macOS
+            if not is_windows:
+                os.chmod(script_path, os.stat(script_path).st_mode | stat.S_IEXEC)
+
+            # Execute script file
+            try:
+                subprocess.run(
+                    [script_path],
+                    cwd=working_dir,
+                    check=True,
+                    capture_output=False,
+                    env=env,
+                )
+            except subprocess.CalledProcessError as e:
+                raise ExecutionError(
+                    f"Task '{task_name}' failed with exit code {e.returncode}"
+                )
+        finally:
+            # Clean up temporary file
+            try:
+                os.unlink(script_path)
+            except OSError:
+                pass  # Ignore cleanup errors
+
     def _substitute_builtin_in_environment(self, env: Environment, builtin_vars: dict[str, str]) -> Environment:
         """
         Substitute builtin and environment variables in environment fields.
