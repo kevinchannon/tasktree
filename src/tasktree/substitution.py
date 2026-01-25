@@ -3,7 +3,7 @@ Placeholder substitution for variables, arguments, and environment variables.
 
 This module provides functions to substitute {{ var.name }}, {{ arg.name }},
 and {{ env.NAME }} placeholders with their corresponding values.
-@athena: 24b523e53e79
+@athena: f92441b6fff5
 """
 
 import re
@@ -401,12 +401,20 @@ def substitute_self_references(
     task_name: str,
     input_map: dict[str, str],
     output_map: dict[str, str],
+    indexed_inputs: list[str],
+    indexed_outputs: list[str],
 ) -> str:
     """
     Substitute {{ self.inputs.name }} and {{ self.outputs.name }} placeholders.
 
-    This function resolves references to the task's own named inputs and outputs.
-    Only named entries are accessible; anonymous inputs/outputs cannot be referenced.
+    This function resolves references to the task's own inputs and outputs.
+    Supports both named access ({{ self.inputs.name }}) and positional access
+    ({{ self.inputs.0 }}, {{ self.inputs.1 }}, etc.).
+
+    Named entries use the input_map/output_map dictionaries.
+    Positional entries use indexed_inputs/indexed_outputs lists (0-based indexing,
+    following YAML declaration order).
+
     The substitution is literal string replacement - no glob expansion or path resolution.
 
     Args:
@@ -414,52 +422,85 @@ def substitute_self_references(
     task_name: Name of current task (for error messages)
     input_map: Dictionary mapping input names to path strings
     output_map: Dictionary mapping output names to path strings
+    indexed_inputs: List of all inputs in YAML order
+    indexed_outputs: List of all outputs in YAML order
 
     Returns:
     Text with all {{ self.* }} placeholders replaced with literal path strings
 
     Raises:
-    ValueError: If referenced name doesn't exist in input_map or output_map
+    ValueError: If referenced name doesn't exist or index is out of bounds
 
     Example:
     >>> input_map = {"src": "*.txt"}
     >>> output_map = {"dest": "out/result.txt"}
+    >>> indexed_inputs = ["*.txt"]
+    >>> indexed_outputs = ["out/result.txt"]
     >>> substitute_self_references(
-    ...     "cp {{ self.inputs.src }} {{ self.outputs.dest }}",
+    ...     "cp {{ self.inputs.src }} {{ self.outputs.0 }}",
     ...     "copy",
     ...     input_map,
-    ...     output_map
+    ...     output_map,
+    ...     indexed_inputs,
+    ...     indexed_outputs
     ... )
     'cp *.txt out/result.txt'
     @athena: c42c1c534c55
     """
     def replacer(match: re.Match) -> str:
         field = match.group(1)  # "inputs" or "outputs"
-        name = match.group(2)
+        identifier = match.group(2)  # name or numeric index
 
-        # Select appropriate map
-        if field == "inputs":
-            name_map = input_map
-            field_display = "input"
-        else:  # field == "outputs"
-            name_map = output_map
-            field_display = "output"
+        # Check if identifier is a numeric index
+        if identifier.isdigit():
+            # Positional access
+            index = int(identifier)
+            indexed_list = indexed_inputs if field == "inputs" else indexed_outputs
+            field_display = "input" if field == "inputs" else "output"
 
-        # Check if name exists in map
-        if name not in name_map:
-            available = list(name_map.keys())
-            if available:
-                available_msg = ", ".join(available)
-            else:
-                available_msg = f"(none - all {field} are anonymous)"
+            # Check if list is empty
+            if len(indexed_list) == 0:
+                raise ValueError(
+                    f"Task '{task_name}' references {field_display} index '{index}' "
+                    f"but has no {field} defined"
+                )
 
-            raise ValueError(
-                f"Task '{task_name}' references {field_display} '{name}' "
-                f"but has no {field_display} named '{name}'.\n"
-                f"Available named {field}: {available_msg}\n"
-                f"Hint: Define named {field} like: {field}: [{{ {name}: 'path/to/file' }}]"
-            )
+            # Check bounds
+            if index >= len(indexed_list):
+                max_index = len(indexed_list) - 1
+                raise ValueError(
+                    f"Task '{task_name}' references {field_display} index '{index}' "
+                    f"but only has {len(indexed_list)} {field} (indices 0-{max_index})"
+                )
 
-        return name_map[name]
+            return indexed_list[index]
+        else:
+            # Named access (existing logic)
+            name = identifier
+
+            # Select appropriate map
+            if field == "inputs":
+                name_map = input_map
+                field_display = "input"
+            else:  # field == "outputs"
+                name_map = output_map
+                field_display = "output"
+
+            # Check if name exists in map
+            if name not in name_map:
+                available = list(name_map.keys())
+                if available:
+                    available_msg = ", ".join(available)
+                else:
+                    available_msg = f"(none - all {field} are anonymous)"
+
+                raise ValueError(
+                    f"Task '{task_name}' references {field_display} '{name}' "
+                    f"but has no {field_display} named '{name}'.\n"
+                    f"Available named {field}: {available_msg}\n"
+                    f"Hint: Define named {field} like: {field}: [{{ {name}: 'path/to/file' }}]"
+                )
+
+            return name_map[name]
 
     return SELF_REFERENCE_PATTERN.sub(replacer, text)

@@ -1,4 +1,7 @@
-"""Dependency resolution using topological sorting."""
+"""
+Dependency resolution using topological sorting.
+@athena: bc19c5dc0cca
+"""
 
 from graphlib import TopologicalSorter
 from pathlib import Path
@@ -482,6 +485,8 @@ def resolve_self_references(
                 task_name,
                 task._input_map,
                 task._output_map,
+                task._indexed_inputs,
+                task._indexed_outputs,
             )
 
         # Resolve self-references in working_dir
@@ -491,6 +496,8 @@ def resolve_self_references(
                 task_name,
                 task._input_map,
                 task._output_map,
+                task._indexed_inputs,
+                task._indexed_outputs,
             )
 
         # Resolve self-references in argument defaults
@@ -505,6 +512,8 @@ def resolve_self_references(
                                     task_name,
                                     task._input_map,
                                     task._output_map,
+                                    task._indexed_inputs,
+                                    task._indexed_outputs,
                                 )
 
 

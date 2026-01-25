@@ -1132,7 +1132,7 @@ class TestSubstituteSelfReferences(unittest.TestCase):
         input_map = {"src": "src/app.js"}
         output_map = {}
         text = "cat {{ self.inputs.src }}"
-        result = substitute_self_references(text, "build", input_map, output_map)
+        result = substitute_self_references(text, "build", input_map, output_map, [], [])
         self.assertEqual(result, "cat src/app.js")
 
     def test_substitute_single_output(self):
@@ -1143,7 +1143,7 @@ class TestSubstituteSelfReferences(unittest.TestCase):
         input_map = {}
         output_map = {"dest": "dist/app.js"}
         text = "echo {{ self.outputs.dest }}"
-        result = substitute_self_references(text, "build", input_map, output_map)
+        result = substitute_self_references(text, "build", input_map, output_map, [], [])
         self.assertEqual(result, "echo dist/app.js")
 
     def test_substitute_multiple_references(self):
@@ -1154,7 +1154,7 @@ class TestSubstituteSelfReferences(unittest.TestCase):
         input_map = {"src": "src/main.c", "headers": "include/*.h"}
         output_map = {"binary": "build/app"}
         text = "gcc {{ self.inputs.src }} -I {{ self.inputs.headers }} -o {{ self.outputs.binary }}"
-        result = substitute_self_references(text, "compile", input_map, output_map)
+        result = substitute_self_references(text, "compile", input_map, output_map, [], [])
         self.assertEqual(result, "gcc src/main.c -I include/*.h -o build/app")
 
     def test_substitute_mixed_inputs_and_outputs(self):
@@ -1165,7 +1165,7 @@ class TestSubstituteSelfReferences(unittest.TestCase):
         input_map = {"config": "config.json"}
         output_map = {"log": "build.log"}
         text = "build --config {{ self.inputs.config }} --log {{ self.outputs.log }}"
-        result = substitute_self_references(text, "build", input_map, output_map)
+        result = substitute_self_references(text, "build", input_map, output_map, [], [])
         self.assertEqual(result, "build --config config.json --log build.log")
 
     def test_substitute_glob_pattern_verbatim(self):
@@ -1176,7 +1176,7 @@ class TestSubstituteSelfReferences(unittest.TestCase):
         input_map = {"sources": "src/**/*.js"}
         output_map = {"bundle": "dist/*.min.js"}
         text = "bundle {{ self.inputs.sources }} to {{ self.outputs.bundle }}"
-        result = substitute_self_references(text, "bundle", input_map, output_map)
+        result = substitute_self_references(text, "bundle", input_map, output_map, [], [])
         # Glob patterns should be substituted verbatim, not expanded
         self.assertEqual(result, "bundle src/**/*.js to dist/*.min.js")
 
@@ -1188,7 +1188,7 @@ class TestSubstituteSelfReferences(unittest.TestCase):
         input_map = {"src": "file.txt"}
         output_map = {"dest": "out.txt"}
         text = "echo hello world"
-        result = substitute_self_references(text, "test", input_map, output_map)
+        result = substitute_self_references(text, "test", input_map, output_map, [], [])
         self.assertEqual(result, "echo hello world")
 
     def test_error_on_missing_input_name(self):
@@ -1200,7 +1200,7 @@ class TestSubstituteSelfReferences(unittest.TestCase):
         output_map = {}
         text = "cat {{ self.inputs.missing }}"
         with self.assertRaises(ValueError) as cm:
-            substitute_self_references(text, "build", input_map, output_map)
+            substitute_self_references(text, "build", input_map, output_map, [], [])
         error_msg = str(cm.exception)
         self.assertIn("build", error_msg)
         self.assertIn("missing", error_msg)
@@ -1217,7 +1217,7 @@ class TestSubstituteSelfReferences(unittest.TestCase):
         output_map = {"bundle": "dist/app.js", "sourcemap": "dist/app.js.map"}
         text = "deploy {{ self.outputs.missing }}"
         with self.assertRaises(ValueError) as cm:
-            substitute_self_references(text, "deploy", input_map, output_map)
+            substitute_self_references(text, "deploy", input_map, output_map, [], [])
         error_msg = str(cm.exception)
         self.assertIn("deploy", error_msg)
         self.assertIn("missing", error_msg)
@@ -1234,7 +1234,7 @@ class TestSubstituteSelfReferences(unittest.TestCase):
         output_map = {}
         text = "cat {{ self.inputs.src }}"
         with self.assertRaises(ValueError) as cm:
-            substitute_self_references(text, "build", input_map, output_map)
+            substitute_self_references(text, "build", input_map, output_map, [], [])
         error_msg = str(cm.exception)
         self.assertIn("build", error_msg)
         self.assertIn("src", error_msg)
@@ -1249,7 +1249,7 @@ class TestSubstituteSelfReferences(unittest.TestCase):
         output_map = {}
         text = "echo {{ self.outputs.dest }}"
         with self.assertRaises(ValueError) as cm:
-            substitute_self_references(text, "build", input_map, output_map)
+            substitute_self_references(text, "build", input_map, output_map, [], [])
         error_msg = str(cm.exception)
         self.assertIn("build", error_msg)
         self.assertIn("dest", error_msg)
@@ -1263,7 +1263,7 @@ class TestSubstituteSelfReferences(unittest.TestCase):
         input_map = {"src": "file.txt"}
         output_map = {"dest": "out.txt"}
         text = "cp {{ self.inputs.src }} {{ var.temp }} {{ arg.mode }} {{ env.USER }} {{ self.outputs.dest }}"
-        result = substitute_self_references(text, "copy", input_map, output_map)
+        result = substitute_self_references(text, "copy", input_map, output_map, [], [])
         # Only self references should be substituted
         self.assertEqual(result, "cp file.txt {{ var.temp }} {{ arg.mode }} {{ env.USER }} out.txt")
 
@@ -1275,7 +1275,7 @@ class TestSubstituteSelfReferences(unittest.TestCase):
         input_map = {"config": "app.json"}
         output_map = {}
         text = "validate {{ self.inputs.config }} && deploy {{ self.inputs.config }}"
-        result = substitute_self_references(text, "task", input_map, output_map)
+        result = substitute_self_references(text, "task", input_map, output_map, [], [])
         self.assertEqual(result, "validate app.json && deploy app.json")
 
     def test_substitute_with_underscores(self):
@@ -1286,7 +1286,7 @@ class TestSubstituteSelfReferences(unittest.TestCase):
         input_map = {"source_file": "src/main.c", "header_files": "include/*.h"}
         output_map = {"output_binary": "bin/app"}
         text = "gcc {{ self.inputs.source_file }} -I {{ self.inputs.header_files }} -o {{ self.outputs.output_binary }}"
-        result = substitute_self_references(text, "compile", input_map, output_map)
+        result = substitute_self_references(text, "compile", input_map, output_map, [], [])
         self.assertEqual(result, "gcc src/main.c -I include/*.h -o bin/app")
 
     def test_substitute_empty_string(self):
@@ -1297,8 +1297,147 @@ class TestSubstituteSelfReferences(unittest.TestCase):
         input_map = {"src": "file.txt"}
         output_map = {}
         text = ""
-        result = substitute_self_references(text, "task", input_map, output_map)
+        result = substitute_self_references(text, "task", input_map, output_map, [], [])
         self.assertEqual(result, "")
+
+    def test_substitute_positional_input(self):
+        """
+        Test basic positional input access.
+        """
+        input_map = {}
+        output_map = {}
+        indexed_inputs = ["src/app.js", "config.json"]
+        indexed_outputs = []
+        text = "cat {{ self.inputs.0 }}"
+        result = substitute_self_references(text, "build", input_map, output_map, indexed_inputs, indexed_outputs)
+        self.assertEqual(result, "cat src/app.js")
+
+    def test_substitute_positional_output(self):
+        """
+        Test basic positional output access.
+        """
+        input_map = {}
+        output_map = {}
+        indexed_inputs = []
+        indexed_outputs = ["dist/bundle.js", "dist/bundle.css"]
+        text = "echo {{ self.outputs.0 }}"
+        result = substitute_self_references(text, "build", input_map, output_map, indexed_inputs, indexed_outputs)
+        self.assertEqual(result, "echo dist/bundle.js")
+
+    def test_substitute_multiple_positional_references(self):
+        """
+        Test multiple positional references in same text.
+        """
+        input_map = {}
+        output_map = {}
+        indexed_inputs = ["src/main.c", "src/util.c", "include/*.h"]
+        indexed_outputs = ["build/app", "build/app.debug"]
+        text = "gcc {{ self.inputs.0 }} {{ self.inputs.1 }} -I {{ self.inputs.2 }} -o {{ self.outputs.0 }}"
+        result = substitute_self_references(text, "compile", input_map, output_map, indexed_inputs, indexed_outputs)
+        self.assertEqual(result, "gcc src/main.c src/util.c -I include/*.h -o build/app")
+
+    def test_substitute_mixed_named_and_positional(self):
+        """
+        Test mixing named and positional access in same text.
+        """
+        input_map = {"config": "app.json"}
+        output_map = {"log": "build.log"}
+        indexed_inputs = ["src/main.js", "app.json"]
+        indexed_outputs = ["dist/bundle.js", "build.log"]
+        text = "build {{ self.inputs.0 }} --config {{ self.inputs.config }} --log {{ self.outputs.1 }}"
+        result = substitute_self_references(text, "build", input_map, output_map, indexed_inputs, indexed_outputs)
+        self.assertEqual(result, "build src/main.js --config app.json --log build.log")
+
+    def test_substitute_same_item_by_name_and_index(self):
+        """
+        Test accessing same item by both name and positional index.
+        """
+        input_map = {"src": "src/app.js"}
+        output_map = {}
+        indexed_inputs = ["src/app.js"]
+        indexed_outputs = []
+        text = "cat {{ self.inputs.src }} > copy && cat {{ self.inputs.0 }} > copy2"
+        result = substitute_self_references(text, "copy", input_map, output_map, indexed_inputs, indexed_outputs)
+        self.assertEqual(result, "cat src/app.js > copy && cat src/app.js > copy2")
+
+    def test_error_on_out_of_bounds_input_index(self):
+        """
+        Test error when input index is out of bounds.
+        """
+        input_map = {}
+        output_map = {}
+        indexed_inputs = ["file1.txt", "file2.txt"]
+        indexed_outputs = []
+        text = "cat {{ self.inputs.5 }}"
+        with self.assertRaises(ValueError) as cm:
+            substitute_self_references(text, "build", input_map, output_map, indexed_inputs, indexed_outputs)
+        error_msg = str(cm.exception)
+        self.assertIn("build", error_msg)
+        self.assertIn("input index '5'", error_msg)
+        self.assertIn("only has 2 inputs", error_msg)
+        self.assertIn("indices 0-1", error_msg)
+
+    def test_error_on_out_of_bounds_output_index(self):
+        """
+        Test error when output index is out of bounds.
+        """
+        input_map = {}
+        output_map = {}
+        indexed_inputs = []
+        indexed_outputs = ["out.txt"]
+        text = "echo {{ self.outputs.3 }}"
+        with self.assertRaises(ValueError) as cm:
+            substitute_self_references(text, "task", input_map, output_map, indexed_inputs, indexed_outputs)
+        error_msg = str(cm.exception)
+        self.assertIn("task", error_msg)
+        self.assertIn("output index '3'", error_msg)
+        self.assertIn("only has 1 outputs", error_msg)
+        self.assertIn("indices 0-0", error_msg)
+
+    def test_error_on_empty_inputs_with_index(self):
+        """
+        Test error when referencing index on empty inputs list.
+        """
+        input_map = {}
+        output_map = {}
+        indexed_inputs = []
+        indexed_outputs = []
+        text = "cat {{ self.inputs.0 }}"
+        with self.assertRaises(ValueError) as cm:
+            substitute_self_references(text, "build", input_map, output_map, indexed_inputs, indexed_outputs)
+        error_msg = str(cm.exception)
+        self.assertIn("build", error_msg)
+        self.assertIn("input index '0'", error_msg)
+        self.assertIn("no inputs defined", error_msg)
+
+    def test_error_on_empty_outputs_with_index(self):
+        """
+        Test error when referencing index on empty outputs list.
+        """
+        input_map = {}
+        output_map = {}
+        indexed_inputs = []
+        indexed_outputs = []
+        text = "echo {{ self.outputs.0 }}"
+        with self.assertRaises(ValueError) as cm:
+            substitute_self_references(text, "task", input_map, output_map, indexed_inputs, indexed_outputs)
+        error_msg = str(cm.exception)
+        self.assertIn("task", error_msg)
+        self.assertIn("output index '0'", error_msg)
+        self.assertIn("no outputs defined", error_msg)
+
+    def test_substitute_positional_with_glob_patterns(self):
+        """
+        Test positional access with glob patterns (substituted as-is).
+        """
+        input_map = {}
+        output_map = {}
+        indexed_inputs = ["src/**/*.js", "*.json"]
+        indexed_outputs = ["dist/*.min.js"]
+        text = "bundle {{ self.inputs.0 }} {{ self.inputs.1 }} to {{ self.outputs.0 }}"
+        result = substitute_self_references(text, "bundle", input_map, output_map, indexed_inputs, indexed_outputs)
+        # Globs should be substituted verbatim, not expanded
+        self.assertEqual(result, "bundle src/**/*.js *.json to dist/*.min.js")
 
 
 if __name__ == "__main__":
