@@ -27,26 +27,21 @@ jobs:
       uses: astral-sh/setup-uv@v4
 
     - name: Install dependencies
-      run: |
-        uv pip install --system -e ".[dev]"
+      run: uv sync --extra dev
 
     - name: Pre-pull Docker images for E2E tests
       if: runner.os == 'Linux'
-      run: |
-        docker pull alpine:latest
+      run: docker pull alpine:latest
 
     - name: Run unit tests
-      run: |
-        python -m pytest tests/unit/ -v --tb=short
+      run: uv run pytest tests/unit/ --tb=short
 
     - name: Run integration tests
-      run: |
-        python -m pytest tests/integration/ -v --tb=short
+      run: uv run pytest tests/integration/ --tb=short
 
     - name: Run E2E Docker tests
       if: runner.os == 'Linux'
-      run: |
-        python -m pytest tests/e2e/ -v --tb=short
+      run: uv run pytest tests/e2e/ --tb=short
 
     - name: Test CLI commands
       run: |
@@ -67,9 +62,7 @@ jobs:
       uses: astral-sh/setup-uv@v4
 
     - name: Install dependencies
-      run: |
-        uv pip install --system -e ".[dev]"
+      run: uv sync --extra dev
 
     - name: Check code can be imported
-      run: |
-        python -c "from tasktree import Executor, Recipe, Task; print('Import successful')"
+      run: python -c "from tasktree import Executor, Recipe, Task; print('Import successful')"

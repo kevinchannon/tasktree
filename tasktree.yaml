@@ -16,7 +16,7 @@ tasks:
     deps: [test]
     inputs: [src/**/*.py, pyproject.toml, README.md]
     outputs: [dist/*.whl, dist/*.tar.gz]
-    cmd: python3 -m build
+    cmd: uv build
 
   install-dev:
     desc: Install package in editable mode for development

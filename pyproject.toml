@@ -18,6 +18,9 @@ dev = [
     "pytest>=9.0.2",
 ]
 
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [project.scripts]
 tt = "tasktree.cli:cli"
 
