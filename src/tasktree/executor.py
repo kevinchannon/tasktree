@@ -47,7 +47,7 @@ class ExecutionError(Exception):
 class Executor:
     """
     Executes tasks with incremental execution logic.
-    @athena: ac1e2fc7b82b
+    @athena: 16893600d93c
     """
 
     # Protected environment variables that cannot be overridden by exported args
@@ -831,11 +831,11 @@ class Executor:
 
         Raises:
         ExecutionError: If {{ tt.working_dir }} placeholder is found
-        @athena: 5dc6ee41d403
+        @athena: d893ac88284d
         """
         import re
         # Pattern to match {{ tt.working_dir }} specifically
-        pattern = re.compile(r'\{\{\s*tt\s*\.\s*working_dir\s*\}\}')
+        pattern = re.compile(r'\{\{\s*tt\s*\.\s*working_dir\s*}}')
 
         if pattern.search(text):
             raise ExecutionError(
