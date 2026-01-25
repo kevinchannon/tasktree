@@ -1,4 +1,7 @@
-"""Parse recipe YAML files and handle imports."""
+"""
+Parse recipe YAML files and handle imports.
+@athena: ec0087b16df9
+"""
 
 from __future__ import annotations
 
@@ -84,6 +87,10 @@ class Task:
     _input_map: dict[str, str] = field(init=False, default_factory=dict, repr=False)  # name → path mapping
     _anonymous_inputs: list[str] = field(init=False, default_factory=list, repr=False)  # unnamed inputs
 
+    # Internal fields for positional input/output access (built in __post_init__)
+    _indexed_inputs: list[str] = field(init=False, default_factory=list, repr=False)  # all inputs in YAML order
+    _indexed_outputs: list[str] = field(init=False, default_factory=list, repr=False)  # all outputs in YAML order
+
     def __post_init__(self):
         """
         Ensure lists are always lists and build output maps.
@@ -114,6 +121,7 @@ class Task:
         # Build output maps for efficient lookup
         self._output_map = {}
         self._anonymous_outputs = []
+        self._indexed_outputs = []
 
         for idx, output in enumerate(self.outputs):
             if isinstance(output, dict):
@@ -142,9 +150,11 @@ class Task:
                     )
 
                 self._output_map[name] = path
+                self._indexed_outputs.append(path)
             elif isinstance(output, str):
                 # Anonymous output: just store
                 self._anonymous_outputs.append(output)
+                self._indexed_outputs.append(output)
             else:
                 raise ValueError(
                     f"Task '{self.name}': Output at index {idx} must be a string or dict, got {type(output).__name__}: {output}"
@@ -153,6 +163,7 @@ class Task:
         # Build input maps for efficient lookup
         self._input_map = {}
         self._anonymous_inputs = []
+        self._indexed_inputs = []
 
         for idx, input_item in enumerate(self.inputs):
             if isinstance(input_item, dict):
@@ -181,9 +192,11 @@ class Task:
                     )
 
                 self._input_map[name] = path
+                self._indexed_inputs.append(path)
             elif isinstance(input_item, str):
                 # Anonymous input: just store
                 self._anonymous_inputs.append(input_item)
+                self._indexed_inputs.append(input_item)
             else:
                 raise ValueError(
                     f"Task '{self.name}': Input at index {idx} must be a string or dict, got {type(input_item).__name__}: {input_item}"

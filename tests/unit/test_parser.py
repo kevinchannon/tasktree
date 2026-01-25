@@ -1,4 +1,7 @@
-"""Tests for parser module."""
+"""
+Tests for parser module.
+@athena: ce60354ebb27
+"""
 
 import os
 import platform
@@ -4035,6 +4038,137 @@ tasks:
             self.assertEqual(len(task.inputs), 0)
             self.assertEqual(len(task._input_map), 0)
             self.assertEqual(len(task._anonymous_inputs), 0)
+
+
+class TestIndexedInputsOutputs(unittest.TestCase):
+    """
+    Tests for indexed input/output lists used for positional access.
+    """
+
+    def test_indexed_outputs_maintain_yaml_order(self):
+        """
+        Test that _indexed_outputs maintains YAML declaration order.
+        """
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text(
+                """
+tasks:
+  build:
+    outputs:
+      - "first.txt"
+      - bundle: "second.js"
+      - "third.css"
+      - map: "fourth.map"
+    cmd: build.sh
+"""
+            )
+
+            recipe = parse_recipe(recipe_path)
+            task = recipe.tasks["build"]
+
+            # Check YAML order is preserved
+            self.assertEqual(len(task._indexed_outputs), 4)
+            self.assertEqual(task._indexed_outputs[0], "first.txt")
+            self.assertEqual(task._indexed_outputs[1], "second.js")
+            self.assertEqual(task._indexed_outputs[2], "third.css")
+            self.assertEqual(task._indexed_outputs[3], "fourth.map")
+
+    def test_indexed_inputs_maintain_yaml_order(self):
+        """
+        Test that _indexed_inputs maintains YAML declaration order.
+        """
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text(
+                """
+tasks:
+  build:
+    inputs:
+      - src: "src/app.js"
+      - "config.json"
+      - headers: "include/*.h"
+      - "*.txt"
+    cmd: build.sh
+"""
+            )
+
+            recipe = parse_recipe(recipe_path)
+            task = recipe.tasks["build"]
+
+            # Check YAML order is preserved
+            self.assertEqual(len(task._indexed_inputs), 4)
+            self.assertEqual(task._indexed_inputs[0], "src/app.js")
+            self.assertEqual(task._indexed_inputs[1], "config.json")
+            self.assertEqual(task._indexed_inputs[2], "include/*.h")
+            self.assertEqual(task._indexed_inputs[3], "*.txt")
+
+    def test_indexed_outputs_named_only(self):
+        """
+        Test indexed list with only named outputs.
+        """
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text(
+                """
+tasks:
+  build:
+    outputs:
+      - bundle: "dist/app.js"
+      - sourcemap: "dist/app.js.map"
+    cmd: build.sh
+"""
+            )
+
+            recipe = parse_recipe(recipe_path)
+            task = recipe.tasks["build"]
+
+            self.assertEqual(len(task._indexed_outputs), 2)
+            self.assertEqual(task._indexed_outputs[0], "dist/app.js")
+            self.assertEqual(task._indexed_outputs[1], "dist/app.js.map")
+
+    def test_indexed_inputs_anonymous_only(self):
+        """
+        Test indexed list with only anonymous inputs.
+        """
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text(
+                """
+tasks:
+  build:
+    inputs: ["src/*.js", "config.json", "package.json"]
+    cmd: build.sh
+"""
+            )
+
+            recipe = parse_recipe(recipe_path)
+            task = recipe.tasks["build"]
+
+            self.assertEqual(len(task._indexed_inputs), 3)
+            self.assertEqual(task._indexed_inputs[0], "src/*.js")
+            self.assertEqual(task._indexed_inputs[1], "config.json")
+            self.assertEqual(task._indexed_inputs[2], "package.json")
+
+    def test_indexed_lists_empty_when_no_inputs_outputs(self):
+        """
+        Test that indexed lists are empty when no inputs/outputs defined.
+        """
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text(
+                """
+tasks:
+  build:
+    cmd: echo "no inputs or outputs"
+"""
+            )
+
+            recipe = parse_recipe(recipe_path)
+            task = recipe.tasks["build"]
+
+            self.assertEqual(len(task._indexed_inputs), 0)
+            self.assertEqual(len(task._indexed_outputs), 0)
 
 
 if __name__ == "__main__":
