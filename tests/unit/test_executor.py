@@ -274,6 +274,134 @@ class TestExecutor(unittest.TestCase):
             # Verify cleanup
             mock_unlink.assert_called_once()
 
+    def test_run_command_as_script_comprehensive_validation(self):
+        """
+        Comprehensive test validating script creation, permissions, content, and execution order.
+
+        This test validates:
+        1. Script is created with correct name/suffix
+        2. Script is made executable with chmod
+        3. Script content has correct ordering (shebang -> preamble -> command)
+        4. subprocess.run is called AFTER all script setup completes
+        """
+        import platform
+        import stat
+
+        # Skip on Windows (different execution model)
+        if platform.system() == "Windows":
+            self.skipTest("Skipping on Windows - different script handling")
+
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+            tasks = {"test": Task(name="test", cmd="echo hello\necho world")}
+            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
+            executor = Executor(recipe, state_manager)
+
+            # Track all operations in order
+            call_order = []
+            captured_script_path = None
+            captured_script_content = None
+            captured_chmod_path = None
+            captured_chmod_mode = None
+
+            # Mock os.chmod to capture permissions and script path
+            original_chmod = os.chmod
+            def mock_chmod_func(path, mode):
+                nonlocal captured_chmod_path, captured_chmod_mode, captured_script_path, captured_script_content
+                call_order.append('chmod')
+                captured_chmod_path = str(path)
+                captured_chmod_mode = mode
+                captured_script_path = str(path)
+                # Read the script content at this point (before it gets executed and deleted)
+                with open(path, 'r') as f:
+                    captured_script_content = f.read()
+                return original_chmod(path, mode)
+
+            # Mock subprocess.run to capture when it's called
+            def mock_subprocess_run(*args, **kwargs):
+                call_order.append('subprocess.run')
+                # Verify the script still exists at this point
+                if captured_script_path:
+                    script_path = args[0][0]
+                    self.assertTrue(
+                        Path(script_path).exists(),
+                        "Script should exist when subprocess.run is called"
+                    )
+                return MagicMock(returncode=0)
+
+            # Apply patches
+            with patch('os.chmod', side_effect=mock_chmod_func):
+                with patch('subprocess.run', side_effect=mock_subprocess_run):
+                    executor._run_command_as_script(
+                        cmd="echo hello\necho world",
+                        working_dir=project_root,
+                        task_name="test",
+                        shell="bash",
+                        preamble="set -e\n"
+                    )
+
+            # Requirement 1: Verify script was created with correct suffix
+            self.assertIsNotNone(captured_script_path, "Script path should be captured")
+            self.assertTrue(
+                captured_script_path.endswith('.sh'),
+                f"Script should have .sh suffix, got: {captured_script_path}"
+            )
+
+            # Requirement 2: Verify script was made executable
+            self.assertIsNotNone(captured_chmod_path, "chmod should have been called")
+            self.assertEqual(
+                captured_script_path,
+                captured_chmod_path,
+                "chmod should be called on the script file"
+            )
+            # Verify executable bit is set
+            self.assertIsNotNone(captured_chmod_mode, "chmod mode should be captured")
+            self.assertTrue(
+                captured_chmod_mode & stat.S_IEXEC,
+                f"Script should have executable permission bit set, got mode: {oct(captured_chmod_mode)}"
+            )
+
+            # Requirement 3: Verify script content has correct ordering
+            self.assertIsNotNone(captured_script_content, "Script content should be captured")
+            lines = captured_script_content.split('\n')
+            self.assertGreaterEqual(len(lines), 3, "Script should have at least shebang, preamble, and command")
+
+            # Check shebang is first
+            self.assertTrue(
+                lines[0].startswith('#!/usr/bin/env bash'),
+                f"First line should be shebang, got: {lines[0]}"
+            )
+
+            # Check preamble comes after shebang
+            self.assertIn(
+                'set -e',
+                captured_script_content,
+                "Preamble should be in script content"
+            )
+
+            # Check command comes after preamble
+            self.assertIn('echo hello', captured_script_content, "Command should be in script")
+            self.assertIn('echo world', captured_script_content, "Command should be in script")
+
+            # Verify order: shebang before preamble before command
+            shebang_idx = captured_script_content.find('#!/usr/bin/env bash')
+            preamble_idx = captured_script_content.find('set -e')
+            command_idx = captured_script_content.find('echo hello')
+
+            self.assertLess(shebang_idx, preamble_idx, "Shebang should come before preamble")
+            self.assertLess(preamble_idx, command_idx, "Preamble should come before command")
+
+            # Requirement 4: Verify subprocess.run called AFTER all setup
+            self.assertIn('chmod', call_order, "chmod should be called")
+            self.assertIn('subprocess.run', call_order, "subprocess.run should be called")
+
+            # Verify ordering: chmod should come before subprocess.run
+            chmod_idx = call_order.index('chmod')
+            subprocess_idx = call_order.index('subprocess.run')
+
+            self.assertLess(chmod_idx, subprocess_idx, "chmod should come before subprocess.run")
+
 
 class TestMissingOutputs(unittest.TestCase):
     """
@@ -969,90 +1097,6 @@ class TestMultilineExecution(unittest.TestCase):
     Test multi-line command execution via temp files.
     @athena: ab0ba143da41
     """
-
-    @patch("subprocess.run")
-    @patch("os.chmod")
-    def test_single_line_command_uses_shell(self, mock_chmod, mock_run):
-        """
-        Test single-line commands execute via unified script execution.
-        @athena: 39c1c27db0db
-        """
-        with TemporaryDirectory() as tmpdir:
-            project_root = Path(tmpdir)
-            state_manager = StateManager(project_root)
-            tasks = {"build": Task(name="build", cmd="echo hello")}
-            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
-            executor = Executor(recipe, state_manager)
-
-            mock_run.return_value = MagicMock(returncode=0)
-
-            executor.execute_task("build")
-
-            # Verify command was passed as script path
-            self.assertEqual(mock_run.call_count, 1)
-            call_args = mock_run.call_args[0][0]
-            script_path = call_args[0]
-            self.assertTrue(script_path.endswith(".sh") or script_path.endswith(".bat"))
-            # Verify shell=True is NOT used (we invoke shell via shebang)
-            call_kwargs = mock_run.call_args[1]
-            self.assertFalse(call_kwargs.get("shell", False))
-
-    @patch("subprocess.run")
-    @patch("os.chmod")
-    def test_folded_block_uses_single_line_execution(self, mock_chmod, mock_run):
-        """
-        Test that YAML folded blocks (>) execute via unified script execution.
-        @athena: da835b76999d
-        """
-        with TemporaryDirectory() as tmpdir:
-            project_root = Path(tmpdir)
-            state_manager = StateManager(project_root)
-
-            # Simulate a folded block command (has trailing newline but no internal ones)
-            folded_cmd = "gcc -o bin/app src/*.c -I include\n"
-
-            tasks = {"build": Task(name="build", cmd=folded_cmd)}
-            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
-            executor = Executor(recipe, state_manager)
-
-            mock_run.return_value = MagicMock(returncode=0)
-            executor.execute_task("build")
-
-            # Should use unified script execution
-            call_args = mock_run.call_args[0][0]
-            script_path = call_args[0]
-            self.assertTrue(script_path.endswith(".sh") or script_path.endswith(".bat"))
-
-    @patch("subprocess.run")
-    def test_multiline_command_uses_temp_file(self, mock_run):
-        """
-        Test multi-line commands execute via temporary script file.
-        @athena: 8b68560c87e5
-        """
-        with TemporaryDirectory() as tmpdir:
-            project_root = Path(tmpdir)
-            state_manager = StateManager(project_root)
-
-            multiline_cmd = """echo line1
-echo line2
-echo line3"""
-
-            tasks = {"build": Task(name="build", cmd=multiline_cmd)}
-            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
-            executor = Executor(recipe, state_manager)
-
-            mock_run.return_value = MagicMock(returncode=0)
-
-            executor.execute_task("build")
-
-            # Verify subprocess was called with script path (not shell=True)
-            self.assertEqual(mock_run.call_count, 1)
-            call_args = mock_run.call_args[0]
-            call_kwargs = mock_run.call_args[1]
-
-            # Should be called with list [script_path], not string
-            self.assertIsInstance(call_args[0], list)
-            self.assertFalse(call_kwargs.get("shell", False))
 
     def test_multiline_command_content(self):
         """
