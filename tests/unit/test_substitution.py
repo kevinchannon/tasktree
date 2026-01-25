@@ -1070,6 +1070,53 @@ class TestSelfReferencePattern(unittest.TestCase):
         self.assertEqual(matches[0].group(2), "src")
         self.assertEqual(matches[1].group(2), "bin")
 
+    def test_pattern_matches_numeric_index(self):
+        """
+        Test pattern matches {{ self.inputs.0 }} syntax.
+        """
+        match = SELF_REFERENCE_PATTERN.search("{{ self.inputs.0 }}")
+        self.assertIsNotNone(match)
+        self.assertEqual(match.group(1), "inputs")
+        self.assertEqual(match.group(2), "0")
+
+    def test_pattern_matches_multidigit_index(self):
+        """
+        Test pattern matches multi-digit indices.
+        """
+        test_cases = [
+            ("{{ self.inputs.42 }}", "42"),
+            ("{{ self.outputs.123 }}", "123"),
+            ("{{ self.inputs.999 }}", "999"),
+        ]
+        for text, expected_index in test_cases:
+            match = SELF_REFERENCE_PATTERN.search(text)
+            self.assertIsNotNone(match, f"Failed to match: {text}")
+            self.assertEqual(match.group(2), expected_index)
+
+    def test_pattern_rejects_negative_indices(self):
+        """
+        Test pattern does not match negative indices.
+        """
+        invalid = [
+            "{{ self.inputs.-1 }}",
+            "{{ self.outputs.-42 }}",
+        ]
+        for text in invalid:
+            match = SELF_REFERENCE_PATTERN.search(text)
+            self.assertIsNone(match, f"Should not match: {text}")
+
+    def test_pattern_rejects_float_indices(self):
+        """
+        Test pattern does not match floating point indices.
+        """
+        invalid = [
+            "{{ self.inputs.1.5 }}",
+            "{{ self.outputs.0.0 }}",
+        ]
+        for text in invalid:
+            match = SELF_REFERENCE_PATTERN.search(text)
+            self.assertIsNone(match, f"Should not match: {text}")
+
 
 class TestSubstituteSelfReferences(unittest.TestCase):
     """

@@ -1,7 +1,9 @@
-"""Placeholder substitution for variables, arguments, and environment variables.
+"""
+Placeholder substitution for variables, arguments, and environment variables.
 
 This module provides functions to substitute {{ var.name }}, {{ arg.name }},
 and {{ env.NAME }} placeholders with their corresponding values.
+@athena: 24b523e53e79
 """
 
 import re
@@ -21,10 +23,10 @@ DEP_OUTPUT_PATTERN = re.compile(
     r'\{\{\s*dep\.([a-zA-Z_][a-zA-Z0-9_.-]*)\.outputs\.([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}'
 )
 
-# Pattern matches: {{ self.(inputs|outputs).name }} with optional whitespace
-# Groups: (1) field (inputs|outputs), (2) name (identifier)
+# Pattern matches: {{ self.(inputs|outputs).name }} or {{ self.(inputs|outputs).0 }} with optional whitespace
+# Groups: (1) field (inputs|outputs), (2) name (identifier) or index (numeric)
 SELF_REFERENCE_PATTERN = re.compile(
-    r'\{\{\s*self\.(inputs|outputs)\.([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}'
+    r'\{\{\s*self\.(inputs|outputs)\.([a-zA-Z_][a-zA-Z0-9_]*|[0-9]+)\s*\}\}'
 )
 
 
