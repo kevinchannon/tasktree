@@ -92,6 +92,94 @@ tasks:
             self.assertIn("Line 1", content)
             self.assertIn("Line 2", content)
 
+    def test_single_line_command_with_preamble(self):
+        """
+        Test that preamble works with single-line commands.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create output file path
+            output_file = project_root / "output.txt"
+
+            # Create recipe with environment that has preamble
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text(f"""
+environments:
+  strict:
+    shell: bash
+    preamble: |
+      set -e
+      export TEST_VAR="from_preamble"
+
+tasks:
+  test-preamble:
+    env: strict
+    cmd: echo "$TEST_VAR" > {output_file}
+""")
+
+            # Run task
+            result = self.runner.invoke(
+                app,
+                ["test-preamble"],
+                cwd=project_root,
+                env=self.env
+            )
+
+            # Verify execution succeeded
+            self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+
+            # Verify preamble environment variable was set
+            self.assertTrue(output_file.exists(), "Output file was not created")
+            self.assertIn("from_preamble", output_file.read_text())
+
+    def test_multiline_command_with_preamble(self):
+        """
+        Test that preamble works with multi-line commands.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create output file path
+            output_file = project_root / "output.txt"
+
+            # Create recipe with environment that has preamble
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text(f"""
+environments:
+  strict:
+    shell: bash
+    preamble: |
+      set -e
+      MY_VAR="preamble_value"
+
+tasks:
+  test-multi-preamble:
+    env: strict
+    cmd: |
+      echo "Start" > {output_file}
+      echo "$MY_VAR" >> {output_file}
+      echo "End" >> {output_file}
+""")
+
+            # Run task
+            result = self.runner.invoke(
+                app,
+                ["test-multi-preamble"],
+                cwd=project_root,
+                env=self.env
+            )
+
+            # Verify execution succeeded
+            self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+
+            # Verify preamble variable was used
+            self.assertTrue(output_file.exists(), "Output file was not created")
+            content = output_file.read_text()
+            self.assertIn("Start", content)
+            self.assertIn("preamble_value", content)
+            self.assertIn("End", content)
+
 
 if __name__ == "__main__":
     unittest.main()
