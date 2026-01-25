@@ -2,9 +2,8 @@
 
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
-from tasktree import docker as docker_module
 from tasktree.docker import (
     DockerManager,
     check_unpinned_images,
@@ -312,7 +311,7 @@ class TestDockerManager(unittest.TestCase):
 
         # Mock successful build and docker --version check and docker inspect
         # docker --version, docker build, docker inspect
-        def mock_run_side_effect(*args, **kwargs):
+        def mock_run_side_effect(*args, **_kwargs):
             cmd = args[0]
             if "inspect" in cmd:
                 # Mock docker inspect returning image ID
@@ -349,7 +348,7 @@ class TestDockerManager(unittest.TestCase):
         )
 
         # Mock docker inspect returning image ID
-        def mock_run_side_effect(*args, **kwargs):
+        def mock_run_side_effect(*args, **_kwargs):
             cmd = args[0]
             if "inspect" in cmd:
                 result = Mock()
@@ -383,7 +382,7 @@ class TestDockerManager(unittest.TestCase):
         )
 
         # Mock docker inspect returning image ID
-        def mock_run_side_effect(*args, **kwargs):
+        def mock_run_side_effect(*args, **_kwargs):
             cmd = args[0]
             if "inspect" in cmd:
                 result = Mock()
@@ -434,7 +433,7 @@ class TestDockerManager(unittest.TestCase):
         )
 
         # Mock docker inspect returning image ID
-        def mock_run_side_effect(*args, **kwargs):
+        def mock_run_side_effect(*args, **_kwargs):
             cmd = args[0]
             if "inspect" in cmd:
                 result = Mock()
@@ -475,7 +474,7 @@ class TestDockerManager(unittest.TestCase):
         )
 
         # Mock docker inspect returning image ID
-        def mock_run_side_effect(*args, **kwargs):
+        def mock_run_side_effect(*args, **_kwargs):
             cmd = args[0]
             if "inspect" in cmd:
                 result = Mock()
@@ -592,7 +591,7 @@ class TestDockerManager(unittest.TestCase):
         )
 
         # Mock docker --version, docker build, docker inspect, and docker run
-        def mock_run_side_effect(*args, **kwargs):
+        def mock_run_side_effect(*args, **_kwargs):
             cmd = args[0]
             if "inspect" in cmd:
                 result = Mock()
@@ -634,7 +633,7 @@ class TestDockerManager(unittest.TestCase):
         )
 
         # Mock docker --version, docker build, docker inspect, and docker run
-        def mock_run_side_effect(*args, **kwargs):
+        def mock_run_side_effect(*args, **_kwargs):
             cmd = args[0]
             if "inspect" in cmd:
                 result = Mock()
@@ -681,7 +680,7 @@ class TestDockerManager(unittest.TestCase):
         )
 
         # Mock docker --version, docker build, docker inspect, and docker run
-        def mock_run_side_effect(*args, **kwargs):
+        def mock_run_side_effect(*args, **_kwargs):
             cmd = args[0]
             if "inspect" in cmd:
                 result = Mock()
@@ -722,7 +721,7 @@ class TestDockerManager(unittest.TestCase):
         )
 
         # Mock docker --version, docker build, docker inspect, and docker run
-        def mock_run_side_effect(*args, **kwargs):
+        def mock_run_side_effect(*args, **_kwargs):
             cmd = args[0]
             if "inspect" in cmd:
                 result = Mock()
@@ -777,7 +776,7 @@ class TestDockerManager(unittest.TestCase):
         )
 
         # Mock docker --version, docker build, docker inspect, and docker run
-        def mock_run_side_effect(*args, **kwargs):
+        def mock_run_side_effect(*args, **_kwargs):
             cmd = args[0]
             if "inspect" in cmd:
                 result = Mock()
@@ -820,7 +819,7 @@ class TestDockerManager(unittest.TestCase):
         )
 
         # Mock docker --version, docker build, docker inspect, and docker run
-        def mock_run_side_effect(*args, **kwargs):
+        def mock_run_side_effect(*args, **_kwargs):
             cmd = args[0]
             if "inspect" in cmd:
                 result = Mock()
@@ -867,7 +866,7 @@ class TestDockerManager(unittest.TestCase):
         )
 
         # Mock docker --version, docker build, docker inspect, and docker run
-        def mock_run_side_effect(*args, **kwargs):
+        def mock_run_side_effect(*args, **_kwargs):
             cmd = args[0]
             if "inspect" in cmd:
                 result = Mock()
