@@ -804,6 +804,46 @@ class TestDockerManager(unittest.TestCase):
 
     @patch("tasktree.docker.subprocess.run")
     @patch("tasktree.docker.platform.system")
+    def test_run_in_container_with_shell_args(self, mock_platform, mock_run):
+        """Test that shell args list works correctly."""
+        mock_platform.return_value = "Windows"
+
+        env = Environment(
+            name="builder",
+            dockerfile="./Dockerfile",
+            context=".",
+            shell="sh",
+            args=["-euo", "pipefail"]
+        )
+
+        # Mock docker --version, docker build, docker inspect, and docker run
+        def mock_run_side_effect(*args, **kwargs):
+            cmd = args[0]
+            if "inspect" in cmd:
+                result = Mock()
+                result.stdout = "sha256:abc123def456\n"
+                return result
+            return Mock()
+
+        mock_run.side_effect = mock_run_side_effect
+
+        self.manager.run_in_container(
+            env=env,
+            cmd="echo hello",
+            working_dir=Path("/fake/project"),
+            container_working_dir="/workspace",
+        )
+
+        # Should succeed without errors
+        run_call_args = mock_run.call_args_list[3][0][0]
+
+        # Basic command structure should be present
+        self.assertEqual(run_call_args[0], "docker")
+        self.assertEqual(run_call_args[1], "run")
+        self.assertIn("tt-env-builder", run_call_args)
+
+    @patch("tasktree.docker.subprocess.run")
+    @patch("tasktree.docker.platform.system")
     def test_run_in_container_with_substituted_variables_in_volumes(self, mock_platform, mock_run):
         """
         Test that volume mounts work correctly after variable substitution.

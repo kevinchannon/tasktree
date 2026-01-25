@@ -197,7 +197,8 @@ class DockerManager:
 
         # Add shell and command
         shell = env.shell or "sh"
-        docker_cmd.extend([shell, "-c", cmd])
+        shell_args = env.args or [] if isinstance(env.args, list) else list(env.args.values())
+        docker_cmd.extend([shell, *shell_args, "-c", cmd])
 
         # Execute
         try:
