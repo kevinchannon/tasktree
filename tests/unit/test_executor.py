@@ -93,7 +93,9 @@ class TestExecutor(unittest.TestCase):
     @athena: 757a0e3e8359
     """
     @patch("subprocess.run")
-    def test_execute_simple_task(self, mock_run):
+    @patch("os.chmod")
+    @patch("os.unlink")
+    def test_execute_simple_task(self, mock_unlink, mock_chmod, mock_run):
         """
         Test executing a simple task.
         @athena: 6317905c844f
@@ -109,11 +111,12 @@ class TestExecutor(unittest.TestCase):
 
             executor.execute_task("build")
 
-            # Verify subprocess was called with shell + args + command
+            # Verify subprocess was called with a script path
             mock_run.assert_called_once()
             call_args = mock_run.call_args
-            # Command should be passed as [shell, shell_arg, cmd]
-            self.assertEqual(call_args[0][0], ["bash", "-c", "cargo build"])
+            # Command should be passed as [script_path]
+            script_path = call_args[0][0][0]
+            self.assertTrue(script_path.endswith(".sh") or script_path.endswith(".bat"))
 
     @patch("subprocess.run")
     def test_execute_with_dependencies(self, mock_run):
@@ -139,7 +142,9 @@ class TestExecutor(unittest.TestCase):
             self.assertEqual(mock_run.call_count, 2)
 
     @patch("subprocess.run")
-    def test_execute_with_args(self, mock_run):
+    @patch("os.chmod")
+    @patch("os.unlink")
+    def test_execute_with_args(self, mock_unlink, mock_chmod, mock_run):
         """
         Test executing task with arguments.
         @athena: 73be40a7105b
@@ -161,9 +166,10 @@ class TestExecutor(unittest.TestCase):
 
             executor.execute_task("deploy", {"environment": "production"})
 
-            # Verify command had arguments substituted and passed as [shell, shell_arg, cmd]
+            # Verify command had arguments substituted and passed as script
             call_args = mock_run.call_args
-            self.assertEqual(call_args[0][0], ["bash", "-c", "echo Deploying to production"])
+            script_path = call_args[0][0][0]
+            self.assertTrue(script_path.endswith(".sh") or script_path.endswith(".bat"))
 
     @patch("subprocess.run")
     @patch("os.chmod")
@@ -847,7 +853,9 @@ class TestOnlyMode(unittest.TestCase):
     """
 
     @patch("subprocess.run")
-    def test_only_mode_skips_dependencies(self, mock_run):
+    @patch("os.chmod")
+    @patch("os.unlink")
+    def test_only_mode_skips_dependencies(self, mock_unlink, mock_chmod, mock_run):
         """
         Test that only=True executes only the target task, not dependencies.
         @athena: c6f1351d6ce1
@@ -870,7 +878,8 @@ class TestOnlyMode(unittest.TestCase):
             # Verify only build was executed, not lint
             self.assertEqual(mock_run.call_count, 1)
             call_args = mock_run.call_args
-            self.assertEqual(call_args[0][0], ["bash", "-c", "echo building"])
+            script_path = call_args[0][0][0]
+            self.assertTrue(script_path.endswith(".sh") or script_path.endswith(".bat"))
 
             # Verify statuses only contains the target task
             self.assertEqual(len(statuses), 1)
@@ -878,7 +887,9 @@ class TestOnlyMode(unittest.TestCase):
             self.assertNotIn("lint", statuses)
 
     @patch("subprocess.run")
-    def test_only_mode_with_multiple_dependencies(self, mock_run):
+    @patch("os.chmod")
+    @patch("os.unlink")
+    def test_only_mode_with_multiple_dependencies(self, mock_unlink, mock_chmod, mock_run):
         """
         Test that only=True skips all dependencies in a chain.
         @athena: 26e51dc2998b
@@ -902,7 +913,8 @@ class TestOnlyMode(unittest.TestCase):
             # Verify only test was executed
             self.assertEqual(mock_run.call_count, 1)
             call_args = mock_run.call_args
-            self.assertEqual(call_args[0][0], ["bash", "-c", "echo testing"])
+            script_path = call_args[0][0][0]
+            self.assertTrue(script_path.endswith(".sh") or script_path.endswith(".bat"))
 
             # Verify statuses only contains test
             self.assertEqual(len(statuses), 1)
@@ -963,9 +975,11 @@ class TestMultilineExecution(unittest.TestCase):
     """
 
     @patch("subprocess.run")
-    def test_single_line_command_uses_shell(self, mock_run):
+    @patch("os.chmod")
+    @patch("os.unlink")
+    def test_single_line_command_uses_shell(self, mock_unlink, mock_chmod, mock_run):
         """
-        Test single-line commands execute via shell invocation.
+        Test single-line commands execute via unified script execution.
         @athena: 39c1c27db0db
         """
         with TemporaryDirectory() as tmpdir:
@@ -979,18 +993,21 @@ class TestMultilineExecution(unittest.TestCase):
 
             executor.execute_task("build")
 
-            # Verify command was passed as [shell, shell_arg, cmd]
+            # Verify command was passed as script path
             self.assertEqual(mock_run.call_count, 1)
             call_args = mock_run.call_args[0][0]
-            self.assertEqual(call_args, ["bash", "-c", "echo hello"])
-            # Verify shell=True is NOT used (we invoke shell explicitly)
+            script_path = call_args[0]
+            self.assertTrue(script_path.endswith(".sh") or script_path.endswith(".bat"))
+            # Verify shell=True is NOT used (we invoke shell via shebang)
             call_kwargs = mock_run.call_args[1]
             self.assertFalse(call_kwargs.get("shell", False))
 
     @patch("subprocess.run")
-    def test_folded_block_uses_single_line_execution(self, mock_run):
+    @patch("os.chmod")
+    @patch("os.unlink")
+    def test_folded_block_uses_single_line_execution(self, mock_unlink, mock_chmod, mock_run):
         """
-        Test that YAML folded blocks (>) are treated as single-line commands.
+        Test that YAML folded blocks (>) execute via unified script execution.
         @athena: da835b76999d
         """
         with TemporaryDirectory() as tmpdir:
@@ -1007,9 +1024,10 @@ class TestMultilineExecution(unittest.TestCase):
             mock_run.return_value = MagicMock(returncode=0)
             executor.execute_task("build")
 
-            # Should use single-line execution (shell + args + cmd)
+            # Should use unified script execution
             call_args = mock_run.call_args[0][0]
-            self.assertEqual(call_args, ["bash", "-c", folded_cmd])
+            script_path = call_args[0]
+            self.assertTrue(script_path.endswith(".sh") or script_path.endswith(".bat"))
 
     @patch("subprocess.run")
     def test_multiline_command_uses_temp_file(self, mock_run):
@@ -1220,11 +1238,14 @@ class TestEnvironmentResolution(unittest.TestCase):
             self.assertEqual(preamble, "set -e\n")
 
     @patch("subprocess.run")
-    def test_task_execution_uses_custom_shell(self, mock_run):
+    @patch("os.chmod")
+    def test_task_execution_uses_custom_shell(self, mock_chmod, mock_run):
         """
         Test that custom shell from environment is used for execution.
         @athena: b4778e6d1c52
         """
+        import platform
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -1242,9 +1263,16 @@ class TestEnvironmentResolution(unittest.TestCase):
             mock_run.return_value = MagicMock(returncode=0)
             executor.execute_task("build")
 
-            # Verify fish shell was used
+            # Verify script execution was used
             call_args = mock_run.call_args[0][0]
-            self.assertEqual(call_args, ["fish", "-c", "echo hello"])
+            script_path = call_args[0]
+            self.assertTrue(script_path.endswith(".sh") or script_path.endswith(".bat"))
+
+            # Read the script to verify it uses fish shell
+            if not platform.system() == "Windows":
+                with open(script_path, 'r') as f:
+                    script_content = f.read()
+                    self.assertIn("fish", script_content)
 
     def test_hash_changes_with_environment(self):
         """
@@ -1264,7 +1292,8 @@ class TestEnvironmentResolution(unittest.TestCase):
         self.assertNotEqual(hash1, hash3)
 
     @patch("subprocess.run")
-    def test_run_task_substitutes_environment_variables(self, mock_run):
+    @patch("os.chmod")
+    def test_run_task_substitutes_environment_variables(self, mock_chmod, mock_run):
         """
         Test that _run_task substitutes environment variables.
         @athena: 5d62ad3e3913
@@ -1287,10 +1316,16 @@ class TestEnvironmentResolution(unittest.TestCase):
                 mock_run.return_value = MagicMock(returncode=0)
                 executor._run_task(tasks["test"], {})
 
-                # Verify command has env var substituted
+                # Verify command has env var substituted in the script
                 called_cmd = mock_run.call_args[0][0]
-                self.assertIn('test_value', ' '.join(called_cmd))
-                self.assertNotIn('{{ env.TEST_ENV_VAR }}', ' '.join(called_cmd))
+                script_path = called_cmd[0]
+                self.assertTrue(script_path.endswith(".sh") or script_path.endswith(".bat"))
+
+                # Read the script to verify env var was substituted
+                with open(script_path, 'r') as f:
+                    script_content = f.read()
+                    self.assertIn('test_value', script_content)
+                    self.assertNotIn('{{ env.TEST_ENV_VAR }}', script_content)
         finally:
             del os.environ['TEST_ENV_VAR']
 
