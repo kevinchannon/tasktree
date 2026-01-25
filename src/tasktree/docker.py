@@ -9,7 +9,6 @@ import os
 import platform
 import re
 import subprocess
-import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -34,7 +33,7 @@ class DockerError(Exception):
 class DockerManager:
     """
     Manages Docker image building and container execution.
-    @athena: ef3cc3d7bcbe
+    @athena: 1a8a919eb05d
     """
 
     def __init__(self, project_root: Path):
@@ -48,7 +47,8 @@ class DockerManager:
         self._project_root = project_root
         self._built_images: dict[str, tuple[str, str]] = {}  # env_name -> (image_tag, image_id) cache
 
-    def _should_add_user_flag(self) -> bool:
+    @staticmethod
+    def _should_add_user_flag() -> bool:
         """
         Check if --user flag should be added to docker run.
 
@@ -57,7 +57,7 @@ class DockerManager:
 
         Returns:
         True if --user flag should be added, False otherwise
-        @athena: 6a872eea6a10
+        @athena: c5932076dfda
         """
         # Skip on Windows - Docker Desktop handles UID mapping differently
         if platform.system() == "Windows":
@@ -158,7 +158,7 @@ class DockerManager:
 
         Raises:
         DockerError: If docker run fails
-        @athena: 2c963babb5ca
+        @athena: f24fc9c27f81
         """
         # Ensure image is built (returns tag and ID)
         image_tag, image_id = self.ensure_image_built(env)
@@ -251,13 +251,14 @@ class DockerManager:
 
         return f"{resolved_host_path}:{container_path}"
 
-    def _check_docker_available(self) -> None:
+    @staticmethod
+    def _check_docker_available() -> None:
         """
         Check if docker command is available.
 
         Raises:
         DockerError: If docker is not available
-        @athena: 16ba713e3962
+        @athena: 8deaf8c5c05e
         """
         try:
             subprocess.run(
@@ -272,7 +273,8 @@ class DockerManager:
                 "Visit https://docs.docker.com/get-docker/ for installation instructions."
             )
 
-    def _get_image_id(self, image_tag: str) -> str:
+    @staticmethod
+    def _get_image_id(image_tag: str) -> str:
         """
         Get the full image ID for a given tag.
 
@@ -284,7 +286,7 @@ class DockerManager:
 
         Raises:
         DockerError: If cannot inspect image
-        @athena: e4bc075fe857
+        @athena: 9e5aa77003ee
         """
         try:
             result = subprocess.run(

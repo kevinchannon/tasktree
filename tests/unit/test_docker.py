@@ -287,7 +287,7 @@ class TestResolveContainerWorkingDir(unittest.TestCase):
 class TestDockerManager(unittest.TestCase):
     """
     Test DockerManager class.
-    @athena: fe031a3f152f
+    @athena: 44d847327cd2
     """
 
     def setUp(self):
@@ -805,7 +805,10 @@ class TestDockerManager(unittest.TestCase):
     @patch("tasktree.docker.subprocess.run")
     @patch("tasktree.docker.platform.system")
     def test_run_in_container_with_shell_args(self, mock_platform, mock_run):
-        """Test that shell args list works correctly."""
+        """
+        Test that shell args list works correctly.
+        @athena: 7e42f206119d
+        """
         mock_platform.return_value = "Windows"
 
         env = Environment(
