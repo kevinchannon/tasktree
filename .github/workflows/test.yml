@@ -45,8 +45,8 @@ jobs:
 
     - name: Test CLI commands
       run: |
-        python -m tasktree.cli --help
-        python -m tasktree.cli --list || true
+        uv run tt --help
+        uv run tt --list || true
 
   lint:
     runs-on: ubuntu-latest
@@ -65,4 +65,4 @@ jobs:
       run: uv sync --extra dev
 
     - name: Check code can be imported
-      run: python -c "from tasktree import Executor, Recipe, Task; print('Import successful')"
+      run: uv run python -c "from tasktree import Executor, Recipe, Task; print('Import successful')"
