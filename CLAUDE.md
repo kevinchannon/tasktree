@@ -83,8 +83,10 @@ This repo uses Athena to store and retrieve knowledge about the codebase. YOU SH
    - `athena info path/to/module.py:ClassName`
    - `athena info path/to/module.py:ClassName.method`
    - `athena info path/to/module.py:some_function`
-3. AFTER code changes, run `athena status` to check which docs should have been updated
-4. AFTER checking/updating docs, run `athena sync` to register the changes
+3. Search for relevant code information:
+   - `athena serch "generate JWT authentication tokens`
+4. AFTER code changes, run `athena status` to check which docs should have been updated
+5. AFTER checking/updating docs, run `athena sync` to register the changes
 
 **prefer this workflow to using native `grep` and `find` tools** for understanding the code.
 
