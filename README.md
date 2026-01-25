@@ -820,7 +820,7 @@ Hint: Define named outputs like: outputs: [{ missing: 'path/to/file' }]
 
 ### Self-References
 
-Tasks can reference their own named inputs and outputs using `{{ self.inputs.name }}` and `{{ self.outputs.name }}` templates. This eliminates repetition when paths contain variables or when tasks have multiple inputs/outputs.
+Tasks can reference their own inputs and outputs using `{{ self.inputs.name }}` (named access) or `{{ self.inputs.0 }}` (positional access) templates. This eliminates repetition when paths contain variables or when tasks have multiple inputs/outputs.
 
 **Named Inputs and Outputs:**
 
@@ -847,8 +847,10 @@ tasks:
 
 - **Defining named inputs**: `inputs: [{ name: "path/to/file" }]`
 - **Defining named outputs**: `outputs: [{ name: "path/to/file" }]`
-- **Referencing inputs**: `{{ self.inputs.input_name }}`
-- **Referencing outputs**: `{{ self.outputs.output_name }}`
+- **Defining anonymous inputs**: `inputs: ["path/to/file"]`
+- **Defining anonymous outputs**: `outputs: ["path/to/file"]`
+- **Referencing by name**: `{{ self.inputs.input_name }}` or `{{ self.outputs.output_name }}`
+- **Referencing by index**: `{{ self.inputs.0 }}` or `{{ self.outputs.1 }}` (0-based)
 - **Mixed format**: Can combine named and anonymous inputs/outputs in the same task
 
 **Why Use Self-References?**
@@ -957,6 +959,129 @@ tasks:
     cmd: build-tool --config {{ self.inputs.config }} --output {{ self.outputs.binary }}
 ```
 
+**Positional Index References:**
+
+In addition to named references, you can access inputs and outputs by their positional index using `{{ self.inputs.0 }}`, `{{ self.inputs.1 }}`, etc. This provides an alternative way to reference items, especially useful for:
+
+- **Anonymous inputs/outputs**: Reference items that don't have names
+- **Simple sequential access**: When order is more important than naming
+- **Mixed with named access**: Use both styles in the same task
+
+**Syntax:**
+
+```yaml
+tasks:
+  process:
+    inputs: ["file1.txt", "file2.txt", "file3.txt"]
+    outputs: ["output1.txt", "output2.txt"]
+    cmd: |
+      cat {{ self.inputs.0 }} {{ self.inputs.1 }} > {{ self.outputs.0 }}
+      cat {{ self.inputs.2 }} > {{ self.outputs.1 }}
+```
+
+Indices follow YAML declaration order, starting from 0 (zero-based indexing):
+- First input/output = index 0
+- Second input/output = index 1
+- Third input/output = index 2, etc.
+
+**Works with Both Named and Anonymous:**
+
+```yaml
+tasks:
+  build:
+    inputs:
+      - config: "build.yaml"  # Index 0, also accessible as {{ self.inputs.config }}
+      - "src/**/*.c"          # Index 1, ONLY accessible as {{ self.inputs.1 }}
+      - headers: "include/*.h" # Index 2, also accessible as {{ self.inputs.headers }}
+    outputs:
+      - "dist/app.js"         # Index 0
+      - bundle: "dist/bundle.js" # Index 1, also accessible as {{ self.outputs.bundle }}
+    cmd: |
+      # Mix positional and named references
+      build-tool \
+        --config {{ self.inputs.0 }} \
+        --sources {{ self.inputs.1 }} \
+        --headers {{ self.inputs.headers }} \
+        --output {{ self.outputs.bundle }}
+```
+
+**Same Item, Multiple Ways:**
+
+Named items can be accessed by both name and index:
+
+```yaml
+tasks:
+  copy:
+    inputs:
+      - source: data.txt
+    cmd: |
+      # These are equivalent:
+      cat {{ self.inputs.source }} > copy1.txt
+      cat {{ self.inputs.0 }} > copy2.txt
+```
+
+**With Variables and Arguments:**
+
+Positional references work with variable-expanded paths:
+
+```yaml
+variables:
+  version: "1.0"
+
+tasks:
+  package:
+    args: [platform]
+    inputs:
+      - "dist/app-{{ var.version }}.js"
+      - "dist/lib-{{ arg.platform }}.so"
+    outputs: ["release-{{ var.version }}-{{ arg.platform }}.tar.gz"]
+    cmd: tar czf {{ self.outputs.0 }} {{ self.inputs.0 }} {{ self.inputs.1 }}
+```
+
+**Index Boundaries:**
+
+Indices are validated before execution:
+
+```yaml
+tasks:
+  build:
+    inputs: ["file1.txt", "file2.txt"]
+    cmd: cat {{ self.inputs.5 }}  # Error: index 5 out of bounds!
+```
+
+Error message:
+```
+Task 'build' references input index '5' but only has 2 inputs (indices 0-1)
+```
+
+**Empty Lists:**
+
+Referencing an index when no inputs/outputs exist:
+
+```yaml
+tasks:
+  generate:
+    cmd: echo "test" > {{ self.outputs.0 }}  # Error: no outputs defined!
+```
+
+Error message:
+```
+Task 'generate' references output index '0' but has no outputs defined
+```
+
+**When to Use Index References:**
+
+- **Anonymous items**: Only way to reference inputs/outputs without names
+- **Order-based processing**: When the sequence matters more than naming
+- **Simple tasks**: Quick access without defining names
+- **Compatibility**: Accessing items in legacy YAML that uses anonymous format
+
+**When to Use Named References:**
+
+- **Clarity**: Names make commands more readable (`{{ self.inputs.config }}` vs `{{ self.inputs.2 }}`)
+- **Maintainability**: Adding/removing items doesn't break indices
+- **Complex tasks**: Many inputs/outputs are easier to manage with names
+
 **Error Messages:**
 
 If you reference a non-existent input or output:
@@ -996,18 +1121,21 @@ Hint: Define named inputs like: inputs: [{ src: 'file.txt' }]
 
 **Key Behaviors:**
 
+- **Two access methods**: Reference by name (`{{ self.inputs.name }}`) or by index (`{{ self.inputs.0 }}`)
 - **Template resolution**: Self-references are resolved during dependency graph planning
 - **Substitution order**: Variables → Dependency outputs → Self-references → Arguments/Environment
-- **Fail-fast validation**: Errors are caught before execution begins
-- **Clear error messages**: Lists available names if reference doesn't exist
+- **Fail-fast validation**: Errors are caught before execution begins (missing names, out-of-bounds indices)
+- **Clear error messages**: Lists available names/indices if reference doesn't exist
 - **Backward compatible**: Existing anonymous inputs/outputs work unchanged
 - **State tracking**: Works correctly with incremental execution and freshness checks
+- **Index order**: Positional indices follow YAML declaration order (0-based)
 
 **Limitations:**
 
-- **Anonymous not referenceable**: Only named inputs/outputs can be referenced
+- **Anonymous not referenceable by name**: Anonymous inputs/outputs cannot be referenced by name (use positional index instead: `{{ self.inputs.0 }}`)
 - **Case sensitive**: `{{ self.inputs.Src }}` and `{{ self.inputs.src }}` are different
 - **Argument defaults**: Self-references in argument defaults are not supported (arguments are evaluated before self-references)
+- **No negative indices**: Python-style negative indexing (`{{ self.inputs.-1 }}`) is not supported
 
 **Use Cases:**
 
