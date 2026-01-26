@@ -19,6 +19,7 @@ from tasktree.graph import get_implicit_inputs, resolve_execution_order, resolve
 from tasktree.hasher import hash_args, hash_task, make_cache_key
 from tasktree.parser import Recipe, Task, Environment
 from tasktree.state import StateManager, TaskState
+from tasktree.hasher import hash_environment_definition
 
 
 @dataclass
@@ -1168,52 +1169,13 @@ class Executor:
         cache_key = self._cache_key(task, args_dict)
         input_state = self._input_files_to_modified_times(task)
 
-        # Record Docker-specific inputs if task uses Docker environment
         env_name = self._get_effective_env_name(task)
         if env_name:
             env = self.recipe.get_environment(env_name)
-            if env and env.dockerfile:
-                # Record Dockerfile mtime
-                dockerfile_path = self.recipe.project_root / env.dockerfile
-                if dockerfile_path.exists():
-                    input_state[env.dockerfile] = dockerfile_path.stat().st_mtime
-
-                # Record .dockerignore mtime if exists
-                context_path = self.recipe.project_root / env.context
-                dockerignore_path = context_path / ".dockerignore"
-                if dockerignore_path.exists():
-                    relative_dockerignore = str(
-                        dockerignore_path.relative_to(self.recipe.project_root)
-                    )
-                    input_state[relative_dockerignore] = dockerignore_path.stat().st_mtime
-
-                # Record context check timestamp
-                input_state[f"_context_{env.context}"] = time.time()
-
-                # Parse and record base image digests from Dockerfile
-                try:
-                    dockerfile_content = dockerfile_path.read_text()
-                    digests = docker_module.parse_base_image_digests(dockerfile_content)
-                    for digest in digests:
-                        # Store digest with Dockerfile's mtime
-                        input_state[f"_digest_{digest}"] = dockerfile_path.stat().st_mtime
-                except (OSError, IOError):
-                    # If we can't read Dockerfile, skip digest tracking
-                    pass
-
-            # Record environment definition hash for all environments (shell and Docker)
             if env:
-                from tasktree.hasher import hash_environment_definition
-
-                env_hash = hash_environment_definition(env)
-                input_state[f"_env_hash_{env_name}"] = env_hash
-
-                # For Docker environments, also store the image ID
+                input_state[f"_env_hash_{env_name}"] = hash_environment_definition(env)
                 if env.dockerfile:
-                    # Image was already built during check phase or task execution
-                    if env_name in self.docker_manager._built_images:
-                        image_tag, image_id = self.docker_manager._built_images[env_name]
-                        input_state[f"_docker_image_id_{env_name}"] = image_id
+                    input_state |= self._docker_inputs_to_modified_times(env_name, env)
 
         new_state = TaskState(last_run=time.time(), input_state=input_state)
         self.state.set(cache_key, new_state)
@@ -1238,4 +1200,42 @@ class Executor:
             if file_path_obj.exists():
                 input_state[file_path] = file_path_obj.stat().st_mtime
         
+        return input_state
+    
+    def _docker_inputs_to_modified_times(self, env_name: str, env: Environment) -> dict[str, float]:
+        input_state = dict()
+        # Record Dockerfile mtime
+        dockerfile_path = self.recipe.project_root / env.dockerfile
+        if dockerfile_path.exists():
+            input_state[env.dockerfile] = dockerfile_path.stat().st_mtime
+
+        # Record .dockerignore mtime if exists
+        context_path = self.recipe.project_root / env.context
+        dockerignore_path = context_path / ".dockerignore"
+        if dockerignore_path.exists():
+            relative_dockerignore = str(
+                dockerignore_path.relative_to(self.recipe.project_root)
+            )
+            input_state[relative_dockerignore] = dockerignore_path.stat().st_mtime
+
+        # Record context check timestamp
+        input_state[f"_context_{env.context}"] = time.time()
+
+        # Parse and record base image digests from Dockerfile
+        try:
+            dockerfile_content = dockerfile_path.read_text()
+            digests = docker_module.parse_base_image_digests(dockerfile_content)
+            for digest in digests:
+                # Store digest with Dockerfile's mtime
+                input_state[f"_digest_{digest}"] = dockerfile_path.stat().st_mtime
+        except (OSError, IOError):
+            # If we can't read Dockerfile, skip digest tracking
+            pass
+
+        # For Docker environments, also store the image ID
+        # Image was already built during check phase or task execution
+        if env_name in self.docker_manager._built_images:
+            image_tag, image_id = self.docker_manager._built_images[env_name]
+            input_state[f"_docker_image_id_{env_name}"] = image_id
+
         return input_state

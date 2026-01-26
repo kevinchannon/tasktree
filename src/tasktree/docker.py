@@ -12,6 +12,8 @@ import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from pathspec import PathSpec
+
 try:
     import pathspec
 except ImportError:
@@ -348,7 +350,7 @@ def resolve_container_working_dir(
         return f"/{task_working_dir.lstrip('/')}"
 
 
-def parse_dockerignore(dockerignore_path: Path) -> "pathspec.PathSpec | None":
+def parse_dockerignore(dockerignore_path: Path) -> PathSpec | None:
     """
     Parse .dockerignore file into pathspec matcher.
 
