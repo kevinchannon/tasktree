@@ -48,7 +48,7 @@ class ExecutionError(Exception):
 class Executor:
     """
     Executes tasks with incremental execution logic.
-    @athena: d67a4a7b2367
+    @athena: 88e82151721d
     """
 
     # Protected environment variables that cannot be overridden by exported args
@@ -302,7 +302,7 @@ class Executor:
 
         Returns:
         Tuple of (shell, preamble)
-        @athena: 843700029078
+        @athena: 15cad76d7c80
         """
         # Check for global override first
         env_name = self.recipe.global_env_override
@@ -525,7 +525,7 @@ class Executor:
 
         Raises:
         ExecutionError: If task execution fails
-        @athena: 885c66658550
+        @athena: 4b49652a7afd
         """
         # Capture timestamp at task start for consistency (in UTC)
         task_start_time = datetime.now(timezone.utc)
@@ -612,6 +612,7 @@ class Executor:
         Raises:
         ExecutionError: If command execution fails
         @athena: TBD
+        @athena: 96e85dc15b5c
         """
         # Prepare environment with exported args
         env = self._prepare_env_with_exports(exported_env_vars)

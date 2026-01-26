@@ -7,26 +7,25 @@ and {{ env.NAME }} placeholders with their corresponding values.
 """
 
 import re
-from random import choice
 from typing import Any
 
 
 # Pattern matches: {{ prefix.name }} with optional whitespace
 # Groups: (1) prefix (var|arg|env|tt), (2) name (identifier)
 PLACEHOLDER_PATTERN = re.compile(
-    r'\{\{\s*(var|arg|env|tt)\.([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}'
+    r'\{\{\s*(var|arg|env|tt)\.([a-zA-Z_][a-zA-Z0-9_]*)\s*}}'
 )
 
 # Pattern matches: {{ dep.task_name.outputs.output_name }} with optional whitespace
 # Groups: (1) task_name (can include dots for namespacing), (2) output_name (identifier)
 DEP_OUTPUT_PATTERN = re.compile(
-    r'\{\{\s*dep\.([a-zA-Z_][a-zA-Z0-9_.-]*)\.outputs\.([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}'
+    r'\{\{\s*dep\.([a-zA-Z_][a-zA-Z0-9_.-]*)\.outputs\.([a-zA-Z_][a-zA-Z0-9_]*)\s*}}'
 )
 
 # Pattern matches: {{ self.(inputs|outputs).name }} or {{ self.(inputs|outputs).0 }} with optional whitespace
 # Groups: (1) field (inputs|outputs), (2) name (identifier) or index (numeric)
 SELF_REFERENCE_PATTERN = re.compile(
-    r'\{\{\s*self\.(inputs|outputs)\.([a-zA-Z_][a-zA-Z0-9_]*|[0-9]+)\s*\}\}'
+    r'\{\{\s*self\.(inputs|outputs)\.([a-zA-Z_][a-zA-Z0-9_]*|[0-9]+)\s*}}'
 )
 
 

@@ -90,14 +90,14 @@ class TestTaskStatus(unittest.TestCase):
 
 class TestExecutor(unittest.TestCase):
     """
-    @athena: 757a0e3e8359
+    @athena: 048894f2713e
     """
     @patch("subprocess.run")
     @patch("os.chmod")
     def test_execute_simple_task(self, mock_chmod, mock_run):
         """
         Test executing a simple task.
-        @athena: 6317905c844f
+        @athena: 6c68df426cc6
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -145,7 +145,7 @@ class TestExecutor(unittest.TestCase):
     def test_execute_with_args(self, mock_chmod, mock_run):
         """
         Test executing task with arguments.
-        @athena: 73be40a7105b
+        @athena: 51d697100f5a
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -175,6 +175,7 @@ class TestExecutor(unittest.TestCase):
     def test_run_command_as_script_single_line(self, mock_unlink, mock_chmod, mock_run):
         """
         Test _run_command_as_script with single-line command.
+        @athena: b08cbc7783d9
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -212,6 +213,7 @@ class TestExecutor(unittest.TestCase):
     def test_run_command_as_script_with_preamble(self, mock_unlink, mock_chmod, mock_run):
         """
         Test _run_command_as_script with preamble.
+        @athena: 0d623d315756
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -246,6 +248,7 @@ class TestExecutor(unittest.TestCase):
     def test_run_command_as_script_multiline(self, mock_unlink, mock_chmod, mock_run):
         """
         Test _run_command_as_script with multi-line command.
+        @athena: 1b973f429ae7
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -283,6 +286,7 @@ class TestExecutor(unittest.TestCase):
         2. Script is made executable with chmod
         3. Script content has correct ordering (shebang -> preamble -> command)
         4. subprocess.run is called AFTER all script setup completes
+        @athena: bd7375ce474d
         """
         import platform
         import stat
@@ -975,7 +979,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
 class TestOnlyMode(unittest.TestCase):
     """
     Test the --only mode that skips dependencies.
-    @athena: 0aa49c9ecf67
+    @athena: 68c6410591ab
     """
 
     @patch("subprocess.run")
@@ -983,7 +987,7 @@ class TestOnlyMode(unittest.TestCase):
     def test_only_mode_skips_dependencies(self, mock_chmod, mock_run):
         """
         Test that only=True executes only the target task, not dependencies.
-        @athena: c6f1351d6ce1
+        @athena: 8b8cb598d197
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -1016,7 +1020,7 @@ class TestOnlyMode(unittest.TestCase):
     def test_only_mode_with_multiple_dependencies(self, mock_chmod, mock_run):
         """
         Test that only=True skips all dependencies in a chain.
-        @athena: 26e51dc2998b
+        @athena: 0d66c025a5c7
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -1095,7 +1099,7 @@ class TestOnlyMode(unittest.TestCase):
 class TestMultilineExecution(unittest.TestCase):
     """
     Test multi-line command execution via temp files.
-    @athena: ab0ba143da41
+    @athena: 779d9b0938e5
     """
 
     def test_multiline_command_content(self):
@@ -1137,7 +1141,7 @@ echo "line3" >> output.txt"""
 class TestEnvironmentResolution(unittest.TestCase):
     """
     Test environment resolution and usage.
-    @athena: a5e234d0d4bc
+    @athena: 535d58d2a7ae
     """
 
     def test_get_effective_env_with_global_override(self):
@@ -1250,7 +1254,7 @@ class TestEnvironmentResolution(unittest.TestCase):
     def test_resolve_environment_with_custom_env(self):
         """
         Test resolving environment with custom shell and preamble.
-        @athena: 82fd09bacad8
+        @athena: 38be6dfc26c8
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -1279,7 +1283,7 @@ class TestEnvironmentResolution(unittest.TestCase):
     def test_task_execution_uses_custom_shell(self, mock_chmod, mock_run):
         """
         Test that custom shell from environment is used for execution.
-        @athena: b4778e6d1c52
+        @athena: 2e5ff72c2968
         """
         import platform
 
@@ -1339,7 +1343,7 @@ class TestEnvironmentResolution(unittest.TestCase):
     def test_run_task_substitutes_environment_variables(self, mock_chmod, mock_run):
         """
         Test that _run_task substitutes environment variables.
-        @athena: 5d62ad3e3913
+        @athena: c58b5584299e
         """
         os.environ['TEST_ENV_VAR'] = 'test_value'
         captured_script_content = []

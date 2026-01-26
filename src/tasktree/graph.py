@@ -4,7 +4,6 @@ Dependency resolution using topological sorting.
 """
 
 from graphlib import TopologicalSorter
-from pathlib import Path
 from typing import Any
 
 from tasktree.hasher import hash_args
@@ -13,7 +12,6 @@ from tasktree.parser import (
     Task,
     DependencyInvocation,
     parse_dependency_spec,
-    parse_arg_spec,
 )
 from tasktree.substitution import substitute_dependency_args
 

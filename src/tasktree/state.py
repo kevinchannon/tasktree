@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Set
 
 
 @dataclass
@@ -43,7 +43,7 @@ class TaskState:
 class StateManager:
     """
     Manages the .tasktree-state file.
-    @athena: 44713c70e04e
+    @athena: 3dd3447bb53b
     """
 
     STATE_FILE = ".tasktree-state"
@@ -64,7 +64,7 @@ class StateManager:
     def load(self) -> None:
         """
         Load state from file if it exists.
-        @athena: 11748af0886c
+        @athena: e0cf9097c590
         """
         if self.state_path.exists():
             try:
@@ -74,7 +74,7 @@ class StateManager:
                         key: TaskState.from_dict(value)
                         for key, value in data.items()
                     }
-            except (json.JSONDecodeError, KeyError) as e:
+            except (json.JSONDecodeError, KeyError):
                 # If state file is corrupted, start fresh
                 self._state = {}
         self._loaded = True
@@ -116,13 +116,13 @@ class StateManager:
             self.load()
         self._state[cache_key] = state
 
-    def prune(self, valid_task_hashes: set[str]) -> None:
+    def prune(self, valid_task_hashes: Set[str]) -> None:
         """
         Remove state entries for tasks that no longer exist.
 
         Args:
         valid_task_hashes: Set of valid task hashes from current recipe
-        @athena: ce21bb523d49
+        @athena: 2717c6c244d3
         """
         if not self._loaded:
             self.load()

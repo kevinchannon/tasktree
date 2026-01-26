@@ -939,13 +939,13 @@ def _get_default_shell_and_args() -> tuple[str, list[str]]:
 
     Returns:
     Tuple of (shell, args) for platform default
-    @athena: 68a19449a035
+    @athena: 475863b02b48
     """
     is_windows = platform.system() == "Windows"
     if is_windows:
-        return ("cmd", ["/c"])
+        return "cmd", ["/c"]
     else:
-        return ("bash", ["-c"])
+        return "bash", ["-c"]
 
 
 def _resolve_eval_variable(
@@ -1256,11 +1256,11 @@ def _expand_variable_dependencies(
     ... }
     >>> _expand_variable_dependencies({"a"}, raw_vars)
     {"a", "b", "c"}
-    @athena: e7ec4a4a6db3
+    @athena: 98e583b402aa
     """
     expanded = set(variable_names)
     to_process = list(variable_names)
-    pattern = re.compile(r'\{\{\s*var\.(\w+)\s*\}\}')
+    pattern = re.compile(r'\{\{\s*var\.(\w+)\s*}}')
 
     while to_process:
         var_name = to_process.pop(0)
@@ -1384,7 +1384,7 @@ def _parse_file_with_env(
     import_stack: Stack of files being imported (for circular detection)
 
     Returns:
-    Tuple of (tasks, environments, default_env_name, raw_variables, yaml_data)
+    Tuple of (tasks, environments, default_env_name, raw_variables, YAML_data)
     Note: Variables are NOT evaluated here - they're stored as raw specs for lazy evaluation
     @athena: b2dced506787
     """
@@ -1591,12 +1591,12 @@ def collect_reachable_variables(
     >>> task = Task("build", cmd="echo {{ var.version }}")
     >>> collect_reachable_variables({"build": task}, {"build"})
     {"version"}
-    @athena: fc2a03927486
+    @athena: e22e54537f8d
     """
     import re
 
     # Pattern to match {{ var.name }}
-    var_pattern = re.compile(r'\{\{\s*var\s*\.\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}')
+    var_pattern = re.compile(r'\{\{\s*var\s*\.\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*}}')
 
     variables = set()
 
@@ -1801,7 +1801,7 @@ def _parse_file(
     CircularImportError: If a circular import is detected
     FileNotFoundError: If an imported file doesn't exist
     ValueError: If task structure is invalid
-    @athena: f2a1f2c70240
+    @athena: 8a903d791c2f
     """
     # Initialize import stack if not provided
     if import_stack is None:
@@ -1823,6 +1823,7 @@ def _parse_file(
         data = {}
 
     tasks: dict[str, Task] = {}
+    # TODO: Understand why this is not used.
     file_dir = file_path.parent
 
     # Default working directory is the project root (where tt is invoked)
@@ -1861,7 +1862,7 @@ def _parse_file(
             tasks.update(nested_tasks)
 
     # Validate top-level keys (only imports, environments, tasks, and variables are allowed)
-    VALID_TOP_LEVEL_KEYS = {"imports", "environments", "tasks", "variables"}
+    valid_top_level_keys = {"imports", "environments", "tasks", "variables"}
 
     # Check if tasks key is missing when there appear to be task definitions at root
     # Do this BEFORE checking for unknown keys, to provide better error message
@@ -1869,7 +1870,7 @@ def _parse_file(
         # Check if there are potential task definitions at root level
         potential_tasks = [
             k for k, v in data.items()
-            if isinstance(v, dict) and k not in VALID_TOP_LEVEL_KEYS
+            if isinstance(v, dict) and k not in valid_top_level_keys
         ]
 
         if potential_tasks:
@@ -1881,11 +1882,11 @@ def _parse_file(
                 f"tasks:\n"
                 + '\n'.join(f"  {k}:" for k in potential_tasks) +
                 "\n    cmd: ...\n\n"
-                f"Valid top-level keys are: {', '.join(sorted(VALID_TOP_LEVEL_KEYS))}"
+                f"Valid top-level keys are: {', '.join(sorted(valid_top_level_keys))}"
             )
 
     # Now check for other invalid top-level keys (non-dict values)
-    invalid_keys = set(data.keys()) - VALID_TOP_LEVEL_KEYS
+    invalid_keys = set(data.keys()) - valid_top_level_keys
     if invalid_keys:
         raise ValueError(
             f"Invalid recipe format in {file_path}\n\n"
@@ -1944,19 +1945,19 @@ def _parse_file(
                 elif isinstance(dep, dict):
                     # Dict dependency with args - rewrite the task name key
                     rewritten_dep = {}
-                    for task_name, args in dep.items():
+                    for t_name, args in dep.items():
                         if "." not in task_name:
                             # Simple name - prefix it
-                            rewritten_dep[f"{namespace}.{task_name}"] = args
+                            rewritten_dep[f"{namespace}.{t_name}"] = args
                         else:
                             # Check if it starts with a local import namespace
-                            dep_root = task_name.split(".", 1)[0]
+                            dep_root = t_name.split(".", 1)[0]
                             if dep_root in local_import_namespaces:
                                 # Local import reference - prefix it
-                                rewritten_dep[f"{namespace}.{task_name}"] = args
+                                rewritten_dep[f"{namespace}.{t_name}"] = args
                             else:
                                 # External reference - keep as-is
-                                rewritten_dep[task_name] = args
+                                rewritten_dep[t_name] = args
                     rewritten_deps.append(rewritten_dep)
                 else:
                     # Unknown type - keep as-is

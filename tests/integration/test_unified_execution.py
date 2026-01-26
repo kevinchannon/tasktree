@@ -13,11 +13,13 @@ from tasktree.cli import app
 class TestUnifiedExecution(unittest.TestCase):
     """
     Test unified script-based execution for all commands.
+    @athena: 0d7f7aeb8f61
     """
 
     def setUp(self):
         """
         Set up test fixtures.
+        @athena: 36a706d60319
         """
         self.runner = CliRunner()
         self.env = {"NO_COLOR": "1"}
@@ -25,6 +27,7 @@ class TestUnifiedExecution(unittest.TestCase):
     def test_single_line_command_execution(self):
         """
         Test that single-line commands execute via script.
+        @athena: 7d14b20aec8a
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -64,6 +67,7 @@ tasks:
     def test_multiline_command_execution(self):
         """
         Test that multi-line commands execute via script.
+        @athena: ad0b468a0462
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -107,6 +111,7 @@ tasks:
     def test_single_line_command_with_preamble(self):
         """
         Test that preamble works with single-line commands.
+        @athena: ff510cb2a298
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -154,6 +159,7 @@ tasks:
     def test_multiline_command_with_preamble(self):
         """
         Test that preamble works with multi-line commands.
+        @athena: 1597178b4c3a
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)

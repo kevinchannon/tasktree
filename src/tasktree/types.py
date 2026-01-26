@@ -3,7 +3,6 @@
 import re
 from datetime import datetime
 from ipaddress import IPv4Address, IPv6Address, ip_address
-from pathlib import Path
 from typing import Any, Optional
 
 import click
