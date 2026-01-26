@@ -240,6 +240,10 @@ tasks:
     cmd: go build -o dist/binary           # Command to execute
 ```
 
+**Task name constraints:**
+- Task names cannot contain dots (`.`) - they are reserved for namespacing imported tasks
+- Example: `build.release` is invalid as a task name, but valid as a reference to task `release` in namespace `build`
+
 ### Commands
 
 All commands are executed by writing them to temporary script files. This provides consistent behavior and better shell syntax support:
