@@ -1225,6 +1225,66 @@ imports:
 
             self.assertIn("Import file not found", str(cm.exception))
 
+    def test_parameterized_deps_in_namespaced_import(self):
+        """
+        Test that parameterized dependencies in namespaced imports are correctly rewritten.
+
+        This test was added alongside fixing a bug at line 1952 where `task_name` was checked
+        instead of `t_name`. While the bug was benign (task_name can never contain dots due to
+        validation at line 1911), this test ensures the dependency rewriting logic is correct
+        for parameterized dependencies in nested imports.
+
+        This test verifies that when deploy.yaml imports base.yaml locally and references
+        a task from that import with parameters, the dependency is correctly rewritten with
+        both namespace prefixes.
+        @athena: bug-fix-test
+        """
+        with TemporaryDirectory() as tmpdir:
+            # Create base file with a task that has args
+            base_path = Path(tmpdir) / "base.yaml"
+            base_path.write_text("""
+tasks:
+  build:
+    args:
+      - target: { type: str, default: debug }
+    cmd: cargo build --{{ arg.target }}
+""")
+
+            # Create deploy file that imports base and depends on it with args
+            deploy_path = Path(tmpdir) / "deploy.yaml"
+            deploy_path.write_text("""
+imports:
+  - file: base.yaml
+    as: base
+
+tasks:
+  deploy-app:
+    deps:
+      - base.build(target=release)
+    cmd: rsync -av target/release/ server:/app/
+""")
+
+            # Main recipe imports deploy (which in turn imports base)
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+imports:
+  - file: deploy.yaml
+    as: deploy
+""")
+
+            recipe = parse_recipe(recipe_path)
+
+            # The parameterized dependency should be rewritten with both namespaces
+            deploy_task = recipe.tasks["deploy.deploy-app"]
+
+            # The dependency should be rewritten as "deploy.base.build(target=release)"
+            # This is a string (not dict) because parameterized deps stay as strings until graph resolution
+            self.assertEqual(len(deploy_task.deps), 1)
+            dep = deploy_task.deps[0]
+
+            # Should be prefixed with the deploy namespace since "base" is a local import within deploy.yaml
+            self.assertEqual(dep, "deploy.base.build(target=release)")
+
 
 class TestParseMultilineCommands(unittest.TestCase):
     """

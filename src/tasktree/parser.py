@@ -1949,7 +1949,7 @@ def _parse_file(
                     # Dict dependency with args - rewrite the task name key
                     rewritten_dep = {}
                     for t_name, args in dep.items():
-                        if "." not in task_name:
+                        if "." not in t_name:
                             # Simple name - prefix it
                             rewritten_dep[f"{namespace}.{t_name}"] = args
                         else:
