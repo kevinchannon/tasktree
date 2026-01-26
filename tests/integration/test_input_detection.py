@@ -17,8 +17,8 @@ def strip_ansi_codes(text: str) -> str:
     Remove ANSI escape sequences from text.
     @athena: 90023a269128
     """
-    ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
-    return ansi_escape.sub('', text)
+    ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
+    return ansi_escape.sub("", text)
 
 
 class TestInputDetection(unittest.TestCase):
@@ -185,7 +185,7 @@ tasks:
 
                 # Modify one of the files
                 time.sleep(0.01)  # Ensure mtime changes
-                file1.write_text("fn main() { println!(\"modified\"); }")
+                file1.write_text('fn main() { println!("modified"); }')
 
                 # Third run - task executes (file modified)
                 result = self.runner.invoke(app, ["build"], env=self.env)

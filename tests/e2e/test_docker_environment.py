@@ -70,7 +70,7 @@ tasks:
             self.assertEqual(
                 result.returncode,
                 0,
-                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
             )
 
             # Verify environment variables were set
@@ -121,12 +121,14 @@ tasks:
             self.assertEqual(
                 result.returncode,
                 0,
-                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
             )
 
             # Verify working directory was set correctly
             pwd_file = project_root / "output" / "pwd.txt"
-            self.assertTrue(pwd_file.exists(), "Working directory check file not created")
+            self.assertTrue(
+                pwd_file.exists(), "Working directory check file not created"
+            )
 
             # Should be /app (env working_dir)
             pwd = pwd_file.read_text().strip()
@@ -173,12 +175,14 @@ tasks:
             self.assertEqual(
                 result.returncode,
                 0,
-                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
             )
 
             # Verify task completed despite extra args
             success_file = project_root / "output" / "success.txt"
-            self.assertTrue(success_file.exists(), "Task with extra args did not complete")
+            self.assertTrue(
+                success_file.exists(), "Task with extra args did not complete"
+            )
             self.assertIn("container ran with limits", success_file.read_text())
 
 

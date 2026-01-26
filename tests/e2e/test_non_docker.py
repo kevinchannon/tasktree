@@ -41,16 +41,13 @@ tasks:
             self.assertEqual(
                 result.returncode,
                 0,
-                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
             )
 
             # Verify output file
             output_file = project_root / "deploy.log"
             self.assertTrue(output_file.exists(), "Output file not created")
-            self.assertEqual(
-                output_file.read_text().strip(),
-                "environment=dev"
-            )
+            self.assertEqual(output_file.read_text().strip(), "environment=dev")
 
             # Verify terminal output
             self.assertIn("foo was 42", result.stdout)
@@ -77,22 +74,21 @@ tasks:
 """)
 
             # Execute with both arguments
-            result = run_tasktree_cli(["deploy", "42", "environment=prod"], cwd=project_root)
+            result = run_tasktree_cli(
+                ["deploy", "42", "environment=prod"], cwd=project_root
+            )
 
             # Assert success
             self.assertEqual(
                 result.returncode,
                 0,
-                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
             )
 
             # Verify output file
             output_file = project_root / "deploy.log"
             self.assertTrue(output_file.exists(), "Output file not created")
-            self.assertEqual(
-                output_file.read_text().strip(),
-                "environment=prod"
-            )
+            self.assertEqual(output_file.read_text().strip(), "environment=prod")
 
             # Verify terminal output
             self.assertIn("foo was 42", result.stdout)
@@ -126,7 +122,7 @@ tasks:
             self.assertEqual(
                 result.returncode,
                 0,
-                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
             )
 
             # Verify task name is in output

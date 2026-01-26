@@ -16,6 +16,7 @@ class TestTaskStatus(unittest.TestCase):
     """
     @athena: 3042cefdbba4
     """
+
     def test_check_never_run(self):
         """
         Test status for task that has never run.
@@ -24,8 +25,14 @@ class TestTaskStatus(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
-            tasks = {"build": Task(name="build", cmd="cargo build", outputs=["target/bin"])}
-            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
+            tasks = {
+                "build": Task(name="build", cmd="cargo build", outputs=["target/bin"])
+            }
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
             executor = Executor(recipe, state_manager)
 
             status = executor.check_task_status(tasks["build"], {}, {})
@@ -41,7 +48,11 @@ class TestTaskStatus(unittest.TestCase):
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
             tasks = {"test": Task(name="test", cmd="cargo test")}
-            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
             executor = Executor(recipe, state_manager)
 
             status = executor.check_task_status(tasks["test"], {}, {})
@@ -68,19 +79,32 @@ class TestTaskStatus(unittest.TestCase):
             state_manager = StateManager(project_root)
             from tasktree.hasher import hash_task, make_cache_key
 
-            task = Task(name="build", cmd="cat input.txt", inputs=["input.txt"], outputs=["output.txt"])
-            task_hash = hash_task(task.cmd, task.outputs, task.working_dir, task.args, "", task.deps)
+            task = Task(
+                name="build",
+                cmd="cat input.txt",
+                inputs=["input.txt"],
+                outputs=["output.txt"],
+            )
+            task_hash = hash_task(
+                task.cmd, task.outputs, task.working_dir, task.args, "", task.deps
+            )
             cache_key = make_cache_key(task_hash)
 
             # Set state with current mtime
             current_mtime = input_file.stat().st_mtime
             state_manager.set(
                 cache_key,
-                TaskState(last_run=time.time(), input_state={"input.txt": current_mtime}),
+                TaskState(
+                    last_run=time.time(), input_state={"input.txt": current_mtime}
+                ),
             )
 
             tasks = {"build": task}
-            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
             executor = Executor(recipe, state_manager)
 
             status = executor.check_task_status(task, {})
@@ -92,6 +116,7 @@ class TestExecutor(unittest.TestCase):
     """
     @athena: 048894f2713e
     """
+
     @patch("subprocess.run")
     @patch("os.chmod")
     def test_execute_simple_task(self, mock_chmod, mock_run):
@@ -103,7 +128,11 @@ class TestExecutor(unittest.TestCase):
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
             tasks = {"build": Task(name="build", cmd="cargo build")}
-            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
             executor = Executor(recipe, state_manager)
 
             mock_run.return_value = MagicMock(returncode=0)
@@ -130,7 +159,11 @@ class TestExecutor(unittest.TestCase):
                 "lint": Task(name="lint", cmd="cargo clippy"),
                 "build": Task(name="build", cmd="cargo build", deps=["lint"]),
             }
-            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
             executor = Executor(recipe, state_manager)
 
             mock_run.return_value = MagicMock(returncode=0)
@@ -157,7 +190,11 @@ class TestExecutor(unittest.TestCase):
                     args=["environment"],
                 )
             }
-            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
             executor = Executor(recipe, state_manager)
 
             mock_run.return_value = MagicMock(returncode=0)
@@ -181,7 +218,11 @@ class TestExecutor(unittest.TestCase):
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
             tasks = {"test": Task(name="test", cmd="echo hello")}
-            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
             executor = Executor(recipe, state_manager)
 
             mock_run.return_value = MagicMock(returncode=0)
@@ -192,7 +233,7 @@ class TestExecutor(unittest.TestCase):
                 working_dir=project_root,
                 task_name="test",
                 shell="bash",
-                preamble=""
+                preamble="",
             )
 
             # Verify subprocess.run was called with a script path
@@ -210,7 +251,9 @@ class TestExecutor(unittest.TestCase):
     @patch("subprocess.run")
     @patch("os.chmod")
     @patch("os.unlink")
-    def test_run_command_as_script_with_preamble(self, mock_unlink, mock_chmod, mock_run):
+    def test_run_command_as_script_with_preamble(
+        self, mock_unlink, mock_chmod, mock_run
+    ):
         """
         Test _run_command_as_script with preamble.
         @athena: 0d623d315756
@@ -219,7 +262,11 @@ class TestExecutor(unittest.TestCase):
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
             tasks = {"test": Task(name="test", cmd="echo hello")}
-            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
             executor = Executor(recipe, state_manager)
 
             mock_run.return_value = MagicMock(returncode=0)
@@ -230,7 +277,7 @@ class TestExecutor(unittest.TestCase):
                 working_dir=project_root,
                 task_name="test",
                 shell="bash",
-                preamble="set -e\n"
+                preamble="set -e\n",
             )
 
             # Verify subprocess.run was called
@@ -254,7 +301,11 @@ class TestExecutor(unittest.TestCase):
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
             tasks = {"test": Task(name="test", cmd="echo hello\necho world")}
-            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
             executor = Executor(recipe, state_manager)
 
             mock_run.return_value = MagicMock(returncode=0)
@@ -265,7 +316,7 @@ class TestExecutor(unittest.TestCase):
                 working_dir=project_root,
                 task_name="test",
                 shell="bash",
-                preamble=""
+                preamble="",
             )
 
             # Verify subprocess.run was called
@@ -299,7 +350,11 @@ class TestExecutor(unittest.TestCase):
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
             tasks = {"test": Task(name="test", cmd="echo hello\necho world")}
-            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
             executor = Executor(recipe, state_manager)
 
             # Track all operations in order
@@ -311,45 +366,46 @@ class TestExecutor(unittest.TestCase):
 
             # Mock os.chmod to capture permissions and script path
             original_chmod = os.chmod
+
             def mock_chmod_func(path, mode):
                 nonlocal captured_chmod_path, captured_chmod_mode, captured_script_path, captured_script_content
-                call_order.append('chmod')
+                call_order.append("chmod")
                 captured_chmod_path = str(path)
                 captured_chmod_mode = mode
                 captured_script_path = str(path)
                 # Read the script content at this point (before it gets executed and deleted)
-                with open(path, 'r') as f:
+                with open(path, "r") as f:
                     captured_script_content = f.read()
                 return original_chmod(path, mode)
 
             # Mock subprocess.run to capture when it's called
             def mock_subprocess_run(*args, **kwargs):
-                call_order.append('subprocess.run')
+                call_order.append("subprocess.run")
                 # Verify the script still exists at this point
                 if captured_script_path:
                     script_path = args[0][0]
                     self.assertTrue(
                         Path(script_path).exists(),
-                        "Script should exist when subprocess.run is called"
+                        "Script should exist when subprocess.run is called",
                     )
                 return MagicMock(returncode=0)
 
             # Apply patches
-            with patch('os.chmod', side_effect=mock_chmod_func):
-                with patch('subprocess.run', side_effect=mock_subprocess_run):
+            with patch("os.chmod", side_effect=mock_chmod_func):
+                with patch("subprocess.run", side_effect=mock_subprocess_run):
                     executor._run_command_as_script(
                         cmd="echo hello\necho world",
                         working_dir=project_root,
                         task_name="test",
                         shell="bash",
-                        preamble="set -e\n"
+                        preamble="set -e\n",
                     )
 
             # Requirement 1: Verify script was created with correct suffix
             self.assertIsNotNone(captured_script_path, "Script path should be captured")
             self.assertTrue(
-                captured_script_path.endswith('.sh'),
-                f"Script should have .sh suffix, got: {captured_script_path}"
+                captured_script_path.endswith(".sh"),
+                f"Script should have .sh suffix, got: {captured_script_path}",
             )
 
             # Requirement 2: Verify script was made executable
@@ -357,60 +413,79 @@ class TestExecutor(unittest.TestCase):
             self.assertEqual(
                 captured_script_path,
                 captured_chmod_path,
-                "chmod should be called on the script file"
+                "chmod should be called on the script file",
             )
             # Verify executable bit is set
             self.assertIsNotNone(captured_chmod_mode, "chmod mode should be captured")
             self.assertTrue(
                 captured_chmod_mode & stat.S_IEXEC,
-                f"Script should have executable permission bit set, got mode: {oct(captured_chmod_mode)}"
+                f"Script should have executable permission bit set, got mode: {oct(captured_chmod_mode)}",
             )
 
             # Requirement 3: Verify script content has correct ordering
-            self.assertIsNotNone(captured_script_content, "Script content should be captured")
-            lines = captured_script_content.split('\n')
-            self.assertGreaterEqual(len(lines), 3, "Script should have at least shebang, preamble, and command")
+            self.assertIsNotNone(
+                captured_script_content, "Script content should be captured"
+            )
+            lines = captured_script_content.split("\n")
+            self.assertGreaterEqual(
+                len(lines),
+                3,
+                "Script should have at least shebang, preamble, and command",
+            )
 
             # Check shebang is first
             self.assertTrue(
-                lines[0].startswith('#!/usr/bin/env bash'),
-                f"First line should be shebang, got: {lines[0]}"
+                lines[0].startswith("#!/usr/bin/env bash"),
+                f"First line should be shebang, got: {lines[0]}",
             )
 
             # Check preamble comes after shebang
             self.assertIn(
-                'set -e',
+                "set -e",
                 captured_script_content,
-                "Preamble should be in script content"
+                "Preamble should be in script content",
             )
 
             # Check command comes after preamble
-            self.assertIn('echo hello', captured_script_content, "Command should be in script")
-            self.assertIn('echo world', captured_script_content, "Command should be in script")
+            self.assertIn(
+                "echo hello", captured_script_content, "Command should be in script"
+            )
+            self.assertIn(
+                "echo world", captured_script_content, "Command should be in script"
+            )
 
             # Verify order: shebang before preamble before command
-            shebang_idx = captured_script_content.find('#!/usr/bin/env bash')
-            preamble_idx = captured_script_content.find('set -e')
-            command_idx = captured_script_content.find('echo hello')
+            shebang_idx = captured_script_content.find("#!/usr/bin/env bash")
+            preamble_idx = captured_script_content.find("set -e")
+            command_idx = captured_script_content.find("echo hello")
 
-            self.assertLess(shebang_idx, preamble_idx, "Shebang should come before preamble")
-            self.assertLess(preamble_idx, command_idx, "Preamble should come before command")
+            self.assertLess(
+                shebang_idx, preamble_idx, "Shebang should come before preamble"
+            )
+            self.assertLess(
+                preamble_idx, command_idx, "Preamble should come before command"
+            )
 
             # Requirement 4: Verify subprocess.run called AFTER all setup
-            self.assertIn('chmod', call_order, "chmod should be called")
-            self.assertIn('subprocess.run', call_order, "subprocess.run should be called")
+            self.assertIn("chmod", call_order, "chmod should be called")
+            self.assertIn(
+                "subprocess.run", call_order, "subprocess.run should be called"
+            )
 
             # Verify ordering: chmod should come before subprocess.run
-            chmod_idx = call_order.index('chmod')
-            subprocess_idx = call_order.index('subprocess.run')
+            chmod_idx = call_order.index("chmod")
+            subprocess_idx = call_order.index("subprocess.run")
 
-            self.assertLess(chmod_idx, subprocess_idx, "chmod should come before subprocess.run")
+            self.assertLess(
+                chmod_idx, subprocess_idx, "chmod should come before subprocess.run"
+            )
 
 
 class TestMissingOutputs(unittest.TestCase):
     """
     @athena: 94dc69acf126
     """
+
     def test_fresh_task_with_all_outputs_present(self):
         """
         Test that fresh task with all outputs present should skip.
@@ -432,7 +507,9 @@ class TestMissingOutputs(unittest.TestCase):
                 cmd="echo test > output.txt",
                 outputs=["output.txt"],
             )
-            task_hash = hash_task(task.cmd, task.outputs, task.working_dir, task.args, "", task.deps)
+            task_hash = hash_task(
+                task.cmd, task.outputs, task.working_dir, task.args, "", task.deps
+            )
             cache_key = make_cache_key(task_hash)
 
             # Set state with recent run
@@ -442,7 +519,11 @@ class TestMissingOutputs(unittest.TestCase):
             )
 
             tasks = {"build": task}
-            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
             executor = Executor(recipe, state_manager)
 
             status = executor.check_task_status(task, {})
@@ -468,7 +549,9 @@ class TestMissingOutputs(unittest.TestCase):
                 cmd="echo test > output.txt",
                 outputs=["output.txt"],
             )
-            task_hash = hash_task(task.cmd, task.outputs, task.working_dir, task.args, "", task.deps)
+            task_hash = hash_task(
+                task.cmd, task.outputs, task.working_dir, task.args, "", task.deps
+            )
             cache_key = make_cache_key(task_hash)
 
             # Set state with recent run
@@ -478,7 +561,11 @@ class TestMissingOutputs(unittest.TestCase):
             )
 
             tasks = {"build": task}
-            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
             executor = Executor(recipe, state_manager)
 
             status = executor.check_task_status(task, {})
@@ -507,7 +594,9 @@ class TestMissingOutputs(unittest.TestCase):
                 cmd="echo test",
                 outputs=["output1.txt", "output2.txt"],
             )
-            task_hash = hash_task(task.cmd, task.outputs, task.working_dir, task.args, "", task.deps)
+            task_hash = hash_task(
+                task.cmd, task.outputs, task.working_dir, task.args, "", task.deps
+            )
             cache_key = make_cache_key(task_hash)
 
             state_manager.set(
@@ -516,7 +605,11 @@ class TestMissingOutputs(unittest.TestCase):
             )
 
             tasks = {"build": task}
-            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
             executor = Executor(recipe, state_manager)
 
             status = executor.check_task_status(task, {})
@@ -540,7 +633,11 @@ class TestMissingOutputs(unittest.TestCase):
             )
 
             tasks = {"build": task}
-            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
             executor = Executor(recipe, state_manager)
 
             status = executor.check_task_status(task, {})
@@ -559,7 +656,11 @@ class TestMissingOutputs(unittest.TestCase):
             task = Task(name="test", cmd="echo test")  # No outputs
 
             tasks = {"test": task}
-            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
             executor = Executor(recipe, state_manager)
 
             status = executor.check_task_status(task, {})
@@ -591,7 +692,9 @@ class TestMissingOutputs(unittest.TestCase):
                 working_dir="subdir",
                 outputs=["output.txt"],
             )
-            task_hash = hash_task(task.cmd, task.outputs, task.working_dir, task.args, "", task.deps)
+            task_hash = hash_task(
+                task.cmd, task.outputs, task.working_dir, task.args, "", task.deps
+            )
             cache_key = make_cache_key(task_hash)
 
             state_manager.set(
@@ -600,7 +703,11 @@ class TestMissingOutputs(unittest.TestCase):
             )
 
             tasks = {"build": task}
-            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
             executor = Executor(recipe, state_manager)
 
             status = executor.check_task_status(task, {})
@@ -627,7 +734,9 @@ class TestMissingOutputs(unittest.TestCase):
                 cmd="create-deb",
                 outputs=["dist/*.deb"],
             )
-            task_hash = hash_task(task.cmd, task.outputs, task.working_dir, task.args, "", task.deps)
+            task_hash = hash_task(
+                task.cmd, task.outputs, task.working_dir, task.args, "", task.deps
+            )
             cache_key = make_cache_key(task_hash)
 
             state_manager.set(
@@ -636,7 +745,11 @@ class TestMissingOutputs(unittest.TestCase):
             )
 
             tasks = {"package": task}
-            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
             executor = Executor(recipe, state_manager)
 
             status = executor.check_task_status(task, {})
@@ -658,13 +771,11 @@ class TestExecutorErrors(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             recipe_path = project_root / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   fail:
     cmd: exit 1
-"""
-            )
+""")
 
             from tasktree.executor import ExecutionError, Executor
             from tasktree.parser import parse_recipe
@@ -686,14 +797,12 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             recipe_path = project_root / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   test:
     working_dir: nonexistent_directory
     cmd: echo "test"
-"""
-            )
+""")
 
             from tasktree.executor import ExecutionError, Executor
             from tasktree.parser import parse_recipe
@@ -714,13 +823,11 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             recipe_path = project_root / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   test:
     cmd: nonexistent_command_12345
-"""
-            )
+""")
 
             from tasktree.executor import ExecutionError, Executor
             from tasktree.parser import parse_recipe
@@ -747,13 +854,11 @@ tasks:
             script_path.chmod(0o644)  # Read/write but not execute
 
             recipe_path = project_root / "tasktree.yaml"
-            recipe_path.write_text(
-                f"""
+            recipe_path.write_text(f"""
 tasks:
   test:
     cmd: {script_path}
-"""
-            )
+""")
 
             from tasktree.executor import ExecutionError, Executor
             from tasktree.parser import parse_recipe
@@ -774,14 +879,12 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             recipe_path = project_root / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   test:
     working_dir: "{{ tt.working_dir }}/subdir"
     cmd: echo "test"
-"""
-            )
+""")
 
             from tasktree.executor import ExecutionError, Executor
             from tasktree.parser import parse_recipe
@@ -811,14 +914,12 @@ tasks:
             task_subdir.mkdir()
 
             recipe_path = project_root / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   test-task:
     working_dir: "{{ tt.task_name }}"
     cmd: pwd
-"""
-            )
+""")
 
             from tasktree.executor import Executor
             from tasktree.parser import parse_recipe
@@ -847,10 +948,16 @@ class TestExecutorPrivateMethods(unittest.TestCase):
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
             tasks = {"deploy": Task(name="deploy", cmd="echo {{ arg.environment }}")}
-            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
             executor = Executor(recipe, state_manager)
 
-            result = executor._substitute_args("echo {{ arg.environment }}", {"environment": "production"})
+            result = executor._substitute_args(
+                "echo {{ arg.environment }}", {"environment": "production"}
+            )
             self.assertEqual(result, "echo production")
 
     def test_substitute_args_multiple(self):
@@ -861,13 +968,21 @@ class TestExecutorPrivateMethods(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
-            tasks = {"deploy": Task(name="deploy", cmd="deploy {{ arg.app }} to {{ arg.region }}")}
-            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
+            tasks = {
+                "deploy": Task(
+                    name="deploy", cmd="deploy {{ arg.app }} to {{ arg.region }}"
+                )
+            }
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
             executor = Executor(recipe, state_manager)
 
             result = executor._substitute_args(
                 "deploy {{ arg.app }} to {{ arg.region }}",
-                {"app": "myapp", "region": "us-east-1"}
+                {"app": "myapp", "region": "us-east-1"},
             )
             self.assertEqual(result, "deploy myapp to us-east-1")
 
@@ -879,15 +994,23 @@ class TestExecutorPrivateMethods(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
-            tasks = {"deploy": Task(name="deploy", cmd="echo {{ arg.environment }} {{ arg.missing }}")}
-            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
+            tasks = {
+                "deploy": Task(
+                    name="deploy", cmd="echo {{ arg.environment }} {{ arg.missing }}"
+                )
+            }
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
             executor = Executor(recipe, state_manager)
 
             # Missing argument should raise ValueError
             with self.assertRaises(ValueError) as cm:
                 executor._substitute_args(
                     "echo {{ arg.environment }} {{ arg.missing }}",
-                    {"environment": "production"}
+                    {"environment": "production"},
                 )
             self.assertIn("missing", str(cm.exception))
             self.assertIn("not defined", str(cm.exception))
@@ -912,11 +1035,15 @@ class TestExecutorPrivateMethods(unittest.TestCase):
             # Create cached state with original mtime
             cached_state = TaskState(
                 last_run=time.time(),
-                input_state={"input.txt": original_mtime - 100}  # Older mtime
+                input_state={"input.txt": original_mtime - 100},  # Older mtime
             )
 
             tasks = {"build": task}
-            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
             executor = Executor(recipe, state_manager)
 
             # Check if inputs changed
@@ -936,13 +1063,15 @@ class TestExecutorPrivateMethods(unittest.TestCase):
 
             # Task declares outputs but files don't exist
             task = Task(
-                name="build",
-                cmd="echo test > output.txt",
-                outputs=["output.txt"]
+                name="build", cmd="echo test > output.txt", outputs=["output.txt"]
             )
 
             tasks = {"build": task}
-            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
             executor = Executor(recipe, state_manager)
 
             # Check for missing outputs
@@ -966,7 +1095,11 @@ class TestExecutorPrivateMethods(unittest.TestCase):
 
             state_manager = StateManager(project_root)
             tasks = {"test": Task(name="test", cmd="echo test")}
-            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
             executor = Executor(recipe, state_manager)
 
             # Expand multiple patterns
@@ -996,7 +1129,11 @@ class TestOnlyMode(unittest.TestCase):
                 "lint": Task(name="lint", cmd="echo linting"),
                 "build": Task(name="build", cmd="echo building", deps=["lint"]),
             }
-            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
             executor = Executor(recipe, state_manager)
 
             mock_run.return_value = MagicMock(returncode=0)
@@ -1030,7 +1167,11 @@ class TestOnlyMode(unittest.TestCase):
                 "build": Task(name="build", cmd="echo building", deps=["lint"]),
                 "test": Task(name="test", cmd="echo testing", deps=["build"]),
             }
-            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
             executor = Executor(recipe, state_manager)
 
             mock_run.return_value = MagicMock(returncode=0)
@@ -1072,7 +1213,9 @@ class TestOnlyMode(unittest.TestCase):
                 cmd="echo test > output.txt",
                 outputs=["output.txt"],
             )
-            task_hash = hash_task(task.cmd, task.outputs, task.working_dir, task.args, "", task.deps)
+            task_hash = hash_task(
+                task.cmd, task.outputs, task.working_dir, task.args, "", task.deps
+            )
             cache_key = make_cache_key(task_hash)
 
             # Set state with recent run
@@ -1082,7 +1225,11 @@ class TestOnlyMode(unittest.TestCase):
             )
 
             tasks = {"build": task}
-            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
             executor = Executor(recipe, state_manager)
 
             mock_run.return_value = MagicMock(returncode=0)
@@ -1123,7 +1270,11 @@ echo "line2" >> output.txt
 echo "line3" >> output.txt"""
 
             tasks = {"build": Task(name="build", cmd=multiline_cmd)}
-            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
             executor = Executor(recipe, state_manager)
 
             # Let the command actually run (no mocking)
@@ -1244,7 +1395,11 @@ class TestEnvironmentResolution(unittest.TestCase):
             state_manager = StateManager(project_root)
 
             tasks = {"build": Task(name="build", cmd="echo hello")}
-            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
             executor = Executor(recipe, state_manager)
 
             # No envs defined, should return empty string
@@ -1270,7 +1425,10 @@ class TestEnvironmentResolution(unittest.TestCase):
 
             tasks = {"build": Task(name="build", cmd="echo hello", env="zsh_env")}
             recipe = Recipe(
-                tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml", environments=envs
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+                environments=envs,
             )
             executor = Executor(recipe, state_manager)
 
@@ -1292,7 +1450,7 @@ class TestEnvironmentResolution(unittest.TestCase):
         def capture_script_content(*args, **kwargs):
             # Read the script before subprocess.run returns
             script_path = args[0][0]
-            with open(script_path, 'r') as f:
+            with open(script_path, "r") as f:
                 captured_script_content.append(f.read())
             return MagicMock(returncode=0)
 
@@ -1306,7 +1464,10 @@ class TestEnvironmentResolution(unittest.TestCase):
 
             tasks = {"build": Task(name="build", cmd="echo hello", env="fish")}
             recipe = Recipe(
-                tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml", environments=envs
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+                environments=envs,
             )
             executor = Executor(recipe, state_manager)
 
@@ -1345,13 +1506,13 @@ class TestEnvironmentResolution(unittest.TestCase):
         Test that _run_task substitutes environment variables.
         @athena: c58b5584299e
         """
-        os.environ['TEST_ENV_VAR'] = 'test_value'
+        os.environ["TEST_ENV_VAR"] = "test_value"
         captured_script_content = []
 
         def capture_script_content(*args, **kwargs):
             # Read the script before subprocess.run returns
             script_path = args[0][0]
-            with open(script_path, 'r') as f:
+            with open(script_path, "r") as f:
                 captured_script_content.append(f.read())
             return MagicMock(returncode=0)
 
@@ -1361,12 +1522,18 @@ class TestEnvironmentResolution(unittest.TestCase):
                 state_manager = StateManager(project_root)
 
                 # Create task with env placeholder
-                tasks = {"test": Task(
-                    name="test",
-                    cmd="echo {{ env.TEST_ENV_VAR }}",
-                    working_dir=".",
-                )}
-                recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
+                tasks = {
+                    "test": Task(
+                        name="test",
+                        cmd="echo {{ env.TEST_ENV_VAR }}",
+                        working_dir=".",
+                    )
+                }
+                recipe = Recipe(
+                    tasks=tasks,
+                    project_root=project_root,
+                    recipe_path=project_root / "tasktree.yaml",
+                )
                 executor = Executor(recipe, state_manager)
 
                 mock_run.side_effect = capture_script_content
@@ -1375,10 +1542,10 @@ class TestEnvironmentResolution(unittest.TestCase):
                 # Verify command has env var substituted in the script
                 self.assertEqual(len(captured_script_content), 1)
                 script_content = captured_script_content[0]
-                self.assertIn('test_value', script_content)
-                self.assertNotIn('{{ env.TEST_ENV_VAR }}', script_content)
+                self.assertIn("test_value", script_content)
+                self.assertNotIn("{{ env.TEST_ENV_VAR }}", script_content)
         finally:
-            del os.environ['TEST_ENV_VAR']
+            del os.environ["TEST_ENV_VAR"]
 
     @patch("subprocess.run")
     def test_run_task_env_substitution_in_working_dir(self, mock_run):
@@ -1386,31 +1553,37 @@ class TestEnvironmentResolution(unittest.TestCase):
         Test environment variables work in working_dir.
         @athena: a2d488c3e905
         """
-        os.environ['SUBDIR'] = 'mydir'
+        os.environ["SUBDIR"] = "mydir"
         try:
             with TemporaryDirectory() as tmpdir:
                 project_root = Path(tmpdir)
                 state_manager = StateManager(project_root)
 
                 # Create subdirectory
-                (project_root / 'mydir').mkdir()
+                (project_root / "mydir").mkdir()
 
-                tasks = {"test": Task(
-                    name="test",
-                    cmd="echo test",
-                    working_dir="{{ env.SUBDIR }}",
-                )}
-                recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
+                tasks = {
+                    "test": Task(
+                        name="test",
+                        cmd="echo test",
+                        working_dir="{{ env.SUBDIR }}",
+                    )
+                }
+                recipe = Recipe(
+                    tasks=tasks,
+                    project_root=project_root,
+                    recipe_path=project_root / "tasktree.yaml",
+                )
                 executor = Executor(recipe, state_manager)
 
                 mock_run.return_value = MagicMock(returncode=0)
                 executor._run_task(tasks["test"], {})
 
                 # Verify working_dir was substituted
-                called_cwd = mock_run.call_args[1]['cwd']
-                self.assertEqual(called_cwd, project_root / 'mydir')
+                called_cwd = mock_run.call_args[1]["cwd"]
+                self.assertEqual(called_cwd, project_root / "mydir")
         finally:
-            del os.environ['SUBDIR']
+            del os.environ["SUBDIR"]
 
     def test_run_task_undefined_env_var_raises(self):
         """
@@ -1418,19 +1591,25 @@ class TestEnvironmentResolution(unittest.TestCase):
         @athena: 4d17d3e6e7e9
         """
         # Ensure var is not set
-        if 'UNDEFINED_TEST_VAR' in os.environ:
-            del os.environ['UNDEFINED_TEST_VAR']
+        if "UNDEFINED_TEST_VAR" in os.environ:
+            del os.environ["UNDEFINED_TEST_VAR"]
 
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
 
-            tasks = {"test": Task(
-                name="test",
-                cmd="echo {{ env.UNDEFINED_TEST_VAR }}",
-                working_dir=".",
-            )}
-            recipe = Recipe(tasks=tasks, project_root=project_root, recipe_path=project_root / "tasktree.yaml")
+            tasks = {
+                "test": Task(
+                    name="test",
+                    cmd="echo {{ env.UNDEFINED_TEST_VAR }}",
+                    working_dir=".",
+                )
+            }
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
             executor = Executor(recipe, state_manager)
 
             with self.assertRaises(ValueError) as cm:

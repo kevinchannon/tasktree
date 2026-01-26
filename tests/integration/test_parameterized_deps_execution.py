@@ -17,8 +17,8 @@ def strip_ansi_codes(text: str) -> str:
     Remove ANSI escape sequences from text.
     @athena: 90023a269128
     """
-    ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
-    return ansi_escape.sub('', text)
+    ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
+    return ansi_escape.sub("", text)
 
 
 class TestParameterizedDependencyExecution(unittest.TestCase):

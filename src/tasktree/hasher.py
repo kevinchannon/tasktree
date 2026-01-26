@@ -28,7 +28,9 @@ def _arg_sort_key(arg: str | dict[str, Any]) -> str:
     return arg
 
 
-def _normalize_choices_lists(args: list[str | dict[str, Any]]) ->  list[str | dict[str, Any]]:
+def _normalize_choices_lists(
+    args: list[str | dict[str, Any]],
+) -> list[str | dict[str, Any]]:
     """
     Normalize argument choices lists by sorting them for deterministic hashing.
 
@@ -46,8 +48,11 @@ def _normalize_choices_lists(args: list[str | dict[str, Any]]) ->  list[str | di
             # Deep copy and sort choices if present
             normalized = {}
             for key, value in arg.items():
-                if isinstance(value, dict) and 'choices' in value:
-                    normalized[key] = {**value, 'choices': sorted(value['choices'], key=str)}
+                if isinstance(value, dict) and "choices" in value:
+                    normalized[key] = {
+                        **value,
+                        "choices": sorted(value["choices"], key=str),
+                    }
                 else:
                     normalized[key] = value
             normalized_args.append(normalized)
@@ -94,7 +99,7 @@ def hash_task(
     working_dir: str,
     args: list[str | dict[str, Any]],
     env: str = "",
-    deps: list[str | dict[str, Any]] | None = None
+    deps: list[str | dict[str, Any]] | None = None,
 ) -> str:
     """
     Hash task definition including dependencies.
@@ -134,7 +139,10 @@ def hash_task(
             else:
                 normalized_deps.append(dep)
         # Sort using JSON serialization for consistent ordering
-        data["deps"] = sorted(normalized_deps, key=lambda x: json.dumps(x, sort_keys=True) if isinstance(x, dict) else x)
+        data["deps"] = sorted(
+            normalized_deps,
+            key=lambda x: json.dumps(x, sort_keys=True) if isinstance(x, dict) else x,
+        )
 
     serialized = json.dumps(data, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(serialized.encode()).hexdigest()[:8]

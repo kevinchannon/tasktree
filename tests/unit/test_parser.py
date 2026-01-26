@@ -25,14 +25,15 @@ class TestParseArgSpec(unittest.TestCase):
     """
     @athena: b4dcab139665
     """
+
     def test_parse_simple_arg(self):
         """
         Test parsing a simple argument name.
         @athena: 67499bbdd11a
         """
         spec = parse_arg_spec("environment")
-        self.assertEqual(spec.name,"environment")
-        self.assertEqual(spec.arg_type,"str")
+        self.assertEqual(spec.name, "environment")
+        self.assertEqual(spec.arg_type, "str")
         self.assertIsNone(spec.default)
         self.assertFalse(spec.is_exported)
 
@@ -69,8 +70,8 @@ class TestParseArgSpec(unittest.TestCase):
         @athena: f83acb5c8911
         """
         spec = parse_arg_spec("$server")
-        self.assertEqual(spec.name,"server")
-        self.assertEqual(spec.arg_type,"str")
+        self.assertEqual(spec.name, "server")
+        self.assertEqual(spec.arg_type, "str")
         self.assertIsNone(spec.default)
         self.assertTrue(spec.is_exported)
 
@@ -128,8 +129,8 @@ class TestParseArgSpecYAML(unittest.TestCase):
         @athena: 3536c7525ab1
         """
         spec = parse_arg_spec("key1")
-        self.assertEqual(spec.name,"key1")
-        self.assertEqual(spec.arg_type,"str")
+        self.assertEqual(spec.name, "key1")
+        self.assertEqual(spec.arg_type, "str")
         self.assertIsNone(spec.default)
         self.assertFalse(spec.is_exported)
 
@@ -139,9 +140,9 @@ class TestParseArgSpecYAML(unittest.TestCase):
         @athena: a48befc1fee0
         """
         spec = parse_arg_spec({"key2": {"default": "foo"}})
-        self.assertEqual(spec.name,"key2")
-        self.assertEqual(spec.arg_type,"str")
-        self.assertEqual(spec.default,"foo")
+        self.assertEqual(spec.name, "key2")
+        self.assertEqual(spec.arg_type, "str")
+        self.assertEqual(spec.default, "foo")
         self.assertFalse(spec.is_exported)
 
     def test_parse_arg_with_type_only(self):
@@ -150,8 +151,8 @@ class TestParseArgSpecYAML(unittest.TestCase):
         @athena: c9939f5f33cc
         """
         spec = parse_arg_spec({"port": {"type": "int"}})
-        self.assertEqual(spec.name,"port")
-        self.assertEqual(spec.arg_type,"int")
+        self.assertEqual(spec.name, "port")
+        self.assertEqual(spec.arg_type, "int")
         self.assertIsNone(spec.default)
         self.assertFalse(spec.is_exported)
 
@@ -161,9 +162,9 @@ class TestParseArgSpecYAML(unittest.TestCase):
         @athena: 70ec1df550a8
         """
         spec = parse_arg_spec({"port": {"type": "int", "default": 8080}})
-        self.assertEqual(spec.name,"port")
-        self.assertEqual(spec.arg_type,"int")
-        self.assertEqual(spec.default,"8080")
+        self.assertEqual(spec.name, "port")
+        self.assertEqual(spec.arg_type, "int")
+        self.assertEqual(spec.default, "8080")
         self.assertFalse(spec.is_exported)
 
     def test_parse_exported_arg_dict_syntax(self):
@@ -172,9 +173,9 @@ class TestParseArgSpecYAML(unittest.TestCase):
         @athena: 6515e1439062
         """
         spec = parse_arg_spec({"$server": {"default": "localhost"}})
-        self.assertEqual(spec.name,"server")
-        self.assertEqual(spec.arg_type,"str")
-        self.assertEqual(spec.default,"localhost")
+        self.assertEqual(spec.name, "server")
+        self.assertEqual(spec.arg_type, "str")
+        self.assertEqual(spec.default, "localhost")
         self.assertTrue(spec.is_exported)
 
     def test_infer_type_from_string_default(self):
@@ -183,7 +184,7 @@ class TestParseArgSpecYAML(unittest.TestCase):
         @athena: a297dfbd435c
         """
         spec = parse_arg_spec({"name": {"default": "foo"}})
-        self.assertEqual(spec.arg_type,"str")
+        self.assertEqual(spec.arg_type, "str")
 
     def test_infer_type_from_int_default(self):
         """
@@ -191,7 +192,7 @@ class TestParseArgSpecYAML(unittest.TestCase):
         @athena: a6c44b98e6b4
         """
         spec = parse_arg_spec({"count": {"default": 42}})
-        self.assertEqual(spec.arg_type,"int")
+        self.assertEqual(spec.arg_type, "int")
 
     def test_infer_type_from_float_default(self):
         """
@@ -199,7 +200,7 @@ class TestParseArgSpecYAML(unittest.TestCase):
         @athena: 162f231b0e13
         """
         spec = parse_arg_spec({"pi": {"default": 3.14}})
-        self.assertEqual(spec.arg_type,"float")
+        self.assertEqual(spec.arg_type, "float")
 
     def test_infer_type_from_bool_default(self):
         """
@@ -207,7 +208,7 @@ class TestParseArgSpecYAML(unittest.TestCase):
         @athena: 5c71880b6cb5
         """
         spec = parse_arg_spec({"enabled": {"default": True}})
-        self.assertEqual(spec.arg_type,"bool")
+        self.assertEqual(spec.arg_type, "bool")
 
     def test_reject_unknown_type(self):
         """
@@ -255,9 +256,9 @@ class TestParseArgSpecYAML(unittest.TestCase):
         """
         # YAML parses inline dicts the same as block dicts
         spec = parse_arg_spec({"key": {"type": "int", "default": 42}})
-        self.assertEqual(spec.name,"key")
-        self.assertEqual(spec.arg_type,"int")
-        self.assertEqual(spec.default,"42")
+        self.assertEqual(spec.name, "key")
+        self.assertEqual(spec.arg_type, "int")
+        self.assertEqual(spec.default, "42")
 
     def test_null_default_value(self):
         """
@@ -265,8 +266,8 @@ class TestParseArgSpecYAML(unittest.TestCase):
         @athena: 88d0ecd3f95a
         """
         spec = parse_arg_spec({"arg": {"default": None}})
-        self.assertEqual(spec.name,"arg")
-        self.assertEqual(spec.arg_type,"str")
+        self.assertEqual(spec.name, "arg")
+        self.assertEqual(spec.arg_type, "str")
         # None default remains as None (not converted to string)
         self.assertIsNone(spec.default)
 
@@ -294,7 +295,7 @@ class TestParseArgSpecYAML(unittest.TestCase):
         @athena: 7dace68cf12f
         """
         spec = parse_arg_spec({"msg": {"default": "hello\nworld"}})
-        self.assertEqual(spec.default,"hello\nworld")
+        self.assertEqual(spec.default, "hello\nworld")
 
     def test_empty_config_dict(self):
         """
@@ -302,8 +303,8 @@ class TestParseArgSpecYAML(unittest.TestCase):
         @athena: 1fe93328afcd
         """
         spec = parse_arg_spec({"arg": {}})
-        self.assertEqual(spec.name,"arg")
-        self.assertEqual(spec.arg_type,"str")
+        self.assertEqual(spec.name, "arg")
+        self.assertEqual(spec.arg_type, "str")
         self.assertIsNone(spec.default)
         self.assertFalse(spec.is_exported)
 
@@ -357,34 +358,30 @@ class TestParseArgSpecChoices(unittest.TestCase):
         spec = parse_arg_spec(
             {"environment": {"type": "str", "choices": ["dev", "staging", "prod"]}}
         )
-        self.assertEqual(spec.name,"environment")
-        self.assertEqual(spec.arg_type,"str")
+        self.assertEqual(spec.name, "environment")
+        self.assertEqual(spec.arg_type, "str")
         self.assertIsNone(spec.default)
-        self.assertEqual(spec.choices,["dev", "staging", "prod"])
+        self.assertEqual(spec.choices, ["dev", "staging", "prod"])
 
     def test_valid_choices_with_type_inference(self):
         """
         Test type inference from choices.
         @athena: 3ac3d802e75b
         """
-        spec = parse_arg_spec(
-            {"region": {"choices": ["us-east-1", "eu-west-1"]}}
-        )
-        self.assertEqual(spec.name,"region")
-        self.assertEqual(spec.arg_type,"str")
-        self.assertEqual(spec.choices,["us-east-1", "eu-west-1"])
+        spec = parse_arg_spec({"region": {"choices": ["us-east-1", "eu-west-1"]}})
+        self.assertEqual(spec.name, "region")
+        self.assertEqual(spec.arg_type, "str")
+        self.assertEqual(spec.choices, ["us-east-1", "eu-west-1"])
 
     def test_int_choices_inferred(self):
         """
         Test type inference from integer choices.
         @athena: 1f8a31ab11f0
         """
-        spec = parse_arg_spec(
-            {"priority": {"choices": [1, 2, 3]}}
-        )
-        self.assertEqual(spec.name,"priority")
-        self.assertEqual(spec.arg_type,"int")
-        self.assertEqual(spec.choices,[1, 2, 3])
+        spec = parse_arg_spec({"priority": {"choices": [1, 2, 3]}})
+        self.assertEqual(spec.name, "priority")
+        self.assertEqual(spec.arg_type, "int")
+        self.assertEqual(spec.choices, [1, 2, 3])
 
     def test_empty_choices_list_error(self):
         """
@@ -436,11 +433,9 @@ class TestParseArgSpecChoices(unittest.TestCase):
         Test that default value in choices passes.
         @athena: 9863e98b347e
         """
-        spec = parse_arg_spec(
-            {"env": {"choices": ["dev", "prod"], "default": "dev"}}
-        )
-        self.assertEqual(spec.default,"dev")
-        self.assertEqual(spec.choices,["dev", "prod"])
+        spec = parse_arg_spec({"env": {"choices": ["dev", "prod"], "default": "dev"}})
+        self.assertEqual(spec.default, "dev")
+        self.assertEqual(spec.choices, ["dev", "prod"])
 
     def test_default_not_in_choices_error(self):
         """
@@ -456,11 +451,9 @@ class TestParseArgSpecChoices(unittest.TestCase):
         Test that explicit type validation works with choices.
         @athena: 8b63b57d2eff
         """
-        spec = parse_arg_spec(
-            {"count": {"type": "int", "choices": [1, 2, 3]}}
-        )
-        self.assertEqual(spec.arg_type,"int")
-        self.assertEqual(spec.choices,[1, 2, 3])
+        spec = parse_arg_spec({"count": {"type": "int", "choices": [1, 2, 3]}})
+        self.assertEqual(spec.arg_type, "int")
+        self.assertEqual(spec.choices, [1, 2, 3])
 
     def test_choice_values_dont_match_explicit_type_error(self):
         """
@@ -476,10 +469,8 @@ class TestParseArgSpecChoices(unittest.TestCase):
         Test that string choices with spaces parse correctly.
         @athena: d7bcbf7ec559
         """
-        spec = parse_arg_spec(
-            {"message": {"choices": ["hello world", "foo bar"]}}
-        )
-        self.assertEqual(spec.choices,["hello world", "foo bar"])
+        spec = parse_arg_spec({"message": {"choices": ["hello world", "foo bar"]}})
+        self.assertEqual(spec.choices, ["hello world", "foo bar"])
 
     def test_choices_not_a_list_error(self):
         """
@@ -495,23 +486,19 @@ class TestParseArgSpecChoices(unittest.TestCase):
         Test float choices.
         @athena: 88669b2c5736
         """
-        spec = parse_arg_spec(
-            {"ratio": {"type": "float", "choices": [0.5, 1.0, 1.5]}}
-        )
-        self.assertEqual(spec.arg_type,"float")
-        self.assertEqual(spec.choices,[0.5, 1.0, 1.5])
+        spec = parse_arg_spec({"ratio": {"type": "float", "choices": [0.5, 1.0, 1.5]}})
+        self.assertEqual(spec.arg_type, "float")
+        self.assertEqual(spec.choices, [0.5, 1.0, 1.5])
 
     def test_type_inference_from_choices_and_default_consistent(self):
         """
         Test that type inferred from choices and default is consistent.
         @athena: 2113b93ff410
         """
-        spec = parse_arg_spec(
-            {"priority": {"choices": [1, 2, 3], "default": 2}}
-        )
-        self.assertEqual(spec.arg_type,"int")
-        self.assertEqual(spec.default,"2")
-        self.assertEqual(spec.choices,[1, 2, 3])
+        spec = parse_arg_spec({"priority": {"choices": [1, 2, 3], "default": 2}})
+        self.assertEqual(spec.arg_type, "int")
+        self.assertEqual(spec.default, "2")
+        self.assertEqual(spec.choices, [1, 2, 3])
 
     def test_type_inference_from_choices_and_default_inconsistent_error(self):
         """
@@ -527,6 +514,7 @@ class TestParseRecipe(unittest.TestCase):
     """
     @athena: 695c25ca011d
     """
+
     def test_parse_simple_recipe(self):
         """
         Test parsing a simple recipe with one task.
@@ -534,13 +522,11 @@ class TestParseRecipe(unittest.TestCase):
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   build:
     cmd: cargo build --release
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             self.assertIn("build", recipe.tasks)
@@ -555,8 +541,7 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   build:
     desc: Build the project
@@ -568,8 +553,7 @@ tasks:
       - environment
       - region: { default: eu-west-1 }
     cmd: cargo build --release
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             task = recipe.tasks["build"]
@@ -593,18 +577,15 @@ tasks:
             import_dir = Path(tmpdir) / "common"
             import_dir.mkdir()
             import_file = import_dir / "build.yaml"
-            import_file.write_text(
-                """
+            import_file.write_text("""
 tasks:
   compile:
     cmd: cargo build
-"""
-            )
+""")
 
             # Create main recipe
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 imports:
   - file: common/build.yaml
     as: build
@@ -613,8 +594,7 @@ tasks:
   test:
     deps: [build.compile]
     cmd: cargo test
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             self.assertIn("build.compile", recipe.tasks)
@@ -677,7 +657,9 @@ tasks:
             self.assertIn("all", recipe.tasks)
 
             all_task = recipe.tasks["all"]
-            self.assertEqual(all_task.deps, ["build.compile", "test.unit", "test.integration"])
+            self.assertEqual(
+                all_task.deps, ["build.compile", "test.unit", "test.integration"]
+            )
 
     def test_nested_imports(self):
         """
@@ -928,7 +910,9 @@ imports:
             self.assertEqual(task.inputs, ["src/**/*.rs"])
             self.assertEqual(task.outputs, ["target/release/bin"])
             self.assertEqual(task.working_dir, "subproject")
-            self.assertEqual(task.args, ["environment", {"region": {"default": "eu-west-1"}}])
+            self.assertEqual(
+                task.args, ["environment", {"region": {"default": "eu-west-1"}}]
+            )
             self.assertEqual(task.cmd, "cargo build --release")
 
     def test_cross_import_dependencies(self):
@@ -1299,13 +1283,11 @@ class TestParseMultilineCommands(unittest.TestCase):
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   build:
     cmd: echo "single line"
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             task = recipe.tasks["build"]
@@ -1318,16 +1300,14 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   build:
     cmd: |
       echo "line 1"
       echo "line 2"
       echo "line 3"
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             task = recipe.tasks["build"]
@@ -1342,16 +1322,14 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   build:
     cmd: >
       echo "this is a very long command"
       "that spans multiple lines"
       "but becomes a single line"
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             task = recipe.tasks["build"]
@@ -1366,16 +1344,14 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   clean:
     cmd: |
       rm -rf dist/
       rm -rf build/
       find . -name __pycache__ -exec rm -rf {} +
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             task = recipe.tasks["clean"]
@@ -1394,15 +1370,13 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   deploy:
     cmd: |
       VERSION=$(cat version.txt)
       echo "Deploying version $VERSION"
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             task = recipe.tasks["deploy"]
@@ -1417,15 +1391,13 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   build:
     cmd: |-
       echo "line 1"
       echo "line 2"
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             task = recipe.tasks["build"]
@@ -1448,14 +1420,12 @@ class TestParserErrors(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
             # Create a file with invalid YAML syntax
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   build:
     cmd: echo "test"
     deps: [invalid
-"""
-            )
+""")
 
             with self.assertRaises(yaml.YAMLError):
                 parse_recipe(recipe_path)
@@ -1468,12 +1438,10 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
             # Task defined as a string instead of a dictionary
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   build: echo "this should be a dict"
-"""
-            )
+""")
 
             with self.assertRaises(ValueError) as cm:
                 parse_recipe(recipe_path)
@@ -1487,14 +1455,12 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
             # Task defined without required 'cmd' field
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   build:
     desc: Build task
     outputs: [output.txt]
-"""
-            )
+""")
 
             with self.assertRaises(ValueError) as cm:
                 parse_recipe(recipe_path)
@@ -1507,13 +1473,11 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   build.release:
     cmd: echo "build release"
-"""
-            )
+""")
 
             with self.assertRaises(ValueError) as cm:
                 parse_recipe(recipe_path)
@@ -1857,7 +1821,9 @@ test:
                 parse_recipe(recipe_path)
 
             error_msg = str(cm.exception)
-            self.assertIn("Task definitions must be under a top-level 'tasks:' key", error_msg)
+            self.assertIn(
+                "Task definitions must be under a top-level 'tasks:' key", error_msg
+            )
             self.assertIn("build", error_msg)
             self.assertIn("test", error_msg)
             self.assertIn("Did you mean:", error_msg)
@@ -2154,8 +2120,12 @@ tasks:
                 recipe = parse_recipe(recipe_path)
 
                 self.assertEqual(recipe.variables["base"], "https://api.example.com")
-                self.assertEqual(recipe.variables["users"], "https://api.example.com/users")
-                self.assertEqual(recipe.variables["posts"], "https://api.example.com/posts")
+                self.assertEqual(
+                    recipe.variables["users"], "https://api.example.com/users"
+                )
+                self.assertEqual(
+                    recipe.variables["posts"], "https://api.example.com/posts"
+                )
             finally:
                 del os.environ["BASE_URL"]
 
@@ -2309,7 +2279,9 @@ tasks:
                 self.assertEqual(recipe.variables["app_name"], "myapp")
                 self.assertEqual(recipe.variables["version"], "1.0")
                 self.assertEqual(recipe.variables["region"], "us-west-2")
-                self.assertEqual(recipe.variables["deploy_target"], "myapp-1.0-us-west-2")
+                self.assertEqual(
+                    recipe.variables["deploy_target"], "myapp-1.0-us-west-2"
+                )
             finally:
                 del os.environ["REGION"]
 
@@ -2532,6 +2504,7 @@ tasks:
         @athena: 70378a8685ee
         """
         import os
+
         home = Path.home()
 
         with TemporaryDirectory() as tmpdir:
@@ -2588,7 +2561,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             # Create binary file
             data_file = Path(tmpdir) / "binary.dat"
-            data_file.write_bytes(b'\x80\x81\x82\x83')
+            data_file.write_bytes(b"\x80\x81\x82\x83")
 
             recipe_path = Path(tmpdir) / "tasktree.yaml"
             recipe_path.write_text("""
@@ -2628,7 +2601,9 @@ tasks:
 
             recipe = parse_recipe(recipe_path)
             self.assertEqual(recipe.variables["base_url"], "https://api.example.com")
-            self.assertEqual(recipe.variables["users_endpoint"], "https://api.example.com/users")
+            self.assertEqual(
+                recipe.variables["users_endpoint"], "https://api.example.com/users"
+            )
 
     def test_file_read_invalid_syntax_extra_keys(self):
         """
@@ -2724,16 +2699,14 @@ class TestEvalVariables(unittest.TestCase):
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 variables:
   greeting: { eval: "echo hello" }
 
 tasks:
   test:
     cmd: echo "{{ var.greeting }}"
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             self.assertEqual(recipe.variables["greeting"], "hello")
@@ -2746,16 +2719,14 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
             # echo produces output with trailing newline
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 variables:
   output: { eval: "echo test" }
 
 tasks:
   test:
     cmd: echo done
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             # Should strip the trailing newline
@@ -2770,19 +2741,17 @@ tasks:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
             if platform.system() == "Windows":
                 # Windows cmd uses echo. for blank lines
-                cmd = 'echo line1 && echo. && echo line2'
+                cmd = "echo line1 && echo. && echo line2"
             else:
                 cmd = "echo -e 'line1\\nline2'"
-            recipe_path.write_text(
-                f"""
+            recipe_path.write_text(f"""
 variables:
   lines: {{ eval: "{cmd}" }}
 
 tasks:
   test:
     cmd: echo done
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             # Should have internal newline but not trailing one
@@ -2799,16 +2768,14 @@ tasks:
                 cmd = "cmd /c exit 0"
             else:
                 cmd = "true"
-            recipe_path.write_text(
-                f"""
+            recipe_path.write_text(f"""
 variables:
   empty: {{ eval: "{cmd}" }}
 
 tasks:
   test:
     cmd: echo done
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             self.assertEqual(recipe.variables["empty"], "")
@@ -2824,16 +2791,14 @@ tasks:
                 cmd = "cmd /c exit 1"
             else:
                 cmd = "false"
-            recipe_path.write_text(
-                f"""
+            recipe_path.write_text(f"""
 variables:
   bad: {{ eval: "{cmd}" }}
 
 tasks:
   test:
     cmd: echo done
-"""
-            )
+""")
 
             with self.assertRaises(ValueError) as cm:
                 parse_recipe(recipe_path)
@@ -2849,16 +2814,14 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 variables:
   bad: { eval: "nonexistent-command-xyz" }
 
 tasks:
   test:
     cmd: echo done
-"""
-            )
+""")
 
             with self.assertRaises(ValueError) as cm:
                 parse_recipe(recipe_path)
@@ -2881,16 +2844,14 @@ tasks:
                 cmd = "type marker.txt"
             else:
                 cmd = "cat marker.txt"
-            recipe_path.write_text(
-                f"""
+            recipe_path.write_text(f"""
 variables:
   marker: {{ eval: "{cmd}" }}
 
 tasks:
   test:
     cmd: echo done
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             self.assertEqual(recipe.variables["marker"], "found")
@@ -2902,8 +2863,7 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 variables:
   prefix: "hello"
   suffix: { eval: "echo world" }
@@ -2912,8 +2872,7 @@ variables:
 tasks:
   test:
     cmd: echo done
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             self.assertEqual(recipe.variables["suffix"], "world")
@@ -2926,8 +2885,7 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 variables:
   base: "test"
   # Command outputs a string with variable reference
@@ -2936,8 +2894,7 @@ variables:
 tasks:
   test:
     cmd: echo done
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             # The output should have the variable substituted
@@ -2950,16 +2907,14 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 variables:
   bad: { eval: }
 
 tasks:
   test:
     cmd: echo done
-"""
-            )
+""")
 
             with self.assertRaises(ValueError) as cm:
                 parse_recipe(recipe_path)
@@ -2974,16 +2929,14 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 variables:
   bad: { eval: "echo test", timeout: 5 }
 
 tasks:
   test:
     cmd: echo done
-"""
-            )
+""")
 
             with self.assertRaises(ValueError) as cm:
                 parse_recipe(recipe_path)
@@ -2999,16 +2952,14 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 variables:
   bad: { eval: 123 }
 
 tasks:
   test:
     cmd: echo done
-"""
-            )
+""")
 
             with self.assertRaises(ValueError) as cm:
                 parse_recipe(recipe_path)
@@ -3025,8 +2976,7 @@ tasks:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
             # This tests that the environment resolution works
             # We use a simple command that works in both bash and cmd
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 environments:
   default: bash-env
   bash-env:
@@ -3039,8 +2989,7 @@ variables:
 tasks:
   test:
     cmd: echo done
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             self.assertEqual(recipe.variables["result"], "test")
@@ -3054,19 +3003,17 @@ tasks:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
             if platform.system() == "Windows":
                 # Windows cmd piping
-                cmd = 'echo test | findstr test'
+                cmd = "echo test | findstr test"
             else:
                 cmd = "echo test | grep test"
-            recipe_path.write_text(
-                f"""
+            recipe_path.write_text(f"""
 variables:
   filtered: {{ eval: "{cmd}" }}
 
 tasks:
   test:
     cmd: echo done
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             self.assertEqual(recipe.variables["filtered"], "test")
@@ -3085,8 +3032,7 @@ tasks:
             test_file.write_text("file-value\n")
 
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 variables:
   from_env: { env: TEST_EVAL_VAR }
   from_file: { read: "test.txt" }
@@ -3096,15 +3042,16 @@ variables:
 tasks:
   test:
     cmd: echo done
-"""
-            )
+""")
 
             try:
                 recipe = parse_recipe(recipe_path)
                 self.assertEqual(recipe.variables["from_env"], "env-value")
                 self.assertEqual(recipe.variables["from_file"], "file-value")
                 self.assertEqual(recipe.variables["from_eval"], "eval-value")
-                self.assertEqual(recipe.variables["combined"], "env-value-file-value-eval-value")
+                self.assertEqual(
+                    recipe.variables["combined"], "env-value-file-value-eval-value"
+                )
             finally:
                 del os.environ["TEST_EVAL_VAR"]
 
@@ -3120,42 +3067,36 @@ class TestArgMinMax(unittest.TestCase):
         Test integer argument with both min and max constraints.
         @athena: aac03923122e
         """
-        spec = parse_arg_spec(
-            {"replicas": {"type": "int", "min": 1, "max": 100}}
-        )
-        self.assertEqual(spec.name,"replicas")
-        self.assertEqual(spec.arg_type,"int")
+        spec = parse_arg_spec({"replicas": {"type": "int", "min": 1, "max": 100}})
+        self.assertEqual(spec.name, "replicas")
+        self.assertEqual(spec.arg_type, "int")
         self.assertIsNone(spec.default)
         self.assertFalse(spec.is_exported)
-        self.assertEqual(spec.min_val,1)
-        self.assertEqual(spec.max_val,100)
+        self.assertEqual(spec.min_val, 1)
+        self.assertEqual(spec.max_val, 100)
 
     def test_parse_float_with_min_and_max(self):
         """
         Test float argument with both min and max constraints.
         @athena: 8e4d405797ac
         """
-        spec = parse_arg_spec(
-            {"timeout": {"type": "float", "min": 0.5, "max": 30.0}}
-        )
-        self.assertEqual(spec.name,"timeout")
-        self.assertEqual(spec.arg_type,"float")
+        spec = parse_arg_spec({"timeout": {"type": "float", "min": 0.5, "max": 30.0}})
+        self.assertEqual(spec.name, "timeout")
+        self.assertEqual(spec.arg_type, "float")
         self.assertIsNone(spec.default)
         self.assertFalse(spec.is_exported)
-        self.assertEqual(spec.min_val,0.5)
-        self.assertEqual(spec.max_val,30.0)
+        self.assertEqual(spec.min_val, 0.5)
+        self.assertEqual(spec.max_val, 30.0)
 
     def test_parse_int_with_min_only(self):
         """
         Test integer argument with only min constraint.
         @athena: e5313ad0d32c
         """
-        spec = parse_arg_spec(
-            {"port": {"type": "int", "min": 1024}}
-        )
-        self.assertEqual(spec.name,"port")
-        self.assertEqual(spec.arg_type,"int")
-        self.assertEqual(spec.min_val,1024)
+        spec = parse_arg_spec({"port": {"type": "int", "min": 1024}})
+        self.assertEqual(spec.name, "port")
+        self.assertEqual(spec.arg_type, "int")
+        self.assertEqual(spec.min_val, 1024)
         self.assertIsNone(spec.max_val)
 
     def test_parse_float_with_max_only(self):
@@ -3163,13 +3104,11 @@ class TestArgMinMax(unittest.TestCase):
         Test float argument with only max constraint.
         @athena: 3efccf766d20
         """
-        spec = parse_arg_spec(
-            {"percentage": {"type": "float", "max": 100.0}}
-        )
-        self.assertEqual(spec.name,"percentage")
-        self.assertEqual(spec.arg_type,"float")
+        spec = parse_arg_spec({"percentage": {"type": "float", "max": 100.0}})
+        self.assertEqual(spec.name, "percentage")
+        self.assertEqual(spec.arg_type, "float")
         self.assertIsNone(spec.min_val)
-        self.assertEqual(spec.max_val,100.0)
+        self.assertEqual(spec.max_val, 100.0)
 
     def test_parse_int_with_min_max_and_default(self):
         """
@@ -3179,11 +3118,11 @@ class TestArgMinMax(unittest.TestCase):
         spec = parse_arg_spec(
             {"workers": {"type": "int", "min": 1, "max": 16, "default": 4}}
         )
-        self.assertEqual(spec.name,"workers")
-        self.assertEqual(spec.arg_type,"int")
-        self.assertEqual(spec.default,"4")
-        self.assertEqual(spec.min_val,1)
-        self.assertEqual(spec.max_val,16)
+        self.assertEqual(spec.name, "workers")
+        self.assertEqual(spec.arg_type, "int")
+        self.assertEqual(spec.default, "4")
+        self.assertEqual(spec.min_val, 1)
+        self.assertEqual(spec.max_val, 16)
 
     def test_min_max_only_on_numeric_types_int(self):
         """
@@ -3192,7 +3131,10 @@ class TestArgMinMax(unittest.TestCase):
         """
         with self.assertRaises(ValueError) as cm:
             parse_arg_spec({"name": {"type": "str", "min": 1, "max": 10}})
-        self.assertIn("min/max constraints are only supported for 'int' and 'float'", str(cm.exception))
+        self.assertIn(
+            "min/max constraints are only supported for 'int' and 'float'",
+            str(cm.exception),
+        )
 
     def test_min_max_only_on_numeric_types_bool(self):
         """
@@ -3201,7 +3143,10 @@ class TestArgMinMax(unittest.TestCase):
         """
         with self.assertRaises(ValueError) as cm:
             parse_arg_spec({"flag": {"type": "bool", "min": 0, "max": 1}})
-        self.assertIn("min/max constraints are only supported for 'int' and 'float'", str(cm.exception))
+        self.assertIn(
+            "min/max constraints are only supported for 'int' and 'float'",
+            str(cm.exception),
+        )
 
     def test_min_max_only_on_numeric_types_path(self):
         """
@@ -3210,7 +3155,10 @@ class TestArgMinMax(unittest.TestCase):
         """
         with self.assertRaises(ValueError) as cm:
             parse_arg_spec({"file": {"type": "path", "min": 1}})
-        self.assertIn("min/max constraints are only supported for 'int' and 'float'", str(cm.exception))
+        self.assertIn(
+            "min/max constraints are only supported for 'int' and 'float'",
+            str(cm.exception),
+        )
 
     def test_min_greater_than_max_raises_error(self):
         """
@@ -3219,18 +3167,18 @@ class TestArgMinMax(unittest.TestCase):
         """
         with self.assertRaises(ValueError) as cm:
             parse_arg_spec({"value": {"type": "int", "min": 100, "max": 1}})
-        self.assertIn("min (100) must be less than or equal to max (1)", str(cm.exception))
+        self.assertIn(
+            "min (100) must be less than or equal to max (1)", str(cm.exception)
+        )
 
     def test_min_equals_max_allowed(self):
         """
         Test that min == max is allowed (edge case).
         @athena: afa6706fd7d4
         """
-        spec = parse_arg_spec(
-            {"fixed": {"type": "int", "min": 42, "max": 42}}
-        )
-        self.assertEqual(spec.min_val,42)
-        self.assertEqual(spec.max_val,42)
+        spec = parse_arg_spec({"fixed": {"type": "int", "min": 42, "max": 42}})
+        self.assertEqual(spec.min_val, 42)
+        self.assertEqual(spec.max_val, 42)
 
     def test_default_less_than_min_raises_error(self):
         """
@@ -3260,7 +3208,7 @@ class TestArgMinMax(unittest.TestCase):
         spec = parse_arg_spec(
             {"value": {"type": "int", "min": 1, "max": 100, "default": 50}}
         )
-        self.assertEqual(spec.default,"50")
+        self.assertEqual(spec.default, "50")
 
     def test_default_equals_min(self):
         """
@@ -3270,7 +3218,7 @@ class TestArgMinMax(unittest.TestCase):
         spec = parse_arg_spec(
             {"value": {"type": "int", "min": 10, "max": 100, "default": 10}}
         )
-        self.assertEqual(spec.default,"10")
+        self.assertEqual(spec.default, "10")
 
     def test_default_equals_max(self):
         """
@@ -3280,7 +3228,7 @@ class TestArgMinMax(unittest.TestCase):
         spec = parse_arg_spec(
             {"value": {"type": "int", "min": 10, "max": 100, "default": 100}}
         )
-        self.assertEqual(spec.default,"100")
+        self.assertEqual(spec.default, "100")
 
     def test_float_range_with_precision(self):
         """
@@ -3290,31 +3238,27 @@ class TestArgMinMax(unittest.TestCase):
         spec = parse_arg_spec(
             {"ratio": {"type": "float", "min": 0.001, "max": 0.999, "default": 0.5}}
         )
-        self.assertEqual(spec.min_val,0.001)
-        self.assertEqual(spec.max_val,0.999)
-        self.assertEqual(spec.default,"0.5")
+        self.assertEqual(spec.min_val, 0.001)
+        self.assertEqual(spec.max_val, 0.999)
+        self.assertEqual(spec.default, "0.5")
 
     def test_negative_int_range(self):
         """
         Test integer range with negative values.
         @athena: 5eb44ecb8313
         """
-        spec = parse_arg_spec(
-            {"temperature": {"type": "int", "min": -100, "max": 100}}
-        )
-        self.assertEqual(spec.min_val,-100)
-        self.assertEqual(spec.max_val,100)
+        spec = parse_arg_spec({"temperature": {"type": "int", "min": -100, "max": 100}})
+        self.assertEqual(spec.min_val, -100)
+        self.assertEqual(spec.max_val, 100)
 
     def test_negative_float_range(self):
         """
         Test float range with negative values.
         @athena: 60ebe43fcf72
         """
-        spec = parse_arg_spec(
-            {"offset": {"type": "float", "min": -1.0, "max": 1.0}}
-        )
-        self.assertEqual(spec.min_val,-1.0)
-        self.assertEqual(spec.max_val,1.0)
+        spec = parse_arg_spec({"offset": {"type": "float", "min": -1.0, "max": 1.0}})
+        self.assertEqual(spec.min_val, -1.0)
+        self.assertEqual(spec.max_val, 1.0)
 
     def test_string_format_args_have_no_min_max(self):
         """
@@ -3330,26 +3274,22 @@ class TestArgMinMax(unittest.TestCase):
         Test that min/max works with inferred int type from default.
         @athena: 0bcbaa60cc5e
         """
-        spec = parse_arg_spec(
-            {"count": {"default": 5, "min": 1, "max": 10}}
-        )
-        self.assertEqual(spec.arg_type,"int")
-        self.assertEqual(spec.default,"5")
-        self.assertEqual(spec.min_val,1)
-        self.assertEqual(spec.max_val,10)
+        spec = parse_arg_spec({"count": {"default": 5, "min": 1, "max": 10}})
+        self.assertEqual(spec.arg_type, "int")
+        self.assertEqual(spec.default, "5")
+        self.assertEqual(spec.min_val, 1)
+        self.assertEqual(spec.max_val, 10)
 
     def test_inferred_float_type_with_min_max(self):
         """
         Test that min/max works with inferred float type from default.
         @athena: 4dc1b4d3967c
         """
-        spec = parse_arg_spec(
-            {"ratio": {"default": 0.5, "min": 0.0, "max": 1.0}}
-        )
-        self.assertEqual(spec.arg_type,"float")
-        self.assertEqual(spec.default,"0.5")
-        self.assertEqual(spec.min_val,0.0)
-        self.assertEqual(spec.max_val,1.0)
+        spec = parse_arg_spec({"ratio": {"default": 0.5, "min": 0.0, "max": 1.0}})
+        self.assertEqual(spec.arg_type, "float")
+        self.assertEqual(spec.default, "0.5")
+        self.assertEqual(spec.min_val, 0.0)
+        self.assertEqual(spec.max_val, 1.0)
 
 
 class TestArgTypeInference(unittest.TestCase):
@@ -3363,11 +3303,9 @@ class TestArgTypeInference(unittest.TestCase):
         Test type inference from min value alone.
         @athena: 6c93f7f24d26
         """
-        spec = parse_arg_spec(
-            {"count": {"min": 1}}
-        )
-        self.assertEqual(spec.arg_type,"int")
-        self.assertEqual(spec.min_val,1)
+        spec = parse_arg_spec({"count": {"min": 1}})
+        self.assertEqual(spec.arg_type, "int")
+        self.assertEqual(spec.min_val, 1)
         self.assertIsNone(spec.max_val)
         self.assertIsNone(spec.default)
 
@@ -3376,12 +3314,10 @@ class TestArgTypeInference(unittest.TestCase):
         Test type inference from max value alone.
         @athena: 439d6583c06c
         """
-        spec = parse_arg_spec(
-            {"count": {"max": 100}}
-        )
-        self.assertEqual(spec.arg_type,"int")
+        spec = parse_arg_spec({"count": {"max": 100}})
+        self.assertEqual(spec.arg_type, "int")
         self.assertIsNone(spec.min_val)
-        self.assertEqual(spec.max_val,100)
+        self.assertEqual(spec.max_val, 100)
         self.assertIsNone(spec.default)
 
     def test_infer_float_from_min_only(self):
@@ -3389,59 +3325,49 @@ class TestArgTypeInference(unittest.TestCase):
         Test type inference from float min value.
         @athena: e44e907c17fb
         """
-        spec = parse_arg_spec(
-            {"ratio": {"min": 0.5}}
-        )
-        self.assertEqual(spec.arg_type,"float")
-        self.assertEqual(spec.min_val,0.5)
+        spec = parse_arg_spec({"ratio": {"min": 0.5}})
+        self.assertEqual(spec.arg_type, "float")
+        self.assertEqual(spec.min_val, 0.5)
 
     def test_infer_float_from_max_only(self):
         """
         Test type inference from float max value.
         @athena: 76275d56e75e
         """
-        spec = parse_arg_spec(
-            {"ratio": {"max": 1.0}}
-        )
-        self.assertEqual(spec.arg_type,"float")
-        self.assertEqual(spec.max_val,1.0)
+        spec = parse_arg_spec({"ratio": {"max": 1.0}})
+        self.assertEqual(spec.arg_type, "float")
+        self.assertEqual(spec.max_val, 1.0)
 
     def test_infer_from_min_and_max_consistent_int(self):
         """
         Test type inference when both min and max are int.
         @athena: 1671994b0cd0
         """
-        spec = parse_arg_spec(
-            {"port": {"min": 1024, "max": 65535}}
-        )
-        self.assertEqual(spec.arg_type,"int")
-        self.assertEqual(spec.min_val,1024)
-        self.assertEqual(spec.max_val,65535)
+        spec = parse_arg_spec({"port": {"min": 1024, "max": 65535}})
+        self.assertEqual(spec.arg_type, "int")
+        self.assertEqual(spec.min_val, 1024)
+        self.assertEqual(spec.max_val, 65535)
 
     def test_infer_from_min_and_max_consistent_float(self):
         """
         Test type inference when both min and max are float.
         @athena: b916dc134458
         """
-        spec = parse_arg_spec(
-            {"percentage": {"min": 0.0, "max": 100.0}}
-        )
-        self.assertEqual(spec.arg_type,"float")
-        self.assertEqual(spec.min_val,0.0)
-        self.assertEqual(spec.max_val,100.0)
+        spec = parse_arg_spec({"percentage": {"min": 0.0, "max": 100.0}})
+        self.assertEqual(spec.arg_type, "float")
+        self.assertEqual(spec.min_val, 0.0)
+        self.assertEqual(spec.max_val, 100.0)
 
     def test_infer_from_all_three_consistent(self):
         """
         Test type inference when default, min, and max are all present and consistent.
         @athena: d128bca223ed
         """
-        spec = parse_arg_spec(
-            {"workers": {"default": 4, "min": 1, "max": 16}}
-        )
-        self.assertEqual(spec.arg_type,"int")
-        self.assertEqual(spec.default,"4")
-        self.assertEqual(spec.min_val,1)
-        self.assertEqual(spec.max_val,16)
+        spec = parse_arg_spec({"workers": {"default": 4, "min": 1, "max": 16}})
+        self.assertEqual(spec.arg_type, "int")
+        self.assertEqual(spec.default, "4")
+        self.assertEqual(spec.min_val, 1)
+        self.assertEqual(spec.max_val, 16)
 
     def test_error_on_inconsistent_min_max_types(self):
         """
@@ -3494,23 +3420,19 @@ class TestArgTypeInference(unittest.TestCase):
         Test that explicit type with matching default value works.
         @athena: 7609e6038915
         """
-        spec = parse_arg_spec(
-            {"count": {"type": "int", "default": 42}}
-        )
-        self.assertEqual(spec.arg_type,"int")
-        self.assertEqual(spec.default,"42")
+        spec = parse_arg_spec({"count": {"type": "int", "default": 42}})
+        self.assertEqual(spec.arg_type, "int")
+        self.assertEqual(spec.default, "42")
 
     def test_explicit_type_with_matching_min_max(self):
         """
         Test that explicit type with matching min/max works.
         @athena: c85ee2745b1e
         """
-        spec = parse_arg_spec(
-            {"count": {"type": "int", "min": 1, "max": 100}}
-        )
-        self.assertEqual(spec.arg_type,"int")
-        self.assertEqual(spec.min_val,1)
-        self.assertEqual(spec.max_val,100)
+        spec = parse_arg_spec({"count": {"type": "int", "min": 1, "max": 100}})
+        self.assertEqual(spec.arg_type, "int")
+        self.assertEqual(spec.min_val, 1)
+        self.assertEqual(spec.max_val, 100)
 
     def test_error_explicit_type_mismatch_default(self):
         """
@@ -3562,22 +3484,18 @@ class TestArgTypeInference(unittest.TestCase):
         Test that bool can be inferred from default (but bool doesn't support min/max).
         @athena: 53058355c260
         """
-        spec = parse_arg_spec(
-            {"enabled": {"default": True}}
-        )
-        self.assertEqual(spec.arg_type,"bool")
-        self.assertEqual(spec.default,"True")
+        spec = parse_arg_spec({"enabled": {"default": True}})
+        self.assertEqual(spec.arg_type, "bool")
+        self.assertEqual(spec.default, "True")
 
     def test_infer_str_from_default_no_min_max(self):
         """
         Test that str can be inferred from default.
         @athena: 097b98c688dd
         """
-        spec = parse_arg_spec(
-            {"name": {"default": "test"}}
-        )
-        self.assertEqual(spec.arg_type,"str")
-        self.assertEqual(spec.default,"test")
+        spec = parse_arg_spec({"name": {"default": "test"}})
+        self.assertEqual(spec.arg_type, "str")
+        self.assertEqual(spec.default, "test")
 
     def test_negative_values_in_inference(self):
         """
@@ -3587,10 +3505,10 @@ class TestArgTypeInference(unittest.TestCase):
         spec = parse_arg_spec(
             {"temperature": {"min": -100, "max": 100, "default": -20}}
         )
-        self.assertEqual(spec.arg_type,"int")
-        self.assertEqual(spec.min_val,-100)
-        self.assertEqual(spec.max_val,100)
-        self.assertEqual(spec.default,"-20")
+        self.assertEqual(spec.arg_type, "int")
+        self.assertEqual(spec.min_val, -100)
+        self.assertEqual(spec.max_val, 100)
+        self.assertEqual(spec.default, "-20")
 
     def test_precedence_all_same_type(self):
         """
@@ -3598,10 +3516,8 @@ class TestArgTypeInference(unittest.TestCase):
         @athena: d37e2f50c3fe
         """
         # This should work regardless of which value is checked first
-        spec = parse_arg_spec(
-            {"value": {"max": 100, "min": 1, "default": 50}}
-        )
-        self.assertEqual(spec.arg_type,"int")
+        spec = parse_arg_spec({"value": {"max": 100, "min": 1, "default": 50}})
+        self.assertEqual(spec.arg_type, "int")
 
     def test_float_inference_with_integer_default(self):
         """
@@ -3650,16 +3566,14 @@ class TestNamedOutputs(unittest.TestCase):
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   build:
     outputs:
       - bundle: "dist/app.js"
       - sourcemap: "dist/app.js.map"
     cmd: webpack build
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             task = recipe.tasks["build"]
@@ -3679,8 +3593,7 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   compile:
     outputs:
@@ -3688,8 +3601,7 @@ tasks:
       - "build/app.debug"
       - symbols: "build/app.sym"
     cmd: gcc -o build/app src/*.c
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             task = recipe.tasks["compile"]
@@ -3710,14 +3622,12 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   build:
     outputs: ["dist/bundle.js", "dist/bundle.css"]
     cmd: build.sh
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             task = recipe.tasks["build"]
@@ -3735,15 +3645,13 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   build:
     outputs:
       - invalid-name: "dist/app.js"
     cmd: build.sh
-"""
-            )
+""")
 
             with self.assertRaises(ValueError) as cm:
                 parse_recipe(recipe_path)
@@ -3758,15 +3666,13 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   build:
     outputs:
       - 1output: "dist/app.js"
     cmd: build.sh
-"""
-            )
+""")
 
             with self.assertRaises(ValueError) as cm:
                 parse_recipe(recipe_path)
@@ -3781,16 +3687,14 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   build:
     outputs:
       - bundle: "dist/app.js"
       - bundle: "dist/app.min.js"
     cmd: build.sh
-"""
-            )
+""")
 
             with self.assertRaises(ValueError) as cm:
                 parse_recipe(recipe_path)
@@ -3839,19 +3743,24 @@ tasks:
         Test various valid identifier names.
         @athena: b5ac7215644e
         """
-        valid_names = ["output", "output_1", "OUTPUT", "_private", "camelCase", "snake_case"]
+        valid_names = [
+            "output",
+            "output_1",
+            "OUTPUT",
+            "_private",
+            "camelCase",
+            "snake_case",
+        ]
         for name in valid_names:
             with TemporaryDirectory() as tmpdir:
                 recipe_path = Path(tmpdir) / "tasktree.yaml"
-                recipe_path.write_text(
-                    f"""
+                recipe_path.write_text(f"""
 tasks:
   build:
     outputs:
       - {name}: "dist/app.js"
     cmd: build.sh
-"""
-                )
+""")
                 recipe = parse_recipe(recipe_path)
                 task = recipe.tasks["build"]
                 self.assertIn(name, task._output_map)
@@ -3863,14 +3772,12 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   build:
     outputs: []
     cmd: build.sh
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             task = recipe.tasks["build"]
@@ -3892,16 +3799,14 @@ class TestNamedInputs(unittest.TestCase):
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   build:
     inputs:
       - src: "src/app.js"
       - config: "config/app.json"
     cmd: build.sh
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             task = recipe.tasks["build"]
@@ -3921,8 +3826,7 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   compile:
     inputs:
@@ -3930,8 +3834,7 @@ tasks:
       - headers: "include/**/*.h"
       - "vendor/lib.a"
     cmd: gcc
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             task = recipe.tasks["compile"]
@@ -3952,16 +3855,14 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   build:
     inputs:
       - "src/**/*.js"
       - "config/*.json"
     cmd: build.sh
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             task = recipe.tasks["build"]
@@ -3979,15 +3880,13 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   build:
     inputs:
       - invalid-name: "src/app.js"
     cmd: build.sh
-"""
-            )
+""")
             with self.assertRaises(ValueError) as cm:
                 parse_recipe(recipe_path)
             error_msg = str(cm.exception)
@@ -4001,15 +3900,13 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   build:
     inputs:
       - 1input: "src/app.js"
     cmd: build.sh
-"""
-            )
+""")
             with self.assertRaises(ValueError) as cm:
                 parse_recipe(recipe_path)
             error_msg = str(cm.exception)
@@ -4023,16 +3920,14 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   build:
     inputs:
       - src: "src/app.js"
       - src: "src/main.js"
     cmd: build.sh
-"""
-            )
+""")
             with self.assertRaises(ValueError) as cm:
                 parse_recipe(recipe_path)
             error_msg = str(cm.exception)
@@ -4080,19 +3975,24 @@ tasks:
         Test various valid identifier names.
         @athena: 978d1cf60aeb
         """
-        valid_names = ["input", "input_1", "INPUT", "_private", "camelCase", "snake_case"]
+        valid_names = [
+            "input",
+            "input_1",
+            "INPUT",
+            "_private",
+            "camelCase",
+            "snake_case",
+        ]
         for name in valid_names:
             with TemporaryDirectory() as tmpdir:
                 recipe_path = Path(tmpdir) / "tasktree.yaml"
-                recipe_path.write_text(
-                    f"""
+                recipe_path.write_text(f"""
 tasks:
   build:
     inputs:
       - {name}: "src/file.txt"
     cmd: build.sh
-"""
-                )
+""")
                 recipe = parse_recipe(recipe_path)
                 task = recipe.tasks["build"]
                 self.assertIn(name, task._input_map)
@@ -4104,14 +4004,12 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   build:
     inputs: []
     cmd: build.sh
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             task = recipe.tasks["build"]
@@ -4133,8 +4031,7 @@ class TestIndexedInputsOutputs(unittest.TestCase):
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   build:
     outputs:
@@ -4143,8 +4040,7 @@ tasks:
       - "third.css"
       - map: "fourth.map"
     cmd: build.sh
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             task = recipe.tasks["build"]
@@ -4163,8 +4059,7 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   build:
     inputs:
@@ -4173,8 +4068,7 @@ tasks:
       - headers: "include/*.h"
       - "*.txt"
     cmd: build.sh
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             task = recipe.tasks["build"]
@@ -4193,16 +4087,14 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   build:
     outputs:
       - bundle: "dist/app.js"
       - sourcemap: "dist/app.js.map"
     cmd: build.sh
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             task = recipe.tasks["build"]
@@ -4218,14 +4110,12 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   build:
     inputs: ["src/*.js", "config.json", "package.json"]
     cmd: build.sh
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             task = recipe.tasks["build"]
@@ -4242,13 +4132,11 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   build:
     cmd: echo "no inputs or outputs"
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             task = recipe.tasks["build"]

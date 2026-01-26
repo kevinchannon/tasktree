@@ -56,7 +56,7 @@ def resolve_dependency_invocation(
     parent_task_name: str,
     parent_args: dict[str, Any],
     parent_exported_args: set[str],
-    recipe: Recipe
+    recipe: Recipe,
 ) -> DependencyInvocation:
     """
     Parse dependency specification and substitute parent argument templates.
@@ -244,9 +244,7 @@ class TaskNode:
 
 
 def resolve_execution_order(
-    recipe: Recipe,
-    target_task: str,
-    target_args: dict[str, Any] | None = None
+    recipe: Recipe, target_task: str, target_args: dict[str, Any] | None = None
 ) -> list[tuple[str, dict[str, Any]]]:
     """
     Resolve execution order for a task and its dependencies.
@@ -271,7 +269,9 @@ def resolve_execution_order(
     graph: dict[TaskNode, set[TaskNode]] = {}
 
     # Track seen nodes to detect duplicates
-    seen_invocations: dict[tuple[str, str], TaskNode] = {}  # (task_name, args_hash) -> node
+    seen_invocations: dict[tuple[str, str], TaskNode] = (
+        {}
+    )  # (task_name, args_hash) -> node
 
     def get_or_create_node(task_name: str, args: dict[str, Any] | None) -> TaskNode:
         """Get existing node or create new one for this invocation."""
@@ -305,7 +305,7 @@ def resolve_execution_order(
                 parent_task_name=node.task_name,
                 parent_args=node.args or {},
                 parent_exported_args=parent_exported_args,
-                recipe=recipe
+                recipe=recipe,
             )
 
             # Create or get node for this dependency invocation
@@ -590,7 +590,9 @@ def get_implicit_inputs(recipe: Recipe, task: Task) -> list[str]:
     return implicit_inputs
 
 
-def build_dependency_tree(recipe: Recipe, target_task: str, target_args: dict[str, Any] | None = None) -> dict:
+def build_dependency_tree(
+    recipe: Recipe, target_task: str, target_args: dict[str, Any] | None = None
+) -> dict:
     """
     Build a tree structure representing dependencies for visualization.
 
@@ -620,12 +622,17 @@ def build_dependency_tree(recipe: Recipe, target_task: str, target_args: dict[st
 
         # Create node identifier for cycle detection
         from tasktree.hasher import hash_args
+
         args_dict = args or {}
         node_id = (task_name, hash_args(args_dict) if args_dict else "")
 
         # Detect cycles in current recursion path
         if node_id in current_path:
-            display_name = task_name if not args_dict else f"{task_name}({', '.join(f'{k}={v}' for k, v in sorted(args_dict.items()))})"
+            display_name = (
+                task_name
+                if not args_dict
+                else f"{task_name}({', '.join(f'{k}={v}' for k, v in sorted(args_dict.items()))})"
+            )
             return {"name": display_name, "deps": [], "cycle": True}
 
         current_path.add(node_id)

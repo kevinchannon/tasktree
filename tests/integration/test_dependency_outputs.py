@@ -38,8 +38,7 @@ class TestDependencyOutputReferences(unittest.TestCase):
 
             # Create recipe with named output reference
             recipe_path = tmpdir / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   generate:
     outputs:
@@ -62,8 +61,7 @@ tasks:
     cmd: |
       echo "Deploying {{ dep.build.outputs.bundle }}"
       cat {{ dep.build.outputs.bundle }}
-"""
-            )
+""")
 
             # Run deploy task (should execute all dependencies)
             os.chdir(tmpdir)
@@ -93,8 +91,7 @@ tasks:
             tmpdir = Path(tmpdir)
 
             recipe_path = tmpdir / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   compile:
     outputs:
@@ -113,8 +110,7 @@ tasks:
       echo "Packaging {{ dep.compile.outputs.binary }}"
       echo "Symbols: {{ dep.compile.outputs.symbols }}"
       cat {{ dep.compile.outputs.binary }} {{ dep.compile.outputs.symbols }}
-"""
-            )
+""")
 
             os.chdir(tmpdir)
             result = self.runner.invoke(app, ["package"])
@@ -140,8 +136,7 @@ tasks:
             tmpdir = Path(tmpdir)
 
             recipe_path = tmpdir / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   base:
     outputs:
@@ -162,8 +157,7 @@ tasks:
     cmd: |
       echo "App uses {{ dep.middleware.outputs.lib }}"
       cat {{ dep.middleware.outputs.lib }}
-"""
-            )
+""")
 
             os.chdir(tmpdir)
             result = self.runner.invoke(app, ["app"])
@@ -190,8 +184,7 @@ tasks:
             tmpdir = Path(tmpdir)
 
             recipe_path = tmpdir / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   build:
     outputs:
@@ -201,8 +194,7 @@ tasks:
   deploy:
     deps: [build]
     cmd: echo "{{ dep.build.outputs.missing }}"
-"""
-            )
+""")
 
             os.chdir(tmpdir)
             result = self.runner.invoke(app, ["deploy"])
@@ -224,8 +216,7 @@ tasks:
             tmpdir = Path(tmpdir)
 
             recipe_path = tmpdir / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   build:
     outputs:
@@ -238,8 +229,7 @@ tasks:
   deploy:
     deps: [other]
     cmd: echo "{{ dep.build.outputs.bundle }}"
-"""
-            )
+""")
 
             os.chdir(tmpdir)
             result = self.runner.invoke(app, ["deploy"])
@@ -261,8 +251,7 @@ tasks:
             tmpdir = Path(tmpdir)
 
             recipe_path = tmpdir / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   generate:
     outputs:
@@ -282,8 +271,7 @@ tasks:
       echo "artifact-$ID" > dist/app-build.tar.gz
       # Verify the template was resolved correctly in cmd
       echo "Using ID from: {{ dep.generate.outputs.id_file }}" >> dist/app-build.tar.gz
-"""
-            )
+""")
 
             os.chdir(tmpdir)
             result = self.runner.invoke(app, ["build"])
@@ -307,8 +295,7 @@ tasks:
             tmpdir = Path(tmpdir)
 
             recipe_path = tmpdir / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   build:
     outputs: ["dist/bundle.js", "dist/bundle.css"]
@@ -322,8 +309,7 @@ tasks:
     cmd: |
       echo "Deploying"
       cat dist/bundle.js dist/bundle.css
-"""
-            )
+""")
 
             os.chdir(tmpdir)
             result = self.runner.invoke(app, ["deploy"])

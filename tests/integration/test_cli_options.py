@@ -16,8 +16,8 @@ def strip_ansi_codes(text: str) -> str:
     Remove ANSI escape sequences from text.
     @athena: 90023a269128
     """
-    ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
-    return ansi_escape.sub('', text)
+    ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
+    return ansi_escape.sub("", text)
 
 
 class TestCLIOptionsNoClash(unittest.TestCase):
@@ -185,7 +185,6 @@ tasks:
             finally:
                 os.chdir(original_cwd)
 
-
     def test_help_option_works(self):
         """
         Test that --help and -h options work correctly.
@@ -250,8 +249,7 @@ class TestShowOption(unittest.TestCase):
         """
         with self.runner.isolated_filesystem():
             recipe_file = Path("tasktree.yaml")
-            recipe_file.write_text(
-                """
+            recipe_file.write_text("""
 tasks:
   multiline:
     desc: Task with multiline command
@@ -259,8 +257,7 @@ tasks:
       echo "Line 1"
       echo "Line 2"
       echo "Line 3"
-"""
-            )
+""")
 
             result = self.runner.invoke(app, ["--show", "multiline"], env=self.env)
 
@@ -284,14 +281,12 @@ tasks:
         """
         with self.runner.isolated_filesystem():
             recipe_file = Path("tasktree.yaml")
-            recipe_file.write_text(
-                """
+            recipe_file.write_text("""
 tasks:
   single:
     desc: Task with single line command
     cmd: echo "Hello world"
-"""
-            )
+""")
 
             result = self.runner.invoke(app, ["--show", "single"], env=self.env)
 
@@ -357,6 +352,7 @@ tasks:
 
                 # Third run with --force - task executes even though fresh
                 import time
+
                 time.sleep(0.01)  # Ensure mtime can change
                 result = self.runner.invoke(app, ["--force", "build"], env=self.env)
                 self.assertEqual(result.exit_code, 0)
@@ -393,6 +389,7 @@ tasks:
 
                 # Run with -f (short flag)
                 import time
+
                 time.sleep(0.01)
                 result = self.runner.invoke(app, ["-f", "build"], env=self.env)
                 self.assertEqual(result.exit_code, 0)
@@ -451,6 +448,7 @@ tasks:
 
                 # Third run with --force - all re-execute
                 import time
+
                 time.sleep(0.01)
                 result = self.runner.invoke(app, ["--force", "test"], env=self.env)
                 self.assertEqual(result.exit_code, 0)
@@ -624,6 +622,7 @@ tasks:
 
                 # Second run (should re-run because --only implies --force)
                 import time
+
                 time.sleep(0.01)
                 result = self.runner.invoke(app, ["--only", "build"], env=self.env)
                 self.assertEqual(result.exit_code, 0)
@@ -810,16 +809,16 @@ class TestTasksFileOption(unittest.TestCase):
         """
         with self.runner.isolated_filesystem():
             recipe_file = Path("tasktree.yml")
-            recipe_file.write_text(
-                """
+            recipe_file.write_text("""
 tasks:
   build:
     desc: Build with yml
     cmd: echo "Building from yml"
-"""
-            )
+""")
 
-            result = self.runner.invoke(app, ["--tasks", "tasktree.yml", "build"], env=self.env)
+            result = self.runner.invoke(
+                app, ["--tasks", "tasktree.yml", "build"], env=self.env
+            )
 
             self.assertEqual(result.exit_code, 0)
             self.assertIn("build", result.stdout)
@@ -832,16 +831,16 @@ tasks:
         """
         with self.runner.isolated_filesystem():
             recipe_file = Path("build.tasks")
-            recipe_file.write_text(
-                """
+            recipe_file.write_text("""
 tasks:
   compile:
     desc: Compile code
     cmd: echo "Compiling"
-"""
-            )
+""")
 
-            result = self.runner.invoke(app, ["--tasks", "build.tasks", "compile"], env=self.env)
+            result = self.runner.invoke(
+                app, ["--tasks", "build.tasks", "compile"], env=self.env
+            )
 
             self.assertEqual(result.exit_code, 0)
             self.assertIn("compile", result.stdout)
@@ -854,13 +853,11 @@ tasks:
         """
         with self.runner.isolated_filesystem():
             recipe_file = Path("my.tasks")
-            recipe_file.write_text(
-                """
+            recipe_file.write_text("""
 tasks:
   test:
     cmd: echo "Testing"
-"""
-            )
+""")
 
             result = self.runner.invoke(app, ["-T", "my.tasks", "test"], env=self.env)
 
@@ -892,28 +889,28 @@ tasks:
         """
         with self.runner.isolated_filesystem():
             # Create multiple recipe files with different task names
-            Path("tasktree.yaml").write_text(
-                """
+            Path("tasktree.yaml").write_text("""
 tasks:
   yaml-task:
     cmd: echo "From yaml"
-"""
-            )
-            Path("build.tasks").write_text(
-                """
+""")
+            Path("build.tasks").write_text("""
 tasks:
   tasks-task:
     cmd: echo "From tasks"
-"""
-            )
+""")
 
             # Use --tasks to select the .tasks file - should be able to run tasks-task
-            result = self.runner.invoke(app, ["--tasks", "build.tasks", "tasks-task"], env=self.env)
+            result = self.runner.invoke(
+                app, ["--tasks", "build.tasks", "tasks-task"], env=self.env
+            )
             self.assertEqual(result.exit_code, 0)
             self.assertIn("tasks-task", result.stdout)
 
             # Should not be able to run yaml-task from build.tasks
-            result = self.runner.invoke(app, ["--tasks", "build.tasks", "yaml-task"], env=self.env)
+            result = self.runner.invoke(
+                app, ["--tasks", "build.tasks", "yaml-task"], env=self.env
+            )
             self.assertNotEqual(result.exit_code, 0)
             self.assertIn("Task not found", result.stdout)
 
@@ -924,8 +921,7 @@ tasks:
         """
         with self.runner.isolated_filesystem():
             recipe_file = Path("custom.tasks")
-            recipe_file.write_text(
-                """
+            recipe_file.write_text("""
 tasks:
   task1:
     desc: First task
@@ -933,10 +929,11 @@ tasks:
   task2:
     desc: Second task
     cmd: echo two
-"""
-            )
+""")
 
-            result = self.runner.invoke(app, ["--tasks", "custom.tasks", "--list"], env=self.env)
+            result = self.runner.invoke(
+                app, ["--tasks", "custom.tasks", "--list"], env=self.env
+            )
 
             self.assertEqual(result.exit_code, 0)
             self.assertIn("task1", result.stdout)
@@ -950,16 +947,16 @@ tasks:
         """
         with self.runner.isolated_filesystem():
             recipe_file = Path("my.tasks")
-            recipe_file.write_text(
-                """
+            recipe_file.write_text("""
 tasks:
   build:
     desc: Build task
     cmd: echo building
-"""
-            )
+""")
 
-            result = self.runner.invoke(app, ["--tasks", "my.tasks", "--show", "build"], env=self.env)
+            result = self.runner.invoke(
+                app, ["--tasks", "my.tasks", "--show", "build"], env=self.env
+            )
 
             self.assertEqual(result.exit_code, 0)
             self.assertIn("build:", result.stdout)
@@ -971,7 +968,9 @@ tasks:
         @athena: 9a05d881404c
         """
         with self.runner.isolated_filesystem():
-            result = self.runner.invoke(app, ["--tasks", "nonexistent.yaml", "build"], env=self.env)
+            result = self.runner.invoke(
+                app, ["--tasks", "nonexistent.yaml", "build"], env=self.env
+            )
 
             self.assertNotEqual(result.exit_code, 0)
             self.assertIn("Recipe file not found", result.stdout)

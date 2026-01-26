@@ -21,7 +21,9 @@ class HostnameType(click.ParamType):
         r"^(?=.{1,253}$)(?!-)[A-Za-z0-9-]{1,63}(?<!-)(\.[A-Za-z0-9-]{1,63})*\.?$"
     )
 
-    def convert(self, value: Any, param: Optional[click.Parameter], ctx: Optional[click.Context]) -> str:
+    def convert(
+        self, value: Any, param: Optional[click.Parameter], ctx: Optional[click.Context]
+    ) -> str:
         """
         @athena: 8d921e52bcf2
         """
@@ -40,11 +42,11 @@ class EmailType(click.ParamType):
     name = "email"
 
     # Basic email validation (RFC 5322 simplified)
-    EMAIL_PATTERN = re.compile(
-        r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
-    )
+    EMAIL_PATTERN = re.compile(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$")
 
-    def convert(self, value: Any, param: Optional[click.Parameter], ctx: Optional[click.Context]) -> str:
+    def convert(
+        self, value: Any, param: Optional[click.Parameter], ctx: Optional[click.Context]
+    ) -> str:
         """
         @athena: 25046aeb6e6f
         """
@@ -62,7 +64,9 @@ class IPType(click.ParamType):
 
     name = "ip"
 
-    def convert(self, value: Any, param: Optional[click.Parameter], ctx: Optional[click.Context]) -> str:
+    def convert(
+        self, value: Any, param: Optional[click.Parameter], ctx: Optional[click.Context]
+    ) -> str:
         """
         @athena: d57618e5ad89
         """
@@ -81,7 +85,9 @@ class IPv4Type(click.ParamType):
 
     name = "ipv4"
 
-    def convert(self, value: Any, param: Optional[click.Parameter], ctx: Optional[click.Context]) -> str:
+    def convert(
+        self, value: Any, param: Optional[click.Parameter], ctx: Optional[click.Context]
+    ) -> str:
         """
         @athena: 7ed2d17d1f1a
         """
@@ -100,7 +106,9 @@ class IPv6Type(click.ParamType):
 
     name = "ipv6"
 
-    def convert(self, value: Any, param: Optional[click.Parameter], ctx: Optional[click.Context]) -> str:
+    def convert(
+        self, value: Any, param: Optional[click.Parameter], ctx: Optional[click.Context]
+    ) -> str:
         """
         @athena: 4b101e4d54cf
         """
@@ -119,7 +127,9 @@ class DateTimeType(click.ParamType):
 
     name = "datetime"
 
-    def convert(self, value: Any, param: Optional[click.Parameter], ctx: Optional[click.Context]) -> str:
+    def convert(
+        self, value: Any, param: Optional[click.Parameter], ctx: Optional[click.Context]
+    ) -> str:
         """
         @athena: 13fa66adfe94
         """
@@ -129,7 +139,11 @@ class DateTimeType(click.ParamType):
                 return value
             except ValueError:
                 pass
-        self.fail(f"{value!r} is not a valid datetime (expected YYYY-MM-DDTHH:MM:SS format)", param, ctx)
+        self.fail(
+            f"{value!r} is not a valid datetime (expected YYYY-MM-DDTHH:MM:SS format)",
+            param,
+            ctx,
+        )
 
 
 # Type registry for dynamic parameter creation
@@ -148,7 +162,11 @@ TYPE_MAPPING = {
 }
 
 
-def get_click_type(type_name: str, min_val: int | float | None = None, max_val: int | float | None = None) -> click.ParamType:
+def get_click_type(
+    type_name: str,
+    min_val: int | float | None = None,
+    max_val: int | float | None = None,
+) -> click.ParamType:
     """
     Get Click parameter type by name with optional range constraints.
 

@@ -64,16 +64,13 @@ tasks:
             self.assertEqual(
                 result.returncode,
                 0,
-                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
             )
 
             # Verify file accessible on host via relative path
             output_file = project_root / "src" / "from_container.txt"
             self.assertTrue(output_file.exists(), "File not accessible on host")
-            self.assertEqual(
-                output_file.read_text().strip(),
-                "created in container"
-            )
+            self.assertEqual(output_file.read_text().strip(), "created in container")
 
     def test_absolute_volume_mount(self):
         """
@@ -112,16 +109,15 @@ tasks:
             self.assertEqual(
                 result.returncode,
                 0,
-                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
             )
 
             # Verify file accessible via absolute path
             output_file = absolute_data_dir / "absolute.txt"
-            self.assertTrue(output_file.exists(), "File not accessible via absolute path")
-            self.assertEqual(
-                output_file.read_text().strip(),
-                "absolute path mount"
+            self.assertTrue(
+                output_file.exists(), "File not accessible via absolute path"
             )
+            self.assertEqual(output_file.read_text().strip(), "absolute path mount")
 
     def test_multiple_volume_mounts(self):
         """
@@ -169,7 +165,7 @@ tasks:
             self.assertEqual(
                 result.returncode,
                 0,
-                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
             )
 
             # Verify both mounts worked
@@ -227,7 +223,7 @@ tasks:
             self.assertEqual(
                 result.returncode,
                 0,
-                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
             )
 
             # Verify read and write both worked

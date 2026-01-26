@@ -232,7 +232,9 @@ class TestIsDockerEnvironment(unittest.TestCase):
 
         # Verify args are stored as a dict
         self.assertIsInstance(env.args, dict)
-        self.assertEqual(env.args, {"BUILD_VERSION": "1.0.0", "BUILD_DATE": "2024-01-01"})
+        self.assertEqual(
+            env.args, {"BUILD_VERSION": "1.0.0", "BUILD_DATE": "2024-01-01"}
+        )
 
 
 class TestResolveContainerWorkingDir(unittest.TestCase):
@@ -815,7 +817,7 @@ class TestDockerManager(unittest.TestCase):
             dockerfile="./Dockerfile",
             context=".",
             shell="sh",
-            args=["-euo", "pipefail"]
+            args=["-euo", "pipefail"],
         )
 
         # Mock docker --version, docker build, docker inspect, and docker run
@@ -846,7 +848,9 @@ class TestDockerManager(unittest.TestCase):
 
     @patch("tasktree.docker.subprocess.run")
     @patch("tasktree.docker.platform.system")
-    def test_run_in_container_with_substituted_variables_in_volumes(self, mock_platform, mock_run):
+    def test_run_in_container_with_substituted_variables_in_volumes(
+        self, mock_platform, mock_run
+    ):
         """
         Test that volume mounts work correctly after variable substitution.
 

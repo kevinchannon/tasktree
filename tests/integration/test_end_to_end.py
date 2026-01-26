@@ -16,8 +16,8 @@ def strip_ansi_codes(text: str) -> str:
     Remove ANSI escape sequences from text.
     @athena: 90023a269128
     """
-    ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
-    return ansi_escape.sub('', text)
+    ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
+    return ansi_escape.sub("", text)
 
 
 class TestEndToEnd(unittest.TestCase):
@@ -76,8 +76,14 @@ tasks:
                 # Test 2: Named arguments with type conversion
                 result = self.runner.invoke(
                     app,
-                    ["deploy", "staging", "region=eu-west-1", "port=9000", "debug=true"],
-                    env=self.env
+                    [
+                        "deploy",
+                        "staging",
+                        "region=eu-west-1",
+                        "port=9000",
+                        "debug=true",
+                    ],
+                    env=self.env,
                 )
                 self.assertEqual(result.exit_code, 0)
 
@@ -85,16 +91,16 @@ tasks:
                 self.assertIn("env=staging", log_content)
                 self.assertIn("region=eu-west-1", log_content)
                 self.assertIn("port=9000", log_content)  # Type converted to int
-                self.assertIn("debug=true", log_content)  # Type converted to bool (lowercase)
+                self.assertIn(
+                    "debug=true", log_content
+                )  # Type converted to bool (lowercase)
 
                 # Clean up for next test
                 (project_root / "deploy.log").unlink()
 
                 # Test 3: Mixed positional and named
                 result = self.runner.invoke(
-                    app,
-                    ["deploy", "production", "debug=true"],
-                    env=self.env
+                    app, ["deploy", "production", "debug=true"], env=self.env
                 )
                 self.assertEqual(result.exit_code, 0)
 
@@ -140,7 +146,7 @@ tasks:
 
                 # Should NOT contain Python traceback
                 self.assertNotIn("Traceback", output)
-                self.assertNotIn("File \"", output)
+                self.assertNotIn('File "', output)
 
             finally:
                 os.chdir(original_cwd)

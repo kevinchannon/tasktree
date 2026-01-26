@@ -11,14 +11,13 @@ class TestTaskState(unittest.TestCase):
     """
     @athena: 6c3020b9e082
     """
+
     def test_to_dict(self):
         """
         Test converting TaskState to dictionary.
         @athena: 9594e8c69e86
         """
-        state = TaskState(
-            last_run=1234567890.0, input_state={"file.txt": 1234567880.0}
-        )
+        state = TaskState(last_run=1234567890.0, input_state={"file.txt": 1234567880.0})
         data = state.to_dict()
         self.assertEqual(data["last_run"], 1234567890.0)
         self.assertEqual(data["input_state"], {"file.txt": 1234567880.0})
@@ -38,6 +37,7 @@ class TestStateManager(unittest.TestCase):
     """
     @athena: a79336270d00
     """
+
     def test_save_and_load(self):
         """
         Test saving and loading state.
@@ -48,7 +48,9 @@ class TestStateManager(unittest.TestCase):
             state_manager = StateManager(project_root)
 
             # Set some state
-            state = TaskState(last_run=1234567890.0, input_state={"file.txt": 1234567880.0})
+            state = TaskState(
+                last_run=1234567890.0, input_state={"file.txt": 1234567880.0}
+            )
             state_manager.set("abc12345", state)
             state_manager.save()
 

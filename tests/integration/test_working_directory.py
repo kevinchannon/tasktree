@@ -16,8 +16,8 @@ def strip_ansi_codes(text: str) -> str:
     Remove ANSI escape sequences from text.
     @athena: 90023a269128
     """
-    ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
-    return ansi_escape.sub('', text)
+    ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
+    return ansi_escape.sub("", text)
 
 
 class TestWorkingDirectory(unittest.TestCase):
@@ -143,7 +143,11 @@ tasks:
                 # Invoke tt from project root, pointing to tasks file in subdir
                 os.chdir(project_root)
 
-                result = self.runner.invoke(app, ["--tasks", "config/build.tasks", "check-location"], env=self.env)
+                result = self.runner.invoke(
+                    app,
+                    ["--tasks", "config/build.tasks", "check-location"],
+                    env=self.env,
+                )
                 self.assertEqual(result.exit_code, 0)
 
                 # Verify output was created in project root (where we invoked tt)
@@ -151,8 +155,14 @@ tasks:
                 output_in_root = project_root / "location.txt"
                 output_in_subdir = subdir / "location.txt"
 
-                self.assertTrue(output_in_root.exists(), "Output should be in invocation directory (project root)")
-                self.assertFalse(output_in_subdir.exists(), "Output should NOT be in tasks file directory")
+                self.assertTrue(
+                    output_in_root.exists(),
+                    "Output should be in invocation directory (project root)",
+                )
+                self.assertFalse(
+                    output_in_subdir.exists(),
+                    "Output should NOT be in tasks file directory",
+                )
 
                 # Verify pwd shows project root path
                 pwd_output = output_in_root.read_text().strip()

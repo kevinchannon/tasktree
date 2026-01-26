@@ -16,8 +16,8 @@ def strip_ansi_codes(text: str) -> str:
     Remove ANSI escape sequences from text.
     @athena: 90023a269128
     """
-    ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
-    return ansi_escape.sub('', text)
+    ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
+    return ansi_escape.sub("", text)
 
 
 class TestNestedImports(unittest.TestCase):
@@ -83,11 +83,17 @@ tasks:
                 # Run the deeply nested task: common.base.setup
                 result = self.runner.invoke(app, ["common.base.setup"], env=self.env)
                 self.assertEqual(result.exit_code, 0, f"Task failed: {result.stdout}")
-                self.assertIn("Task 'common.base.setup' completed successfully", strip_ansi_codes(result.stdout))
+                self.assertIn(
+                    "Task 'common.base.setup' completed successfully",
+                    strip_ansi_codes(result.stdout),
+                )
 
                 # Verify the output file was created
                 self.assertTrue((project_root / "base-output.txt").exists())
-                self.assertEqual((project_root / "base-output.txt").read_text().strip(), "base setup complete")
+                self.assertEqual(
+                    (project_root / "base-output.txt").read_text().strip(),
+                    "base setup complete",
+                )
 
                 # Run the main task which depends on nested tasks
                 result = self.runner.invoke(app, ["main"], env=self.env)
@@ -175,12 +181,24 @@ tasks:
                 self.assertTrue((project_root / "deploy.txt").exists())
 
                 # Verify contents show correct order
-                self.assertEqual((project_root / "init.txt").read_text().strip(), "step 1")
-                self.assertEqual((project_root / "config.txt").read_text().strip(), "step 2")
-                self.assertEqual((project_root / "setup.txt").read_text().strip(), "step 3")
-                self.assertEqual((project_root / "prepare.txt").read_text().strip(), "step 4")
-                self.assertEqual((project_root / "build.txt").read_text().strip(), "step 5")
-                self.assertEqual((project_root / "deploy.txt").read_text().strip(), "step 6")
+                self.assertEqual(
+                    (project_root / "init.txt").read_text().strip(), "step 1"
+                )
+                self.assertEqual(
+                    (project_root / "config.txt").read_text().strip(), "step 2"
+                )
+                self.assertEqual(
+                    (project_root / "setup.txt").read_text().strip(), "step 3"
+                )
+                self.assertEqual(
+                    (project_root / "prepare.txt").read_text().strip(), "step 4"
+                )
+                self.assertEqual(
+                    (project_root / "build.txt").read_text().strip(), "step 5"
+                )
+                self.assertEqual(
+                    (project_root / "deploy.txt").read_text().strip(), "step 6"
+                )
 
             finally:
                 os.chdir(original_cwd)

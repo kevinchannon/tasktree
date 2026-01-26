@@ -66,7 +66,7 @@ tasks:
             self.assertEqual(
                 result.returncode,
                 0,
-                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
             )
 
             # Verify file ownership
@@ -80,18 +80,18 @@ tasks:
             self.assertEqual(
                 uid,
                 current_uid,
-                f"File owned by UID {uid}, expected {current_uid} (current user)"
+                f"File owned by UID {uid}, expected {current_uid} (current user)",
             )
             self.assertEqual(
                 gid,
                 current_gid,
-                f"File owned by GID {gid}, expected {current_gid} (current group)"
+                f"File owned by GID {gid}, expected {current_gid} (current group)",
             )
             self.assertNotEqual(uid, 0, "File should NOT be owned by root")
 
     @unittest.skipIf(
         platform.system() == "Darwin",
-        "Docker Desktop on macOS handles file ownership through VM differently"
+        "Docker Desktop on macOS handles file ownership through VM differently",
     )
     def test_run_as_root_creates_root_owned_files(self):
         """
@@ -132,7 +132,7 @@ tasks:
             self.assertEqual(
                 result.returncode,
                 0,
-                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
             )
 
             # Verify file ownership
@@ -145,7 +145,7 @@ tasks:
             self.assertEqual(
                 uid,
                 0,
-                f"File owned by UID {uid}, expected 0 (root) when run_as_root: true"
+                f"File owned by UID {uid}, expected 0 (root) when run_as_root: true",
             )
 
 

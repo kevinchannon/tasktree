@@ -18,13 +18,16 @@ class TestResolveExecutionOrder(unittest.TestCase):
     """
     @athena: bddf5f60de23
     """
+
     def test_single_task(self):
         """
         Test execution order for single task with no dependencies.
         @athena: 25b6e4458e0b
         """
         tasks = {"build": Task(name="build", cmd="cargo build")}
-        recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
+        recipe = Recipe(
+            tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml")
+        )
 
         order = resolve_execution_order(recipe, "build")
         self.assertEqual(order, [("build", None)])
@@ -39,7 +42,9 @@ class TestResolveExecutionOrder(unittest.TestCase):
             "build": Task(name="build", cmd="cargo build", deps=["lint"]),
             "test": Task(name="test", cmd="cargo test", deps=["build"]),
         }
-        recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
+        recipe = Recipe(
+            tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml")
+        )
 
         order = resolve_execution_order(recipe, "test")
         self.assertEqual(order, [("lint", None), ("build", None), ("test", None)])
@@ -55,7 +60,9 @@ class TestResolveExecutionOrder(unittest.TestCase):
             "c": Task(name="c", cmd="echo c", deps=["a"]),
             "d": Task(name="d", cmd="echo d", deps=["b", "c"]),
         }
-        recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
+        recipe = Recipe(
+            tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml")
+        )
 
         order = resolve_execution_order(recipe, "d")
         # Extract task names for easier comparison
@@ -75,7 +82,9 @@ class TestResolveExecutionOrder(unittest.TestCase):
         @athena: 03d6846673d2
         """
         tasks = {"build": Task(name="build", cmd="cargo build")}
-        recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
+        recipe = Recipe(
+            tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml")
+        )
 
         with self.assertRaises(TaskNotFoundError):
             resolve_execution_order(recipe, "nonexistent")
@@ -85,13 +94,16 @@ class TestGetImplicitInputs(unittest.TestCase):
     """
     @athena: af2a76679f91
     """
+
     def test_no_dependencies(self):
         """
         Test implicit inputs for task with no dependencies.
         @athena: b85caf97f461
         """
         tasks = {"build": Task(name="build", cmd="cargo build")}
-        recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
+        recipe = Recipe(
+            tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml")
+        )
 
         implicit = get_implicit_inputs(recipe, tasks["build"])
         self.assertEqual(implicit, [])
@@ -107,7 +119,9 @@ class TestGetImplicitInputs(unittest.TestCase):
                 name="package", cmd="tar czf package.tar.gz target/bin", deps=["build"]
             ),
         }
-        recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
+        recipe = Recipe(
+            tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml")
+        )
 
         implicit = get_implicit_inputs(recipe, tasks["package"])
         self.assertEqual(implicit, ["target/bin"])
@@ -121,7 +135,9 @@ class TestGetImplicitInputs(unittest.TestCase):
             "lint": Task(name="lint", cmd="cargo clippy", inputs=["src/**/*.rs"]),
             "build": Task(name="build", cmd="cargo build", deps=["lint"]),
         }
-        recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
+        recipe = Recipe(
+            tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml")
+        )
 
         implicit = get_implicit_inputs(recipe, tasks["build"])
         self.assertEqual(implicit, ["src/**/*.rs"])
@@ -144,7 +160,9 @@ class TestGraphErrors(unittest.TestCase):
             "b": Task(name="b", cmd="echo b", deps=["c"]),
             "c": Task(name="c", cmd="echo c", deps=["a"]),
         }
-        recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
+        recipe = Recipe(
+            tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml")
+        )
 
         from tasktree.graph import CycleError
 
@@ -159,7 +177,9 @@ class TestGraphErrors(unittest.TestCase):
         tasks = {
             "build": Task(name="build", cmd="echo build"),
         }
-        recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
+        recipe = Recipe(
+            tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml")
+        )
 
         from tasktree.graph import TaskNotFoundError, build_dependency_tree
 
@@ -179,7 +199,9 @@ class TestBuildDependencyTree(unittest.TestCase):
         @athena: 1244c78bcdf3
         """
         tasks = {"build": Task(name="build", cmd="cargo build")}
-        recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
+        recipe = Recipe(
+            tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml")
+        )
 
         tree = build_dependency_tree(recipe, "build")
 
@@ -196,7 +218,9 @@ class TestBuildDependencyTree(unittest.TestCase):
             "build": Task(name="build", cmd="cargo build", deps=["lint"]),
             "test": Task(name="test", cmd="cargo test", deps=["build"]),
         }
-        recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
+        recipe = Recipe(
+            tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml")
+        )
 
         tree = build_dependency_tree(recipe, "test")
 
@@ -217,7 +241,9 @@ class TestBuildDependencyTree(unittest.TestCase):
         @athena: 70062ae2c66d
         """
         tasks = {"build": Task(name="build", cmd="echo build")}
-        recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
+        recipe = Recipe(
+            tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml")
+        )
 
         with self.assertRaises(TaskNotFoundError):
             build_dependency_tree(recipe, "nonexistent")
@@ -233,7 +259,9 @@ class TestBuildDependencyTree(unittest.TestCase):
             "c": Task(name="c", cmd="echo c", deps=["a"]),
             "d": Task(name="d", cmd="echo d", deps=["b", "c"]),
         }
-        recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
+        recipe = Recipe(
+            tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml")
+        )
 
         tree = build_dependency_tree(recipe, "d")
 
@@ -264,7 +292,9 @@ class TestResolveSelfReferences(unittest.TestCase):
             outputs=[{"dest": "output.txt"}],
         )
         tasks = {"copy": task}
-        recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
+        recipe = Recipe(
+            tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml")
+        )
         ordered_tasks = [("copy", None)]
 
         resolve_self_references(recipe, ordered_tasks)
@@ -283,7 +313,9 @@ class TestResolveSelfReferences(unittest.TestCase):
             working_dir="{{ self.inputs.project }}/build",
         )
         tasks = {"build": task}
-        recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
+        recipe = Recipe(
+            tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml")
+        )
         ordered_tasks = [("build", None)]
 
         resolve_self_references(recipe, ordered_tasks)
@@ -299,10 +331,14 @@ class TestResolveSelfReferences(unittest.TestCase):
             name="deploy",
             cmd="deploy",
             outputs=[{"artifact": "dist/app.js"}],
-            args=[{"target": {"type": "str", "default": "{{ self.outputs.artifact }}"}}],
+            args=[
+                {"target": {"type": "str", "default": "{{ self.outputs.artifact }}"}}
+            ],
         )
         tasks = {"deploy": task}
-        recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
+        recipe = Recipe(
+            tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml")
+        )
         ordered_tasks = [("deploy", None)]
 
         resolve_self_references(recipe, ordered_tasks)
@@ -326,7 +362,9 @@ class TestResolveSelfReferences(unittest.TestCase):
             inputs=[{"in2": "file2.txt"}],
         )
         tasks = {"task1": task1, "task2": task2}
-        recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
+        recipe = Recipe(
+            tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml")
+        )
         ordered_tasks = [("task1", None), ("task2", None)]
 
         resolve_self_references(recipe, ordered_tasks)
@@ -346,7 +384,9 @@ class TestResolveSelfReferences(unittest.TestCase):
             outputs=["bin/app"],
         )
         tasks = {"build": task}
-        recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
+        recipe = Recipe(
+            tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml")
+        )
         ordered_tasks = [("build", None)]
 
         resolve_self_references(recipe, ordered_tasks)
@@ -365,7 +405,9 @@ class TestResolveSelfReferences(unittest.TestCase):
             inputs=[{"src": "file.txt"}],  # Only has 'src', not 'missing'
         )
         tasks = {"build": task}
-        recipe = Recipe(tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml"))
+        recipe = Recipe(
+            tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml")
+        )
         ordered_tasks = [("build", None)]
 
         with self.assertRaises(ValueError) as cm:
