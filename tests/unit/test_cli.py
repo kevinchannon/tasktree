@@ -1,8 +1,7 @@
 """Tests for CLI argument parsing."""
 
-import sys
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import typer
 

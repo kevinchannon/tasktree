@@ -315,9 +315,9 @@ tasks:
             # BUG FIX VERIFICATION: Package task should NOT run
             # because build's implicit output (build-artifact.txt) has unchanged mtime
             # This is the CORE assertion that verifies the bug is fixed
-            assert (
-                statuses["package"].will_run == False
-            ), f"Package should not run when dependency produces no changes, but will_run={statuses['package'].will_run}, reason={statuses['package'].reason}"
+            assert not statuses[
+                "package"
+            ].will_run, f"Package should not run when dependency produces no changes, but will_run={statuses['package'].will_run}, reason={statuses['package'].reason}"
 
             assert (
                 statuses["package"].reason == "fresh"

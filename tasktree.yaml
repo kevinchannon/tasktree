@@ -7,7 +7,7 @@ tasks:
 
   check:
     desc: Run all checks (tests and build)
-    deps: [check-format, test, build]
+    deps: [test, build, check-lint, check-format]
     cmd: echo "✓ All checks passed!"
 
   test:
@@ -18,10 +18,22 @@ tasks:
   check-format:
     inputs: [src/**/*.py, tests/**/*.py]
     cmd: black --check src tests
+  
+  check-lint:
+    inputs: [src/**/*.py, tests/**/*.py]
+    cmd: ruff check src tests
 
-  format:
+  fix:
+    deps: [fix-format, fix-lint]
+    cmd: echo "✓ All fixes passed!"
+
+  fix-format:
     inputs: [src/**/*.py, tests/**/*.py]
     cmd: black src tests
+
+  fix-lint:
+    inputs: [src/**/*.py, tests/**/*.py]
+    cmd: ruff check --fix src tests
 
   build:
     desc: Build distribution packages (wheel and sdist)

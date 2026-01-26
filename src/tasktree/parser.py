@@ -1906,7 +1906,7 @@ def _parse_file(
 
     tasks: dict[str, Task] = {}
     # TODO: Understand why this is not used.
-    file_dir = file_path.parent
+    # file_dir = file_path.parent
 
     # Default working directory is the project root (where tt is invoked)
     # NOT the directory where the tasks file is located
@@ -1989,7 +1989,6 @@ def _parse_file(
 
     # Process local tasks
     for task_name, task_data in tasks_data.items():
-
         if not isinstance(task_data, dict):
             raise ValueError(f"Task '{task_name}' must be a dictionary")
 

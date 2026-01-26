@@ -12,7 +12,6 @@ from tempfile import TemporaryDirectory
 import yaml
 
 from tasktree.parser import (
-    ArgSpec,
     CircularImportError,
     Task,
     find_recipe_file,
@@ -2503,7 +2502,6 @@ tasks:
         Test tilde expands to home directory.
         @athena: 70378a8685ee
         """
-        import os
 
         home = Path.home()
 

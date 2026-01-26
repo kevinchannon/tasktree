@@ -874,7 +874,10 @@ class TestSubstituteDependencyOutputs(unittest.TestCase):
         text = "Deploy {{ dep.build.outputs.bundle }}"
         with self.assertRaises(ValueError) as cm:
             substitute_dependency_outputs(
-                text, "deploy", ["other"], resolved_tasks  # build not in deps
+                text,
+                "deploy",
+                ["other"],
+                resolved_tasks,  # build not in deps
             )
 
         error_msg = str(cm.exception)

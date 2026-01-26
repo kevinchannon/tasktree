@@ -7,7 +7,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, patch
 
-from tasktree.executor import Executor, TaskStatus
+from tasktree.executor import Executor
 from tasktree.parser import Recipe, Task
 from tasktree.state import StateManager, TaskState
 

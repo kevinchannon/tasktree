@@ -164,8 +164,6 @@ class TestGraphErrors(unittest.TestCase):
             tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml")
         )
 
-        from tasktree.graph import CycleError
-
         with self.assertRaises(CycleError):
             resolve_execution_order(recipe, "a")
 

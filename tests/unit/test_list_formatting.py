@@ -3,7 +3,6 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
-from rich.console import Console
 from rich.table import Table
 
 from tasktree.cli import _format_task_arguments, _list_tasks

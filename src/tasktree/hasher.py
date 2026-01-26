@@ -176,7 +176,6 @@ def hash_environment_definition(env) -> str:
     @athena: 2de34f1a0b4a
     """
     # Import inside function to avoid circular dependency
-    from tasktree.parser import Environment
 
     # Handle args - can be list (shell args) or dict (docker build args)
     args_value = env.args

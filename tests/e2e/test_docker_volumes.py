@@ -1,6 +1,5 @@
 """E2E tests for Docker volume mounts."""
 
-import os
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory

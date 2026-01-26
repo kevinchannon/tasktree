@@ -627,7 +627,7 @@ def _parse_task_args(arg_specs: list[str], arg_values: list[str]) -> dict[str, A
     """
     if not arg_specs:
         if arg_values:
-            console.print(f"[red]Task does not accept arguments[/red]")
+            console.print("[red]Task does not accept arguments[/red]")
             raise typer.Exit(1)
         return {}
 
@@ -651,7 +651,7 @@ def _parse_task_args(arg_specs: list[str], arg_values: list[str]) -> dict[str, A
         else:
             # Positional argument
             if positional_index >= len(parsed_specs):
-                console.print(f"[red]Too many arguments[/red]")
+                console.print("[red]Too many arguments[/red]")
                 raise typer.Exit(1)
             spec = parsed_specs[positional_index]
             arg_value = value_str

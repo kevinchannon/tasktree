@@ -877,9 +877,9 @@ class Executor:
 
         if pattern.search(text):
             raise ExecutionError(
-                f"Cannot use {{{{ tt.working_dir }}}} in the 'working_dir' field.\n\n"
-                f"This creates a circular dependency (working_dir cannot reference itself).\n"
-                f"Other built-in variables like {{{{ tt.task_name }}}} or {{{{ tt.timestamp }}}} are allowed."
+                "Cannot use {{ tt.working_dir }} in the 'working_dir' field.\n\n"
+                "This creates a circular dependency (working_dir cannot reference itself).\n"
+                "Other built-in variables like {{ tt.task_name }} or {{ tt.timestamp }} are allowed."
             )
 
     @staticmethod

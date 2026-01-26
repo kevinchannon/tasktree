@@ -3,7 +3,6 @@
 import os
 import tempfile
 import unittest
-from datetime import datetime
 from pathlib import Path
 
 from tasktree.executor import Executor
@@ -309,21 +308,21 @@ tasks:
         @athena: 7655e3c1fe2d
         """
         from unittest.mock import patch, Mock
-        import platform
 
-        output_file = Path(self.test_dir) / "docker_test.txt"
+        # TODO why is this not used?
+        # output_file = Path(self.test_dir) / "docker_test.txt"
 
-        recipe_content = f"""
+        recipe_content = """
 environments:
   test-env:
     dockerfile: docker/Dockerfile
     context: .
     volumes:
-      - "{{{{ tt.project_root }}}}:/workspace"
-      - "{{{{ tt.recipe_dir }}}}:/config"
+      - "{{ tt.project_root }}:/workspace"
+      - "{{ tt.recipe_dir }}:/config"
     env_vars:
-      PROJECT_PATH: "{{{{ tt.project_root }}}}"
-      TASK_NAME_VAR: "{{{{ tt.task_name }}}}"
+      PROJECT_PATH: "{{ tt.project_root }}"
+      TASK_NAME_VAR: "{{ tt.task_name }}"
 
 tasks:
   docker-test:
@@ -430,23 +429,21 @@ tasks:
         @athena: 6577b3cabf13
         """
         from unittest.mock import patch, Mock
-        import platform
-        import os
 
         # Set test environment variable
         os.environ["TEST_MOUNT_PATH"] = "/test/mount"
         os.environ["TEST_ENV_VALUE"] = "test-value"
 
         try:
-            recipe_content = f"""
+            recipe_content = """
 environments:
   test-env:
     dockerfile: docker/Dockerfile
     context: .
     volumes:
-      - "{{{{ env.TEST_MOUNT_PATH }}}}:/workspace"
+      - "{{ env.TEST_MOUNT_PATH }}:/workspace"
     env_vars:
-      ENV_VAR_VALUE: "{{{{ env.TEST_ENV_VALUE }}}}"
+      ENV_VAR_VALUE: "{{ env.TEST_ENV_VALUE }}"
 
 tasks:
   docker-test:
@@ -548,7 +545,7 @@ tasks:
         """
         from unittest.mock import patch, Mock
 
-        recipe_content = f"""
+        recipe_content = """
 variables:
   mount_path: /var/data
   env_value: config-value
@@ -558,9 +555,9 @@ environments:
     dockerfile: docker/Dockerfile
     context: .
     volumes:
-      - "{{{{ var.mount_path }}}}:/workspace"
+      - "{{ var.mount_path }}:/workspace"
     env_vars:
-      VAR_VALUE: "{{{{ var.env_value }}}}"
+      VAR_VALUE: "{{ var.env_value }}"
 
 tasks:
   docker-test:

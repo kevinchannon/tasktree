@@ -1,7 +1,6 @@
 """Unit tests for environment definition tracking."""
 
 import unittest
-from dataclasses import field
 from pathlib import Path
 
 from tasktree.executor import Executor
@@ -203,7 +202,7 @@ class TestCheckEnvironmentChanged(unittest.TestCase):
         # Compute hash and store in cached state
         env_hash = hash_environment_definition(self.env)
         cached_state = TaskState(
-            last_run=123.0, input_state={f"_env_hash_test": env_hash}
+            last_run=123.0, input_state={"_env_hash_test": env_hash}
         )
 
         result = self.executor._check_environment_changed(task, cached_state, "test")
@@ -221,7 +220,7 @@ class TestCheckEnvironmentChanged(unittest.TestCase):
         old_env = Environment(name="test", shell="/bin/bash", args=["-c"])
         old_hash = hash_environment_definition(old_env)
         cached_state = TaskState(
-            last_run=123.0, input_state={f"_env_hash_test": old_hash}
+            last_run=123.0, input_state={"_env_hash_test": old_hash}
         )
 
         # Recipe now has modified environment
@@ -241,7 +240,7 @@ class TestCheckEnvironmentChanged(unittest.TestCase):
         """
         task = Task(name="test", cmd="echo test", env="test")
         cached_state = TaskState(
-            last_run=123.0, input_state={f"_env_hash_test": "somehash"}
+            last_run=123.0, input_state={"_env_hash_test": "somehash"}
         )
 
         # Delete environment from recipe
@@ -263,7 +262,6 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         Set up test environment.
         @athena: baa2603ffab2
         """
-        from unittest.mock import Mock
 
         self.project_root = Path("/tmp/test")
 
@@ -287,14 +285,15 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         Test that missing cached image ID returns True (first run).
         @athena: c8ce33886b1d
         """
-        task = Task(name="test", cmd="echo test", env="builder")
+        # TODO why is this not used?
+        # task = Task(name="test", cmd="echo test", env="builder")
 
         # Cached state has env hash but no image ID (old state file)
         from tasktree.hasher import hash_environment_definition
 
         env_hash = hash_environment_definition(self.env)
         cached_state = TaskState(
-            last_run=123.0, input_state={f"_env_hash_builder": env_hash}
+            last_run=123.0, input_state={"_env_hash_builder": env_hash}
         )
 
         # Mock docker manager to return image ID
@@ -315,12 +314,13 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         Test that matching image ID returns False.
         @athena: 9e50aee15bc7
         """
-        task = Task(name="test", cmd="echo test", env="builder")
+        # TODO why is this not used?
+        #  task = Task(name="test", cmd="echo test", env="builder")
 
         # Cached state with image ID
         image_id = "sha256:abc123"
         cached_state = TaskState(
-            last_run=123.0, input_state={f"_docker_image_id_builder": image_id}
+            last_run=123.0, input_state={"_docker_image_id_builder": image_id}
         )
 
         # Mock docker manager to return same image ID
@@ -341,12 +341,13 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         Test that different image ID returns True (unpinned base updated).
         @athena: 71d86b1fb8ca
         """
-        task = Task(name="test", cmd="echo test", env="builder")
+        # TODO why is this not used?
+        # task = Task(name="test", cmd="echo test", env="builder")
 
         # Cached state with old image ID
         old_image_id = "sha256:abc123"
         cached_state = TaskState(
-            last_run=123.0, input_state={f"_docker_image_id_builder": old_image_id}
+            last_run=123.0, input_state={"_docker_image_id_builder": old_image_id}
         )
 
         # Mock docker manager to return new image ID (base image updated)
@@ -378,8 +379,8 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         cached_state = TaskState(
             last_run=123.0,
             input_state={
-                f"_env_hash_builder": env_hash,
-                f"_docker_image_id_builder": image_id,
+                "_env_hash_builder": env_hash,
+                "_docker_image_id_builder": image_id,
             },
         )
 
@@ -410,8 +411,8 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         cached_state = TaskState(
             last_run=123.0,
             input_state={
-                f"_env_hash_builder": old_env_hash,
-                f"_docker_image_id_builder": "sha256:abc123",
+                "_env_hash_builder": old_env_hash,
+                "_docker_image_id_builder": "sha256:abc123",
             },
         )
 
