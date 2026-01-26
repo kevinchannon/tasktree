@@ -33,18 +33,9 @@ tasks:
   clean:
     desc: Remove build artifacts and cache files
     cmd: |
-      rm -rf dist/ build/ *.egg-info
+      rm -rf dist/ build/ *.egg-info .venv
       rm -rf .pytest_cache
       find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 
-  clean-all:
-    desc: Remove all generated files including virtual environment
-    deps: [clean]
-    cmd: rm -rf .venv
-
-  reinstall:
-    desc: Clean, build, and install the package
-    deps: [clean, build]
-    cmd: |
-      WHEEL=$(ls dist/*.whl | head -1)
-      pipx install --force "$WHEEL"
+  install:
+    cmd: pipx install --force .
