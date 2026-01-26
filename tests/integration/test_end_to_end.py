@@ -145,6 +145,46 @@ tasks:
             finally:
                 os.chdir(original_cwd)
 
+    def test_task_name_with_dot_rejected(self):
+        """
+        Test that task names containing dots are rejected with a clear error message.
+
+        Dots in task names are reserved for namespacing imported tasks (e.g., namespace.task),
+        so user-defined task names cannot contain dots.
+        @athena: dot-validation-test
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create a recipe with a task name containing a dot
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+tasks:
+  build.release:
+    cmd: echo "building"
+""")
+
+            # Change to project directory
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Try to run the task - should fail with clear error
+                result = self.runner.invoke(app, ["build.release"], env=self.env)
+
+                # Should exit with error
+                self.assertNotEqual(result.exit_code, 0)
+
+                # Error message should explain why dots are not allowed
+                output = strip_ansi_codes(result.stdout)
+                self.assertIn("cannot contain dots", output)
+                # Check for "reserved" and "namespacing" separately (may be split across lines)
+                self.assertIn("reserved", output)
+                self.assertIn("namespacing", output)
+
+            finally:
+                os.chdir(original_cwd)
+
 
 if __name__ == "__main__":
     unittest.main()
