@@ -1163,31 +1163,10 @@ class Executor:
     def _update_state(self, task: Task, args_dict: dict[str, Any]) -> None:
         """
         Update state after task execution.
-
-        Args:
-        task: Task that was executed
-        args_dict: Arguments used for execution
         @athena: 1fcfdfcb9be9
         """
-        # Compute hashes (include effective environment and dependencies)
-        effective_env = self._get_effective_env_name(task)
-        task_hash = hash_task(task.cmd, task.outputs, task.working_dir, task.args, effective_env, task.deps)
-        args_hash = hash_args(args_dict) if args_dict else None
-        cache_key = make_cache_key(task_hash, args_hash)
-
-        # Get all inputs and their current mtimes
-        all_inputs = self._get_all_inputs(task)
-        input_files = self._expand_globs(all_inputs, task.working_dir)
-
-        input_state = {}
-        for file_path in input_files:
-            # Skip Docker special markers (handled separately below)
-            if file_path.startswith("_docker_"):
-                continue
-
-            file_path_obj = self.recipe.project_root / task.working_dir / file_path
-            if file_path_obj.exists():
-                input_state[file_path] = file_path_obj.stat().st_mtime
+        cache_key = self._cache_key(task, args_dict)
+        input_state = self._input_files_to_modified_times(task)
 
         # Record Docker-specific inputs if task uses Docker environment
         env_name = self._get_effective_env_name(task)
@@ -1236,12 +1215,27 @@ class Executor:
                         image_tag, image_id = self.docker_manager._built_images[env_name]
                         input_state[f"_docker_image_id_{env_name}"] = image_id
 
-        # Create new state
-        state = TaskState(
-            last_run=time.time(),
-            input_state=input_state,
-        )
-
-        # Save state
-        self.state.set(cache_key, state)
+        new_state = TaskState(last_run=time.time(), input_state=input_state)
+        self.state.set(cache_key, new_state)
         self.state.save()
+
+    def _cache_key(self, task: Task, args_dict: dict[str, Any]) -> str:
+        effective_env = self._get_effective_env_name(task)
+        task_hash = hash_task(task.cmd, task.outputs, task.working_dir, task.args, effective_env, task.deps)
+        args_hash = hash_args(args_dict) if args_dict else None
+        return make_cache_key(task_hash, args_hash)
+    
+    def _input_files_to_modified_times(self, task: Task) -> dict[str, float]:
+        input_files = self._expand_globs(self._get_all_inputs(task), task.working_dir)
+
+        input_state = {}
+        for file_path in input_files:
+            # Skip Docker special markers (handled separately)
+            if file_path.startswith("_docker_"):
+                continue
+
+            file_path_obj = self.recipe.project_root / task.working_dir / file_path
+            if file_path_obj.exists():
+                input_state[file_path] = file_path_obj.stat().st_mtime
+        
+        return input_state
