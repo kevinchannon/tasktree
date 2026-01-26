@@ -1908,6 +1908,9 @@ def _parse_file(
         if not isinstance(task_data, dict):
             raise ValueError(f"Task '{task_name}' must be a dictionary")
 
+        if "." in task_name:
+            raise ValueError(f"Task name '{task_name}' cannot contain dots (reserved for namespacing)")
+
         if "cmd" not in task_data:
             raise ValueError(f"Task '{task_name}' missing required 'cmd' field")
 

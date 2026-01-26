@@ -1440,6 +1440,26 @@ tasks:
                 parse_recipe(recipe_path)
             self.assertIn("missing required 'cmd' field", str(cm.exception))
 
+    def test_task_name_cannot_contain_dots(self):
+        """
+        Test ValueError when task name contains dots.
+        @athena: TBD
+        """
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text(
+                """
+tasks:
+  build.release:
+    cmd: echo "build release"
+"""
+            )
+
+            with self.assertRaises(ValueError) as cm:
+                parse_recipe(recipe_path)
+            self.assertIn("cannot contain dots", str(cm.exception))
+            self.assertIn("build.release", str(cm.exception))
+
 
 class TestFindRecipeFile(unittest.TestCase):
     """
