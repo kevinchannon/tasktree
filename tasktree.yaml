@@ -21,7 +21,7 @@ tasks:
 
   check-format:
     inputs: [src/**/*.py, tests/**/*.py]
-    cmd: black --check src tests
+    cmd: uv format --check
   
   check-lint:
     inputs: [src/**/*.py, tests/**/*.py]
@@ -29,11 +29,11 @@ tasks:
 
   fix:
     deps: [fix-format, fix-lint]
-    cmd: echo "✓ All fixes passed!"
+    cmd: echo "✓ All fixes complete!"
 
   fix-format:
     inputs: [src/**/*.py, tests/**/*.py]
-    cmd: black src tests
+    cmd: uv format
 
   fix-lint:
     inputs: [src/**/*.py, tests/**/*.py]
@@ -52,6 +52,3 @@ tasks:
       rm -rf dist/ build/ *.egg-info .venv
       rm -rf .pytest_cache
       find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
-
-  install:
-    cmd: pipx install --force .
