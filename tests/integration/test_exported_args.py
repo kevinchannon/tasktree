@@ -17,11 +17,12 @@ class TestExportedArgs(unittest.TestCase):
     @athena: f7ac00f3c588
     """
 
-    def test_exported_args_in_environment(self, logger_fn):
+    def test_exported_args_in_environment(self):
         """
         Test that exported args are set as environment variables.
         @athena: 2ef81b4f3584
         """
+        logger_fn = lambda *args, **kwargs: None
         is_windows = platform.system() == "Windows"
         if is_windows:
             env_check = "echo %server% %user%"
@@ -51,11 +52,12 @@ tasks:
             # Should execute successfully (no exception = success)
             self.assertIn("test", statuses)
 
-    def test_exported_args_with_defaults(self, logger_fn):
+    def test_exported_args_with_defaults(self):
         """
         Test that exported args with defaults work correctly.
         @athena: ebabe2e217fe
         """
+        logger_fn = lambda *args, **kwargs: None
         is_windows = platform.system() == "Windows"
         if is_windows:
             env_check = "echo %server% %port%"
@@ -84,7 +86,7 @@ tasks:
 
             self.assertIn("test", statuses)
 
-    def test_exported_args_default_not_provided(self, logger_fn):
+    def test_exported_args_default_not_provided(self):
         """
         Test that exported args with defaults work when default is not explicitly provided.
 
@@ -93,6 +95,7 @@ tasks:
         by the user (relying on CLI to apply the default).
         @athena: 07337bef6600
         """
+        logger_fn = lambda *args, **kwargs: None
         is_windows = platform.system() == "Windows"
         if is_windows:
             env_check = "echo %server% %port%"
@@ -133,11 +136,12 @@ tasks:
 
             self.assertIn("test", statuses)
 
-    def test_exported_args_not_substitutable(self, logger_fn):
+    def test_exported_args_not_substitutable(self):
         """
         Test that exported args cannot be used in template substitution.
         @athena: 9701acf22146
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
             recipe_path.write_text("""
@@ -161,11 +165,12 @@ tasks:
             self.assertIn("exported", str(cm.exception))
             self.assertIn("$server", str(cm.exception))
 
-    def test_mixed_exported_and_regular_args(self, logger_fn):
+    def test_mixed_exported_and_regular_args(self):
         """
         Test mixing exported and regular arguments.
         @athena: 00f7d2c0de2a
         """
+        logger_fn = lambda *args, **kwargs: None
         is_windows = platform.system() == "Windows"
         if is_windows:
             # Windows: use both env vars and template substitution
@@ -194,11 +199,12 @@ tasks:
 
             self.assertIn("deploy", statuses)
 
-    def test_case_preserved_in_env_vars(self, logger_fn):
+    def test_case_preserved_in_env_vars(self):
         """
         Test that environment variable names preserve case exactly.
         @athena: 7cba2f4ed379
         """
+        logger_fn = lambda *args, **kwargs: None
         is_windows = platform.system() == "Windows"
         if is_windows:
             # Windows env vars are case-insensitive
@@ -225,11 +231,12 @@ tasks:
 
             self.assertIn("test", statuses)
 
-    def test_values_with_spaces(self, logger_fn):
+    def test_values_with_spaces(self):
         """
         Test that exported args with spaces are preserved correctly.
         @athena: 1d049782a034
         """
+        logger_fn = lambda *args, **kwargs: None
         is_windows = platform.system() == "Windows"
         if is_windows:
             cmd = "echo %message%"
@@ -255,11 +262,12 @@ tasks:
 
             self.assertIn("test", statuses)
 
-    def test_exported_arg_with_type_annotation_fails_cli_parsing(self, logger_fn):
+    def test_exported_arg_with_type_annotation_fails_cli_parsing(self):
         """
         Test that exported arguments with type annotations fail during arg parsing.
         @athena: ab6d905b48b7
         """
+        logger_fn = lambda *args, **kwargs: None
         from tasktree.parser import parse_arg_spec
 
         # Test that parse_arg_spec raises error for exported args with types (old colon syntax)
@@ -268,11 +276,12 @@ tasks:
 
         self.assertIn("Invalid argument syntax", str(cm.exception))
 
-    def test_exported_arg_yaml_dict_with_type_fails(self, logger_fn):
+    def test_exported_arg_yaml_dict_with_type_fails(self):
         """
         Test that exported arguments with type field in YAML dict format fails.
         @athena: ff514bc0ea9d
         """
+        logger_fn = lambda *args, **kwargs: None
         from tasktree.parser import parse_arg_spec
 
         # Test that parse_arg_spec raises error for exported args with type in dict format
@@ -282,11 +291,12 @@ tasks:
         self.assertIn("Type annotations not allowed", str(cm.exception))
         self.assertIn("$server", str(cm.exception))
 
-    def test_multiline_command_with_exported_args(self, logger_fn):
+    def test_multiline_command_with_exported_args(self):
         """
         Test exported args work with multi-line commands.
         @athena: c123ecb595df
         """
+        logger_fn = lambda *args, **kwargs: None
         is_windows = platform.system() == "Windows"
         if is_windows:
             cmd = """
@@ -320,11 +330,12 @@ tasks:
 
             self.assertIn("deploy", statuses)
 
-    def test_exported_args_override_existing_env_vars(self, logger_fn):
+    def test_exported_args_override_existing_env_vars(self):
         """
         Test that exported args override existing environment variables.
         @athena: 62dfa7caf6fd
         """
+        logger_fn = lambda *args, **kwargs: None
         is_windows = platform.system() == "Windows"
         if is_windows:
             cmd = "echo %MY_VAR%"
@@ -362,11 +373,12 @@ tasks:
             else:
                 os.environ["MY_VAR"] = original_value
 
-    def test_protected_env_var_override_fails(self, logger_fn):
+    def test_protected_env_var_override_fails(self):
         """
         Test that attempting to override protected environment variables fails.
         @athena: f6b76cb0d6ec
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
             recipe_path.write_text("""

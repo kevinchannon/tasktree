@@ -230,7 +230,7 @@ tasks:
             finally:
                 os.chdir(original_cwd)
 
-    def test_dependency_runs_but_produces_no_changes(self, logger_fn):
+    def test_dependency_runs_but_produces_no_changes(self):
         """
         Test that a task whose dependency runs but produces no output changes
         does NOT trigger re-execution.
@@ -243,6 +243,7 @@ tasks:
         - Bug (if present): 'package' runs because 'build' has will_run=True
         @athena: 54669115d3bd
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -323,13 +324,14 @@ tasks:
                 f"Package should be fresh, but reason={statuses['package'].reason}"
             )
 
-    def test_dependency_actually_changes_outputs(self, logger_fn):
+    def test_dependency_actually_changes_outputs(self):
         """
         Test that tasks DO run when dependency outputs actually change.
 
         This is the positive test case - ensure we didn't break normal behavior.
         @athena: 47401bca0465
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 

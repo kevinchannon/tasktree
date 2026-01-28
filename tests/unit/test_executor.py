@@ -17,11 +17,12 @@ class TestTaskStatus(unittest.TestCase):
     @athena: 3042cefdbba4
     """
 
-    def test_check_never_run(self, logger_fn):
+    def test_check_never_run(self):
         """
         Test status for task that has never run.
         @athena: 442a5215f152
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -39,11 +40,12 @@ class TestTaskStatus(unittest.TestCase):
             self.assertTrue(status.will_run)
             self.assertEqual(status.reason, "never_run")
 
-    def test_check_no_outputs(self, logger_fn):
+    def test_check_no_outputs(self):
         """
         Test status for task with no inputs and no outputs (always runs).
         @athena: 61274fd5e6fd
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -59,11 +61,12 @@ class TestTaskStatus(unittest.TestCase):
             self.assertTrue(status.will_run)
             self.assertEqual(status.reason, "no_outputs")
 
-    def test_check_fresh(self, logger_fn):
+    def test_check_fresh(self):
         """
         Test status for task that is fresh.
         @athena: e02f287e5128
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -328,7 +331,7 @@ class TestExecutor(unittest.TestCase):
             # Verify cleanup
             mock_unlink.assert_called_once()
 
-    def test_run_command_as_script_comprehensive_validation(self, logger_fn):
+    def test_run_command_as_script_comprehensive_validation(self):
         """
         Comprehensive test validating script creation, permissions, content, and execution order.
 
@@ -339,6 +342,7 @@ class TestExecutor(unittest.TestCase):
         4. subprocess.run is called AFTER all script setup completes
         @athena: bd7375ce474d
         """
+        logger_fn = lambda *args, **kwargs: None
         import platform
         import stat
 
@@ -490,11 +494,12 @@ class TestMissingOutputs(unittest.TestCase):
     @athena: 94dc69acf126
     """
 
-    def test_fresh_task_with_all_outputs_present(self, logger_fn):
+    def test_fresh_task_with_all_outputs_present(self):
         """
         Test that fresh task with all outputs present should skip.
         @athena: 401d95b3c44f
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -534,11 +539,12 @@ class TestMissingOutputs(unittest.TestCase):
             self.assertFalse(status.will_run)
             self.assertEqual(status.reason, "fresh")
 
-    def test_fresh_task_with_missing_output(self, logger_fn):
+    def test_fresh_task_with_missing_output(self):
         """
         Test that fresh task with missing output should run with outputs_missing reason.
         @athena: 3ef83cd3acb8
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -577,11 +583,12 @@ class TestMissingOutputs(unittest.TestCase):
             self.assertEqual(status.reason, "outputs_missing")
             self.assertEqual(status.changed_files, ["output.txt"])
 
-    def test_fresh_task_with_partial_outputs(self, logger_fn):
+    def test_fresh_task_with_partial_outputs(self):
         """
         Test that task with some outputs present but not all should run.
         @athena: 6217f859b234
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -621,11 +628,12 @@ class TestMissingOutputs(unittest.TestCase):
             self.assertEqual(status.reason, "outputs_missing")
             self.assertIn("output2.txt", status.changed_files)
 
-    def test_task_with_no_state_should_not_warn_about_outputs(self, logger_fn):
+    def test_task_with_no_state_should_not_warn_about_outputs(self):
         """
         Test that first run (no state) uses never_run reason, not outputs_missing.
         @athena: 5c8a63d5d9db
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -648,11 +656,12 @@ class TestMissingOutputs(unittest.TestCase):
             self.assertTrue(status.will_run)
             self.assertEqual(status.reason, "never_run")  # Not outputs_missing
 
-    def test_task_with_no_outputs_unaffected(self, logger_fn):
+    def test_task_with_no_outputs_unaffected(self):
         """
         Test that tasks with no outputs declared are unaffected.
         @athena: 782e6a7191c1
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -671,11 +680,12 @@ class TestMissingOutputs(unittest.TestCase):
             self.assertTrue(status.will_run)
             self.assertEqual(status.reason, "no_outputs")  # Always runs
 
-    def test_output_glob_pattern_with_working_dir(self, logger_fn):
+    def test_output_glob_pattern_with_working_dir(self):
         """
         Test that output patterns resolve correctly with working_dir.
         @athena: 9c15753c5915
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -718,11 +728,12 @@ class TestMissingOutputs(unittest.TestCase):
             self.assertFalse(status.will_run)
             self.assertEqual(status.reason, "fresh")
 
-    def test_output_glob_pattern_no_matches(self, logger_fn):
+    def test_output_glob_pattern_no_matches(self):
         """
         Test that glob pattern with zero matches triggers re-run.
         @athena: e01cba21a778
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -767,11 +778,12 @@ class TestExecutorErrors(unittest.TestCase):
     @athena: b2f15c55b066
     """
 
-    def test_execute_subprocess_failure(self, logger_fn):
+    def test_execute_subprocess_failure(self):
         """
         Test ExecutionError raised when subprocess fails.
         @athena: ba9aa0ed5f95
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             recipe_path = project_root / "tasktree.yaml"
@@ -793,11 +805,12 @@ tasks:
                 executor.execute_task("fail", {})
             self.assertIn("exit code", str(cm.exception).lower())
 
-    def test_execute_working_dir_not_found(self, logger_fn):
+    def test_execute_working_dir_not_found(self):
         """
         Test error when working directory doesn't exist.
         @athena: f38eafecd3a0
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             recipe_path = project_root / "tasktree.yaml"
@@ -819,11 +832,12 @@ tasks:
             with self.assertRaises((ExecutionError, FileNotFoundError, OSError)):
                 executor.execute_task("test", {})
 
-    def test_execute_command_not_found(self, logger_fn):
+    def test_execute_command_not_found(self):
         """
         Test error when command doesn't exist.
         @athena: c07df55f1b3f
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             recipe_path = project_root / "tasktree.yaml"
@@ -844,11 +858,12 @@ tasks:
             with self.assertRaises(ExecutionError):
                 executor.execute_task("test", {})
 
-    def test_execute_permission_denied(self, logger_fn):
+    def test_execute_permission_denied(self):
         """
         Test error when command not executable.
         @athena: bd873c327af3
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -875,11 +890,12 @@ tasks:
             with self.assertRaises((ExecutionError, PermissionError, OSError)):
                 executor.execute_task("test", {})
 
-    def test_builtin_working_dir_in_working_dir_raises_error(self, logger_fn):
+    def test_builtin_working_dir_in_working_dir_raises_error(self):
         """
         Test that using {{ tt.working_dir }} in working_dir raises clear error.
         @athena: 8ef45062b0a7
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             recipe_path = project_root / "tasktree.yaml"
@@ -905,11 +921,12 @@ tasks:
             self.assertIn("Cannot use {{ tt.working_dir }}", error_msg)
             self.assertIn("circular dependency", error_msg)
 
-    def test_other_builtin_vars_in_working_dir_allowed(self, logger_fn):
+    def test_other_builtin_vars_in_working_dir_allowed(self):
         """
         Test that non-circular builtin vars like {{ tt.task_name }} work in working_dir.
         @athena: fef78b324ff7
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -943,11 +960,12 @@ class TestExecutorPrivateMethods(unittest.TestCase):
     @athena: eb2d4e3a6176
     """
 
-    def test_substitute_args_single(self, logger_fn):
+    def test_substitute_args_single(self):
         """
         Test substituting single argument.
         @athena: af49a9f9df9c
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -964,11 +982,12 @@ class TestExecutorPrivateMethods(unittest.TestCase):
             )
             self.assertEqual(result, "echo production")
 
-    def test_substitute_args_multiple(self, logger_fn):
+    def test_substitute_args_multiple(self):
         """
         Test substituting multiple arguments.
         @athena: 82c86230f01b
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -990,11 +1009,12 @@ class TestExecutorPrivateMethods(unittest.TestCase):
             )
             self.assertEqual(result, "deploy myapp to us-east-1")
 
-    def test_substitute_args_missing_placeholder(self, logger_fn):
+    def test_substitute_args_missing_placeholder(self):
         """
         Test raises error when arg not provided.
         @athena: 5cfbd5e8b848
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -1019,11 +1039,12 @@ class TestExecutorPrivateMethods(unittest.TestCase):
             self.assertIn("missing", str(cm.exception))
             self.assertIn("not defined", str(cm.exception))
 
-    def test_check_inputs_changed_mtime(self, logger_fn):
+    def test_check_inputs_changed_mtime(self):
         """
         Test detects changed file by mtime.
         @athena: d4a66a0298ad
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -1056,11 +1077,12 @@ class TestExecutorPrivateMethods(unittest.TestCase):
             # Should detect change because current mtime > cached mtime
             self.assertEqual(changed, ["input.txt"])
 
-    def test_check_outputs_missing(self, logger_fn):
+    def test_check_outputs_missing(self):
         """
         Test detects missing output files.
         @athena: 993525e7038a
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -1084,11 +1106,12 @@ class TestExecutorPrivateMethods(unittest.TestCase):
             # Should detect output.txt is missing
             self.assertEqual(missing, ["output.txt"])
 
-    def test_expand_globs_multiple_patterns(self, logger_fn):
+    def test_expand_globs_multiple_patterns(self):
         """
         Test expanding multiple glob patterns.
         @athena: 9b42d786c35a
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -1253,11 +1276,12 @@ class TestMultilineExecution(unittest.TestCase):
     @athena: 779d9b0938e5
     """
 
-    def test_multiline_command_content(self, logger_fn):
+    def test_multiline_command_content(self):
         """
         Test multi-line command content is written to temp file.
         @athena: 86b1e417b4c3
         """
+        logger_fn = lambda *args, **kwargs: None
         import platform
 
         # Skip on Windows (different shell syntax)
@@ -1299,11 +1323,12 @@ class TestEnvironmentResolution(unittest.TestCase):
     @athena: 535d58d2a7ae
     """
 
-    def test_get_effective_env_with_global_override(self, logger_fn):
+    def test_get_effective_env_with_global_override(self):
         """
         Test that global_env_override takes precedence.
         @athena: 0a0b4871c035
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -1332,11 +1357,12 @@ class TestEnvironmentResolution(unittest.TestCase):
             env_name = executor._get_effective_env_name(tasks["build"])
             self.assertEqual(env_name, "prod")
 
-    def test_get_effective_env_with_task_env(self, logger_fn):
+    def test_get_effective_env_with_task_env(self):
         """
         Test that task.env is used when no global override.
         @athena: 87c60056c58d
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -1362,11 +1388,12 @@ class TestEnvironmentResolution(unittest.TestCase):
             env_name = executor._get_effective_env_name(tasks["build"])
             self.assertEqual(env_name, "dev")
 
-    def test_get_effective_env_with_default_env(self, logger_fn):
+    def test_get_effective_env_with_default_env(self):
         """
         Test that default_env is used when task has no explicit env.
         @athena: 4e169f47c686
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -1389,11 +1416,12 @@ class TestEnvironmentResolution(unittest.TestCase):
             env_name = executor._get_effective_env_name(tasks["build"])
             self.assertEqual(env_name, "prod")
 
-    def test_get_effective_env_platform_default(self, logger_fn):
+    def test_get_effective_env_platform_default(self):
         """
         Test that empty string is returned for platform default.
         @athena: 8e6f858e061c
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -1410,11 +1438,12 @@ class TestEnvironmentResolution(unittest.TestCase):
             env_name = executor._get_effective_env_name(tasks["build"])
             self.assertEqual(env_name, "")
 
-    def test_resolve_environment_with_custom_env(self, logger_fn):
+    def test_resolve_environment_with_custom_env(self):
         """
         Test resolving environment with custom shell and preamble.
         @athena: 38be6dfc26c8
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -1486,11 +1515,12 @@ class TestEnvironmentResolution(unittest.TestCase):
             if not platform.system() == "Windows":
                 self.assertIn("fish", script_content)
 
-    def test_hash_changes_with_environment(self, logger_fn):
+    def test_hash_changes_with_environment(self):
         """
         Test that task hash changes when environment changes.
         @athena: b54e9f49a005
         """
+        logger_fn = lambda *args, **kwargs: None
         from tasktree.hasher import hash_task
 
         # Same task, different environments
@@ -1589,11 +1619,12 @@ class TestEnvironmentResolution(unittest.TestCase):
         finally:
             del os.environ["SUBDIR"]
 
-    def test_run_task_undefined_env_var_raises(self, logger_fn):
+    def test_run_task_undefined_env_var_raises(self):
         """
         Test undefined environment variable raises clear error.
         @athena: 4d17d3e6e7e9
         """
+        logger_fn = lambda *args, **kwargs: None
         # Ensure var is not set
         if "UNDEFINED_TEST_VAR" in os.environ:
             del os.environ["UNDEFINED_TEST_VAR"]

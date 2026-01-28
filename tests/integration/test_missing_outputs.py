@@ -14,7 +14,7 @@ class TestMissingOutputsIntegration(unittest.TestCase):
     @athena: 1f63af9e940d
     """
 
-    def test_missing_outputs_integration(self, logger_fn):
+    def test_missing_outputs_integration(self):
         """
         Integration test for missing outputs scenario.
 
@@ -24,6 +24,7 @@ class TestMissingOutputsIntegration(unittest.TestCase):
         4. Run third time - should skip (outputs now exist)
         @athena: 4bb3c6a8724f
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -70,7 +71,7 @@ class TestMissingOutputsIntegration(unittest.TestCase):
             self.assertFalse(statuses["build"].will_run)
             self.assertEqual(statuses["build"].reason, "fresh")
 
-    def test_partial_outputs_missing_triggers_rerun(self, logger_fn):
+    def test_partial_outputs_missing_triggers_rerun(self):
         """
         Test that missing some (but not all) outputs triggers rebuild.
 
@@ -78,6 +79,7 @@ class TestMissingOutputsIntegration(unittest.TestCase):
         the task should run to regenerate all outputs.
         @athena: 2f92abc88ead
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
