@@ -19,7 +19,7 @@ class TestParseTaskArgs(unittest.TestCase):
     @athena: 47c69f73d8cc
     """
 
-    def test_parse_task_args_positional(self):
+    def test_parse_task_args_positional(self, logger_fn):
         """
         Test parsing positional arguments.
         @athena: ead40436842f
@@ -32,7 +32,7 @@ class TestParseTaskArgs(unittest.TestCase):
 
         self.assertEqual(result, {"environment": "production", "region": "us-east-1"})
 
-    def test_parse_task_args_named(self):
+    def test_parse_task_args_named(self, logger_fn):
         """
         Test parsing name=value arguments.
         @athena: c2ca89ba1e4f
@@ -45,7 +45,7 @@ class TestParseTaskArgs(unittest.TestCase):
 
         self.assertEqual(result, {"environment": "production", "region": "us-east-1"})
 
-    def test_parse_task_args_with_defaults(self):
+    def test_parse_task_args_with_defaults(self, logger_fn):
         """
         Test default values applied.
         @athena: 602a8176092f
@@ -58,7 +58,7 @@ class TestParseTaskArgs(unittest.TestCase):
 
         self.assertEqual(result, {"environment": "production", "region": "us-west-1"})
 
-    def test_parse_task_args_type_conversion(self):
+    def test_parse_task_args_type_conversion(self, logger_fn):
         """
         Test values converted to correct types.
         @athena: 8f91f676ccc3
@@ -78,7 +78,7 @@ class TestParseTaskArgs(unittest.TestCase):
         self.assertIsInstance(result["debug"], bool)
         self.assertIsInstance(result["timeout"], float)
 
-    def test_parse_task_args_unknown_argument(self):
+    def test_parse_task_args_unknown_argument(self, logger_fn):
         """
         Test error for unknown argument name.
         @athena: 62871b34ab00
@@ -87,10 +87,9 @@ class TestParseTaskArgs(unittest.TestCase):
         arg_values = ["unknown_arg=value"]
 
         with self.assertRaises(typer.Exit):
-            logger_fn = lambda *args, **kwargs: None
             _parse_task_args(logger_fn, arg_specs, arg_values)
 
-    def test_parse_task_args_too_many(self):
+    def test_parse_task_args_too_many(self, logger_fn):
         """
         Test error for too many positional args.
         @athena: e4c241c88a7b
@@ -99,10 +98,9 @@ class TestParseTaskArgs(unittest.TestCase):
         arg_values = ["production", "extra_value"]
 
         with self.assertRaises(typer.Exit):
-            logger_fn = lambda *args, **kwargs: None
             _parse_task_args(logger_fn, arg_specs, arg_values)
 
-    def test_parse_task_args_missing_required(self):
+    def test_parse_task_args_missing_required(self, logger_fn):
         """
         Test error for missing required argument.
         @athena: 30803a202881
@@ -111,10 +109,9 @@ class TestParseTaskArgs(unittest.TestCase):
         arg_values = ["production"]  # Missing 'region'
 
         with self.assertRaises(typer.Exit):
-            logger_fn = lambda *args, **kwargs: None
             _parse_task_args(logger_fn, arg_specs, arg_values)
 
-    def test_parse_task_args_invalid_type(self):
+    def test_parse_task_args_invalid_type(self, logger_fn):
         """
         Test error for invalid type conversion.
         @athena: 0f8739363eea
@@ -123,10 +120,9 @@ class TestParseTaskArgs(unittest.TestCase):
         arg_values = ["not_a_number"]
 
         with self.assertRaises(typer.Exit):
-            logger_fn = lambda *args, **kwargs: None
             _parse_task_args(logger_fn, arg_specs, arg_values)
 
-    def test_parse_task_args_empty(self):
+    def test_parse_task_args_empty(self, logger_fn):
         """
         Test returns empty dict when no args.
         @athena: 04ad0b949f24
@@ -139,7 +135,7 @@ class TestParseTaskArgs(unittest.TestCase):
 
         self.assertEqual(result, {})
 
-    def test_parse_task_args_mixed(self):
+    def test_parse_task_args_mixed(self, logger_fn):
         """
         Test mixing positional and named arguments.
         @athena: a9b3ce981587

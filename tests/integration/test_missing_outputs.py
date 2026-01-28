@@ -5,7 +5,6 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from tasktree.executor import Executor
-from tasktree.logging import LoggerFn
 from tasktree.parser import Recipe, Task
 from tasktree.state import StateManager
 
@@ -15,7 +14,7 @@ class TestMissingOutputsIntegration(unittest.TestCase):
     @athena: 1f63af9e940d
     """
 
-    def test_missing_outputs_integration(self):
+    def test_missing_outputs_integration(self, logger_fn):
         """
         Integration test for missing outputs scenario.
 
@@ -43,7 +42,6 @@ class TestMissingOutputsIntegration(unittest.TestCase):
             )
             state_manager = StateManager(project_root)
             state_manager.load()
-            logger_fn = lambda *args, **kwargs: None
             executor = Executor(recipe, state_manager, logger_fn)
 
             # First run - task should execute (never run before)
@@ -72,7 +70,7 @@ class TestMissingOutputsIntegration(unittest.TestCase):
             self.assertFalse(statuses["build"].will_run)
             self.assertEqual(statuses["build"].reason, "fresh")
 
-    def test_partial_outputs_missing_triggers_rerun(self):
+    def test_partial_outputs_missing_triggers_rerun(self, logger_fn):
         """
         Test that missing some (but not all) outputs triggers rebuild.
 
@@ -98,7 +96,6 @@ class TestMissingOutputsIntegration(unittest.TestCase):
             )
             state_manager = StateManager(project_root)
             state_manager.load()
-            logger_fn = lambda *args, **kwargs: None
             executor = Executor(recipe, state_manager, logger_fn)
 
             # First run - task should execute and create both outputs

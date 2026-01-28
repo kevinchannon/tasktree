@@ -13,7 +13,6 @@ from typer.testing import CliRunner
 
 from tasktree.cli import app
 from tasktree.executor import Executor
-from tasktree.logging import LoggerFn
 from tasktree.parser import parse_recipe
 from tasktree.state import StateManager
 
@@ -231,7 +230,7 @@ tasks:
             finally:
                 os.chdir(original_cwd)
 
-    def test_dependency_runs_but_produces_no_changes(self):
+    def test_dependency_runs_but_produces_no_changes(self, logger_fn):
         """
         Test that a task whose dependency runs but produces no output changes
         does NOT trigger re-execution.
@@ -271,7 +270,6 @@ tasks:
             # This creates build-artifact.txt and package.tar.gz
             parsed_recipe = parse_recipe(recipe_path)
             state_manager = StateManager(project_root)
-            logger_fn = lambda *args, **kwargs: None
             executor = Executor(parsed_recipe, state_manager, logger_fn)
 
             statuses = executor.execute_task("package")
@@ -298,7 +296,6 @@ tasks:
             recipe_path.write_text(yaml.dump(recipe))
 
             parsed_recipe = parse_recipe(recipe_path)
-            logger_fn = lambda *args, **kwargs: None
             executor = Executor(parsed_recipe, state_manager, logger_fn)
 
             statuses = executor.execute_task("package")
@@ -326,7 +323,7 @@ tasks:
                 f"Package should be fresh, but reason={statuses['package'].reason}"
             )
 
-    def test_dependency_actually_changes_outputs(self):
+    def test_dependency_actually_changes_outputs(self, logger_fn):
         """
         Test that tasks DO run when dependency outputs actually change.
 
@@ -359,7 +356,6 @@ tasks:
             # First run: establish baseline
             parsed_recipe = parse_recipe(recipe_path)
             state_manager = StateManager(project_root)
-            logger_fn = lambda *args, **kwargs: None
             executor = Executor(parsed_recipe, state_manager, logger_fn)
 
             statuses = executor.execute_task("build")
@@ -375,7 +371,6 @@ tasks:
             recipe_path.write_text(yaml.dump(recipe))
 
             parsed_recipe = parse_recipe(recipe_path)
-            logger_fn = lambda *args, **kwargs: None
             executor = Executor(parsed_recipe, state_manager, logger_fn)
 
             statuses = executor.execute_task("build")

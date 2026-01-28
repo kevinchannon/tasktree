@@ -6,7 +6,6 @@ import unittest
 from pathlib import Path
 
 from tasktree.executor import Executor
-from tasktree.logging import LoggerFn
 from tasktree.parser import parse_recipe
 from tasktree.state import StateManager
 
@@ -34,7 +33,7 @@ class TestBuiltinVariables(unittest.TestCase):
 
         shutil.rmtree(self.test_dir, ignore_errors=True)
 
-    def test_all_builtin_variables_in_command(self):
+    def test_all_builtin_variables_in_command(self, logger_fn):
         """
         Test that all 8 built-in variables work in task commands.
         @athena: 7475ff9ab274
@@ -62,7 +61,6 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        logger_fn = lambda *args, **kwargs: None
         executor = Executor(recipe, state, logger_fn)
         executor.execute_task("test-vars")
 
@@ -102,7 +100,7 @@ tasks:
         # Verify we got some username (could be from os.getlogin() or env var)
         self.assertTrue(len(lines["user_name"]) > 0)
 
-    def test_timestamp_consistency_within_task(self):
+    def test_timestamp_consistency_within_task(self, logger_fn):
         """
         Test that timestamp is consistent throughout a single task execution.
         @athena: f4218b7b36aa
@@ -125,7 +123,6 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        logger_fn = lambda *args, **kwargs: None
         executor = Executor(recipe, state, logger_fn)
         executor.execute_task("test-timestamp")
 
@@ -136,7 +133,7 @@ tasks:
         self.assertEqual(lines[0], lines[1], "ISO timestamps should be consistent")
         self.assertEqual(lines[2], lines[3], "Unix timestamps should be consistent")
 
-    def test_builtin_vars_with_working_dir(self):
+    def test_builtin_vars_with_working_dir(self, logger_fn):
         """
         Test that tt.working_dir reflects the task's working_dir setting.
         @athena: a86743048406
@@ -157,7 +154,6 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        logger_fn = lambda *args, **kwargs: None
         executor = Executor(recipe, state, logger_fn)
         executor.execute_task("test-workdir")
 
@@ -165,7 +161,7 @@ tasks:
         # Should show the absolute path to subdir
         self.assertEqual(output, str(subdir.resolve()))
 
-    def test_builtin_vars_in_multiline_command(self):
+    def test_builtin_vars_in_multiline_command(self, logger_fn):
         """
         Test that built-in variables work in multi-line commands.
         @athena: 23073e8f1c79
@@ -185,7 +181,6 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        logger_fn = lambda *args, **kwargs: None
         executor = Executor(recipe, state, logger_fn)
         executor.execute_task("test-multiline")
 
@@ -193,7 +188,7 @@ tasks:
         expected = f"{recipe.project_root.resolve()}/test-multiline"
         self.assertEqual(output, expected)
 
-    def test_recipe_dir_differs_from_project_root_when_recipe_in_subdir(self):
+    def test_recipe_dir_differs_from_project_root_when_recipe_in_subdir(self, logger_fn):
         """
         Test that recipe_dir points to recipe file location, not project root.
         @athena: b6973ac2072a
@@ -217,7 +212,6 @@ tasks:
         recipe = parse_recipe(recipe_path, project_root=Path(self.test_dir))
         state = StateManager(recipe.project_root)
         state.load()
-        logger_fn = lambda *args, **kwargs: None
         executor = Executor(recipe, state, logger_fn)
         executor.execute_task("test-recipe-dir")
 
@@ -232,7 +226,7 @@ tasks:
         # recipe_dir should be the subdirectory
         self.assertEqual(lines["recipe"], str(recipe_subdir.resolve()))
 
-    def test_builtin_vars_mixed_with_other_vars(self):
+    def test_builtin_vars_mixed_with_other_vars(self, logger_fn):
         """
         Test built-in variables work alongside regular variables and arguments.
         @athena: 14cee950d69d
@@ -258,7 +252,6 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        logger_fn = lambda *args, **kwargs: None
         executor = Executor(recipe, state, logger_fn)
         executor.execute_task("deploy", args_dict={"region": "us-west-1"})
 
@@ -272,7 +265,7 @@ tasks:
         # User should be present (from tt.user_name)
         self.assertTrue(lines[4].startswith("User: "))
 
-    def test_builtin_vars_in_working_dir(self):
+    def test_builtin_vars_in_working_dir(self, logger_fn):
         """
         Test that non-circular builtin variables can be used in working_dir.
         @athena: 4aafa319abad
@@ -295,7 +288,6 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        logger_fn = lambda *args, **kwargs: None
         executor = Executor(recipe, state, logger_fn)
         executor.execute_task("build-task")
 
@@ -310,7 +302,7 @@ tasks:
         # Verify working_dir reflects the actual resolved path
         self.assertEqual(lines["wd"], str(task_dir.resolve()))
 
-    def test_builtin_vars_in_environment_volumes(self):
+    def test_builtin_vars_in_environment_volumes(self, logger_fn):
         """
         Test that builtin variables are substituted in environment volume mounts.
         @athena: 7655e3c1fe2d
@@ -349,7 +341,6 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        logger_fn = lambda *args, **kwargs: None
         executor = Executor(recipe, state, logger_fn)
 
         # Mock the docker subprocess calls to capture the command
@@ -432,7 +423,7 @@ tasks:
             "TASK_NAME_VAR should contain the task name",
         )
 
-    def test_env_vars_in_environment_fields(self):
+    def test_env_vars_in_environment_fields(self, logger_fn):
         """
         Test that {{ env.* }} variables are substituted in environment fields.
         @athena: 6577b3cabf13
@@ -471,7 +462,6 @@ tasks:
             recipe = parse_recipe(self.recipe_file)
             state = StateManager(recipe.project_root)
             state.load()
-            logger_fn = lambda *args, **kwargs: None
             executor = Executor(recipe, state, logger_fn)
 
             # Mock the docker subprocess calls to capture the command
@@ -548,7 +538,7 @@ tasks:
             os.environ.pop("TEST_MOUNT_PATH", None)
             os.environ.pop("TEST_ENV_VALUE", None)
 
-    def test_var_vars_in_environment_fields(self):
+    def test_var_vars_in_environment_fields(self, logger_fn):
         """
         Test that {{ var.* }} variables are substituted in environment fields.
         @athena: ade7a52fd275
@@ -586,7 +576,6 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        logger_fn = lambda *args, **kwargs: None
         executor = Executor(recipe, state, logger_fn)
 
         # Mock the docker subprocess calls to capture the command
