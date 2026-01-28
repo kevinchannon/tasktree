@@ -6,10 +6,8 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from rich.console import Console
-
 from tasktree.executor import Executor
-from tasktree.logging import Logger
+from tasktree.logging import LoggerFn
 from tasktree.parser import parse_recipe
 from tasktree.state import StateManager
 
@@ -45,8 +43,8 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            logger = Logger(Console())
-            executor = Executor(recipe, state, logger)
+            logger_fn = lambda *args, **kwargs: None
+            executor = Executor(recipe, state, logger_fn)
 
             # Execute with exported args
             args_dict = {"server": "prod-server", "user": "admin"}
@@ -80,8 +78,8 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            logger = Logger(Console())
-            executor = Executor(recipe, state, logger)
+            logger_fn = lambda *args, **kwargs: None
+            executor = Executor(recipe, state, logger_fn)
 
             # Execute with only server arg (port uses default)
             args_dict = {"server": "prod-server", "port": "8080"}
@@ -133,8 +131,8 @@ tasks:
             # Execute with args_dict from CLI
             state = StateManager(recipe.project_root)
             state.load()
-            logger = Logger(Console())
-            executor = Executor(recipe, state, logger)
+            logger_fn = lambda *args, **kwargs: None
+            executor = Executor(recipe, state, logger_fn)
             statuses = executor.execute_task("test", args_dict)
 
             self.assertIn("test", statuses)
@@ -156,8 +154,8 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            logger = Logger(Console())
-            executor = Executor(recipe, state, logger)
+            logger_fn = lambda *args, **kwargs: None
+            executor = Executor(recipe, state, logger_fn)
 
             # Should raise error when trying to use exported arg in template
             args_dict = {"server": "prod-server"}
@@ -194,8 +192,8 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            logger = Logger(Console())
-            executor = Executor(recipe, state, logger)
+            logger_fn = lambda *args, **kwargs: None
+            executor = Executor(recipe, state, logger_fn)
 
             args_dict = {"server": "prod-server", "port": 9000}
             statuses = executor.execute_task("deploy", args_dict)
@@ -226,8 +224,8 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            logger = Logger(Console())
-            executor = Executor(recipe, state, logger)
+            logger_fn = lambda *args, **kwargs: None
+            executor = Executor(recipe, state, logger_fn)
 
             args_dict = {"Server": "UPPERCASE", "server": "lowercase"}
             statuses = executor.execute_task("test", args_dict)
@@ -257,8 +255,8 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            logger = Logger(Console())
-            executor = Executor(recipe, state, logger)
+            logger_fn = lambda *args, **kwargs: None
+            executor = Executor(recipe, state, logger_fn)
 
             args_dict = {"message": "hello world with spaces"}
             statuses = executor.execute_task("test", args_dict)
@@ -323,8 +321,8 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            logger = Logger(Console())
-            executor = Executor(recipe, state, logger)
+            logger_fn = lambda *args, **kwargs: None
+            executor = Executor(recipe, state, logger_fn)
 
             args_dict = {"app": "myapp", "server": "prod-server"}
             statuses = executor.execute_task("deploy", args_dict)
@@ -359,8 +357,8 @@ tasks:
                 recipe = parse_recipe(recipe_path)
                 state = StateManager(recipe.project_root)
                 state.load()
-                logger = Logger(Console())
-                executor = Executor(recipe, state, logger)
+                logger_fn = lambda *args, **kwargs: None
+                executor = Executor(recipe, state, logger_fn)
 
                 # Exported arg should override the env var
                 args_dict = {"MY_VAR": "overridden"}
@@ -391,8 +389,8 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            logger = Logger(Console())
-            executor = Executor(recipe, state, logger)
+            logger_fn = lambda *args, **kwargs: None
+            executor = Executor(recipe, state, logger_fn)
 
             # Should raise ValueError when trying to override PATH
             args_dict = {"PATH": "/malicious/path"}

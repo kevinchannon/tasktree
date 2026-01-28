@@ -28,7 +28,7 @@ from tasktree.graph import (
     resolve_self_references,
 )
 from tasktree.hasher import hash_task, hash_args
-from tasktree.logging import Logger
+from tasktree.logging import LoggerFn
 from tasktree.parser import Recipe, find_recipe_file, parse_arg_spec, parse_recipe
 from tasktree.state import StateManager
 from tasktree.types import get_click_type
@@ -39,7 +39,10 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 console = Console()
-logger = Logger(console)
+
+# Logger function that matches Console.print() signature
+def logger_fn(*args, **kwargs) -> None:
+    console.print(*args, **kwargs)
 
 
 def _supports_unicode() -> bool:
@@ -132,7 +135,7 @@ def _list_tasks(tasks_file: Optional[str] = None):
     """
     recipe = _get_recipe(tasks_file)
     if recipe is None:
-        logger.log(
+        logger_fn(
             "[red]No recipe file found (tasktree.yaml, tasktree.yml, tt.yaml, or *.tasks)[/red]"
         )
         raise typer.Exit(1)
@@ -171,7 +174,7 @@ def _list_tasks(tasks_file: Optional[str] = None):
 
         table.add_row(task_name, args_formatted, desc)
 
-    logger.log(table)
+    logger_fn(table)
 
 
 def _show_task(task_name: str, tasks_file: Optional[str] = None):
@@ -182,20 +185,20 @@ def _show_task(task_name: str, tasks_file: Optional[str] = None):
     # Pass task_name as root_task for lazy variable evaluation
     recipe = _get_recipe(tasks_file, root_task=task_name)
     if recipe is None:
-        logger.log(
+        logger_fn(
             "[red]No recipe file found (tasktree.yaml, tasktree.yml, tt.yaml, or *.tasks)[/red]"
         )
         raise typer.Exit(1)
 
     task = recipe.get_task(task_name)
     if task is None:
-        logger.log(f"[red]Task not found: {task_name}[/red]")
+        logger_fn(f"[red]Task not found: {task_name}[/red]")
         raise typer.Exit(1)
 
     # Show source file info
-    logger.log(f"[bold]Task: {task_name}[/bold]")
+    logger_fn(f"[bold]Task: {task_name}[/bold]")
     if task.source_file:
-        logger.log(f"Source: {task.source_file}\n")
+        logger_fn(f"Source: {task.source_file}\n")
 
     # Create YAML representation
     task_yaml = {
@@ -226,7 +229,7 @@ def _show_task(task_name: str, tasks_file: Optional[str] = None):
     # Format and highlight using Rich
     yaml_str = yaml.dump(task_yaml, default_flow_style=False, sort_keys=False)
     syntax = Syntax(yaml_str, "yaml", theme="ansi_light", line_numbers=False)
-    logger.log(syntax)
+    logger_fn(syntax)
 
 
 def _show_tree(task_name: str, tasks_file: Optional[str] = None):
@@ -237,26 +240,26 @@ def _show_tree(task_name: str, tasks_file: Optional[str] = None):
     # Pass task_name as root_task for lazy variable evaluation
     recipe = _get_recipe(tasks_file, root_task=task_name)
     if recipe is None:
-        logger.log(
+        logger_fn(
             "[red]No recipe file found (tasktree.yaml, tasktree.yml, tt.yaml, or *.tasks)[/red]"
         )
         raise typer.Exit(1)
 
     task = recipe.get_task(task_name)
     if task is None:
-        logger.log(f"[red]Task not found: {task_name}[/red]")
+        logger_fn(f"[red]Task not found: {task_name}[/red]")
         raise typer.Exit(1)
 
     # Build dependency tree
     try:
         dep_tree = build_dependency_tree(recipe, task_name)
     except Exception as e:
-        logger.log(f"[red]Error building dependency tree: {e}[/red]")
+        logger_fn(f"[red]Error building dependency tree: {e}[/red]")
         raise typer.Exit(1)
 
     # Build Rich tree
     tree = _build_rich_tree(dep_tree)
-    logger.log(tree)
+    logger_fn(tree)
 
 
 def _init_recipe():
@@ -266,7 +269,7 @@ def _init_recipe():
     """
     recipe_path = Path("tasktree.yaml")
     if recipe_path.exists():
-        logger.log("[red]tasktree.yaml already exists[/red]")
+        logger_fn("[red]tasktree.yaml already exists[/red]")
         raise typer.Exit(1)
 
     template = """# Task Tree Recipe
@@ -299,8 +302,8 @@ tasks:
 """
 
     recipe_path.write_text(template)
-    logger.log(f"[green]Created {recipe_path}[/green]")
-    logger.log("Edit the file to define your tasks")
+    logger_fn(f"[green]Created {recipe_path}[/green]")
+    logger_fn("Edit the file to define your tasks")
 
 
 def _version_callback(value: bool):
@@ -309,7 +312,7 @@ def _version_callback(value: bool):
     @athena: abaed96ac23b
     """
     if value:
-        logger.log(f"task-tree version {__version__}")
+        logger_fn(f"task-tree version {__version__}")
         raise typer.Exit()
 
 
@@ -412,19 +415,19 @@ def main(
     else:
         recipe = _get_recipe(tasks_file)
         if recipe is None:
-            logger.log(
+            logger_fn(
                 "[red]No recipe file found (tasktree.yaml, tasktree.yml, tt.yaml, or *.tasks)[/red]"
             )
-            logger.log("Run [cyan]tt --init[/cyan] to create a blank recipe file")
+            logger_fn("Run [cyan]tt --init[/cyan] to create a blank recipe file")
             raise typer.Exit(1)
 
-        logger.log("[bold]Available tasks:[/bold]")
+        logger_fn("[bold]Available tasks:[/bold]")
         for task_name in sorted(recipe.task_names()):
             task = recipe.get_task(task_name)
             if task and not task.private:
-                logger.log(f"  - {task_name}")
-        logger.log("\nUse [cyan]tt --list[/cyan] for detailed information")
-        logger.log("Use [cyan]tt <task-name>[/cyan] to run a task")
+                logger_fn(f"  - {task_name}")
+        logger_fn("\nUse [cyan]tt --list[/cyan] for detailed information")
+        logger_fn("Use [cyan]tt <task-name>[/cyan] to run a task")
 
 
 def _clean_state(tasks_file: Optional[str] = None) -> None:
@@ -435,13 +438,13 @@ def _clean_state(tasks_file: Optional[str] = None) -> None:
     if tasks_file:
         recipe_path = Path(tasks_file)
         if not recipe_path.exists():
-            logger.log(f"[red]Recipe file not found: {tasks_file}[/red]")
+            logger_fn(f"[red]Recipe file not found: {tasks_file}[/red]")
             raise typer.Exit(1)
     else:
         recipe_path = find_recipe_file()
         if recipe_path is None:
-            logger.log("[yellow]No recipe file found[/yellow]")
-            logger.log("State file location depends on recipe file location")
+            logger_fn("[yellow]No recipe file found[/yellow]")
+            logger_fn("State file location depends on recipe file location")
             raise typer.Exit(1)
 
     project_root = recipe_path.parent
@@ -449,12 +452,12 @@ def _clean_state(tasks_file: Optional[str] = None) -> None:
 
     if state_path.exists():
         state_path.unlink()
-        logger.log(
+        logger_fn(
             f"[green]{get_action_success_string()} Removed {state_path}[/green]"
         )
-        logger.log("All tasks will run fresh on next execution")
+        logger_fn("All tasks will run fresh on next execution")
     else:
-        logger.log(f"[yellow]No state file found at {state_path}[/yellow]")
+        logger_fn(f"[yellow]No state file found at {state_path}[/yellow]")
 
 
 def _get_recipe(
@@ -472,7 +475,7 @@ def _get_recipe(
     if recipe_file:
         recipe_path = Path(recipe_file)
         if not recipe_path.exists():
-            logger.log(f"[red]Recipe file not found: {recipe_file}[/red]")
+            logger_fn(f"[red]Recipe file not found: {recipe_file}[/red]")
             raise typer.Exit(1)
         # When explicitly specified, project root is current working directory
         project_root = Path.cwd()
@@ -483,7 +486,7 @@ def _get_recipe(
                 return None
         except ValueError as e:
             # Multiple recipe files found
-            logger.log(f"[red]{e}[/red]")
+            logger_fn(f"[red]{e}[/red]")
             raise typer.Exit(1)
         # When auto-discovered, project root is recipe file's parent
         project_root = None
@@ -491,7 +494,7 @@ def _get_recipe(
     try:
         return parse_recipe(recipe_path, project_root, root_task)
     except Exception as e:
-        logger.log(f"[red]Error parsing recipe: {e}[/red]")
+        logger_fn(f"[red]Error parsing recipe: {e}[/red]")
         raise typer.Exit(1)
 
 
@@ -523,7 +526,7 @@ def _execute_dynamic_task(
     # Pass task_name as root_task for lazy variable evaluation
     recipe = _get_recipe(tasks_file, root_task=task_name)
     if recipe is None:
-        logger.log(
+        logger_fn(
             "[red]No recipe file found (tasktree.yaml, tasktree.yml, tt.yaml, or *.tasks)[/red]"
         )
         raise typer.Exit(1)
@@ -532,21 +535,21 @@ def _execute_dynamic_task(
     if env:
         # Validate that the environment exists
         if not recipe.get_environment(env):
-            logger.log(f"[red]Environment not found: {env}[/red]")
-            logger.log("\nAvailable environments:")
+            logger_fn(f"[red]Environment not found: {env}[/red]")
+            logger_fn("\nAvailable environments:")
             for env_name in sorted(recipe.environments.keys()):
-                logger.log(f"  - {env_name}")
+                logger_fn(f"  - {env_name}")
             raise typer.Exit(1)
         recipe.global_env_override = env
 
     task = recipe.get_task(task_name)
     if task is None:
-        logger.log(f"[red]Task not found: {task_name}[/red]")
-        logger.log("\nAvailable tasks:")
+        logger_fn(f"[red]Task not found: {task_name}[/red]")
+        logger_fn("\nAvailable tasks:")
         for name in sorted(recipe.task_names()):
             task = recipe.get_task(name)
             if task and not task.private:
-                logger.log(f"  - {name}")
+                logger_fn(f"  - {name}")
         raise typer.Exit(1)
 
     # Parse task arguments
@@ -555,7 +558,7 @@ def _execute_dynamic_task(
     # Create executor and state manager
     state = StateManager(recipe.project_root)
     state.load()
-    executor = Executor(recipe, state, logger)
+    executor = Executor(recipe, state, logger_fn)
 
     # Resolve execution order to determine which tasks will actually run
     # This is important for correct state pruning after template substitution
@@ -570,7 +573,7 @@ def _execute_dynamic_task(
         # This substitutes {{ self.inputs.* }} and {{ self.outputs.* }} templates
         resolve_self_references(recipe, execution_order)
     except ValueError as e:
-        logger.log(f"[red]Error in task template: {e}[/red]")
+        logger_fn(f"[red]Error in task template: {e}[/red]")
         raise typer.Exit(1)
 
     # Prune state based on tasks that will actually execute (with their specific arguments)
@@ -601,11 +604,11 @@ def _execute_dynamic_task(
     state.save()
     try:
         executor.execute_task(task_name, args_dict, force=force, only=only)
-        logger.log(
+        logger_fn(
             f"[green]{get_action_success_string()} Task '{task_name}' completed successfully[/green]"
         )
     except Exception as e:
-        logger.log(
+        logger_fn(
             f"[red]{get_action_failure_string()} Task '{task_name}' failed: {e}[/red]"
         )
         raise typer.Exit(1)
@@ -629,7 +632,7 @@ def _parse_task_args(arg_specs: list[str], arg_values: list[str]) -> dict[str, A
     """
     if not arg_specs:
         if arg_values:
-            logger.log("[red]Task does not accept arguments[/red]")
+            logger_fn("[red]Task does not accept arguments[/red]")
             raise typer.Exit(1)
         return {}
 
@@ -648,12 +651,12 @@ def _parse_task_args(arg_specs: list[str], arg_values: list[str]) -> dict[str, A
             # Find the spec for this argument
             spec = next((s for s in parsed_specs if s.name == arg_name), None)
             if spec is None:
-                logger.log(f"[red]Unknown argument: {arg_name}[/red]")
+                logger_fn(f"[red]Unknown argument: {arg_name}[/red]")
                 raise typer.Exit(1)
         else:
             # Positional argument
             if positional_index >= len(parsed_specs):
-                logger.log("[red]Too many arguments[/red]")
+                logger_fn("[red]Too many arguments[/red]")
                 raise typer.Exit(1)
             spec = parsed_specs[positional_index]
             arg_value = value_str
@@ -668,10 +671,10 @@ def _parse_task_args(arg_specs: list[str], arg_values: list[str]) -> dict[str, A
 
             # Validate choices after type conversion
             if spec.choices is not None and converted_value not in spec.choices:
-                logger.log(
+                logger_fn(
                     f"[red]Invalid value for {spec.name}: {converted_value!r}[/red]"
                 )
-                logger.log(
+                logger_fn(
                     f"Valid choices: {', '.join(repr(c) for c in spec.choices)}"
                 )
                 raise typer.Exit(1)
@@ -680,7 +683,7 @@ def _parse_task_args(arg_specs: list[str], arg_values: list[str]) -> dict[str, A
         except typer.Exit:
             raise  # Re-raise typer.Exit without wrapping
         except Exception as e:
-            logger.log(f"[red]Invalid value for {spec.name}: {e}[/red]")
+            logger_fn(f"[red]Invalid value for {spec.name}: {e}[/red]")
             raise typer.Exit(1)
 
     # Fill in defaults for missing arguments
@@ -693,12 +696,12 @@ def _parse_task_args(arg_specs: list[str], arg_values: list[str]) -> dict[str, A
                     )
                     args_dict[spec.name] = click_type.convert(spec.default, None, None)
                 except Exception as e:
-                    logger.log(
+                    logger_fn(
                         f"[red]Invalid default value for {spec.name}: {e}[/red]"
                     )
                     raise typer.Exit(1)
             else:
-                logger.log(f"[red]Missing required argument: {spec.name}[/red]")
+                logger_fn(f"[red]Missing required argument: {spec.name}[/red]")
                 raise typer.Exit(1)
 
     return args_dict

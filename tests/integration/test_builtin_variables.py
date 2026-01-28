@@ -5,10 +5,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from rich.console import Console
-
 from tasktree.executor import Executor
-from tasktree.logging import Logger
+from tasktree.logging import LoggerFn
 from tasktree.parser import parse_recipe
 from tasktree.state import StateManager
 
@@ -64,8 +62,8 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        logger = Logger(Console())
-        executor = Executor(recipe, state, logger)
+        logger_fn = lambda *args, **kwargs: None
+        executor = Executor(recipe, state, logger_fn)
         executor.execute_task("test-vars")
 
         # Read output and verify
@@ -127,8 +125,8 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        logger = Logger(Console())
-        executor = Executor(recipe, state, logger)
+        logger_fn = lambda *args, **kwargs: None
+        executor = Executor(recipe, state, logger_fn)
         executor.execute_task("test-timestamp")
 
         output = output_file.read_text()
@@ -159,8 +157,8 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        logger = Logger(Console())
-        executor = Executor(recipe, state, logger)
+        logger_fn = lambda *args, **kwargs: None
+        executor = Executor(recipe, state, logger_fn)
         executor.execute_task("test-workdir")
 
         output = output_file.read_text().strip()
@@ -187,8 +185,8 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        logger = Logger(Console())
-        executor = Executor(recipe, state, logger)
+        logger_fn = lambda *args, **kwargs: None
+        executor = Executor(recipe, state, logger_fn)
         executor.execute_task("test-multiline")
 
         output = output_file.read_text().strip()
@@ -219,8 +217,8 @@ tasks:
         recipe = parse_recipe(recipe_path, project_root=Path(self.test_dir))
         state = StateManager(recipe.project_root)
         state.load()
-        logger = Logger(Console())
-        executor = Executor(recipe, state, logger)
+        logger_fn = lambda *args, **kwargs: None
+        executor = Executor(recipe, state, logger_fn)
         executor.execute_task("test-recipe-dir")
 
         output = output_file.read_text()
@@ -260,8 +258,8 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        logger = Logger(Console())
-        executor = Executor(recipe, state, logger)
+        logger_fn = lambda *args, **kwargs: None
+        executor = Executor(recipe, state, logger_fn)
         executor.execute_task("deploy", args_dict={"region": "us-west-1"})
 
         output = output_file.read_text()
@@ -297,8 +295,8 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        logger = Logger(Console())
-        executor = Executor(recipe, state, logger)
+        logger_fn = lambda *args, **kwargs: None
+        executor = Executor(recipe, state, logger_fn)
         executor.execute_task("build-task")
 
         output = output_file.read_text()
@@ -351,8 +349,8 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        logger = Logger(Console())
-        executor = Executor(recipe, state, logger)
+        logger_fn = lambda *args, **kwargs: None
+        executor = Executor(recipe, state, logger_fn)
 
         # Mock the docker subprocess calls to capture the command
         docker_run_command = None
@@ -473,8 +471,8 @@ tasks:
             recipe = parse_recipe(self.recipe_file)
             state = StateManager(recipe.project_root)
             state.load()
-            logger = Logger(Console())
-            executor = Executor(recipe, state, logger)
+            logger_fn = lambda *args, **kwargs: None
+            executor = Executor(recipe, state, logger_fn)
 
             # Mock the docker subprocess calls to capture the command
             docker_run_command = None
@@ -588,8 +586,8 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        logger = Logger(Console())
-        executor = Executor(recipe, state, logger)
+        logger_fn = lambda *args, **kwargs: None
+        executor = Executor(recipe, state, logger_fn)
 
         # Mock the docker subprocess calls to capture the command
         docker_run_command = None

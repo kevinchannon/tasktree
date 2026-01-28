@@ -21,7 +21,7 @@ from tasktree.graph import (
     resolve_self_references,
 )
 from tasktree.hasher import hash_args, hash_task, make_cache_key
-from tasktree.logging import Logger
+from tasktree.logging import LoggerFn
 from tasktree.parser import Recipe, Task, Environment
 from tasktree.state import StateManager, TaskState
 from tasktree.hasher import hash_environment_definition
@@ -69,19 +69,19 @@ class Executor:
         "LOGNAME",
     }
 
-    def __init__(self, recipe: Recipe, state_manager: StateManager, logger: Logger):
+    def __init__(self, recipe: Recipe, state_manager: StateManager, logger_fn: LoggerFn):
         """
         Initialize executor.
 
         Args:
         recipe: Parsed recipe containing all tasks
         state_manager: State manager for tracking task execution
-        logger: Logger instance for output
+        logger_fn: Logger function for output (matches Console.print signature)
         @athena: 21b65db48bca
         """
         self.recipe = recipe
         self.state = state_manager
-        self.logger = logger
+        self.logger_fn = logger_fn
         self.docker_manager = docker_module.DockerManager(recipe.project_root)
 
     @staticmethod
@@ -535,7 +535,7 @@ class Executor:
             if status.will_run:
                 # Warn if re-running due to missing outputs
                 if status.reason == "outputs_missing":
-                    self.logger.log(
+                    self.logger_fn(
                         f"Warning: Re-running task '{name}' because declared outputs are missing"
                     )
 
@@ -611,7 +611,7 @@ class Executor:
             env = self.recipe.get_environment(env_name)
 
         # Execute command
-        self.logger.log(f"Running: {task.name}")
+        self.logger_fn(f"Running: {task.name}")
 
         # Route to Docker execution or regular execution
         if env and env.dockerfile:
