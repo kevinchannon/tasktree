@@ -22,6 +22,7 @@ class TestExportedArgs(unittest.TestCase):
         Test that exported args are set as environment variables.
         @athena: 2ef81b4f3584
         """
+        logger_fn = lambda *args, **kwargs: None
         is_windows = platform.system() == "Windows"
         if is_windows:
             env_check = "echo %server% %user%"
@@ -42,7 +43,7 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state)
+            executor = Executor(recipe, state, logger_fn)
 
             # Execute with exported args
             args_dict = {"server": "prod-server", "user": "admin"}
@@ -56,6 +57,7 @@ tasks:
         Test that exported args with defaults work correctly.
         @athena: ebabe2e217fe
         """
+        logger_fn = lambda *args, **kwargs: None
         is_windows = platform.system() == "Windows"
         if is_windows:
             env_check = "echo %server% %port%"
@@ -76,7 +78,7 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state)
+            executor = Executor(recipe, state, logger_fn)
 
             # Execute with only server arg (port uses default)
             args_dict = {"server": "prod-server", "port": "8080"}
@@ -93,6 +95,7 @@ tasks:
         by the user (relying on CLI to apply the default).
         @athena: 07337bef6600
         """
+        logger_fn = lambda *args, **kwargs: None
         is_windows = platform.system() == "Windows"
         if is_windows:
             env_check = "echo %server% %port%"
@@ -118,7 +121,7 @@ tasks:
 
             # Parse args with CLI (which applies defaults)
             # Only provide server, not port (port should use default)
-            args_dict = _parse_task_args(task.args, ["prod-server"])
+            args_dict = _parse_task_args(logger_fn, task.args, ["prod-server"])
 
             # Verify CLI applied the default
             # Exported args are always strings (environment variables)
@@ -128,7 +131,7 @@ tasks:
             # Execute with args_dict from CLI
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state)
+            executor = Executor(recipe, state, logger_fn)
             statuses = executor.execute_task("test", args_dict)
 
             self.assertIn("test", statuses)
@@ -138,6 +141,7 @@ tasks:
         Test that exported args cannot be used in template substitution.
         @athena: 9701acf22146
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
             recipe_path.write_text("""
@@ -150,7 +154,7 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state)
+            executor = Executor(recipe, state, logger_fn)
 
             # Should raise error when trying to use exported arg in template
             args_dict = {"server": "prod-server"}
@@ -166,6 +170,7 @@ tasks:
         Test mixing exported and regular arguments.
         @athena: 00f7d2c0de2a
         """
+        logger_fn = lambda *args, **kwargs: None
         is_windows = platform.system() == "Windows"
         if is_windows:
             # Windows: use both env vars and template substitution
@@ -187,7 +192,7 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state)
+            executor = Executor(recipe, state, logger_fn)
 
             args_dict = {"server": "prod-server", "port": 9000}
             statuses = executor.execute_task("deploy", args_dict)
@@ -199,6 +204,7 @@ tasks:
         Test that environment variable names preserve case exactly.
         @athena: 7cba2f4ed379
         """
+        logger_fn = lambda *args, **kwargs: None
         is_windows = platform.system() == "Windows"
         if is_windows:
             # Windows env vars are case-insensitive
@@ -218,7 +224,7 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state)
+            executor = Executor(recipe, state, logger_fn)
 
             args_dict = {"Server": "UPPERCASE", "server": "lowercase"}
             statuses = executor.execute_task("test", args_dict)
@@ -230,6 +236,7 @@ tasks:
         Test that exported args with spaces are preserved correctly.
         @athena: 1d049782a034
         """
+        logger_fn = lambda *args, **kwargs: None
         is_windows = platform.system() == "Windows"
         if is_windows:
             cmd = "echo %message%"
@@ -248,7 +255,7 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state)
+            executor = Executor(recipe, state, logger_fn)
 
             args_dict = {"message": "hello world with spaces"}
             statuses = executor.execute_task("test", args_dict)
@@ -260,6 +267,7 @@ tasks:
         Test that exported arguments with type annotations fail during arg parsing.
         @athena: ab6d905b48b7
         """
+        logger_fn = lambda *args, **kwargs: None
         from tasktree.parser import parse_arg_spec
 
         # Test that parse_arg_spec raises error for exported args with types (old colon syntax)
@@ -273,6 +281,7 @@ tasks:
         Test that exported arguments with type field in YAML dict format fails.
         @athena: ff514bc0ea9d
         """
+        logger_fn = lambda *args, **kwargs: None
         from tasktree.parser import parse_arg_spec
 
         # Test that parse_arg_spec raises error for exported args with type in dict format
@@ -287,6 +296,7 @@ tasks:
         Test exported args work with multi-line commands.
         @athena: c123ecb595df
         """
+        logger_fn = lambda *args, **kwargs: None
         is_windows = platform.system() == "Windows"
         if is_windows:
             cmd = """
@@ -313,7 +323,7 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state)
+            executor = Executor(recipe, state, logger_fn)
 
             args_dict = {"app": "myapp", "server": "prod-server"}
             statuses = executor.execute_task("deploy", args_dict)
@@ -325,6 +335,7 @@ tasks:
         Test that exported args override existing environment variables.
         @athena: 62dfa7caf6fd
         """
+        logger_fn = lambda *args, **kwargs: None
         is_windows = platform.system() == "Windows"
         if is_windows:
             cmd = "echo %MY_VAR%"
@@ -348,7 +359,7 @@ tasks:
                 recipe = parse_recipe(recipe_path)
                 state = StateManager(recipe.project_root)
                 state.load()
-                executor = Executor(recipe, state)
+                executor = Executor(recipe, state, logger_fn)
 
                 # Exported arg should override the env var
                 args_dict = {"MY_VAR": "overridden"}
@@ -367,6 +378,7 @@ tasks:
         Test that attempting to override protected environment variables fails.
         @athena: f6b76cb0d6ec
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
             recipe_path.write_text("""
@@ -379,7 +391,7 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state)
+            executor = Executor(recipe, state, logger_fn)
 
             # Should raise ValueError when trying to override PATH
             args_dict = {"PATH": "/malicious/path"}

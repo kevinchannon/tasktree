@@ -24,6 +24,7 @@ class TestMissingOutputsIntegration(unittest.TestCase):
         4. Run third time - should skip (outputs now exist)
         @athena: 4bb3c6a8724f
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -42,7 +43,7 @@ class TestMissingOutputsIntegration(unittest.TestCase):
             )
             state_manager = StateManager(project_root)
             state_manager.load()
-            executor = Executor(recipe, state_manager)
+            executor = Executor(recipe, state_manager, logger_fn)
 
             # First run - task should execute (never run before)
             statuses = executor.execute_task("build")
@@ -78,6 +79,7 @@ class TestMissingOutputsIntegration(unittest.TestCase):
         the task should run to regenerate all outputs.
         @athena: 2f92abc88ead
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -96,7 +98,7 @@ class TestMissingOutputsIntegration(unittest.TestCase):
             )
             state_manager = StateManager(project_root)
             state_manager.load()
-            executor = Executor(recipe, state_manager)
+            executor = Executor(recipe, state_manager, logger_fn)
 
             # First run - task should execute and create both outputs
             statuses = executor.execute_task("build")

@@ -20,6 +20,7 @@ class TestHashEnvironmentDefinition(unittest.TestCase):
         Test that hashing same environment twice produces same hash.
         @athena: 37a4cfe4b1a0
         """
+        logger_fn = lambda *args, **kwargs: None
         env = Environment(
             name="test",
             shell="/bin/bash",
@@ -38,6 +39,7 @@ class TestHashEnvironmentDefinition(unittest.TestCase):
         Test that changing shell produces different hash.
         @athena: a8fdcd0bd181
         """
+        logger_fn = lambda *args, **kwargs: None
         env1 = Environment(
             name="test",
             shell="/bin/bash",
@@ -59,6 +61,7 @@ class TestHashEnvironmentDefinition(unittest.TestCase):
         Test that changing args produces different hash.
         @athena: e15d7b6812ba
         """
+        logger_fn = lambda *args, **kwargs: None
         env1 = Environment(
             name="test",
             shell="/bin/bash",
@@ -80,6 +83,7 @@ class TestHashEnvironmentDefinition(unittest.TestCase):
         Test that changing preamble produces different hash.
         @athena: e59fe9e22990
         """
+        logger_fn = lambda *args, **kwargs: None
         env1 = Environment(
             name="test",
             shell="/bin/bash",
@@ -103,6 +107,7 @@ class TestHashEnvironmentDefinition(unittest.TestCase):
         Test that changing Docker fields produces different hash.
         @athena: 52d0d07aedf0
         """
+        logger_fn = lambda *args, **kwargs: None
         env1 = Environment(
             name="test",
             dockerfile="Dockerfile",
@@ -125,6 +130,7 @@ class TestHashEnvironmentDefinition(unittest.TestCase):
         Test that args order doesn't matter (they're sorted).
         @athena: 2327b764e6b0
         """
+        logger_fn = lambda *args, **kwargs: None
         env1 = Environment(
             name="test",
             shell="/bin/bash",
@@ -166,13 +172,15 @@ class TestCheckEnvironmentChanged(unittest.TestCase):
             environments={"test": self.env},
         )
         self.state_manager = StateManager(self.project_root)
-        self.executor = Executor(self.recipe, self.state_manager)
+        logger_fn = lambda *args, **kwargs: None
+        self.executor = Executor(self.recipe, self.state_manager, logger_fn)
 
     def test_check_environment_changed_no_env(self):
         """
         Test that platform default (no env) returns False.
         @athena: 10b3a2c6bc27
         """
+        logger_fn = lambda *args, **kwargs: None
         task = Task(name="test", cmd="echo test")
         cached_state = TaskState(last_run=123.0, input_state={})
 
@@ -185,6 +193,7 @@ class TestCheckEnvironmentChanged(unittest.TestCase):
         Test that missing cached hash returns True.
         @athena: 54b0622d0eb0
         """
+        logger_fn = lambda *args, **kwargs: None
         task = Task(name="test", cmd="echo test", env="test")
         cached_state = TaskState(last_run=123.0, input_state={})
 
@@ -197,6 +206,7 @@ class TestCheckEnvironmentChanged(unittest.TestCase):
         Test that matching hash returns False.
         @athena: 4d10c2c7fcd2
         """
+        logger_fn = lambda *args, **kwargs: None
         task = Task(name="test", cmd="echo test", env="test")
 
         # Compute hash and store in cached state
@@ -214,6 +224,7 @@ class TestCheckEnvironmentChanged(unittest.TestCase):
         Test that modified shell is detected.
         @athena: 1df7ba624294
         """
+        logger_fn = lambda *args, **kwargs: None
         task = Task(name="test", cmd="echo test", env="test")
 
         # Store old hash
@@ -238,6 +249,7 @@ class TestCheckEnvironmentChanged(unittest.TestCase):
         Test that deleted environment returns True.
         @athena: ab19e56fb26c
         """
+        logger_fn = lambda *args, **kwargs: None
         task = Task(name="test", cmd="echo test", env="test")
         cached_state = TaskState(
             last_run=123.0, input_state={"_env_hash_test": "somehash"}
@@ -278,13 +290,15 @@ class TestCheckDockerImageChanged(unittest.TestCase):
             environments={"builder": self.env},
         )
         self.state_manager = StateManager(self.project_root)
-        self.executor = Executor(self.recipe, self.state_manager)
+        logger_fn = lambda *args, **kwargs: None
+        self.executor = Executor(self.recipe, self.state_manager, logger_fn)
 
     def test_check_docker_image_changed_no_cached_id(self):
         """
         Test that missing cached image ID returns True (first run).
         @athena: c8ce33886b1d
         """
+        logger_fn = lambda *args, **kwargs: None
         # TODO why is this not used?
         # task = Task(name="test", cmd="echo test", env="builder")
 
@@ -314,6 +328,7 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         Test that matching image ID returns False.
         @athena: 9e50aee15bc7
         """
+        logger_fn = lambda *args, **kwargs: None
         # TODO why is this not used?
         #  task = Task(name="test", cmd="echo test", env="builder")
 
@@ -341,6 +356,7 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         Test that different image ID returns True (unpinned base updated).
         @athena: 71d86b1fb8ca
         """
+        logger_fn = lambda *args, **kwargs: None
         # TODO why is this not used?
         # task = Task(name="test", cmd="echo test", env="builder")
 
@@ -369,6 +385,7 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         Test that Docker environment checks both YAML hash and image ID.
         @athena: a1722cdc17bf
         """
+        logger_fn = lambda *args, **kwargs: None
         task = Task(name="test", cmd="echo test", env="builder")
 
         # Cached state with matching env hash AND matching image ID
@@ -400,6 +417,7 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         Test that YAML change detected without checking image ID.
         @athena: bb6e09710e73
         """
+        logger_fn = lambda *args, **kwargs: None
         task = Task(name="test", cmd="echo test", env="builder")
 
         # Cached state with OLD env hash (YAML changed)

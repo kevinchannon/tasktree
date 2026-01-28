@@ -243,6 +243,7 @@ tasks:
         - Bug (if present): 'package' runs because 'build' has will_run=True
         @athena: 54669115d3bd
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -270,7 +271,7 @@ tasks:
             # This creates build-artifact.txt and package.tar.gz
             parsed_recipe = parse_recipe(recipe_path)
             state_manager = StateManager(project_root)
-            executor = Executor(parsed_recipe, state_manager)
+            executor = Executor(parsed_recipe, state_manager, logger_fn)
 
             statuses = executor.execute_task("package")
 
@@ -296,7 +297,7 @@ tasks:
             recipe_path.write_text(yaml.dump(recipe))
 
             parsed_recipe = parse_recipe(recipe_path)
-            executor = Executor(parsed_recipe, state_manager)
+            executor = Executor(parsed_recipe, state_manager, logger_fn)
 
             statuses = executor.execute_task("package")
 
@@ -330,6 +331,7 @@ tasks:
         This is the positive test case - ensure we didn't break normal behavior.
         @athena: 47401bca0465
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -356,7 +358,7 @@ tasks:
             # First run: establish baseline
             parsed_recipe = parse_recipe(recipe_path)
             state_manager = StateManager(project_root)
-            executor = Executor(parsed_recipe, state_manager)
+            executor = Executor(parsed_recipe, state_manager, logger_fn)
 
             statuses = executor.execute_task("build")
 
@@ -371,7 +373,7 @@ tasks:
             recipe_path.write_text(yaml.dump(recipe))
 
             parsed_recipe = parse_recipe(recipe_path)
-            executor = Executor(parsed_recipe, state_manager)
+            executor = Executor(parsed_recipe, state_manager, logger_fn)
 
             statuses = executor.execute_task("build")
 
