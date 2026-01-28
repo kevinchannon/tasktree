@@ -121,7 +121,8 @@ tasks:
 
             # Parse args with CLI (which applies defaults)
             # Only provide server, not port (port should use default)
-            args_dict = _parse_task_args(task.args, ["prod-server"])
+            logger_fn = lambda *args, **kwargs: None
+            args_dict = _parse_task_args(logger_fn, task.args, ["prod-server"])
 
             # Verify CLI applied the default
             # Exported args are always strings (environment variables)
