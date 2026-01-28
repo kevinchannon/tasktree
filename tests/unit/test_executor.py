@@ -1578,8 +1578,8 @@ class TestEnvironmentResolution(unittest.TestCase):
                     project_root=project_root,
                     recipe_path=project_root / "tasktree.yaml",
                 )
-                logger = Logger(Console())
-                executor = Executor(recipe, state_manager, logger)
+                logger_fn = lambda *args, **kwargs: None
+                executor = Executor(recipe, state_manager, logger_fn)
 
                 mock_run.side_effect = capture_script_content
                 executor._run_task(tasks["test"], {})
@@ -1619,8 +1619,8 @@ class TestEnvironmentResolution(unittest.TestCase):
                     project_root=project_root,
                     recipe_path=project_root / "tasktree.yaml",
                 )
-                logger = Logger(Console())
-                executor = Executor(recipe, state_manager, logger)
+                logger_fn = lambda *args, **kwargs: None
+                executor = Executor(recipe, state_manager, logger_fn)
 
                 mock_run.return_value = MagicMock(returncode=0)
                 executor._run_task(tasks["test"], {})
