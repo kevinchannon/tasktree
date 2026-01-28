@@ -27,7 +27,8 @@ class TestParseTaskArgs(unittest.TestCase):
         arg_specs = ["environment", "region"]
         arg_values = ["production", "us-east-1"]
 
-        result = _parse_task_args(arg_specs, arg_values)
+        logger_fn = lambda *args, **kwargs: None
+        result = _parse_task_args(logger_fn, arg_specs, arg_values)
 
         self.assertEqual(result, {"environment": "production", "region": "us-east-1"})
 
@@ -39,7 +40,8 @@ class TestParseTaskArgs(unittest.TestCase):
         arg_specs = ["environment", "region"]
         arg_values = ["environment=production", "region=us-east-1"]
 
-        result = _parse_task_args(arg_specs, arg_values)
+        logger_fn = lambda *args, **kwargs: None
+        result = _parse_task_args(logger_fn, arg_specs, arg_values)
 
         self.assertEqual(result, {"environment": "production", "region": "us-east-1"})
 
@@ -51,7 +53,8 @@ class TestParseTaskArgs(unittest.TestCase):
         arg_specs = ["environment", {"region": {"default": "us-west-1"}}]
         arg_values = ["production"]  # Only provide first arg
 
-        result = _parse_task_args(arg_specs, arg_values)
+        logger_fn = lambda *args, **kwargs: None
+        result = _parse_task_args(logger_fn, arg_specs, arg_values)
 
         self.assertEqual(result, {"environment": "production", "region": "us-west-1"})
 
@@ -67,7 +70,8 @@ class TestParseTaskArgs(unittest.TestCase):
         ]
         arg_values = ["8080", "true", "30.5"]
 
-        result = _parse_task_args(arg_specs, arg_values)
+        logger_fn = lambda *args, **kwargs: None
+        result = _parse_task_args(logger_fn, arg_specs, arg_values)
 
         self.assertEqual(result, {"port": 8080, "debug": True, "timeout": 30.5})
         self.assertIsInstance(result["port"], int)
@@ -83,7 +87,8 @@ class TestParseTaskArgs(unittest.TestCase):
         arg_values = ["unknown_arg=value"]
 
         with self.assertRaises(typer.Exit):
-            _parse_task_args(arg_specs, arg_values)
+            logger_fn = lambda *args, **kwargs: None
+            _parse_task_args(logger_fn, arg_specs, arg_values)
 
     def test_parse_task_args_too_many(self):
         """
@@ -94,7 +99,8 @@ class TestParseTaskArgs(unittest.TestCase):
         arg_values = ["production", "extra_value"]
 
         with self.assertRaises(typer.Exit):
-            _parse_task_args(arg_specs, arg_values)
+            logger_fn = lambda *args, **kwargs: None
+            _parse_task_args(logger_fn, arg_specs, arg_values)
 
     def test_parse_task_args_missing_required(self):
         """
@@ -105,7 +111,8 @@ class TestParseTaskArgs(unittest.TestCase):
         arg_values = ["production"]  # Missing 'region'
 
         with self.assertRaises(typer.Exit):
-            _parse_task_args(arg_specs, arg_values)
+            logger_fn = lambda *args, **kwargs: None
+            _parse_task_args(logger_fn, arg_specs, arg_values)
 
     def test_parse_task_args_invalid_type(self):
         """
@@ -116,7 +123,8 @@ class TestParseTaskArgs(unittest.TestCase):
         arg_values = ["not_a_number"]
 
         with self.assertRaises(typer.Exit):
-            _parse_task_args(arg_specs, arg_values)
+            logger_fn = lambda *args, **kwargs: None
+            _parse_task_args(logger_fn, arg_specs, arg_values)
 
     def test_parse_task_args_empty(self):
         """
@@ -126,7 +134,8 @@ class TestParseTaskArgs(unittest.TestCase):
         arg_specs = []
         arg_values = []
 
-        result = _parse_task_args(arg_specs, arg_values)
+        logger_fn = lambda *args, **kwargs: None
+        result = _parse_task_args(logger_fn, arg_specs, arg_values)
 
         self.assertEqual(result, {})
 
@@ -138,7 +147,8 @@ class TestParseTaskArgs(unittest.TestCase):
         arg_specs = ["environment", "region", {"verbose": {"type": "bool"}}]
         arg_values = ["production", "region=us-east-1", "verbose=true"]
 
-        result = _parse_task_args(arg_specs, arg_values)
+        logger_fn = lambda *args, **kwargs: None
+        result = _parse_task_args(logger_fn, arg_specs, arg_values)
 
         self.assertEqual(
             result,

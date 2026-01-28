@@ -277,7 +277,8 @@ class TestListFormatting(unittest.TestCase):
         tasks = {"build": Task(name="build", cmd="echo build", desc="Build task")}
         mock_get_recipe.return_value = self._create_mock_recipe(tasks)
 
-        _list_tasks()
+        logger_fn = lambda *args, **kwargs: None
+        _list_tasks(logger_fn)
 
         # Verify console.print was called
         self.mock_console.print.assert_called_once()
@@ -298,7 +299,8 @@ class TestListFormatting(unittest.TestCase):
         tasks = {"build": Task(name="build", cmd="echo build", desc="Build task")}
         mock_get_recipe.return_value = self._create_mock_recipe(tasks)
 
-        _list_tasks()
+        logger_fn = lambda *args, **kwargs: None
+        _list_tasks(logger_fn)
 
         table = self.mock_console.print.call_args[0][0]
         # Rich Table padding can be a tuple of (top, right, bottom, left) or (vertical, horizontal)
@@ -322,7 +324,8 @@ class TestListFormatting(unittest.TestCase):
         }
         mock_get_recipe.return_value = self._create_mock_recipe(tasks)
 
-        _list_tasks()
+        logger_fn = lambda *args, **kwargs: None
+        _list_tasks(logger_fn)
 
         table = self.mock_console.print.call_args[0][0]
         # Command column should have width equal to longest name
@@ -337,7 +340,8 @@ class TestListFormatting(unittest.TestCase):
         tasks = {"task": Task(name="task", cmd="echo", desc="Task")}
         mock_get_recipe.return_value = self._create_mock_recipe(tasks)
 
-        _list_tasks()
+        logger_fn = lambda *args, **kwargs: None
+        _list_tasks(logger_fn)
 
         table = self.mock_console.print.call_args[0][0]
         # Command column should have no_wrap=True
@@ -355,7 +359,8 @@ class TestListFormatting(unittest.TestCase):
         }
         mock_get_recipe.return_value = self._create_mock_recipe(tasks)
 
-        _list_tasks()
+        logger_fn = lambda *args, **kwargs: None
+        _list_tasks(logger_fn)
 
         # Verify both tasks are shown
         table = self.mock_console.print.call_args[0][0]
@@ -376,7 +381,8 @@ class TestListFormatting(unittest.TestCase):
         }
         mock_get_recipe.return_value = self._create_mock_recipe(tasks)
 
-        _list_tasks()
+        logger_fn = lambda *args, **kwargs: None
+        _list_tasks(logger_fn)
 
         table = self.mock_console.print.call_args[0][0]
         self.assertEqual(len(table.rows), 4)
@@ -390,7 +396,8 @@ class TestListFormatting(unittest.TestCase):
         tasks = {}
         mock_get_recipe.return_value = self._create_mock_recipe(tasks)
 
-        _list_tasks()
+        logger_fn = lambda *args, **kwargs: None
+        _list_tasks(logger_fn)
 
         # Should still print a table (just empty)
         self.mock_console.print.assert_called_once()
@@ -410,7 +417,8 @@ class TestListFormatting(unittest.TestCase):
         tasks = {"task": Task(name="task", cmd="echo", desc=long_desc)}
         mock_get_recipe.return_value = self._create_mock_recipe(tasks)
 
-        _list_tasks()
+        logger_fn = lambda *args, **kwargs: None
+        _list_tasks(logger_fn)
 
         # Should not raise any errors
         self.mock_console.print.assert_called_once()
@@ -424,7 +432,8 @@ class TestListFormatting(unittest.TestCase):
         tasks = {"build": Task(name="build", cmd="echo", desc="Build")}
         mock_get_recipe.return_value = self._create_mock_recipe(tasks)
 
-        _list_tasks()
+        logger_fn = lambda *args, **kwargs: None
+        _list_tasks(logger_fn)
 
         table = self.mock_console.print.call_args[0][0]
         # Command column should have bold cyan style
@@ -440,7 +449,8 @@ class TestListFormatting(unittest.TestCase):
         tasks = {"build": Task(name="build", cmd="echo", desc="Build", args=["env"])}
         mock_get_recipe.return_value = self._create_mock_recipe(tasks)
 
-        _list_tasks()
+        logger_fn = lambda *args, **kwargs: None
+        _list_tasks(logger_fn)
 
         table = self.mock_console.print.call_args[0][0]
         # Padding should provide visual separation
@@ -463,7 +473,8 @@ class TestListFormatting(unittest.TestCase):
         }
         mock_get_recipe.return_value = self._create_mock_recipe(tasks)
 
-        _list_tasks()
+        logger_fn = lambda *args, **kwargs: None
+        _list_tasks(logger_fn)
 
         table = self.mock_console.print.call_args[0][0]
         # Should only have 1 row (the public task)
@@ -480,7 +491,8 @@ class TestListFormatting(unittest.TestCase):
         }
         mock_get_recipe.return_value = self._create_mock_recipe(tasks)
 
-        _list_tasks()
+        logger_fn = lambda *args, **kwargs: None
+        _list_tasks(logger_fn)
 
         table = self.mock_console.print.call_args[0][0]
         # Should have 1 row
@@ -506,7 +518,8 @@ class TestListFormatting(unittest.TestCase):
         }
         mock_get_recipe.return_value = self._create_mock_recipe(tasks)
 
-        _list_tasks()
+        logger_fn = lambda *args, **kwargs: None
+        _list_tasks(logger_fn)
 
         table = self.mock_console.print.call_args[0][0]
         # Should only have 2 rows (public1 and public2)
@@ -528,7 +541,8 @@ class TestListFormatting(unittest.TestCase):
         }
         mock_get_recipe.return_value = self._create_mock_recipe(tasks)
 
-        _list_tasks()
+        logger_fn = lambda *args, **kwargs: None
+        _list_tasks(logger_fn)
 
         table = self.mock_console.print.call_args[0][0]
         # Should have 0 rows
