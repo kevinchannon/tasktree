@@ -127,6 +127,7 @@ class TestExecutor(unittest.TestCase):
         Test executing a simple task.
         @athena: 6c68df426cc6
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -155,6 +156,7 @@ class TestExecutor(unittest.TestCase):
         Test executing task with dependencies.
         @athena: 1deabb08cdfa
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -183,6 +185,7 @@ class TestExecutor(unittest.TestCase):
         Test executing task with arguments.
         @athena: 51d697100f5a
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -217,6 +220,7 @@ class TestExecutor(unittest.TestCase):
         Test _run_command_as_script with single-line command.
         @athena: b08cbc7783d9
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -300,6 +304,7 @@ class TestExecutor(unittest.TestCase):
         Test _run_command_as_script with multi-line command.
         @athena: 1b973f429ae7
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -1149,6 +1154,7 @@ class TestOnlyMode(unittest.TestCase):
         Test that only=True executes only the target task, not dependencies.
         @athena: 8b8cb598d197
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -1186,6 +1192,7 @@ class TestOnlyMode(unittest.TestCase):
         Test that only=True skips all dependencies in a chain.
         @athena: 0d66c025a5c7
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -1224,6 +1231,7 @@ class TestOnlyMode(unittest.TestCase):
         Test that only=True forces execution (ignores freshness).
         @athena: e731a461bdff
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -1587,6 +1595,7 @@ class TestEnvironmentResolution(unittest.TestCase):
         Test environment variables work in working_dir.
         @athena: a2d488c3e905
         """
+        logger_fn = lambda *args, **kwargs: None
         os.environ["SUBDIR"] = "mydir"
         try:
             with TemporaryDirectory() as tmpdir:
