@@ -359,7 +359,7 @@ tasks:
                 recipe = parse_recipe(recipe_path)
                 state = StateManager(recipe.project_root)
                 state.load()
-                    executor = Executor(recipe, state, logger_fn)
+                executor = Executor(recipe, state, logger_fn)
 
                 # Exported arg should override the env var
                 args_dict = {"MY_VAR": "overridden"}
