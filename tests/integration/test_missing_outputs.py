@@ -4,7 +4,10 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from rich.console import Console
+
 from tasktree.executor import Executor
+from tasktree.logging import Logger
 from tasktree.parser import Recipe, Task
 from tasktree.state import StateManager
 
@@ -42,7 +45,8 @@ class TestMissingOutputsIntegration(unittest.TestCase):
             )
             state_manager = StateManager(project_root)
             state_manager.load()
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             # First run - task should execute (never run before)
             statuses = executor.execute_task("build")
@@ -96,7 +100,8 @@ class TestMissingOutputsIntegration(unittest.TestCase):
             )
             state_manager = StateManager(project_root)
             state_manager.load()
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             # First run - task should execute and create both outputs
             statuses = executor.execute_task("build")

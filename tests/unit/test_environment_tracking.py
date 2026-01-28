@@ -3,8 +3,11 @@
 import unittest
 from pathlib import Path
 
+from rich.console import Console
+
 from tasktree.executor import Executor
 from tasktree.hasher import hash_environment_definition
+from tasktree.logging import Logger
 from tasktree.parser import Environment, Recipe, Task
 from tasktree.state import StateManager, TaskState
 
@@ -166,7 +169,8 @@ class TestCheckEnvironmentChanged(unittest.TestCase):
             environments={"test": self.env},
         )
         self.state_manager = StateManager(self.project_root)
-        self.executor = Executor(self.recipe, self.state_manager)
+        logger = Logger(Console())
+        self.executor = Executor(self.recipe, self.state_manager, logger)
 
     def test_check_environment_changed_no_env(self):
         """
@@ -278,7 +282,8 @@ class TestCheckDockerImageChanged(unittest.TestCase):
             environments={"builder": self.env},
         )
         self.state_manager = StateManager(self.project_root)
-        self.executor = Executor(self.recipe, self.state_manager)
+        logger = Logger(Console())
+        self.executor = Executor(self.recipe, self.state_manager, logger)
 
     def test_check_docker_image_changed_no_cached_id(self):
         """

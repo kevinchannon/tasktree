@@ -7,7 +7,10 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, patch
 
+from rich.console import Console
+
 from tasktree.executor import Executor
+from tasktree.logging import Logger
 from tasktree.parser import Recipe, Task
 from tasktree.state import StateManager, TaskState
 
@@ -33,7 +36,8 @@ class TestTaskStatus(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             status = executor.check_task_status(tasks["build"], {}, {})
             self.assertTrue(status.will_run)
@@ -53,7 +57,8 @@ class TestTaskStatus(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             status = executor.check_task_status(tasks["test"], {}, {})
             self.assertTrue(status.will_run)
@@ -105,7 +110,8 @@ class TestTaskStatus(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             status = executor.check_task_status(task, {})
             self.assertFalse(status.will_run)
@@ -133,7 +139,8 @@ class TestExecutor(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             mock_run.return_value = MagicMock(returncode=0)
 
@@ -164,7 +171,8 @@ class TestExecutor(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             mock_run.return_value = MagicMock(returncode=0)
 
@@ -195,7 +203,8 @@ class TestExecutor(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             mock_run.return_value = MagicMock(returncode=0)
 
@@ -223,7 +232,8 @@ class TestExecutor(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             mock_run.return_value = MagicMock(returncode=0)
 
@@ -267,7 +277,8 @@ class TestExecutor(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             mock_run.return_value = MagicMock(returncode=0)
 
@@ -306,7 +317,8 @@ class TestExecutor(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             mock_run.return_value = MagicMock(returncode=0)
 
@@ -355,7 +367,8 @@ class TestExecutor(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             # Track all operations in order
             call_order = []
@@ -528,7 +541,8 @@ class TestMissingOutputs(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             status = executor.check_task_status(task, {})
             self.assertFalse(status.will_run)
@@ -570,7 +584,8 @@ class TestMissingOutputs(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             status = executor.check_task_status(task, {})
             self.assertTrue(status.will_run)
@@ -614,7 +629,8 @@ class TestMissingOutputs(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             status = executor.check_task_status(task, {})
             self.assertTrue(status.will_run)
@@ -642,7 +658,8 @@ class TestMissingOutputs(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             status = executor.check_task_status(task, {})
             self.assertTrue(status.will_run)
@@ -665,7 +682,8 @@ class TestMissingOutputs(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             status = executor.check_task_status(task, {})
             self.assertTrue(status.will_run)
@@ -712,7 +730,8 @@ class TestMissingOutputs(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             status = executor.check_task_status(task, {})
             self.assertFalse(status.will_run)
@@ -754,7 +773,8 @@ class TestMissingOutputs(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             status = executor.check_task_status(task, {})
             self.assertTrue(status.will_run)
@@ -787,7 +807,8 @@ tasks:
 
             recipe = parse_recipe(recipe_path)
             state_manager = StateManager(project_root)
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             with self.assertRaises(ExecutionError) as cm:
                 executor.execute_task("fail", {})
@@ -814,7 +835,8 @@ tasks:
 
             recipe = parse_recipe(recipe_path)
             state_manager = StateManager(project_root)
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             with self.assertRaises((ExecutionError, FileNotFoundError, OSError)):
                 executor.execute_task("test", {})
@@ -839,7 +861,8 @@ tasks:
 
             recipe = parse_recipe(recipe_path)
             state_manager = StateManager(project_root)
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             with self.assertRaises(ExecutionError):
                 executor.execute_task("test", {})
@@ -870,7 +893,8 @@ tasks:
 
             recipe = parse_recipe(recipe_path)
             state_manager = StateManager(project_root)
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             with self.assertRaises((ExecutionError, PermissionError, OSError)):
                 executor.execute_task("test", {})
@@ -896,7 +920,8 @@ tasks:
 
             recipe = parse_recipe(recipe_path)
             state_manager = StateManager(project_root)
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             with self.assertRaises(ExecutionError) as cm:
                 executor.execute_task("test", {})
@@ -931,7 +956,8 @@ tasks:
 
             recipe = parse_recipe(recipe_path)
             state_manager = StateManager(project_root)
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             # Should not raise - tt.task_name is allowed in working_dir
             executor.execute_task("test-task", {})
@@ -957,7 +983,8 @@ class TestExecutorPrivateMethods(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             result = executor._substitute_args(
                 "echo {{ arg.environment }}", {"environment": "production"}
@@ -982,7 +1009,8 @@ class TestExecutorPrivateMethods(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             result = executor._substitute_args(
                 "deploy {{ arg.app }} to {{ arg.region }}",
@@ -1008,7 +1036,8 @@ class TestExecutorPrivateMethods(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             # Missing argument should raise ValueError
             with self.assertRaises(ValueError) as cm:
@@ -1048,7 +1077,8 @@ class TestExecutorPrivateMethods(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             # Check if inputs changed
             changed = executor._check_inputs_changed(task, cached_state, ["input.txt"])
@@ -1076,7 +1106,8 @@ class TestExecutorPrivateMethods(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             # Check for missing outputs
             missing = executor._check_outputs_missing(task)
@@ -1104,7 +1135,8 @@ class TestExecutorPrivateMethods(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             # Expand multiple patterns
             result = executor._expand_globs(["*.txt", "*.py"], ".")
@@ -1138,7 +1170,8 @@ class TestOnlyMode(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             mock_run.return_value = MagicMock(returncode=0)
 
@@ -1176,7 +1209,8 @@ class TestOnlyMode(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             mock_run.return_value = MagicMock(returncode=0)
 
@@ -1234,7 +1268,8 @@ class TestOnlyMode(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             mock_run.return_value = MagicMock(returncode=0)
 
@@ -1279,7 +1314,8 @@ echo "line3" >> output.txt"""
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             # Let the command actually run (no mocking)
             executor.execute_task("build")
@@ -1326,7 +1362,8 @@ class TestEnvironmentResolution(unittest.TestCase):
                 default_env="dev",
                 global_env_override="prod",  # Global override
             )
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             # Global override should win
             env_name = executor._get_effective_env_name(tasks["build"])
@@ -1356,7 +1393,8 @@ class TestEnvironmentResolution(unittest.TestCase):
                 environments=envs,
                 default_env="prod",
             )
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             # Task env should win over default_env
             env_name = executor._get_effective_env_name(tasks["build"])
@@ -1383,7 +1421,8 @@ class TestEnvironmentResolution(unittest.TestCase):
                 environments=envs,
                 default_env="prod",
             )
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             # Default env should be used
             env_name = executor._get_effective_env_name(tasks["build"])
@@ -1404,7 +1443,8 @@ class TestEnvironmentResolution(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             # No envs defined, should return empty string
             env_name = executor._get_effective_env_name(tasks["build"])
@@ -1434,7 +1474,8 @@ class TestEnvironmentResolution(unittest.TestCase):
                 recipe_path=project_root / "tasktree.yaml",
                 environments=envs,
             )
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             shell, preamble = executor._resolve_environment(tasks["build"])
             self.assertEqual(shell, "zsh")
@@ -1473,7 +1514,8 @@ class TestEnvironmentResolution(unittest.TestCase):
                 recipe_path=project_root / "tasktree.yaml",
                 environments=envs,
             )
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             mock_run.side_effect = capture_script_content
             executor.execute_task("build")
@@ -1538,7 +1580,8 @@ class TestEnvironmentResolution(unittest.TestCase):
                     project_root=project_root,
                     recipe_path=project_root / "tasktree.yaml",
                 )
-                executor = Executor(recipe, state_manager)
+                logger = Logger(Console())
+                executor = Executor(recipe, state_manager, logger)
 
                 mock_run.side_effect = capture_script_content
                 executor._run_task(tasks["test"], {})
@@ -1578,7 +1621,8 @@ class TestEnvironmentResolution(unittest.TestCase):
                     project_root=project_root,
                     recipe_path=project_root / "tasktree.yaml",
                 )
-                executor = Executor(recipe, state_manager)
+                logger = Logger(Console())
+                executor = Executor(recipe, state_manager, logger)
 
                 mock_run.return_value = MagicMock(returncode=0)
                 executor._run_task(tasks["test"], {})
@@ -1614,7 +1658,8 @@ class TestEnvironmentResolution(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(recipe, state_manager, logger)
 
             with self.assertRaises(ValueError) as cm:
                 executor._run_task(tasks["test"], {})

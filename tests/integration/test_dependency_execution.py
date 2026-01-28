@@ -9,10 +9,12 @@ import yaml
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from rich.console import Console
 from typer.testing import CliRunner
 
 from tasktree.cli import app
 from tasktree.executor import Executor
+from tasktree.logging import Logger
 from tasktree.parser import parse_recipe
 from tasktree.state import StateManager
 
@@ -270,7 +272,8 @@ tasks:
             # This creates build-artifact.txt and package.tar.gz
             parsed_recipe = parse_recipe(recipe_path)
             state_manager = StateManager(project_root)
-            executor = Executor(parsed_recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(parsed_recipe, state_manager, logger)
 
             statuses = executor.execute_task("package")
 
@@ -296,7 +299,8 @@ tasks:
             recipe_path.write_text(yaml.dump(recipe))
 
             parsed_recipe = parse_recipe(recipe_path)
-            executor = Executor(parsed_recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(parsed_recipe, state_manager, logger)
 
             statuses = executor.execute_task("package")
 
@@ -356,7 +360,8 @@ tasks:
             # First run: establish baseline
             parsed_recipe = parse_recipe(recipe_path)
             state_manager = StateManager(project_root)
-            executor = Executor(parsed_recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(parsed_recipe, state_manager, logger)
 
             statuses = executor.execute_task("build")
 
@@ -371,7 +376,8 @@ tasks:
             recipe_path.write_text(yaml.dump(recipe))
 
             parsed_recipe = parse_recipe(recipe_path)
-            executor = Executor(parsed_recipe, state_manager)
+            logger = Logger(Console())
+            executor = Executor(parsed_recipe, state_manager, logger)
 
             statuses = executor.execute_task("build")
 
