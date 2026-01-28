@@ -269,9 +269,9 @@ def resolve_execution_order(
     graph: dict[TaskNode, set[TaskNode]] = {}
 
     # Track seen nodes to detect duplicates
-    seen_invocations: dict[tuple[str, str], TaskNode] = (
-        {}
-    )  # (task_name, args_hash) -> node
+    seen_invocations: dict[
+        tuple[str, str], TaskNode
+    ] = {}  # (task_name, args_hash) -> node
 
     def get_or_create_node(task_name: str, args: dict[str, Any] | None) -> TaskNode:
         """Get existing node or create new one for this invocation."""

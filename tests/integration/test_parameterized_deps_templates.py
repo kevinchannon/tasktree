@@ -79,9 +79,9 @@ tasks:
                 text=True,
             )
 
-            assert (
-                result.returncode == 0
-            ), f"Command failed: {result.stderr}\nStdout: {result.stdout}"
+            assert result.returncode == 0, (
+                f"Command failed: {result.stderr}\nStdout: {result.stdout}"
+            )
             # build should be called with mode=release
             assert "build_mode=release" in result.stdout
             # deploy should be called with m=release

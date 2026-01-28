@@ -368,7 +368,11 @@ class TestExecutor(unittest.TestCase):
             original_chmod = os.chmod
 
             def mock_chmod_func(path, mode):
-                nonlocal captured_chmod_path, captured_chmod_mode, captured_script_path, captured_script_content
+                nonlocal \
+                    captured_chmod_path, \
+                    captured_chmod_mode, \
+                    captured_script_path, \
+                    captured_script_content
                 call_order.append("chmod")
                 captured_chmod_path = str(path)
                 captured_chmod_mode = mode

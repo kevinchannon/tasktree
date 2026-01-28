@@ -290,9 +290,9 @@ tasks:
 
             # Second run: build task runs (no inputs) but produces no changes
             # Change build command to do nothing (simulates cargo/make finding nothing to do)
-            recipe["tasks"]["build"][
-                "cmd"
-            ] = 'echo "checking dependencies, nothing to do"'
+            recipe["tasks"]["build"]["cmd"] = (
+                'echo "checking dependencies, nothing to do"'
+            )
             recipe_path.write_text(yaml.dump(recipe))
 
             parsed_recipe = parse_recipe(recipe_path)
@@ -308,20 +308,20 @@ tasks:
             # Verify build-artifact.txt mtime unchanged
             # (build command didn't touch it)
             current_mtime = build_artifact_path.stat().st_mtime
-            assert (
-                current_mtime == original_mtime
-            ), f"Build artifact mtime changed unexpectedly: {original_mtime} -> {current_mtime}"
+            assert current_mtime == original_mtime, (
+                f"Build artifact mtime changed unexpectedly: {original_mtime} -> {current_mtime}"
+            )
 
             # BUG FIX VERIFICATION: Package task should NOT run
             # because build's implicit output (build-artifact.txt) has unchanged mtime
             # This is the CORE assertion that verifies the bug is fixed
-            assert not statuses[
-                "package"
-            ].will_run, f"Package should not run when dependency produces no changes, but will_run={statuses['package'].will_run}, reason={statuses['package'].reason}"
+            assert not statuses["package"].will_run, (
+                f"Package should not run when dependency produces no changes, but will_run={statuses['package'].will_run}, reason={statuses['package'].reason}"
+            )
 
-            assert (
-                statuses["package"].reason == "fresh"
-            ), f"Package should be fresh, but reason={statuses['package'].reason}"
+            assert statuses["package"].reason == "fresh", (
+                f"Package should be fresh, but reason={statuses['package'].reason}"
+            )
 
     def test_dependency_actually_changes_outputs(self):
         """
@@ -381,9 +381,9 @@ tasks:
             assert statuses["generate"].reason in ["no_outputs", "never_run"]
 
             # Build SHOULD run because generate's output changed
-            assert statuses[
-                "build"
-            ].will_run, "Build should run when dependency output changes"
+            assert statuses["build"].will_run, (
+                "Build should run when dependency output changes"
+            )
             # Reason could be "inputs_changed" or "never_run" (if generate's definition change
             # cascades to make build's implicit inputs appear as first-time)
             assert statuses["build"].reason in [

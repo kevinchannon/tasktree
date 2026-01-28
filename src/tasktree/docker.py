@@ -47,9 +47,9 @@ class DockerManager:
         @athena: eb7d4c5a27aa
         """
         self._project_root = project_root
-        self._built_images: dict[str, tuple[str, str]] = (
-            {}
-        )  # env_name -> (image_tag, image_id) cache
+        self._built_images: dict[
+            str, tuple[str, str]
+        ] = {}  # env_name -> (image_tag, image_id) cache
 
     @staticmethod
     def _should_add_user_flag() -> bool:
