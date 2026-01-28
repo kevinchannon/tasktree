@@ -265,6 +265,7 @@ class TestExecutor(unittest.TestCase):
         Test _run_command_as_script with preamble.
         @athena: 0d623d315756
         """
+        logger_fn = lambda *args, **kwargs: None
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -1484,6 +1485,7 @@ class TestEnvironmentResolution(unittest.TestCase):
         Test that custom shell from environment is used for execution.
         @athena: 2e5ff72c2968
         """
+        logger_fn = lambda *args, **kwargs: None
         import platform
 
         captured_script_content = []
@@ -1548,6 +1550,7 @@ class TestEnvironmentResolution(unittest.TestCase):
         Test that _run_task substitutes environment variables.
         @athena: c58b5584299e
         """
+        logger_fn = lambda *args, **kwargs: None
         os.environ["TEST_ENV_VAR"] = "test_value"
         captured_script_content = []
 
