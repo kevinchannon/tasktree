@@ -49,14 +49,14 @@ tasks:
 """)
 
                 # Run task
-                result = self.runner.invoke(
-                    app,
-                    ["test-single"],
-                    env=self.env
-                )
+                result = self.runner.invoke(app, ["test-single"], env=self.env)
 
                 # Verify execution succeeded
-                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}\n{result.stderr}")
+                self.assertEqual(
+                    result.exit_code,
+                    0,
+                    f"Command failed: {result.stdout}\n{result.stderr}",
+                )
 
                 # Verify output file was created
                 self.assertTrue(output_file.exists(), "Output file was not created")
@@ -91,14 +91,14 @@ tasks:
 """)
 
                 # Run task
-                result = self.runner.invoke(
-                    app,
-                    ["test-multi"],
-                    env=self.env
-                )
+                result = self.runner.invoke(app, ["test-multi"], env=self.env)
 
                 # Verify execution succeeded
-                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}\n{result.stderr}")
+                self.assertEqual(
+                    result.exit_code,
+                    0,
+                    f"Command failed: {result.stdout}\n{result.stderr}",
+                )
 
                 # Verify output file was created with both lines
                 self.assertTrue(output_file.exists(), "Output file was not created")
@@ -141,14 +141,14 @@ tasks:
 """)
 
                 # Run task
-                result = self.runner.invoke(
-                    app,
-                    ["test-preamble"],
-                    env=self.env
-                )
+                result = self.runner.invoke(app, ["test-preamble"], env=self.env)
 
                 # Verify execution succeeded
-                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}\n{result.stderr}")
+                self.assertEqual(
+                    result.exit_code,
+                    0,
+                    f"Command failed: {result.stdout}\n{result.stderr}",
+                )
 
                 # Verify preamble environment variable was set
                 self.assertTrue(output_file.exists(), "Output file was not created")
@@ -192,14 +192,14 @@ tasks:
 """)
 
                 # Run task
-                result = self.runner.invoke(
-                    app,
-                    ["test-multi-preamble"],
-                    env=self.env
-                )
+                result = self.runner.invoke(app, ["test-multi-preamble"], env=self.env)
 
                 # Verify execution succeeded
-                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}\n{result.stderr}")
+                self.assertEqual(
+                    result.exit_code,
+                    0,
+                    f"Command failed: {result.stdout}\n{result.stderr}",
+                )
 
                 # Verify preamble variable was used
                 self.assertTrue(output_file.exists(), "Output file was not created")

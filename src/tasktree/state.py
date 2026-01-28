@@ -71,8 +71,7 @@ class StateManager:
                 with open(self.state_path, "r") as f:
                     data = json.load(f)
                     self._state = {
-                        key: TaskState.from_dict(value)
-                        for key, value in data.items()
+                        key: TaskState.from_dict(value) for key, value in data.items()
                     }
             except (json.JSONDecodeError, KeyError):
                 # If state file is corrupted, start fresh

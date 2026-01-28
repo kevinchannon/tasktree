@@ -315,40 +315,40 @@ class TestSubstituteEnvironment(unittest.TestCase):
         Test basic {{ env.VAR }} substitution.
         @athena: 0e7dc1c6c162
         """
-        os.environ['TEST_VAR'] = 'test_value'
+        os.environ["TEST_VAR"] = "test_value"
         try:
             result = substitute_environment("Hello {{ env.TEST_VAR }}!")
             self.assertEqual(result, "Hello test_value!")
         finally:
-            del os.environ['TEST_VAR']
+            del os.environ["TEST_VAR"]
 
     def test_substitute_multiple_env_vars(self):
         """
         Test multiple different env vars in same string.
         @athena: 21d70f35934b
         """
-        os.environ['VAR1'] = 'value1'
-        os.environ['VAR2'] = 'value2'
+        os.environ["VAR1"] = "value1"
+        os.environ["VAR2"] = "value2"
         try:
             text = "{{ env.VAR1 }} and {{ env.VAR2 }}"
             result = substitute_environment(text)
             self.assertEqual(result, "value1 and value2")
         finally:
-            del os.environ['VAR1']
-            del os.environ['VAR2']
+            del os.environ["VAR1"]
+            del os.environ["VAR2"]
 
     def test_substitute_same_env_var_multiple_times(self):
         """
         Test same env var appears multiple times.
         @athena: 94eae079b944
         """
-        os.environ['USER'] = 'testuser'
+        os.environ["USER"] = "testuser"
         try:
             text = "{{ env.USER }} says hello to {{ env.USER }}"
             result = substitute_environment(text)
             self.assertEqual(result, "testuser says hello to testuser")
         finally:
-            del os.environ['USER']
+            del os.environ["USER"]
 
     def test_substitute_no_placeholders(self):
         """
@@ -364,26 +364,26 @@ class TestSubstituteEnvironment(unittest.TestCase):
         Test {{ var.name }} is not substituted.
         @athena: d73f10a596c8
         """
-        os.environ['FOO'] = 'env_foo'
+        os.environ["FOO"] = "env_foo"
         try:
             text = "{{ env.FOO }} {{ var.bar }}"
             result = substitute_environment(text)
             self.assertEqual(result, "env_foo {{ var.bar }}")
         finally:
-            del os.environ['FOO']
+            del os.environ["FOO"]
 
     def test_substitute_ignores_arg_prefix(self):
         """
         Test {{ arg.name }} is not substituted.
         @athena: 7109ca0a3082
         """
-        os.environ['FOO'] = 'env_foo'
+        os.environ["FOO"] = "env_foo"
         try:
             text = "{{ env.FOO }} {{ arg.bar }}"
             result = substitute_environment(text)
             self.assertEqual(result, "env_foo {{ arg.bar }}")
         finally:
-            del os.environ['FOO']
+            del os.environ["FOO"]
 
     def test_substitute_undefined_env_var_raises(self):
         """
@@ -391,8 +391,8 @@ class TestSubstituteEnvironment(unittest.TestCase):
         @athena: 1a1f5f35641b
         """
         # Make sure var is not set
-        if 'DEFINITELY_NOT_SET_VAR' in os.environ:
-            del os.environ['DEFINITELY_NOT_SET_VAR']
+        if "DEFINITELY_NOT_SET_VAR" in os.environ:
+            del os.environ["DEFINITELY_NOT_SET_VAR"]
 
         with self.assertRaises(ValueError) as cm:
             substitute_environment("{{ env.DEFINITELY_NOT_SET_VAR }}")
@@ -404,7 +404,7 @@ class TestSubstituteEnvironment(unittest.TestCase):
         Test whitespace handling in placeholders.
         @athena: c8222bbc681d
         """
-        os.environ['TEST_VAR'] = 'value'
+        os.environ["TEST_VAR"] = "value"
         try:
             test_cases = [
                 ("{{env.TEST_VAR}}", "value"),
@@ -414,34 +414,36 @@ class TestSubstituteEnvironment(unittest.TestCase):
                 result = substitute_environment(text)
                 self.assertEqual(result, expected)
         finally:
-            del os.environ['TEST_VAR']
+            del os.environ["TEST_VAR"]
 
     def test_substitute_empty_string_value(self):
         """
         Test env var with empty string value.
         @athena: 13bffb4a715f
         """
-        os.environ['EMPTY_VAR'] = ''
+        os.environ["EMPTY_VAR"] = ""
         try:
             result = substitute_environment("foo{{ env.EMPTY_VAR }}bar")
             self.assertEqual(result, "foobar")
         finally:
-            del os.environ['EMPTY_VAR']
+            del os.environ["EMPTY_VAR"]
 
     def test_substitute_in_complex_command(self):
         """
         Test substitution in realistic command string.
         @athena: 2c53bc66e77c
         """
-        os.environ['DEPLOY_USER'] = 'admin'
-        os.environ['DEPLOY_HOST'] = 'prod.example.com'
+        os.environ["DEPLOY_USER"] = "admin"
+        os.environ["DEPLOY_HOST"] = "prod.example.com"
         try:
-            text = 'scp package.tar.gz {{ env.DEPLOY_USER }}@{{ env.DEPLOY_HOST }}:/opt/'
+            text = (
+                "scp package.tar.gz {{ env.DEPLOY_USER }}@{{ env.DEPLOY_HOST }}:/opt/"
+            )
             result = substitute_environment(text)
-            self.assertEqual(result, 'scp package.tar.gz admin@prod.example.com:/opt/')
+            self.assertEqual(result, "scp package.tar.gz admin@prod.example.com:/opt/")
         finally:
-            del os.environ['DEPLOY_USER']
-            del os.environ['DEPLOY_HOST']
+            del os.environ["DEPLOY_USER"]
+            del os.environ["DEPLOY_HOST"]
 
 
 class TestSubstituteBuiltinVariables(unittest.TestCase):
@@ -456,7 +458,9 @@ class TestSubstituteBuiltinVariables(unittest.TestCase):
         @athena: a2c34f2094b9
         """
         builtin_vars = {"project_root": "/home/user/project"}
-        result = substitute_builtin_variables("Root: {{ tt.project_root }}", builtin_vars)
+        result = substitute_builtin_variables(
+            "Root: {{ tt.project_root }}", builtin_vars
+        )
         self.assertEqual(result, "Root: /home/user/project")
 
     def test_substitute_multiple_builtin_vars(self):
@@ -594,9 +598,11 @@ class TestSubstituteBuiltinVariables(unittest.TestCase):
             "project_root": "/home/user/project",
             "timestamp_unix": "1703772645",
         }
-        text = 'tar czf {{ tt.project_root }}/dist/app-{{ tt.timestamp_unix }}.tar.gz .'
+        text = "tar czf {{ tt.project_root }}/dist/app-{{ tt.timestamp_unix }}.tar.gz ."
         result = substitute_builtin_variables(text, builtin_vars)
-        self.assertEqual(result, 'tar czf /home/user/project/dist/app-1703772645.tar.gz .')
+        self.assertEqual(
+            result, "tar czf /home/user/project/dist/app-1703772645.tar.gz ."
+        )
 
 
 class TestSubstituteAll(unittest.TestCase):
@@ -653,7 +659,7 @@ class TestSubstituteAll(unittest.TestCase):
         Test variables, arguments, and environment all work together.
         @athena: cbaba5e97f35
         """
-        os.environ['ENV_VAR'] = 'from_env'
+        os.environ["ENV_VAR"] = "from_env"
         try:
             text = "{{ var.v }} {{ arg.a }} {{ env.ENV_VAR }}"
             variables = {"v": "from_var"}
@@ -661,14 +667,14 @@ class TestSubstituteAll(unittest.TestCase):
             result = substitute_all(text, variables, args)
             self.assertEqual(result, "from_var from_arg from_env")
         finally:
-            del os.environ['ENV_VAR']
+            del os.environ["ENV_VAR"]
 
     def test_substitute_order_var_then_arg_then_env(self):
         """
         Test substitution happens in correct order.
         @athena: ac8023cd9cec
         """
-        os.environ['PORT'] = '9000'
+        os.environ["PORT"] = "9000"
         try:
             # Variable contains arg placeholder, which contains env placeholder
             text = "{{ var.template }}"
@@ -677,7 +683,7 @@ class TestSubstituteAll(unittest.TestCase):
             result = substitute_all(text, variables, args)
             self.assertEqual(result, "server=host:9000")
         finally:
-            del os.environ['PORT']
+            del os.environ["PORT"]
 
 
 class TestDepOutputPattern(unittest.TestCase):
@@ -752,7 +758,9 @@ class TestDepOutputPattern(unittest.TestCase):
         Test pattern finds all references in text.
         @athena: 3662fe0ee5f4
         """
-        text = "Deploy {{ dep.build.outputs.bundle }} and {{ dep.compile.outputs.binary }}"
+        text = (
+            "Deploy {{ dep.build.outputs.bundle }} and {{ dep.compile.outputs.binary }}"
+        )
         matches = list(DEP_OUTPUT_PATTERN.finditer(text))
         self.assertEqual(len(matches), 2)
         self.assertEqual(matches[0].group(1), "build")
@@ -792,13 +800,15 @@ class TestSubstituteDependencyOutputs(unittest.TestCase):
         build_task = Task(name="build", cmd="build.sh")
         build_task.outputs = [
             {"bundle": "dist/app.js"},
-            {"sourcemap": "dist/app.js.map"}
+            {"sourcemap": "dist/app.js.map"},
         ]
         build_task.__post_init__()
 
         resolved_tasks = {"build": build_task}
 
-        text = "Copy {{ dep.build.outputs.bundle }} and {{ dep.build.outputs.sourcemap }}"
+        text = (
+            "Copy {{ dep.build.outputs.bundle }} and {{ dep.build.outputs.sourcemap }}"
+        )
         result = substitute_dependency_outputs(
             text, "deploy", ["build"], resolved_tasks
         )
@@ -864,7 +874,10 @@ class TestSubstituteDependencyOutputs(unittest.TestCase):
         text = "Deploy {{ dep.build.outputs.bundle }}"
         with self.assertRaises(ValueError) as cm:
             substitute_dependency_outputs(
-                text, "deploy", ["other"], resolved_tasks  # build not in deps
+                text,
+                "deploy",
+                ["other"],
+                resolved_tasks,  # build not in deps
             )
 
         error_msg = str(cm.exception)
@@ -924,7 +937,9 @@ class TestSubstituteDependencyOutputs(unittest.TestCase):
 
         # Text with both dep and other placeholders
         text = "Deploy {{ dep.build.outputs.bundle }} to {{ env.SERVER }}"
-        result = substitute_dependency_outputs(text, "deploy", ["build"], resolved_tasks)
+        result = substitute_dependency_outputs(
+            text, "deploy", ["build"], resolved_tasks
+        )
 
         # Only dep placeholder should be substituted
         self.assertEqual(result, "Deploy dist/app.js to {{ env.SERVER }}")
@@ -1139,7 +1154,9 @@ class TestSubstituteSelfReferences(unittest.TestCase):
         input_map = {"src": "src/app.js"}
         output_map = {}
         text = "cat {{ self.inputs.src }}"
-        result = substitute_self_references(text, "build", input_map, output_map, [], [])
+        result = substitute_self_references(
+            text, "build", input_map, output_map, [], []
+        )
         self.assertEqual(result, "cat src/app.js")
 
     def test_substitute_single_output(self):
@@ -1150,7 +1167,9 @@ class TestSubstituteSelfReferences(unittest.TestCase):
         input_map = {}
         output_map = {"dest": "dist/app.js"}
         text = "echo {{ self.outputs.dest }}"
-        result = substitute_self_references(text, "build", input_map, output_map, [], [])
+        result = substitute_self_references(
+            text, "build", input_map, output_map, [], []
+        )
         self.assertEqual(result, "echo dist/app.js")
 
     def test_substitute_multiple_references(self):
@@ -1161,7 +1180,9 @@ class TestSubstituteSelfReferences(unittest.TestCase):
         input_map = {"src": "src/main.c", "headers": "include/*.h"}
         output_map = {"binary": "build/app"}
         text = "gcc {{ self.inputs.src }} -I {{ self.inputs.headers }} -o {{ self.outputs.binary }}"
-        result = substitute_self_references(text, "compile", input_map, output_map, [], [])
+        result = substitute_self_references(
+            text, "compile", input_map, output_map, [], []
+        )
         self.assertEqual(result, "gcc src/main.c -I include/*.h -o build/app")
 
     def test_substitute_mixed_inputs_and_outputs(self):
@@ -1172,7 +1193,9 @@ class TestSubstituteSelfReferences(unittest.TestCase):
         input_map = {"config": "config.json"}
         output_map = {"log": "build.log"}
         text = "build --config {{ self.inputs.config }} --log {{ self.outputs.log }}"
-        result = substitute_self_references(text, "build", input_map, output_map, [], [])
+        result = substitute_self_references(
+            text, "build", input_map, output_map, [], []
+        )
         self.assertEqual(result, "build --config config.json --log build.log")
 
     def test_substitute_glob_pattern_verbatim(self):
@@ -1183,7 +1206,9 @@ class TestSubstituteSelfReferences(unittest.TestCase):
         input_map = {"sources": "src/**/*.js"}
         output_map = {"bundle": "dist/*.min.js"}
         text = "bundle {{ self.inputs.sources }} to {{ self.outputs.bundle }}"
-        result = substitute_self_references(text, "bundle", input_map, output_map, [], [])
+        result = substitute_self_references(
+            text, "bundle", input_map, output_map, [], []
+        )
         # Glob patterns should be substituted verbatim, not expanded
         self.assertEqual(result, "bundle src/**/*.js to dist/*.min.js")
 
@@ -1272,7 +1297,9 @@ class TestSubstituteSelfReferences(unittest.TestCase):
         text = "cp {{ self.inputs.src }} {{ var.temp }} {{ arg.mode }} {{ env.USER }} {{ self.outputs.dest }}"
         result = substitute_self_references(text, "copy", input_map, output_map, [], [])
         # Only self references should be substituted
-        self.assertEqual(result, "cp file.txt {{ var.temp }} {{ arg.mode }} {{ env.USER }} out.txt")
+        self.assertEqual(
+            result, "cp file.txt {{ var.temp }} {{ arg.mode }} {{ env.USER }} out.txt"
+        )
 
     def test_substitute_same_reference_multiple_times(self):
         """
@@ -1293,7 +1320,9 @@ class TestSubstituteSelfReferences(unittest.TestCase):
         input_map = {"source_file": "src/main.c", "header_files": "include/*.h"}
         output_map = {"output_binary": "bin/app"}
         text = "gcc {{ self.inputs.source_file }} -I {{ self.inputs.header_files }} -o {{ self.outputs.output_binary }}"
-        result = substitute_self_references(text, "compile", input_map, output_map, [], [])
+        result = substitute_self_references(
+            text, "compile", input_map, output_map, [], []
+        )
         self.assertEqual(result, "gcc src/main.c -I include/*.h -o bin/app")
 
     def test_substitute_empty_string(self):
@@ -1317,7 +1346,9 @@ class TestSubstituteSelfReferences(unittest.TestCase):
         indexed_inputs = ["src/app.js", "config.json"]
         indexed_outputs = []
         text = "cat {{ self.inputs.0 }}"
-        result = substitute_self_references(text, "build", input_map, output_map, indexed_inputs, indexed_outputs)
+        result = substitute_self_references(
+            text, "build", input_map, output_map, indexed_inputs, indexed_outputs
+        )
         self.assertEqual(result, "cat src/app.js")
 
     def test_substitute_positional_output(self):
@@ -1330,7 +1361,9 @@ class TestSubstituteSelfReferences(unittest.TestCase):
         indexed_inputs = []
         indexed_outputs = ["dist/bundle.js", "dist/bundle.css"]
         text = "echo {{ self.outputs.0 }}"
-        result = substitute_self_references(text, "build", input_map, output_map, indexed_inputs, indexed_outputs)
+        result = substitute_self_references(
+            text, "build", input_map, output_map, indexed_inputs, indexed_outputs
+        )
         self.assertEqual(result, "echo dist/bundle.js")
 
     def test_substitute_multiple_positional_references(self):
@@ -1343,8 +1376,12 @@ class TestSubstituteSelfReferences(unittest.TestCase):
         indexed_inputs = ["src/main.c", "src/util.c", "include/*.h"]
         indexed_outputs = ["build/app", "build/app.debug"]
         text = "gcc {{ self.inputs.0 }} {{ self.inputs.1 }} -I {{ self.inputs.2 }} -o {{ self.outputs.0 }}"
-        result = substitute_self_references(text, "compile", input_map, output_map, indexed_inputs, indexed_outputs)
-        self.assertEqual(result, "gcc src/main.c src/util.c -I include/*.h -o build/app")
+        result = substitute_self_references(
+            text, "compile", input_map, output_map, indexed_inputs, indexed_outputs
+        )
+        self.assertEqual(
+            result, "gcc src/main.c src/util.c -I include/*.h -o build/app"
+        )
 
     def test_substitute_mixed_named_and_positional(self):
         """
@@ -1356,7 +1393,9 @@ class TestSubstituteSelfReferences(unittest.TestCase):
         indexed_inputs = ["src/main.js", "app.json"]
         indexed_outputs = ["dist/bundle.js", "build.log"]
         text = "build {{ self.inputs.0 }} --config {{ self.inputs.config }} --log {{ self.outputs.1 }}"
-        result = substitute_self_references(text, "build", input_map, output_map, indexed_inputs, indexed_outputs)
+        result = substitute_self_references(
+            text, "build", input_map, output_map, indexed_inputs, indexed_outputs
+        )
         self.assertEqual(result, "build src/main.js --config app.json --log build.log")
 
     def test_substitute_same_item_by_name_and_index(self):
@@ -1369,7 +1408,9 @@ class TestSubstituteSelfReferences(unittest.TestCase):
         indexed_inputs = ["src/app.js"]
         indexed_outputs = []
         text = "cat {{ self.inputs.src }} > copy && cat {{ self.inputs.0 }} > copy2"
-        result = substitute_self_references(text, "copy", input_map, output_map, indexed_inputs, indexed_outputs)
+        result = substitute_self_references(
+            text, "copy", input_map, output_map, indexed_inputs, indexed_outputs
+        )
         self.assertEqual(result, "cat src/app.js > copy && cat src/app.js > copy2")
 
     def test_error_on_out_of_bounds_input_index(self):
@@ -1383,7 +1424,9 @@ class TestSubstituteSelfReferences(unittest.TestCase):
         indexed_outputs = []
         text = "cat {{ self.inputs.5 }}"
         with self.assertRaises(ValueError) as cm:
-            substitute_self_references(text, "build", input_map, output_map, indexed_inputs, indexed_outputs)
+            substitute_self_references(
+                text, "build", input_map, output_map, indexed_inputs, indexed_outputs
+            )
         error_msg = str(cm.exception)
         self.assertIn("build", error_msg)
         self.assertIn("input index '5'", error_msg)
@@ -1401,7 +1444,9 @@ class TestSubstituteSelfReferences(unittest.TestCase):
         indexed_outputs = ["out.txt"]
         text = "echo {{ self.outputs.3 }}"
         with self.assertRaises(ValueError) as cm:
-            substitute_self_references(text, "task", input_map, output_map, indexed_inputs, indexed_outputs)
+            substitute_self_references(
+                text, "task", input_map, output_map, indexed_inputs, indexed_outputs
+            )
         error_msg = str(cm.exception)
         self.assertIn("task", error_msg)
         self.assertIn("output index '3'", error_msg)
@@ -1419,7 +1464,9 @@ class TestSubstituteSelfReferences(unittest.TestCase):
         indexed_outputs = []
         text = "cat {{ self.inputs.0 }}"
         with self.assertRaises(ValueError) as cm:
-            substitute_self_references(text, "build", input_map, output_map, indexed_inputs, indexed_outputs)
+            substitute_self_references(
+                text, "build", input_map, output_map, indexed_inputs, indexed_outputs
+            )
         error_msg = str(cm.exception)
         self.assertIn("build", error_msg)
         self.assertIn("input index '0'", error_msg)
@@ -1436,7 +1483,9 @@ class TestSubstituteSelfReferences(unittest.TestCase):
         indexed_outputs = []
         text = "echo {{ self.outputs.0 }}"
         with self.assertRaises(ValueError) as cm:
-            substitute_self_references(text, "task", input_map, output_map, indexed_inputs, indexed_outputs)
+            substitute_self_references(
+                text, "task", input_map, output_map, indexed_inputs, indexed_outputs
+            )
         error_msg = str(cm.exception)
         self.assertIn("task", error_msg)
         self.assertIn("output index '0'", error_msg)
@@ -1452,7 +1501,9 @@ class TestSubstituteSelfReferences(unittest.TestCase):
         indexed_inputs = ["src/**/*.js", "*.json"]
         indexed_outputs = ["dist/*.min.js"]
         text = "bundle {{ self.inputs.0 }} {{ self.inputs.1 }} to {{ self.outputs.0 }}"
-        result = substitute_self_references(text, "bundle", input_map, output_map, indexed_inputs, indexed_outputs)
+        result = substitute_self_references(
+            text, "bundle", input_map, output_map, indexed_inputs, indexed_outputs
+        )
         # Globs should be substituted verbatim, not expanded
         self.assertEqual(result, "bundle src/**/*.js *.json to dist/*.min.js")
 

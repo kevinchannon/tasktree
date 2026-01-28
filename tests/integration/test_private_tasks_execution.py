@@ -16,8 +16,8 @@ def strip_ansi_codes(text: str) -> str:
     Remove ANSI escape sequences from text.
     @athena: 90023a269128
     """
-    ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
-    return ansi_escape.sub('', text)
+    ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
+    return ansi_escape.sub("", text)
 
 
 class TestPrivateTasksExecution(unittest.TestCase):
@@ -90,7 +90,9 @@ tasks:
 
                 result = self.runner.invoke(app, ["private-task"], env=self.env)
                 self.assertEqual(result.exit_code, 0)
-                self.assertIn("Task 'private-task' completed successfully", result.stdout)
+                self.assertIn(
+                    "Task 'private-task' completed successfully", result.stdout
+                )
             finally:
                 os.chdir(original_cwd)
 
@@ -148,9 +150,13 @@ tasks:
             try:
                 os.chdir(project_root)
 
-                result = self.runner.invoke(app, ["private-with-args", "debug"], env=self.env)
+                result = self.runner.invoke(
+                    app, ["private-with-args", "debug"], env=self.env
+                )
                 self.assertEqual(result.exit_code, 0)
-                self.assertIn("Task 'private-with-args' completed successfully", result.stdout)
+                self.assertIn(
+                    "Task 'private-with-args' completed successfully", result.stdout
+                )
             finally:
                 os.chdir(original_cwd)
 
@@ -252,7 +258,9 @@ tasks:
                 # But private task can still be executed
                 result = self.runner.invoke(app, ["base.helper"], env=self.env)
                 self.assertEqual(result.exit_code, 0)
-                self.assertIn("Task 'base.helper' completed successfully", result.stdout)
+                self.assertIn(
+                    "Task 'base.helper' completed successfully", result.stdout
+                )
             finally:
                 os.chdir(original_cwd)
 

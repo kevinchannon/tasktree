@@ -14,11 +14,16 @@ from pathlib import Path
 from typing import Any
 
 from tasktree import docker as docker_module
-from tasktree.graph import get_implicit_inputs, resolve_execution_order, resolve_dependency_output_references, \
-    resolve_self_references
+from tasktree.graph import (
+    get_implicit_inputs,
+    resolve_execution_order,
+    resolve_dependency_output_references,
+    resolve_self_references,
+)
 from tasktree.hasher import hash_args, hash_task, make_cache_key
 from tasktree.parser import Recipe, Task, Environment
 from tasktree.state import StateManager, TaskState
+from tasktree.hasher import hash_environment_definition
 
 
 @dataclass
@@ -53,14 +58,14 @@ class Executor:
 
     # Protected environment variables that cannot be overridden by exported args
     PROTECTED_ENV_VARS = {
-        'PATH',
-        'LD_LIBRARY_PATH',
-        'LD_PRELOAD',
-        'PYTHONPATH',
-        'HOME',
-        'SHELL',
-        'USER',
-        'LOGNAME',
+        "PATH",
+        "LD_LIBRARY_PATH",
+        "LD_PRELOAD",
+        "PYTHONPATH",
+        "HOME",
+        "SHELL",
+        "USER",
+        "LOGNAME",
     }
 
     def __init__(self, recipe: Recipe, state_manager: StateManager):
@@ -96,13 +101,13 @@ class Executor:
             # Handle both string and dict arg specs
             if isinstance(arg_spec, str):
                 # Remove default value part if present
-                arg_name = arg_spec.split('=')[0].split(':')[0].strip()
-                if not arg_name.startswith('$'):
+                arg_name = arg_spec.split("=")[0].split(":")[0].strip()
+                if not arg_name.startswith("$"):
                     return True
             elif isinstance(arg_spec, dict):
                 # Dict format: { argname: { ... } } or { $argname: { ... } }
                 for key in arg_spec.keys():
-                    if not key.startswith('$'):
+                    if not key.startswith("$"):
                         return True
 
         return False
@@ -127,18 +132,20 @@ class Executor:
         exported_names = set()
         for arg_spec in task.args:
             if isinstance(arg_spec, str):
-                arg_name = arg_spec.split('=')[0].split(':')[0].strip()
-                if arg_name.startswith('$'):
+                arg_name = arg_spec.split("=")[0].split(":")[0].strip()
+                if arg_name.startswith("$"):
                     exported_names.add(arg_name[1:])  # Remove $ prefix
             elif isinstance(arg_spec, dict):
                 for key in arg_spec.keys():
-                    if key.startswith('$'):
+                    if key.startswith("$"):
                         exported_names.add(key[1:])  # Remove $ prefix
 
         # Filter out exported args
         return {k: v for k, v in task_args.items() if k not in exported_names}
 
-    def _collect_early_builtin_variables(self, task: Task, timestamp: datetime) -> dict[str, str]:
+    def _collect_early_builtin_variables(
+        self, task: Task, timestamp: datetime
+    ) -> dict[str, str]:
         """
         Collect built-in variables that don't depend on working_dir.
 
@@ -159,21 +166,21 @@ class Executor:
 
         builtin_vars = {
             # {{ tt.project_root }} - Absolute path to project root
-            'project_root': str(self.recipe.project_root.resolve()),
+            "project_root": str(self.recipe.project_root.resolve()),
             # {{ tt.recipe_dir }} - Absolute path to directory containing the recipe file
-            'recipe_dir': str(self.recipe.recipe_path.parent.resolve()),
+            "recipe_dir": str(self.recipe.recipe_path.parent.resolve()),
             # {{ tt.task_name }} - Name of currently executing task
-            'task_name': task.name,
+            "task_name": task.name,
             # {{ tt.timestamp }} - ISO8601 timestamp when task started execution
-            'timestamp': timestamp.strftime('%Y-%m-%dT%H:%M:%SZ'),
+            "timestamp": timestamp.strftime("%Y-%m-%dT%H:%M:%SZ"),
             # {{ tt.timestamp_unix }} - Unix epoch timestamp when task started
-            'timestamp_unix': str(int(timestamp.timestamp()))
+            "timestamp_unix": str(int(timestamp.timestamp())),
         }
 
         # {{ tt.user_home }} - Current user's home directory (cross-platform)
         try:
             user_home = Path.home()
-            builtin_vars['user_home'] = str(user_home)
+            builtin_vars["user_home"] = str(user_home)
         except Exception as e:
             raise ExecutionError(
                 f"Failed to get user home directory for {{ tt.user_home }}: {e}"
@@ -184,12 +191,16 @@ class Executor:
             user_name = os.getlogin()
         except OSError:
             # Fallback to environment variables if os.getlogin() fails
-            user_name = os.environ.get('USER') or os.environ.get('USERNAME') or 'unknown'
-        builtin_vars['user_name'] = user_name
+            user_name = (
+                os.environ.get("USER") or os.environ.get("USERNAME") or "unknown"
+            )
+        builtin_vars["user_name"] = user_name
 
         return builtin_vars
 
-    def _collect_builtin_variables(self, task: Task, working_dir: Path, timestamp: datetime) -> dict[str, str]:
+    def _collect_builtin_variables(
+        self, task: Task, working_dir: Path, timestamp: datetime
+    ) -> dict[str, str]:
         """
         Collect built-in variables for task execution.
 
@@ -210,11 +221,13 @@ class Executor:
 
         # {{ tt.working_dir }} - Absolute path to task's effective working directory
         # This is added after working_dir is resolved to avoid circular dependency
-        builtin_vars['working_dir'] = str(working_dir.resolve())
+        builtin_vars["working_dir"] = str(working_dir.resolve())
 
         return builtin_vars
 
-    def _prepare_env_with_exports(self, exported_env_vars: dict[str, str] | None = None) -> dict[str, str]:
+    def _prepare_env_with_exports(
+        self, exported_env_vars: dict[str, str] | None = None
+    ) -> dict[str, str]:
         """
         Prepare environment with exported arguments.
 
@@ -327,10 +340,10 @@ class Executor:
         return shell, ""
 
     def check_task_status(
-            self,
-            task: Task,
-            args_dict: dict[str, Any],
-            force: bool = False,
+        self,
+        task: Task,
+        args_dict: dict[str, Any],
+        force: bool = False,
     ) -> TaskStatus:
         """
         Check if a task needs to run.
@@ -364,7 +377,14 @@ class Executor:
 
         # Compute hashes (include effective environment and dependencies)
         effective_env = self._get_effective_env_name(task)
-        task_hash = hash_task(task.cmd, task.outputs, task.working_dir, task.args, effective_env, task.deps)
+        task_hash = hash_task(
+            task.cmd,
+            task.outputs,
+            task.working_dir,
+            task.args,
+            effective_env,
+            task.deps,
+        )
         args_hash = hash_args(args_dict) if args_dict else None
         cache_key = make_cache_key(task_hash, args_hash)
 
@@ -427,11 +447,11 @@ class Executor:
         )
 
     def execute_task(
-            self,
-            task_name: str,
-            args_dict: dict[str, Any] | None = None,
-            force: bool = False,
-            only: bool = False,
+        self,
+        task_name: str,
+        args_dict: dict[str, Any] | None = None,
+        force: bool = False,
+        only: bool = False,
     ) -> dict[str, TaskStatus]:
         """
         Execute a task and its dependencies.
@@ -487,13 +507,20 @@ class Executor:
             # Only include regular (non-exported) args in status key for parameterized dependencies
             # For the root task (invoked from CLI), status key is always just the task name
             # For dependencies with parameterized invocations, include the regular args
-            is_root_task = (name == task_name)
-            if not is_root_task and args_dict_for_execution and self._has_regular_args(task):
+            is_root_task = name == task_name
+            if (
+                not is_root_task
+                and args_dict_for_execution
+                and self._has_regular_args(task)
+            ):
                 import json
+
                 # Filter to only include regular (non-exported) args
                 regular_args = self._filter_regular_args(task, args_dict_for_execution)
                 if regular_args:
-                    args_str = json.dumps(regular_args, sort_keys=True, separators=(",", ":"))
+                    args_str = json.dumps(
+                        regular_args, sort_keys=True, separators=(",", ":")
+                    )
                     status_key = f"{name}({args_str})"
                 else:
                     status_key = name
@@ -506,6 +533,7 @@ class Executor:
                 # Warn if re-running due to missing outputs
                 if status.reason == "outputs_missing":
                     import sys
+
                     print(
                         f"Warning: Re-running task '{name}' because declared outputs are missing",
                         file=sys.stderr,
@@ -533,6 +561,7 @@ class Executor:
         # Parse task arguments to identify exported args
         # Note: args_dict already has defaults applied by CLI (cli.py:413-424)
         from tasktree.parser import parse_arg_spec
+
         exported_args = set()
         regular_args = {}
         exported_env_vars = {}
@@ -551,18 +580,24 @@ class Executor:
 
         # Collect early built-in variables (those that don't depend on working_dir)
         # These can be used in the working_dir field itself
-        early_builtin_vars = self._collect_early_builtin_variables(task, task_start_time)
+        early_builtin_vars = self._collect_early_builtin_variables(
+            task, task_start_time
+        )
 
         # Resolve working directory
         # Validate that working_dir doesn't contain {{ tt.working_dir }} (circular dependency)
         self._validate_no_working_dir_circular_ref(task.working_dir)
         working_dir_str = self._substitute_builtin(task.working_dir, early_builtin_vars)
-        working_dir_str = self._substitute_args(working_dir_str, regular_args, exported_args)
+        working_dir_str = self._substitute_args(
+            working_dir_str, regular_args, exported_args
+        )
         working_dir_str = self._substitute_env(working_dir_str)
         working_dir = self.recipe.project_root / working_dir_str
 
         # Collect all built-in variables (including tt.working_dir now that it's resolved)
-        builtin_vars = self._collect_builtin_variables(task, working_dir, task_start_time)
+        builtin_vars = self._collect_builtin_variables(
+            task, working_dir, task_start_time
+        )
 
         # Substitute built-in variables, arguments, and environment variables in command
         cmd = self._substitute_builtin(task.cmd, builtin_vars)
@@ -585,14 +620,21 @@ class Executor:
         else:
             # Regular execution path - use unified script-based execution
             shell, preamble = self._resolve_environment(task)
-            self._run_command_as_script(cmd, working_dir, task.name, shell, preamble, exported_env_vars)
+            self._run_command_as_script(
+                cmd, working_dir, task.name, shell, preamble, exported_env_vars
+            )
 
         # Update state
         self._update_state(task, args_dict)
 
     def _run_command_as_script(
-            self, cmd: str, working_dir: Path, task_name: str, shell: str, preamble: str,
-            exported_env_vars: dict[str, str] | None = None
+        self,
+        cmd: str,
+        working_dir: Path,
+        task_name: str,
+        shell: str,
+        preamble: str,
+        exported_env_vars: dict[str, str] | None = None,
     ) -> None:
         """
         Execute a command via temporary script file (unified execution path).
@@ -623,9 +665,9 @@ class Executor:
 
         # Create temporary script file
         with tempfile.NamedTemporaryFile(
-                mode="w",
-                suffix=script_ext,
-                delete=False,
+            mode="w",
+            suffix=script_ext,
+            delete=False,
         ) as script_file:
             script_path = script_file.name
 
@@ -670,7 +712,9 @@ class Executor:
             except OSError:
                 pass  # Ignore cleanup errors
 
-    def _substitute_builtin_in_environment(self, env: Environment, builtin_vars: dict[str, str]) -> Environment:
+    def _substitute_builtin_in_environment(
+        self, env: Environment, builtin_vars: dict[str, str]
+    ) -> Environment:
         """
         Substitute builtin and environment variables in environment fields.
 
@@ -688,30 +732,51 @@ class Executor:
         from dataclasses import replace
 
         # Substitute in volumes (builtin vars first, then env vars)
-        substituted_volumes = [
-            self._substitute_env(self._substitute_builtin(vol, builtin_vars)) for vol in env.volumes
-        ] if env.volumes else []
+        substituted_volumes = (
+            [
+                self._substitute_env(self._substitute_builtin(vol, builtin_vars))
+                for vol in env.volumes
+            ]
+            if env.volumes
+            else []
+        )
 
         # Substitute in env_vars values (builtin vars first, then env vars)
-        substituted_env_vars = {
-            key: self._substitute_env(self._substitute_builtin(value, builtin_vars))
-            for key, value in env.env_vars.items()
-        } if env.env_vars else {}
+        substituted_env_vars = (
+            {
+                key: self._substitute_env(self._substitute_builtin(value, builtin_vars))
+                for key, value in env.env_vars.items()
+            }
+            if env.env_vars
+            else {}
+        )
 
         # Substitute in ports (builtin vars first, then env vars)
-        substituted_ports = [
-            self._substitute_env(self._substitute_builtin(port, builtin_vars)) for port in env.ports
-        ] if env.ports else []
+        substituted_ports = (
+            [
+                self._substitute_env(self._substitute_builtin(port, builtin_vars))
+                for port in env.ports
+            ]
+            if env.ports
+            else []
+        )
 
         # Substitute in working_dir (builtin vars first, then env vars)
-        substituted_working_dir = self._substitute_env(
-            self._substitute_builtin(env.working_dir, builtin_vars)) if env.working_dir else ""
+        substituted_working_dir = (
+            self._substitute_env(
+                self._substitute_builtin(env.working_dir, builtin_vars)
+            )
+            if env.working_dir
+            else ""
+        )
 
         # Substitute in build args (for Docker environments, args is a dict)
         # Apply builtin vars first, then env vars
         if isinstance(env.args, dict):
             substituted_args = {
-                key: self._substitute_env(self._substitute_builtin(str(value), builtin_vars))
+                key: self._substitute_env(
+                    self._substitute_builtin(str(value), builtin_vars)
+                )
                 for key, value in env.args.items()
             }
         else:
@@ -724,12 +789,16 @@ class Executor:
             env_vars=substituted_env_vars,
             ports=substituted_ports,
             working_dir=substituted_working_dir,
-            args=substituted_args
+            args=substituted_args,
         )
 
     def _run_task_in_docker(
-            self, task: Task, env: Any, cmd: str, working_dir: Path,
-            exported_env_vars: dict[str, str] | None = None
+        self,
+        task: Task,
+        env: Any,
+        cmd: str,
+        working_dir: Path,
+        exported_env_vars: dict[str, str] | None = None,
     ) -> None:
         """
         Execute task inside Docker container.
@@ -747,7 +816,9 @@ class Executor:
         """
         # Get builtin variables for substitution in environment fields
         task_start_time = datetime.now(timezone.utc)
-        builtin_vars = self._collect_builtin_variables(task, working_dir, task_start_time)
+        builtin_vars = self._collect_builtin_variables(
+            task, working_dir, task_start_time
+        )
 
         # Substitute builtin variables in environment fields (volumes, env_vars, etc.)
         env = self._substitute_builtin_in_environment(env, builtin_vars)
@@ -771,6 +842,7 @@ class Executor:
 
         # Create modified environment with merged env vars using dataclass replace
         from dataclasses import replace
+
         modified_env = replace(env, env_vars=docker_env_vars)
 
         # Execute in container
@@ -799,14 +871,15 @@ class Executor:
         @athena: 617a0c609f4d
         """
         import re
+
         # Pattern to match {{ tt.working_dir }} specifically
-        pattern = re.compile(r'\{\{\s*tt\s*\.\s*working_dir\s*}}')
+        pattern = re.compile(r"\{\{\s*tt\s*\.\s*working_dir\s*}}")
 
         if pattern.search(text):
             raise ExecutionError(
-                f"Cannot use {{{{ tt.working_dir }}}} in the 'working_dir' field.\n\n"
-                f"This creates a circular dependency (working_dir cannot reference itself).\n"
-                f"Other built-in variables like {{{{ tt.task_name }}}} or {{{{ tt.timestamp }}}} are allowed."
+                "Cannot use {{ tt.working_dir }} in the 'working_dir' field.\n\n"
+                "This creates a circular dependency (working_dir cannot reference itself).\n"
+                "Other built-in variables like {{ tt.task_name }} or {{ tt.timestamp }} are allowed."
             )
 
     @staticmethod
@@ -828,10 +901,13 @@ class Executor:
         @athena: fe47afe87b52
         """
         from tasktree.substitution import substitute_builtin_variables
+
         return substitute_builtin_variables(text, builtin_vars)
 
     @staticmethod
-    def _substitute_args(cmd: str, args_dict: dict[str, Any], exported_args: set[str] | None = None) -> str:
+    def _substitute_args(
+        cmd: str, args_dict: dict[str, Any], exported_args: set[str] | None = None
+    ) -> str:
         """
         Substitute {{ arg.name }} placeholders in command string.
 
@@ -851,6 +927,7 @@ class Executor:
         @athena: 9a931179f270
         """
         from tasktree.substitution import substitute_arguments
+
         return substitute_arguments(cmd, args_dict, exported_args)
 
     @staticmethod
@@ -871,6 +948,7 @@ class Executor:
         @athena: 1bbe24759451
         """
         from tasktree.substitution import substitute_environment
+
         return substitute_environment(text)
 
     def _get_all_inputs(self, task: Task) -> list[str]:
@@ -899,7 +977,7 @@ class Executor:
 
     # TODO: Understand why task isn't used
     def _check_environment_changed(
-            self, task: Task, cached_state: TaskState, env_name: str
+        self, task: Task, cached_state: TaskState, env_name: str
     ) -> bool:
         """
         Check if environment definition has changed since last run.
@@ -951,7 +1029,7 @@ class Executor:
         return False
 
     def _check_docker_image_changed(
-            self, env: Environment, cached_state: TaskState, env_name: str
+        self, env: Environment, cached_state: TaskState, env_name: str
     ) -> bool:
         """
         Check if Docker image ID has changed.
@@ -987,7 +1065,7 @@ class Executor:
         return current_image_id != cached_image_id
 
     def _check_inputs_changed(
-            self, task: Task, cached_state: TaskState, all_inputs: list[str]
+        self, task: Task, cached_state: TaskState, all_inputs: list[str]
     ) -> list[str]:
         """
         Check if any input files have changed since last run.
@@ -1038,7 +1116,7 @@ class Executor:
 
                     # Check if context changed (with early exit optimization)
                     if docker_module.context_changed_since(
-                            context_path, dockerignore_path, cached_context_time
+                        context_path, dockerignore_path, cached_context_time
                     ):
                         changed_files.append(f"Docker context: {context_name}")
                 continue
@@ -1064,7 +1142,9 @@ class Executor:
 
                         # Check if digests changed
                         if current_digests != cached_digests:
-                            changed_files.append(f"Docker base image digests in {dockerfile_name}")
+                            changed_files.append(
+                                f"Docker base image digests in {dockerfile_name}"
+                            )
                     except (OSError, IOError):
                         # Can't read Dockerfile - consider changed
                         changed_files.append(f"Dockerfile: {dockerfile_name}")
@@ -1163,25 +1243,42 @@ class Executor:
     def _update_state(self, task: Task, args_dict: dict[str, Any]) -> None:
         """
         Update state after task execution.
-
-        Args:
-        task: Task that was executed
-        args_dict: Arguments used for execution
         @athena: 1fcfdfcb9be9
         """
-        # Compute hashes (include effective environment and dependencies)
-        effective_env = self._get_effective_env_name(task)
-        task_hash = hash_task(task.cmd, task.outputs, task.working_dir, task.args, effective_env, task.deps)
-        args_hash = hash_args(args_dict) if args_dict else None
-        cache_key = make_cache_key(task_hash, args_hash)
+        cache_key = self._cache_key(task, args_dict)
+        input_state = self._input_files_to_modified_times(task)
 
-        # Get all inputs and their current mtimes
-        all_inputs = self._get_all_inputs(task)
-        input_files = self._expand_globs(all_inputs, task.working_dir)
+        env_name = self._get_effective_env_name(task)
+        if env_name:
+            env = self.recipe.get_environment(env_name)
+            if env:
+                input_state[f"_env_hash_{env_name}"] = hash_environment_definition(env)
+                if env.dockerfile:
+                    input_state |= self._docker_inputs_to_modified_times(env_name, env)
+
+        new_state = TaskState(last_run=time.time(), input_state=input_state)
+        self.state.set(cache_key, new_state)
+        self.state.save()
+
+    def _cache_key(self, task: Task, args_dict: dict[str, Any]) -> str:
+        effective_env = self._get_effective_env_name(task)
+        task_hash = hash_task(
+            task.cmd,
+            task.outputs,
+            task.working_dir,
+            task.args,
+            effective_env,
+            task.deps,
+        )
+        args_hash = hash_args(args_dict) if args_dict else None
+        return make_cache_key(task_hash, args_hash)
+
+    def _input_files_to_modified_times(self, task: Task) -> dict[str, float]:
+        input_files = self._expand_globs(self._get_all_inputs(task), task.working_dir)
 
         input_state = {}
         for file_path in input_files:
-            # Skip Docker special markers (handled separately below)
+            # Skip Docker special markers (handled separately)
             if file_path.startswith("_docker_"):
                 continue
 
@@ -1189,59 +1286,44 @@ class Executor:
             if file_path_obj.exists():
                 input_state[file_path] = file_path_obj.stat().st_mtime
 
-        # Record Docker-specific inputs if task uses Docker environment
-        env_name = self._get_effective_env_name(task)
-        if env_name:
-            env = self.recipe.get_environment(env_name)
-            if env and env.dockerfile:
-                # Record Dockerfile mtime
-                dockerfile_path = self.recipe.project_root / env.dockerfile
-                if dockerfile_path.exists():
-                    input_state[env.dockerfile] = dockerfile_path.stat().st_mtime
+        return input_state
 
-                # Record .dockerignore mtime if exists
-                context_path = self.recipe.project_root / env.context
-                dockerignore_path = context_path / ".dockerignore"
-                if dockerignore_path.exists():
-                    relative_dockerignore = str(
-                        dockerignore_path.relative_to(self.recipe.project_root)
-                    )
-                    input_state[relative_dockerignore] = dockerignore_path.stat().st_mtime
+    def _docker_inputs_to_modified_times(
+        self, env_name: str, env: Environment
+    ) -> dict[str, float]:
+        input_state = dict()
+        # Record Dockerfile mtime
+        dockerfile_path = self.recipe.project_root / env.dockerfile
+        if dockerfile_path.exists():
+            input_state[env.dockerfile] = dockerfile_path.stat().st_mtime
 
-                # Record context check timestamp
-                input_state[f"_context_{env.context}"] = time.time()
+        # Record .dockerignore mtime if exists
+        context_path = self.recipe.project_root / env.context
+        dockerignore_path = context_path / ".dockerignore"
+        if dockerignore_path.exists():
+            relative_dockerignore = str(
+                dockerignore_path.relative_to(self.recipe.project_root)
+            )
+            input_state[relative_dockerignore] = dockerignore_path.stat().st_mtime
 
-                # Parse and record base image digests from Dockerfile
-                try:
-                    dockerfile_content = dockerfile_path.read_text()
-                    digests = docker_module.parse_base_image_digests(dockerfile_content)
-                    for digest in digests:
-                        # Store digest with Dockerfile's mtime
-                        input_state[f"_digest_{digest}"] = dockerfile_path.stat().st_mtime
-                except (OSError, IOError):
-                    # If we can't read Dockerfile, skip digest tracking
-                    pass
+        # Record context check timestamp
+        input_state[f"_context_{env.context}"] = time.time()
 
-            # Record environment definition hash for all environments (shell and Docker)
-            if env:
-                from tasktree.hasher import hash_environment_definition
+        # Parse and record base image digests from Dockerfile
+        try:
+            dockerfile_content = dockerfile_path.read_text()
+            digests = docker_module.parse_base_image_digests(dockerfile_content)
+            for digest in digests:
+                # Store digest with Dockerfile's mtime
+                input_state[f"_digest_{digest}"] = dockerfile_path.stat().st_mtime
+        except (OSError, IOError):
+            # If we can't read Dockerfile, skip digest tracking
+            pass
 
-                env_hash = hash_environment_definition(env)
-                input_state[f"_env_hash_{env_name}"] = env_hash
+        # For Docker environments, also store the image ID
+        # Image was already built during check phase or task execution
+        if env_name in self.docker_manager._built_images:
+            image_tag, image_id = self.docker_manager._built_images[env_name]
+            input_state[f"_docker_image_id_{env_name}"] = image_id
 
-                # For Docker environments, also store the image ID
-                if env.dockerfile:
-                    # Image was already built during check phase or task execution
-                    if env_name in self.docker_manager._built_images:
-                        image_tag, image_id = self.docker_manager._built_images[env_name]
-                        input_state[f"_docker_image_id_{env_name}"] = image_id
-
-        # Create new state
-        state = TaskState(
-            last_run=time.time(),
-            input_state=input_state,
-        )
-
-        # Save state
-        self.state.set(cache_key, state)
-        self.state.save()
+        return input_state

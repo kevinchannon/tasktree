@@ -23,6 +23,7 @@ class CircularImportError(Exception):
     Raised when a circular import is detected.
     @athena: 935d53bc7d05
     """
+
     pass
 
 
@@ -39,7 +40,9 @@ class Environment:
 
     name: str
     shell: str = ""  # Path to shell (required for shell envs, optional for Docker)
-    args: list[str] | dict[str, str] = field(default_factory=list)  # Shell args (list) or Docker build args (dict)
+    args: list[str] | dict[str, str] = field(
+        default_factory=list
+    )  # Shell args (list) or Docker build args (dict)
     preamble: str = ""
     # Docker-specific fields (presence of dockerfile indicates Docker environment)
     dockerfile: str = ""  # Path to Dockerfile
@@ -48,7 +51,9 @@ class Environment:
     ports: list[str] = field(default_factory=list)  # Port mappings
     env_vars: dict[str, str] = field(default_factory=dict)  # Environment variables
     working_dir: str = ""  # Working directory (container or host)
-    extra_args: List[str] = field(default_factory=list) # Any extra arguments to pass to docker
+    extra_args: List[str] = field(
+        default_factory=list
+    )  # Any extra arguments to pass to docker
     run_as_root: bool = False  # If True, skip user mapping (run as root in container)
 
     def __post_init__(self):
@@ -70,26 +75,46 @@ class Task:
     name: str
     cmd: str
     desc: str = ""
-    deps: list[str | dict[str, Any]] = field(default_factory=list)  # Can be strings or dicts with args
-    inputs: list[str | dict[str, str]] = field(default_factory=list)  # Can be strings or dicts with named inputs
-    outputs: list[str | dict[str, str]] = field(default_factory=list)  # Can be strings or dicts with named outputs
+    deps: list[str | dict[str, Any]] = field(
+        default_factory=list
+    )  # Can be strings or dicts with args
+    inputs: list[str | dict[str, str]] = field(
+        default_factory=list
+    )  # Can be strings or dicts with named inputs
+    outputs: list[str | dict[str, str]] = field(
+        default_factory=list
+    )  # Can be strings or dicts with named outputs
     working_dir: str = ""
-    args: list[str | dict[str, Any]] = field(default_factory=list)  # Can be strings or dicts (each dict has single key: arg name)
+    args: list[str | dict[str, Any]] = field(
+        default_factory=list
+    )  # Can be strings or dicts (each dict has single key: arg name)
     source_file: str = ""  # Track which file defined this task
     env: str = ""  # Environment name to use for execution
     private: bool = False  # If True, task is hidden from --list output
 
     # Internal fields for efficient output lookup (built in __post_init__)
-    _output_map: dict[str, str] = field(init=False, default_factory=dict, repr=False)  # name → path mapping
-    _anonymous_outputs: list[str] = field(init=False, default_factory=list, repr=False)  # unnamed outputs
+    _output_map: dict[str, str] = field(
+        init=False, default_factory=dict, repr=False
+    )  # name → path mapping
+    _anonymous_outputs: list[str] = field(
+        init=False, default_factory=list, repr=False
+    )  # unnamed outputs
 
     # Internal fields for efficient input lookup (built in __post_init__)
-    _input_map: dict[str, str] = field(init=False, default_factory=dict, repr=False)  # name → path mapping
-    _anonymous_inputs: list[str] = field(init=False, default_factory=list, repr=False)  # unnamed inputs
+    _input_map: dict[str, str] = field(
+        init=False, default_factory=dict, repr=False
+    )  # name → path mapping
+    _anonymous_inputs: list[str] = field(
+        init=False, default_factory=list, repr=False
+    )  # unnamed inputs
 
     # Internal fields for positional input/output access (built in __post_init__)
-    _indexed_inputs: list[str] = field(init=False, default_factory=list, repr=False)  # all inputs in YAML order
-    _indexed_outputs: list[str] = field(init=False, default_factory=list, repr=False)  # all outputs in YAML order
+    _indexed_inputs: list[str] = field(
+        init=False, default_factory=list, repr=False
+    )  # all inputs in YAML order
+    _indexed_outputs: list[str] = field(
+        init=False, default_factory=list, repr=False
+    )  # all outputs in YAML order
 
     def __post_init__(self):
         """
@@ -138,7 +163,7 @@ class Task:
                         f"Task '{self.name}': Named output '{name}' must have a string path, got {type(path).__name__}: {path}"
                     )
 
-                if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', name):
+                if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", name):
                     raise ValueError(
                         f"Task '{self.name}': Named output '{name}' must be a valid identifier "
                         f"(letters, numbers, underscores, cannot start with number)"
@@ -180,7 +205,7 @@ class Task:
                         f"Task '{self.name}': Named input '{name}' must have a string path, got {type(path).__name__}: {path}"
                     )
 
-                if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', name):
+                if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", name):
                     raise ValueError(
                         f"Task '{self.name}': Named input '{name}' must be a valid identifier "
                         f"(letters, numbers, underscores, cannot start with number)"
@@ -219,6 +244,7 @@ class DependencySpec:
     for numeric types, to preserve template placeholders.
     @athena: 7b2f8a15d312
     """
+
     task_name: str
     arg_templates: dict[str, str] | None = None
 
@@ -243,6 +269,7 @@ class DependencyInvocation:
     args: Dictionary of argument names to values (None if no args specified)
     @athena: 0c023366160b
     """
+
     task_name: str
     args: dict[str, Any] | None = None
 
@@ -272,6 +299,7 @@ class ArgSpec:
     choices: List of valid choices for the argument (None if not specified)
     @athena: fcaf20fb1ca2
     """
+
     name: str
     arg_type: str
     default: str | None = None
@@ -294,11 +322,19 @@ class Recipe:
     environments: dict[str, Environment] = field(default_factory=dict)
     default_env: str = ""  # Name of default environment
     global_env_override: str = ""  # Global environment override (set via CLI --env)
-    variables: dict[str, str] = field(default_factory=dict)  # Global variables (resolved at parse time) - DEPRECATED, use evaluated_variables
-    raw_variables: dict[str, Any] = field(default_factory=dict)  # Raw variable specs from YAML (not yet evaluated)
-    evaluated_variables: dict[str, str] = field(default_factory=dict)  # Evaluated variable values (cached after evaluation)
+    variables: dict[str, str] = field(
+        default_factory=dict
+    )  # Global variables (resolved at parse time) - DEPRECATED, use evaluated_variables
+    raw_variables: dict[str, Any] = field(
+        default_factory=dict
+    )  # Raw variable specs from YAML (not yet evaluated)
+    evaluated_variables: dict[str, str] = field(
+        default_factory=dict
+    )  # Evaluated variable values (cached after evaluation)
     _variables_evaluated: bool = False  # Track if variables have been evaluated
-    _original_yaml_data: dict[str, Any] = field(default_factory=dict)  # Store original YAML data for lazy evaluation context
+    _original_yaml_data: dict[str, Any] = field(
+        default_factory=dict
+    )  # Store original YAML data for lazy evaluation context
 
     def get_task(self, name: str) -> Task | None:
         """
@@ -370,7 +406,9 @@ class Recipe:
             # (CLI will provide its own "Task not found" error)
             try:
                 reachable_tasks = collect_reachable_tasks(self.tasks, root_task)
-                variables_to_eval = collect_reachable_variables(self.tasks, self.environments, reachable_tasks)
+                variables_to_eval = collect_reachable_variables(
+                    self.tasks, self.environments, reachable_tasks
+                )
             except ValueError:
                 # Root task not found - fall back to eager evaluation
                 # This allows the recipe to be parsed even with invalid task names
@@ -387,7 +425,7 @@ class Recipe:
             self.raw_variables,
             variables_to_eval,
             self.recipe_path,
-            self._original_yaml_data
+            self._original_yaml_data,
         )
 
         # Also update the deprecated 'variables' field for backward compatibility
@@ -402,18 +440,24 @@ class Recipe:
 
             task.cmd = substitute_variables(task.cmd, self.evaluated_variables)
             task.desc = substitute_variables(task.desc, self.evaluated_variables)
-            task.working_dir = substitute_variables(task.working_dir, self.evaluated_variables)
+            task.working_dir = substitute_variables(
+                task.working_dir, self.evaluated_variables
+            )
 
             # Substitute variables in inputs (handle both string and dict inputs)
             resolved_inputs = []
             for inp in task.inputs:
                 if isinstance(inp, str):
-                    resolved_inputs.append(substitute_variables(inp, self.evaluated_variables))
+                    resolved_inputs.append(
+                        substitute_variables(inp, self.evaluated_variables)
+                    )
                 elif isinstance(inp, dict):
                     # Named input: substitute the path value
                     resolved_dict = {}
                     for name, path in inp.items():
-                        resolved_dict[name] = substitute_variables(path, self.evaluated_variables)
+                        resolved_dict[name] = substitute_variables(
+                            path, self.evaluated_variables
+                        )
                     resolved_inputs.append(resolved_dict)
                 else:
                     resolved_inputs.append(inp)
@@ -423,12 +467,16 @@ class Recipe:
             resolved_outputs = []
             for out in task.outputs:
                 if isinstance(out, str):
-                    resolved_outputs.append(substitute_variables(out, self.evaluated_variables))
+                    resolved_outputs.append(
+                        substitute_variables(out, self.evaluated_variables)
+                    )
                 elif isinstance(out, dict):
                     # Named output: substitute the path value
                     resolved_dict = {}
                     for name, path in out.items():
-                        resolved_dict[name] = substitute_variables(path, self.evaluated_variables)
+                        resolved_dict[name] = substitute_variables(
+                            path, self.evaluated_variables
+                        )
                     resolved_outputs.append(resolved_dict)
                 else:
                     resolved_outputs.append(out)
@@ -441,7 +489,9 @@ class Recipe:
             resolved_args = []
             for arg in task.args:
                 if isinstance(arg, str):
-                    resolved_args.append(substitute_variables(arg, self.evaluated_variables))
+                    resolved_args.append(
+                        substitute_variables(arg, self.evaluated_variables)
+                    )
                 elif isinstance(arg, dict):
                     # Dict arg: substitute in nested values (like default values)
                     resolved_dict = {}
@@ -451,11 +501,19 @@ class Recipe:
                             resolved_spec = {}
                             for key, value in arg_spec.items():
                                 if isinstance(value, str):
-                                    resolved_spec[key] = substitute_variables(value, self.evaluated_variables)
+                                    resolved_spec[key] = substitute_variables(
+                                        value, self.evaluated_variables
+                                    )
                                 elif isinstance(value, list):
                                     # Handle lists like 'choices'
                                     resolved_spec[key] = [
-                                        substitute_variables(v, self.evaluated_variables) if isinstance(v, str) else v
+                                        (
+                                            substitute_variables(
+                                                v, self.evaluated_variables
+                                            )
+                                            if isinstance(v, str)
+                                            else v
+                                        )
                                         for v in value
                                     ]
                                 else:
@@ -463,7 +521,11 @@ class Recipe:
                             resolved_dict[arg_name] = resolved_spec
                         else:
                             # Simple value
-                            resolved_dict[arg_name] = substitute_variables(arg_spec, self.evaluated_variables) if isinstance(arg_spec, str) else arg_spec
+                            resolved_dict[arg_name] = (
+                                substitute_variables(arg_spec, self.evaluated_variables)
+                                if isinstance(arg_spec, str)
+                                else arg_spec
+                            )
                     resolved_args.append(resolved_dict)
                 else:
                     resolved_args.append(arg)
@@ -472,15 +534,23 @@ class Recipe:
         # Substitute evaluated variables into all environments
         for env in self.environments.values():
             if env.preamble:
-                env.preamble = substitute_variables(env.preamble, self.evaluated_variables)
+                env.preamble = substitute_variables(
+                    env.preamble, self.evaluated_variables
+                )
 
             # Substitute in volumes
             if env.volumes:
-                env.volumes = [substitute_variables(vol, self.evaluated_variables) for vol in env.volumes]
+                env.volumes = [
+                    substitute_variables(vol, self.evaluated_variables)
+                    for vol in env.volumes
+                ]
 
             # Substitute in ports
             if env.ports:
-                env.ports = [substitute_variables(port, self.evaluated_variables) for port in env.ports]
+                env.ports = [
+                    substitute_variables(port, self.evaluated_variables)
+                    for port in env.ports
+                ]
 
             # Substitute in env_vars values
             if env.env_vars:
@@ -491,7 +561,9 @@ class Recipe:
 
             # Substitute in working_dir
             if env.working_dir:
-                env.working_dir = substitute_variables(env.working_dir, self.evaluated_variables)
+                env.working_dir = substitute_variables(
+                    env.working_dir, self.evaluated_variables
+                )
 
             # Substitute in build args (dict for Docker environments)
             if env.args and isinstance(env.args, dict):
@@ -595,7 +667,7 @@ def _validate_variable_name(name: str) -> None:
     ValueError: If name is not a valid identifier
     @athena: 61f92f7ad278
     """
-    if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', name):
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", name):
         raise ValueError(
             f"Variable name '{name}' is invalid. Names must start with "
             f"letter/underscore and contain only alphanumerics and underscores."
@@ -616,12 +688,7 @@ def _infer_variable_type(value: Any) -> str:
     ValueError: If value type is not supported
     @athena: 335ae24e1504
     """
-    type_map = {
-        str: "str",
-        int: "int",
-        float: "float",
-        bool: "bool"
-    }
+    type_map = {str: "str", int: "int", float: "float", bool: "bool"}
     python_type = type(value)
     if python_type not in type_map:
         raise ValueError(
@@ -645,7 +712,9 @@ def _is_env_variable_reference(value: Any) -> bool:
     return isinstance(value, dict) and "env" in value
 
 
-def _validate_env_variable_reference(var_name: str, value: dict) -> tuple[str, str | None]:
+def _validate_env_variable_reference(
+    var_name: str, value: dict
+) -> tuple[str, str | None]:
     """
     Validate and extract environment variable name and optional default from reference.
 
@@ -666,7 +735,7 @@ def _validate_env_variable_reference(var_name: str, value: dict) -> tuple[str, s
     if invalid_keys:
         raise ValueError(
             f"Invalid environment variable reference in variable '{var_name}'.\n"
-            f"Expected: {{ env: VARIABLE_NAME }} or {{ env: VARIABLE_NAME, default: \"value\" }}\n"
+            f'Expected: {{ env: VARIABLE_NAME }} or {{ env: VARIABLE_NAME, default: "value" }}\n'
             f"Found invalid keys: {', '.join(invalid_keys)}"
         )
 
@@ -675,7 +744,7 @@ def _validate_env_variable_reference(var_name: str, value: dict) -> tuple[str, s
         raise ValueError(
             f"Invalid environment variable reference in variable '{var_name}'.\n"
             f"Missing required 'env' key.\n"
-            f"Expected: {{ env: VARIABLE_NAME }} or {{ env: VARIABLE_NAME, default: \"value\" }}"
+            f'Expected: {{ env: VARIABLE_NAME }} or {{ env: VARIABLE_NAME, default: "value" }}'
         )
 
     env_var_name = value["env"]
@@ -684,12 +753,12 @@ def _validate_env_variable_reference(var_name: str, value: dict) -> tuple[str, s
     if not env_var_name or not isinstance(env_var_name, str):
         raise ValueError(
             f"Invalid environment variable reference in variable '{var_name}'.\n"
-            f"Expected: {{ env: VARIABLE_NAME }} or {{ env: VARIABLE_NAME, default: \"value\" }}"
+            f'Expected: {{ env: VARIABLE_NAME }} or {{ env: VARIABLE_NAME, default: "value" }}'
             f"Found: {{ env: {env_var_name!r} }}"
         )
 
     # Validate env var name format (allow both uppercase and mixed case for flexibility)
-    if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', env_var_name):
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", env_var_name):
         raise ValueError(
             f"Invalid environment variable name '{env_var_name}' in variable '{var_name}'.\n"
             f"Environment variable names must start with a letter or underscore,\n"
@@ -705,13 +774,15 @@ def _validate_env_variable_reference(var_name: str, value: dict) -> tuple[str, s
                 f"Invalid default value in variable '{var_name}'.\n"
                 f"Environment variable defaults must be strings.\n"
                 f"Got: {default!r} (type: {type(default).__name__})\n"
-                f"Use a quoted string: {{ env: {env_var_name}, default: \"{default}\" }}"
+                f'Use a quoted string: {{ env: {env_var_name}, default: "{default}" }}'
             )
 
     return env_var_name, default
 
 
-def _resolve_env_variable(var_name: str, env_var_name: str, default: str | None = None) -> str:
+def _resolve_env_variable(
+    var_name: str, env_var_name: str, default: str | None = None
+) -> str:
     """
     Resolve environment variable value.
 
@@ -859,7 +930,7 @@ def _resolve_file_variable(var_name: str, filepath: str, resolved_path: Path) ->
 
     # Read file with UTF-8 error handling
     try:
-        content = resolved_path.read_text(encoding='utf-8')
+        content = resolved_path.read_text(encoding="utf-8")
     except PermissionError:
         raise ValueError(
             f"Failed to read file for variable '{var_name}': {filepath}\n"
@@ -875,7 +946,7 @@ def _resolve_file_variable(var_name: str, filepath: str, resolved_path: Path) ->
         )
 
     # Strip single trailing newline if present
-    if content.endswith('\n'):
+    if content.endswith("\n"):
         content = content[:-1]
 
     return content
@@ -949,10 +1020,7 @@ def _get_default_shell_and_args() -> tuple[str, list[str]]:
 
 
 def _resolve_eval_variable(
-    var_name: str,
-    command: str,
-    recipe_file_path: Path,
-    recipe_data: dict
+    var_name: str, command: str, recipe_file_path: Path, recipe_data: dict
 ) -> str:
     """
     Execute command and capture output for variable value.
@@ -1033,7 +1101,7 @@ def _resolve_eval_variable(
     output = result.stdout
 
     # Strip single trailing newline if present
-    if output.endswith('\n'):
+    if output.endswith("\n"):
         output = output[:-1]
 
     return output
@@ -1045,7 +1113,7 @@ def _resolve_variable_value(
     resolved: dict[str, str],
     resolution_stack: list[str],
     file_path: Path,
-    recipe_data: dict | None = None
+    recipe_data: dict | None = None,
 ) -> str:
     """
     Resolve a single variable value with circular reference detection.
@@ -1083,6 +1151,7 @@ def _resolve_variable_value(
 
             # Still perform variable-in-variable substitution
             from tasktree.substitution import substitute_variables
+
             try:
                 resolved_value = substitute_variables(string_value, resolved)
             except ValueError as e:
@@ -1094,7 +1163,9 @@ def _resolve_variable_value(
                         undefined_var = match.group(1)
                         if undefined_var in resolution_stack:
                             cycle = " -> ".join(resolution_stack + [undefined_var])
-                            raise ValueError(f"Circular reference detected in variables: {cycle}")
+                            raise ValueError(
+                                f"Circular reference detected in variables: {cycle}"
+                            )
                 # Re-raise the original error if not circular
                 raise
 
@@ -1113,6 +1184,7 @@ def _resolve_variable_value(
 
             # Still perform variable-in-variable substitution
             from tasktree.substitution import substitute_variables
+
             try:
                 resolved_value = substitute_variables(string_value, resolved)
             except ValueError as e:
@@ -1124,7 +1196,9 @@ def _resolve_variable_value(
                         undefined_var = match.group(1)
                         if undefined_var in resolution_stack:
                             cycle = " -> ".join(resolution_stack + [undefined_var])
-                            raise ValueError(f"Circular reference detected in variables: {cycle}")
+                            raise ValueError(
+                                f"Circular reference detected in variables: {cycle}"
+                            )
                 # Re-raise the original error if not circular
                 raise
 
@@ -1140,6 +1214,7 @@ def _resolve_variable_value(
 
             # Still perform variable-in-variable substitution
             from tasktree.substitution import substitute_variables
+
             try:
                 resolved_value = substitute_variables(string_value, resolved)
             except ValueError as e:
@@ -1151,7 +1226,9 @@ def _resolve_variable_value(
                         undefined_var = match.group(1)
                         if undefined_var in resolution_stack:
                             cycle = " -> ".join(resolution_stack + [undefined_var])
-                            raise ValueError(f"Circular reference detected in variables: {cycle}")
+                            raise ValueError(
+                                f"Circular reference detected in variables: {cycle}"
+                            )
                 # Re-raise the original error if not circular
                 raise
 
@@ -1160,6 +1237,7 @@ def _resolve_variable_value(
         # Validate and infer type
         type_name = _infer_variable_type(raw_value)
         from tasktree.types import get_click_type
+
         validator = get_click_type(type_name)
 
         # Validate and stringify the value
@@ -1173,6 +1251,7 @@ def _resolve_variable_value(
 
         # Substitute any {{ var.name }} references in the string value
         from tasktree.substitution import substitute_variables
+
         try:
             resolved_value = substitute_variables(string_value_str, resolved)
         except ValueError as e:
@@ -1185,7 +1264,9 @@ def _resolve_variable_value(
                     undefined_var = match.group(1)
                     if undefined_var in resolution_stack:
                         cycle = " -> ".join(resolution_stack + [undefined_var])
-                        raise ValueError(f"Circular reference detected in variables: {cycle}")
+                        raise ValueError(
+                            f"Circular reference detected in variables: {cycle}"
+                        )
             # Re-raise the original error if not circular
             raise
 
@@ -1232,8 +1313,7 @@ def _parse_variables_section(data: dict, file_path: Path) -> dict[str, str]:
 
 
 def _expand_variable_dependencies(
-    variable_names: set[str],
-    raw_variables: dict[str, Any]
+    variable_names: set[str], raw_variables: dict[str, Any]
 ) -> set[str]:
     """
     Expand variable set to include all transitively referenced variables.
@@ -1260,7 +1340,7 @@ def _expand_variable_dependencies(
     """
     expanded = set(variable_names)
     to_process = list(variable_names)
-    pattern = re.compile(r'\{\{\s*var\.(\w+)\s*}}')
+    pattern = re.compile(r"\{\{\s*var\.(\w+)\s*}}")
 
     while to_process:
         var_name = to_process.pop(0)
@@ -1279,8 +1359,8 @@ def _expand_variable_dependencies(
                     expanded.add(referenced_var)
                     to_process.append(referenced_var)
         # Handle { read: filepath } variables - check file contents for variable references
-        elif isinstance(raw_value, dict) and 'read' in raw_value:
-            filepath = raw_value['read']
+        elif isinstance(raw_value, dict) and "read" in raw_value:
+            filepath = raw_value["read"]
             # For dependency expansion, we speculatively read files to find variable references
             # This is acceptable because file reads are relatively cheap compared to eval commands
             try:
@@ -1288,6 +1368,7 @@ def _expand_variable_dependencies(
                 # Skip if filepath is None or empty (validation error will be caught during evaluation)
                 if filepath and isinstance(filepath, str):
                     from pathlib import Path
+
                     if Path(filepath).exists():
                         file_content = Path(filepath).read_text()
                         # Extract variable references from file content
@@ -1301,8 +1382,12 @@ def _expand_variable_dependencies(
                 # The error will be caught during actual evaluation
                 pass
         # Handle { env: VAR, default: ... } variables - check default value for variable references
-        elif isinstance(raw_value, dict) and 'env' in raw_value and 'default' in raw_value:
-            default_value = raw_value['default']
+        elif (
+            isinstance(raw_value, dict)
+            and "env" in raw_value
+            and "default" in raw_value
+        ):
+            default_value = raw_value["default"]
             # Check if default value contains variable references
             if isinstance(default_value, str):
                 for match in pattern.finditer(default_value):
@@ -1315,10 +1400,7 @@ def _expand_variable_dependencies(
 
 
 def _evaluate_variable_subset(
-    raw_variables: dict[str, Any],
-    variable_names: set[str],
-    file_path: Path,
-    data: dict
+    raw_variables: dict[str, Any], variable_names: set[str], file_path: Path, data: dict
 ) -> dict[str, str]:
     """
     Evaluate only specified variables from raw specs (for lazy evaluation).
@@ -1373,7 +1455,9 @@ def _parse_file_with_env(
     namespace: str | None,
     project_root: Path,
     import_stack: list[Path] | None = None,
-) -> tuple[dict[str, Task], dict[str, Environment], str, dict[str, Any], dict[str, Any]]:
+) -> tuple[
+    dict[str, Task], dict[str, Environment], str, dict[str, Any], dict[str, Any]
+]:
     """
     Parse file and extract tasks, environments, and variables.
 
@@ -1502,7 +1586,7 @@ def _parse_file_with_env(
                         env_vars=env_vars,
                         working_dir=working_dir,
                         extra_args=extra_args,
-                        run_as_root=run_as_root
+                        run_as_root=run_as_root,
                     )
 
     return tasks, environments, default_env, raw_variables, yaml_data
@@ -1571,7 +1655,7 @@ def collect_reachable_tasks(tasks: dict[str, Task], root_task: str) -> set[str]:
 def collect_reachable_variables(
     tasks: dict[str, Task],
     environments: dict[str, Environment],
-    reachable_task_names: set[str]
+    reachable_task_names: set[str],
 ) -> set[str]:
     """
     Extract variable names used by reachable tasks.
@@ -1596,7 +1680,7 @@ def collect_reachable_variables(
     import re
 
     # Pattern to match {{ var.name }}
-    var_pattern = re.compile(r'\{\{\s*var\s*\.\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*}}')
+    var_pattern = re.compile(r"\{\{\s*var\s*\.\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*}}")
 
     variables = set()
 
@@ -1715,9 +1799,7 @@ def collect_reachable_variables(
 
 
 def parse_recipe(
-    recipe_path: Path,
-    project_root: Path | None = None,
-    root_task: str | None = None
+    recipe_path: Path, project_root: Path | None = None, root_task: str | None = None
 ) -> Recipe:
     """
     Parse a recipe file and handle imports recursively.
@@ -1768,7 +1850,7 @@ def parse_recipe(
         raw_variables=raw_variables,
         evaluated_variables={},  # Empty initially
         _variables_evaluated=False,
-        _original_yaml_data=yaml_data
+        _original_yaml_data=yaml_data,
     )
 
     # Trigger lazy variable evaluation
@@ -1824,7 +1906,7 @@ def _parse_file(
 
     tasks: dict[str, Task] = {}
     # TODO: Understand why this is not used.
-    file_dir = file_path.parent
+    # file_dir = file_path.parent
 
     # Default working directory is the project root (where tt is invoked)
     # NOT the directory where the tasks file is located
@@ -1844,7 +1926,9 @@ def _parse_file(
             local_import_namespaces.add(child_namespace)
 
             # Build full namespace chain
-            full_namespace = f"{namespace}.{child_namespace}" if namespace else child_namespace
+            full_namespace = (
+                f"{namespace}.{child_namespace}" if namespace else child_namespace
+            )
 
             # Resolve import path relative to current file's directory
             child_path = file_path.parent / child_file
@@ -1869,7 +1953,8 @@ def _parse_file(
     if "tasks" not in data and data:
         # Check if there are potential task definitions at root level
         potential_tasks = [
-            k for k, v in data.items()
+            k
+            for k, v in data.items()
             if isinstance(v, dict) and k not in valid_top_level_keys
         ]
 
@@ -1880,8 +1965,8 @@ def _parse_file(
                 f"Found these keys at root level: {', '.join(potential_tasks)}\n\n"
                 f"Did you mean:\n\n"
                 f"tasks:\n"
-                + '\n'.join(f"  {k}:" for k in potential_tasks) +
-                "\n    cmd: ...\n\n"
+                + "\n".join(f"  {k}:" for k in potential_tasks)
+                + "\n    cmd: ...\n\n"
                 f"Valid top-level keys are: {', '.join(sorted(valid_top_level_keys))}"
             )
 
@@ -1904,12 +1989,13 @@ def _parse_file(
 
     # Process local tasks
     for task_name, task_data in tasks_data.items():
-
         if not isinstance(task_data, dict):
             raise ValueError(f"Task '{task_name}' must be a dictionary")
 
         if "." in task_name:
-            raise ValueError(f"Task name '{task_name}' cannot contain dots (reserved for namespacing)")
+            raise ValueError(
+                f"Task name '{task_name}' cannot contain dots (reserved for namespacing)"
+            )
 
         if "cmd" not in task_data:
             raise ValueError(f"Task '{task_name}' missing required 'cmd' field")
@@ -2027,7 +2113,7 @@ def _check_case_sensitive_arg_collisions(args: list[str], task_name: str) -> Non
                     f"Warning: Task '{task_name}' has exported arguments that differ only in case: "
                     f"${other_name} and ${name}. "
                     f"This may be confusing on case-sensitive systems.",
-                    file=sys.stderr
+                    file=sys.stderr,
                 )
         else:
             seen_lower[lower_name] = name
@@ -2128,7 +2214,7 @@ def parse_arg_spec(arg_spec: str | dict) -> ArgSpec:
         is_exported=is_exported,
         min_val=None,
         max_val=None,
-        choices=None
+        choices=None,
     )
 
 
@@ -2180,22 +2266,18 @@ def _parse_arg_dict(arg_name: str, config: dict, is_exported: bool) -> ArgSpec:
             f"Exported argument '${arg_name}' must have a string default value.\n"
             f"Got: {default!r} (type: {type(default).__name__})\n"
             f"Exported arguments become environment variables, which are always strings.\n"
-            f"Use a quoted string: ${arg_name}: {{ default: \"{default}\" }}"
+            f'Use a quoted string: ${arg_name}: {{ default: "{default}" }}'
         )
 
     # Validate choices
     if choices is not None:
         # Validate choices is a list
         if not isinstance(choices, list):
-            raise ValueError(
-                f"Argument '{arg_name}': choices must be a list"
-            )
+            raise ValueError(f"Argument '{arg_name}': choices must be a list")
 
         # Validate choices is not empty
         if len(choices) == 0:
-            raise ValueError(
-                f"Argument '{arg_name}': choices list cannot be empty"
-            )
+            raise ValueError(f"Argument '{arg_name}': choices list cannot be empty")
 
         # Check for mutual exclusivity with min/max
         if min_val is not None or max_val is not None:
@@ -2224,7 +2306,9 @@ def _parse_arg_dict(arg_name: str, config: dict, is_exported: bool) -> ArgSpec:
             for value_name, value_type in inferred_types[1:]:
                 if value_type != first_type:
                     # Build error message showing the conflicting types
-                    type_info = ", ".join([f"{name}={vtype}" for name, vtype in inferred_types])
+                    type_info = ", ".join(
+                        [f"{name}={vtype}" for name, vtype in inferred_types]
+                    )
                     raise ValueError(
                         f"Argument '{arg_name}': inconsistent types inferred from min, max, and default.\n"
                         f"All values must have the same type.\n"
@@ -2248,7 +2332,10 @@ def _parse_arg_dict(arg_name: str, config: dict, is_exported: bool) -> ArgSpec:
                 )
 
     # Validate min/max are only used with numeric types
-    if (min_val is not None or max_val is not None) and arg_type not in ("int", "float"):
+    if (min_val is not None or max_val is not None) and arg_type not in (
+        "int",
+        "float",
+    ):
         raise ValueError(
             f"Argument '{arg_name}': min/max constraints are only supported for 'int' and 'float' types, "
             f"not '{arg_type}'"
@@ -2377,11 +2464,13 @@ def _parse_arg_dict(arg_name: str, config: dict, is_exported: bool) -> ArgSpec:
         is_exported=is_exported,
         min_val=min_val,
         max_val=max_val,
-        choices=choices
+        choices=choices,
     )
 
 
-def parse_dependency_spec(dep_spec: str | dict[str, Any], recipe: Recipe) -> DependencyInvocation:
+def parse_dependency_spec(
+    dep_spec: str | dict[str, Any], recipe: Recipe
+) -> DependencyInvocation:
     """
     Parse a dependency specification into a DependencyInvocation.
 
@@ -2509,7 +2598,9 @@ def _parse_positional_dependency_args(
         spec = parsed_specs[i]
         if isinstance(value, str):
             # Convert string values using type validator
-            click_type = get_click_type(spec.arg_type, min_val=spec.min_val, max_val=spec.max_val)
+            click_type = get_click_type(
+                spec.arg_type, min_val=spec.min_val, max_val=spec.max_val
+            )
             args_dict[spec.name] = click_type.convert(value, None, None)
         else:
             # Value is already typed (e.g., bool, int from YAML)
@@ -2520,7 +2611,9 @@ def _parse_positional_dependency_args(
         spec = parsed_specs[i]
         if spec.default is not None:
             # Defaults in task specs are always strings, convert them
-            click_type = get_click_type(spec.arg_type, min_val=spec.min_val, max_val=spec.max_val)
+            click_type = get_click_type(
+                spec.arg_type, min_val=spec.min_val, max_val=spec.max_val
+            )
             args_dict[spec.name] = click_type.convert(spec.default, None, None)
         else:
             raise ValueError(
@@ -2565,9 +2658,7 @@ def _parse_named_dependency_args(
     # Validate all provided arg names exist
     for arg_name in args_dict:
         if arg_name not in spec_map:
-            raise ValueError(
-                f"Task '{task_name}' has no argument named '{arg_name}'"
-            )
+            raise ValueError(f"Task '{task_name}' has no argument named '{arg_name}'")
 
     # Build normalized args dict with defaults
     normalized_args = {}
@@ -2576,14 +2667,18 @@ def _parse_named_dependency_args(
             # Use provided value with type conversion (only convert strings)
             value = args_dict[spec.name]
             if isinstance(value, str):
-                click_type = get_click_type(spec.arg_type, min_val=spec.min_val, max_val=spec.max_val)
+                click_type = get_click_type(
+                    spec.arg_type, min_val=spec.min_val, max_val=spec.max_val
+                )
                 normalized_args[spec.name] = click_type.convert(value, None, None)
             else:
                 # Value is already typed (e.g., bool, int from YAML)
                 normalized_args[spec.name] = value
         elif spec.default is not None:
             # Use default value (defaults are always strings in task specs)
-            click_type = get_click_type(spec.arg_type, min_val=spec.min_val, max_val=spec.max_val)
+            click_type = get_click_type(
+                spec.arg_type, min_val=spec.min_val, max_val=spec.max_val
+            )
             normalized_args[spec.name] = click_type.convert(spec.default, None, None)
         else:
             # Required arg not provided

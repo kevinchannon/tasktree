@@ -3,7 +3,6 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
-from rich.console import Console
 from rich.table import Table
 
 from tasktree.cli import _format_task_arguments, _list_tasks
@@ -57,7 +56,9 @@ class TestFormatTaskArguments(unittest.TestCase):
         Test formatting task with multiple optional arguments.
         @athena: 33f24ae9ed6d
         """
-        result = _format_task_arguments([{"mode": {"default": "debug"}}, {"target": {"default": "x86_64"}}])
+        result = _format_task_arguments(
+            [{"mode": {"default": "debug"}}, {"target": {"default": "x86_64"}}]
+        )
         self.assertIn("mode[dim]:str[/dim]", result)
         self.assertIn("[dim]\\[=debug][/dim]", result)
         self.assertIn("target[dim]:str[/dim]", result)
@@ -68,7 +69,9 @@ class TestFormatTaskArguments(unittest.TestCase):
         Test formatting task with mixed required and optional arguments.
         @athena: 81f9df8121ff
         """
-        result = _format_task_arguments(["environment", {"region": {"default": "us-west-1"}}])
+        result = _format_task_arguments(
+            ["environment", {"region": {"default": "us-west-1"}}]
+        )
         self.assertIn("environment[dim]:str[/dim]", result)
         self.assertIn("region[dim]:str[/dim]", result)
         self.assertIn("[dim]\\[=us-west-1][/dim]", result)
@@ -224,7 +227,9 @@ class TestFormatTaskArguments(unittest.TestCase):
         self.assertIn("[dim]\\[=[a-z]+][/dim]", result)
 
         # Test with dict-style argument containing special characters
-        result2 = _format_task_arguments([{"regex": {"type": "str", "default": "[0-9]+"}}])
+        result2 = _format_task_arguments(
+            [{"regex": {"type": "str", "default": "[0-9]+"}}]
+        )
         self.assertIn("regex[dim]:str[/dim]", result2)
         self.assertIn("[dim]\\[=[0-9]+][/dim]", result2)
 
@@ -240,7 +245,7 @@ class TestListFormatting(unittest.TestCase):
         Set up test fixtures.
         @athena: d852c203b9f3
         """
-        self.console_patch = patch('tasktree.cli.console')
+        self.console_patch = patch("tasktree.cli.console")
         self.mock_console = self.console_patch.start()
 
     def tearDown(self):
@@ -263,15 +268,13 @@ class TestListFormatting(unittest.TestCase):
         recipe.get_task.side_effect = lambda name: tasks_dict.get(name)
         return recipe
 
-    @patch('tasktree.cli._get_recipe')
+    @patch("tasktree.cli._get_recipe")
     def test_list_uses_borderless_table_format(self, mock_get_recipe):
         """
         Test list uses borderless table format.
         @athena: f60d9db65551
         """
-        tasks = {
-            "build": Task(name="build", cmd="echo build", desc="Build task")
-        }
+        tasks = {"build": Task(name="build", cmd="echo build", desc="Build task")}
         mock_get_recipe.return_value = self._create_mock_recipe(tasks)
 
         _list_tasks()
@@ -286,15 +289,13 @@ class TestListFormatting(unittest.TestCase):
         self.assertFalse(table.show_header)
         self.assertIsNone(table.box)
 
-    @patch('tasktree.cli._get_recipe')
+    @patch("tasktree.cli._get_recipe")
     def test_list_applies_correct_column_padding(self, mock_get_recipe):
         """
         Test list applies correct column padding.
         @athena: 4400c3e87f5f
         """
-        tasks = {
-            "build": Task(name="build", cmd="echo build", desc="Build task")
-        }
+        tasks = {"build": Task(name="build", cmd="echo build", desc="Build task")}
         mock_get_recipe.return_value = self._create_mock_recipe(tasks)
 
         _list_tasks()
@@ -304,15 +305,19 @@ class TestListFormatting(unittest.TestCase):
         # Check that horizontal padding is 2
         self.assertIn(table.padding, [(0, 2), (0, 2, 0, 2)])
 
-    @patch('tasktree.cli._get_recipe')
-    def test_list_calculates_command_column_width_from_longest_task_name(self, mock_get_recipe):
+    @patch("tasktree.cli._get_recipe")
+    def test_list_calculates_command_column_width_from_longest_task_name(
+        self, mock_get_recipe
+    ):
         """
         Test list calculates command column width from longest task name.
         @athena: a8d8f216cd14
         """
         tasks = {
             "short": Task(name="short", cmd="echo", desc="Short"),
-            "very-long-task-name": Task(name="very-long-task-name", cmd="echo", desc="Long"),
+            "very-long-task-name": Task(
+                name="very-long-task-name", cmd="echo", desc="Long"
+            ),
             "mid": Task(name="mid", cmd="echo", desc="Mid"),
         }
         mock_get_recipe.return_value = self._create_mock_recipe(tasks)
@@ -323,15 +328,13 @@ class TestListFormatting(unittest.TestCase):
         # Command column should have width equal to longest name
         self.assertEqual(table.columns[0].width, len("very-long-task-name"))
 
-    @patch('tasktree.cli._get_recipe')
+    @patch("tasktree.cli._get_recipe")
     def test_list_command_column_never_wraps(self, mock_get_recipe):
         """
         Test list command column never wraps.
         @athena: 5d87d3b1edd4
         """
-        tasks = {
-            "task": Task(name="task", cmd="echo", desc="Task")
-        }
+        tasks = {"task": Task(name="task", cmd="echo", desc="Task")}
         mock_get_recipe.return_value = self._create_mock_recipe(tasks)
 
         _list_tasks()
@@ -340,7 +343,7 @@ class TestListFormatting(unittest.TestCase):
         # Command column should have no_wrap=True
         self.assertTrue(table.columns[0].no_wrap)
 
-    @patch('tasktree.cli._get_recipe')
+    @patch("tasktree.cli._get_recipe")
     def test_list_shows_namespaced_tasks(self, mock_get_recipe):
         """
         Test list shows namespaced tasks.
@@ -359,7 +362,7 @@ class TestListFormatting(unittest.TestCase):
         # Table should have 2 rows (one for each task)
         self.assertEqual(len(table.rows), 2)
 
-    @patch('tasktree.cli._get_recipe')
+    @patch("tasktree.cli._get_recipe")
     def test_list_formats_tasks_from_multiple_namespaces(self, mock_get_recipe):
         """
         Test list formats tasks from multiple namespaces.
@@ -378,7 +381,7 @@ class TestListFormatting(unittest.TestCase):
         table = self.mock_console.print.call_args[0][0]
         self.assertEqual(len(table.rows), 4)
 
-    @patch('tasktree.cli._get_recipe')
+    @patch("tasktree.cli._get_recipe")
     def test_list_handles_empty_task_list(self, mock_get_recipe):
         """
         Test list handles empty task list.
@@ -394,16 +397,17 @@ class TestListFormatting(unittest.TestCase):
         table = self.mock_console.print.call_args[0][0]
         self.assertEqual(len(table.rows), 0)
 
-    @patch('tasktree.cli._get_recipe')
+    @patch("tasktree.cli._get_recipe")
     def test_list_handles_tasks_with_long_descriptions(self, mock_get_recipe):
         """
         Test list handles tasks with long descriptions.
         @athena: 28fab971dc2f
         """
-        long_desc = "This is a very long description that should wrap in the description column " * 5
-        tasks = {
-            "task": Task(name="task", cmd="echo", desc=long_desc)
-        }
+        long_desc = (
+            "This is a very long description that should wrap in the description column "
+            * 5
+        )
+        tasks = {"task": Task(name="task", cmd="echo", desc=long_desc)}
         mock_get_recipe.return_value = self._create_mock_recipe(tasks)
 
         _list_tasks()
@@ -411,15 +415,13 @@ class TestListFormatting(unittest.TestCase):
         # Should not raise any errors
         self.mock_console.print.assert_called_once()
 
-    @patch('tasktree.cli._get_recipe')
+    @patch("tasktree.cli._get_recipe")
     def test_list_applies_bold_style_to_task_names(self, mock_get_recipe):
         """
         Test list applies bold style to task names.
         @athena: 5e15db396a23
         """
-        tasks = {
-            "build": Task(name="build", cmd="echo", desc="Build")
-        }
+        tasks = {"build": Task(name="build", cmd="echo", desc="Build")}
         mock_get_recipe.return_value = self._create_mock_recipe(tasks)
 
         _list_tasks()
@@ -429,15 +431,13 @@ class TestListFormatting(unittest.TestCase):
         self.assertIn("bold", table.columns[0].style)
         self.assertIn("cyan", table.columns[0].style)
 
-    @patch('tasktree.cli._get_recipe')
+    @patch("tasktree.cli._get_recipe")
     def test_list_separates_columns_visually(self, mock_get_recipe):
         """
         Test list separates columns visually.
         @athena: 81ae146961ac
         """
-        tasks = {
-            "build": Task(name="build", cmd="echo", desc="Build", args=["env"])
-        }
+        tasks = {"build": Task(name="build", cmd="echo", desc="Build", args=["env"])}
         mock_get_recipe.return_value = self._create_mock_recipe(tasks)
 
         _list_tasks()
@@ -447,15 +447,19 @@ class TestListFormatting(unittest.TestCase):
         # Rich Table padding can be a tuple of (top, right, bottom, left) or (vertical, horizontal)
         self.assertIn(table.padding, [(0, 2), (0, 2, 0, 2)])
 
-    @patch('tasktree.cli._get_recipe')
+    @patch("tasktree.cli._get_recipe")
     def test_list_excludes_private_tasks(self, mock_get_recipe):
         """
         Test that private tasks are excluded from list output.
         @athena: 2e376baf6ab4
         """
         tasks = {
-            "public": Task(name="public", cmd="echo public", desc="Public task", private=False),
-            "private": Task(name="private", cmd="echo private", desc="Private task", private=True),
+            "public": Task(
+                name="public", cmd="echo public", desc="Public task", private=False
+            ),
+            "private": Task(
+                name="private", cmd="echo private", desc="Private task", private=True
+            ),
         }
         mock_get_recipe.return_value = self._create_mock_recipe(tasks)
 
@@ -465,7 +469,7 @@ class TestListFormatting(unittest.TestCase):
         # Should only have 1 row (the public task)
         self.assertEqual(len(table.rows), 1)
 
-    @patch('tasktree.cli._get_recipe')
+    @patch("tasktree.cli._get_recipe")
     def test_list_includes_tasks_without_private_field(self, mock_get_recipe):
         """
         Test that tasks without private field (default False) are included.
@@ -482,17 +486,23 @@ class TestListFormatting(unittest.TestCase):
         # Should have 1 row
         self.assertEqual(len(table.rows), 1)
 
-    @patch('tasktree.cli._get_recipe')
+    @patch("tasktree.cli._get_recipe")
     def test_list_with_mixed_private_and_public_tasks(self, mock_get_recipe):
         """
         Test list with mixed private and public tasks.
         @athena: 43ae91ae6522
         """
         tasks = {
-            "public1": Task(name="public1", cmd="echo 1", desc="Public 1", private=False),
-            "private1": Task(name="private1", cmd="echo 2", desc="Private 1", private=True),
+            "public1": Task(
+                name="public1", cmd="echo 1", desc="Public 1", private=False
+            ),
+            "private1": Task(
+                name="private1", cmd="echo 2", desc="Private 1", private=True
+            ),
             "public2": Task(name="public2", cmd="echo 3", desc="Public 2"),
-            "private2": Task(name="private2", cmd="echo 4", desc="Private 2", private=True),
+            "private2": Task(
+                name="private2", cmd="echo 4", desc="Private 2", private=True
+            ),
         }
         mock_get_recipe.return_value = self._create_mock_recipe(tasks)
 
@@ -502,15 +512,19 @@ class TestListFormatting(unittest.TestCase):
         # Should only have 2 rows (public1 and public2)
         self.assertEqual(len(table.rows), 2)
 
-    @patch('tasktree.cli._get_recipe')
+    @patch("tasktree.cli._get_recipe")
     def test_list_with_only_private_tasks(self, mock_get_recipe):
         """
         Test list with only private tasks shows empty table.
         @athena: 11ecb613c582
         """
         tasks = {
-            "private1": Task(name="private1", cmd="echo 1", desc="Private 1", private=True),
-            "private2": Task(name="private2", cmd="echo 2", desc="Private 2", private=True),
+            "private1": Task(
+                name="private1", cmd="echo 1", desc="Private 1", private=True
+            ),
+            "private2": Task(
+                name="private2", cmd="echo 2", desc="Private 2", private=True
+            ),
         }
         mock_get_recipe.return_value = self._create_mock_recipe(tasks)
 

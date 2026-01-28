@@ -3,7 +3,6 @@
 import os
 import tempfile
 import unittest
-from datetime import datetime
 from pathlib import Path
 
 from tasktree.executor import Executor
@@ -31,6 +30,7 @@ class TestBuiltinVariables(unittest.TestCase):
         @athena: a5513988aa81
         """
         import shutil
+
         shutil.rmtree(self.test_dir, ignore_errors=True)
 
     def test_all_builtin_variables_in_command(self):
@@ -66,7 +66,10 @@ tasks:
 
         # Read output and verify
         output = output_file.read_text()
-        lines = {line.split("=", 1)[0]: line.split("=", 1)[1] for line in output.strip().split("\n")}
+        lines = {
+            line.split("=", 1)[0]: line.split("=", 1)[1]
+            for line in output.strip().split("\n")
+        }
 
         # Verify all variables were substituted
         self.assertIn("project_root", lines)
@@ -213,7 +216,10 @@ tasks:
         executor.execute_task("test-recipe-dir")
 
         output = output_file.read_text()
-        lines = {line.split("=", 1)[0]: line.split("=", 1)[1] for line in output.strip().split("\n")}
+        lines = {
+            line.split("=", 1)[0]: line.split("=", 1)[1]
+            for line in output.strip().split("\n")
+        }
 
         # project_root should be test_dir
         self.assertEqual(lines["project"], str(Path(self.test_dir).resolve()))
@@ -286,7 +292,10 @@ tasks:
         executor.execute_task("build-task")
 
         output = output_file.read_text()
-        lines = {line.split("=", 1)[0]: line.split("=", 1)[1] for line in output.strip().split("\n")}
+        lines = {
+            line.split("=", 1)[0]: line.split("=", 1)[1]
+            for line in output.strip().split("\n")
+        }
 
         # Verify task_name was substituted in working_dir
         self.assertEqual(lines["task"], "build-task")
@@ -299,21 +308,21 @@ tasks:
         @athena: 7655e3c1fe2d
         """
         from unittest.mock import patch, Mock
-        import platform
 
-        output_file = Path(self.test_dir) / "docker_test.txt"
+        # TODO why is this not used?
+        # output_file = Path(self.test_dir) / "docker_test.txt"
 
-        recipe_content = f"""
+        recipe_content = """
 environments:
   test-env:
     dockerfile: docker/Dockerfile
     context: .
     volumes:
-      - "{{{{ tt.project_root }}}}:/workspace"
-      - "{{{{ tt.recipe_dir }}}}:/config"
+      - "{{ tt.project_root }}:/workspace"
+      - "{{ tt.recipe_dir }}:/config"
     env_vars:
-      PROJECT_PATH: "{{{{ tt.project_root }}}}"
-      TASK_NAME_VAR: "{{{{ tt.task_name }}}}"
+      PROJECT_PATH: "{{ tt.project_root }}"
+      TASK_NAME_VAR: "{{ tt.task_name }}"
 
 tasks:
   docker-test:
@@ -339,11 +348,11 @@ tasks:
 
         def mock_run(*args, **kwargs):
             nonlocal docker_run_command
-            cmd = args[0] if args else kwargs.get('args', [])
-            if isinstance(cmd, list) and 'run' in cmd:
+            cmd = args[0] if args else kwargs.get("args", [])
+            if isinstance(cmd, list) and "run" in cmd:
                 docker_run_command = cmd
             # Mock return values
-            if isinstance(cmd, list) and 'inspect' in cmd:
+            if isinstance(cmd, list) and "inspect" in cmd:
                 result = Mock()
                 result.stdout = "sha256:test123\\n"
                 result.returncode = 0
@@ -352,12 +361,14 @@ tasks:
             result.returncode = 0
             return result
 
-        with patch('tasktree.docker.subprocess.run', side_effect=mock_run):
+        with patch("tasktree.docker.subprocess.run", side_effect=mock_run):
             # Execute task
             executor.execute_task("docker-test")
 
         # Verify that volumes were substituted
-        self.assertIsNotNone(docker_run_command, "Docker run command should have been captured")
+        self.assertIsNotNone(
+            docker_run_command, "Docker run command should have been captured"
+        )
 
         # Find volume mounts in command
         volume_mounts = []
@@ -366,19 +377,25 @@ tasks:
                 volume_mounts.append(docker_run_command[i + 1])
 
         # Verify volumes contain absolute paths, not template strings
-        self.assertTrue(len(volume_mounts) >= 2, f"Expected at least 2 volume mounts, got {len(volume_mounts)}")
+        self.assertTrue(
+            len(volume_mounts) >= 2,
+            f"Expected at least 2 volume mounts, got {len(volume_mounts)}",
+        )
 
         # Check that tt.project_root was substituted
         project_root_str = str(recipe.project_root.resolve())
         self.assertTrue(
             any(project_root_str in vol for vol in volume_mounts),
-            f"Expected project root '{project_root_str}' in volumes, got: {volume_mounts}"
+            f"Expected project root '{project_root_str}' in volumes, got: {volume_mounts}",
         )
 
         # Verify no literal template strings remain
         for vol in volume_mounts:
-            self.assertNotIn("{{ tt.", vol,
-                f"Volume mount should not contain template strings: {vol}")
+            self.assertNotIn(
+                "{{ tt.",
+                vol,
+                f"Volume mount should not contain template strings: {vol}",
+            )
 
         # Find environment variables in command
         env_vars = {}
@@ -390,13 +407,21 @@ tasks:
                     env_vars[key] = value
 
         # Verify environment variables were substituted
-        self.assertIn("PROJECT_PATH", env_vars, "PROJECT_PATH env var should be present")
-        self.assertEqual(env_vars["PROJECT_PATH"], project_root_str,
-            "PROJECT_PATH should contain the resolved project root")
+        self.assertIn(
+            "PROJECT_PATH", env_vars, "PROJECT_PATH env var should be present"
+        )
+        self.assertEqual(
+            env_vars["PROJECT_PATH"],
+            project_root_str,
+            "PROJECT_PATH should contain the resolved project root",
+        )
 
         self.assertIn("TASK_NAME_VAR", env_vars, "TASK_NAME_VAR should be present")
-        self.assertEqual(env_vars["TASK_NAME_VAR"], "docker-test",
-            "TASK_NAME_VAR should contain the task name")
+        self.assertEqual(
+            env_vars["TASK_NAME_VAR"],
+            "docker-test",
+            "TASK_NAME_VAR should contain the task name",
+        )
 
     def test_env_vars_in_environment_fields(self):
         """
@@ -404,23 +429,21 @@ tasks:
         @athena: 6577b3cabf13
         """
         from unittest.mock import patch, Mock
-        import platform
-        import os
 
         # Set test environment variable
         os.environ["TEST_MOUNT_PATH"] = "/test/mount"
         os.environ["TEST_ENV_VALUE"] = "test-value"
 
         try:
-            recipe_content = f"""
+            recipe_content = """
 environments:
   test-env:
     dockerfile: docker/Dockerfile
     context: .
     volumes:
-      - "{{{{ env.TEST_MOUNT_PATH }}}}:/workspace"
+      - "{{ env.TEST_MOUNT_PATH }}:/workspace"
     env_vars:
-      ENV_VAR_VALUE: "{{{{ env.TEST_ENV_VALUE }}}}"
+      ENV_VAR_VALUE: "{{ env.TEST_ENV_VALUE }}"
 
 tasks:
   docker-test:
@@ -446,11 +469,11 @@ tasks:
 
             def mock_run(*args, **kwargs):
                 nonlocal docker_run_command
-                cmd = args[0] if args else kwargs.get('args', [])
-                if isinstance(cmd, list) and 'run' in cmd:
+                cmd = args[0] if args else kwargs.get("args", [])
+                if isinstance(cmd, list) and "run" in cmd:
                     docker_run_command = cmd
                 # Mock return values
-                if isinstance(cmd, list) and 'inspect' in cmd:
+                if isinstance(cmd, list) and "inspect" in cmd:
                     result = Mock()
                     result.stdout = "sha256:test123\\n"
                     result.returncode = 0
@@ -459,12 +482,14 @@ tasks:
                 result.returncode = 0
                 return result
 
-            with patch('tasktree.docker.subprocess.run', side_effect=mock_run):
+            with patch("tasktree.docker.subprocess.run", side_effect=mock_run):
                 # Execute task
                 executor.execute_task("docker-test")
 
             # Verify that volumes were substituted
-            self.assertIsNotNone(docker_run_command, "Docker run command should have been captured")
+            self.assertIsNotNone(
+                docker_run_command, "Docker run command should have been captured"
+            )
 
             # Find volume mounts in command
             volume_mounts = []
@@ -473,16 +498,22 @@ tasks:
                     volume_mounts.append(docker_run_command[i + 1])
 
             # Verify volumes contain the substituted env var, not template strings
-            self.assertTrue(len(volume_mounts) >= 1, f"Expected at least 1 volume mount, got {len(volume_mounts)}")
+            self.assertTrue(
+                len(volume_mounts) >= 1,
+                f"Expected at least 1 volume mount, got {len(volume_mounts)}",
+            )
             self.assertTrue(
                 any("/test/mount" in vol for vol in volume_mounts),
-                f"Expected '/test/mount' in volumes, got: {volume_mounts}"
+                f"Expected '/test/mount' in volumes, got: {volume_mounts}",
             )
 
             # Verify no literal template strings remain
             for vol in volume_mounts:
-                self.assertNotIn("{{ env.", vol,
-                    f"Volume mount should not contain template strings: {vol}")
+                self.assertNotIn(
+                    "{{ env.",
+                    vol,
+                    f"Volume mount should not contain template strings: {vol}",
+                )
 
             # Find environment variables in command
             env_vars = {}
@@ -494,9 +525,14 @@ tasks:
                         env_vars[key] = value
 
             # Verify environment variables were substituted
-            self.assertIn("ENV_VAR_VALUE", env_vars, "ENV_VAR_VALUE env var should be present")
-            self.assertEqual(env_vars["ENV_VAR_VALUE"], "test-value",
-                "ENV_VAR_VALUE should contain the substituted environment variable")
+            self.assertIn(
+                "ENV_VAR_VALUE", env_vars, "ENV_VAR_VALUE env var should be present"
+            )
+            self.assertEqual(
+                env_vars["ENV_VAR_VALUE"],
+                "test-value",
+                "ENV_VAR_VALUE should contain the substituted environment variable",
+            )
         finally:
             # Clean up test environment variables
             os.environ.pop("TEST_MOUNT_PATH", None)
@@ -509,7 +545,7 @@ tasks:
         """
         from unittest.mock import patch, Mock
 
-        recipe_content = f"""
+        recipe_content = """
 variables:
   mount_path: /var/data
   env_value: config-value
@@ -519,9 +555,9 @@ environments:
     dockerfile: docker/Dockerfile
     context: .
     volumes:
-      - "{{{{ var.mount_path }}}}:/workspace"
+      - "{{ var.mount_path }}:/workspace"
     env_vars:
-      VAR_VALUE: "{{{{ var.env_value }}}}"
+      VAR_VALUE: "{{ var.env_value }}"
 
 tasks:
   docker-test:
@@ -547,11 +583,11 @@ tasks:
 
         def mock_run(*args, **kwargs):
             nonlocal docker_run_command
-            cmd = args[0] if args else kwargs.get('args', [])
-            if isinstance(cmd, list) and 'run' in cmd:
+            cmd = args[0] if args else kwargs.get("args", [])
+            if isinstance(cmd, list) and "run" in cmd:
                 docker_run_command = cmd
             # Mock return values
-            if isinstance(cmd, list) and 'inspect' in cmd:
+            if isinstance(cmd, list) and "inspect" in cmd:
                 result = Mock()
                 result.stdout = "sha256:test123\\n"
                 result.returncode = 0
@@ -560,12 +596,14 @@ tasks:
             result.returncode = 0
             return result
 
-        with patch('tasktree.docker.subprocess.run', side_effect=mock_run):
+        with patch("tasktree.docker.subprocess.run", side_effect=mock_run):
             # Execute task
             executor.execute_task("docker-test")
 
         # Verify that volumes were substituted
-        self.assertIsNotNone(docker_run_command, "Docker run command should have been captured")
+        self.assertIsNotNone(
+            docker_run_command, "Docker run command should have been captured"
+        )
 
         # Find volume mounts in command
         volume_mounts = []
@@ -574,16 +612,22 @@ tasks:
                 volume_mounts.append(docker_run_command[i + 1])
 
         # Verify volumes contain the substituted var, not template strings
-        self.assertTrue(len(volume_mounts) >= 1, f"Expected at least 1 volume mount, got {len(volume_mounts)}")
+        self.assertTrue(
+            len(volume_mounts) >= 1,
+            f"Expected at least 1 volume mount, got {len(volume_mounts)}",
+        )
         self.assertTrue(
             any("/var/data" in vol for vol in volume_mounts),
-            f"Expected '/var/data' in volumes, got: {volume_mounts}"
+            f"Expected '/var/data' in volumes, got: {volume_mounts}",
         )
 
         # Verify no literal template strings remain
         for vol in volume_mounts:
-            self.assertNotIn("{{ var.", vol,
-                f"Volume mount should not contain template strings: {vol}")
+            self.assertNotIn(
+                "{{ var.",
+                vol,
+                f"Volume mount should not contain template strings: {vol}",
+            )
 
         # Find environment variables in command
         env_vars = {}
@@ -596,8 +640,11 @@ tasks:
 
         # Verify environment variables were substituted
         self.assertIn("VAR_VALUE", env_vars, "VAR_VALUE env var should be present")
-        self.assertEqual(env_vars["VAR_VALUE"], "config-value",
-            "VAR_VALUE should contain the substituted variable")
+        self.assertEqual(
+            env_vars["VAR_VALUE"],
+            "config-value",
+            "VAR_VALUE should contain the substituted variable",
+        )
 
 
 if __name__ == "__main__":

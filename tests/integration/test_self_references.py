@@ -19,8 +19,8 @@ def strip_ansi_codes(text: str) -> str:
     Remove ANSI escape sequences from text.
     @athena: 90023a269128
     """
-    ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
-    return ansi_escape.sub('', text)
+    ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
+    return ansi_escape.sub("", text)
 
 
 class TestBasicSelfReferences(unittest.TestCase):
@@ -66,7 +66,9 @@ tasks:
 
                 # Run task
                 result = self.runner.invoke(app, ["process"], env=self.env)
-                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+                self.assertEqual(
+                    result.exit_code, 0, f"Command failed: {result.stdout}"
+                )
 
                 # Verify output file was created with correct content
                 output_file = project_root / "output.txt"
@@ -99,7 +101,9 @@ tasks:
 
                 # Run task
                 result = self.runner.invoke(app, ["generate"], env=self.env)
-                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+                self.assertEqual(
+                    result.exit_code, 0, f"Command failed: {result.stdout}"
+                )
 
                 # Verify output file was created with correct content
                 output_file = project_root / "result.txt"
@@ -138,7 +142,9 @@ tasks:
 
                 # Run task
                 result = self.runner.invoke(app, ["transform"], env=self.env)
-                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+                self.assertEqual(
+                    result.exit_code, 0, f"Command failed: {result.stdout}"
+                )
 
                 # Verify output file has transformed content
                 output_file = project_root / "processed.txt"
@@ -177,7 +183,9 @@ tasks:
 
                 # Run task
                 result = self.runner.invoke(app, ["concat"], env=self.env)
-                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+                self.assertEqual(
+                    result.exit_code, 0, f"Command failed: {result.stdout}"
+                )
 
                 # Verify output file contains both files' content
                 output_file = project_root / "all.txt"
@@ -215,7 +223,9 @@ tasks:
 
                 # Run task
                 result = self.runner.invoke(app, ["copy"], env=self.env)
-                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+                self.assertEqual(
+                    result.exit_code, 0, f"Command failed: {result.stdout}"
+                )
 
                 # Verify output file was created
                 output_file = project_root / "output.txt"
@@ -247,7 +257,9 @@ tasks:
 
                 # Run task
                 result = self.runner.invoke(app, ["build"], env=self.env)
-                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+                self.assertEqual(
+                    result.exit_code, 0, f"Command failed: {result.stdout}"
+                )
 
                 # Verify output file was created
                 output_file = project_root / "build.log"
@@ -290,7 +302,9 @@ tasks:
 
                 # Run task
                 result = self.runner.invoke(app, ["process"], env=self.env)
-                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+                self.assertEqual(
+                    result.exit_code, 0, f"Command failed: {result.stdout}"
+                )
 
                 # Verify both output files were created
                 output_file = project_root / "output.txt"
@@ -346,7 +360,9 @@ tasks:
 
                 # Run task - should fail
                 result = self.runner.invoke(app, ["build"], env=self.env)
-                self.assertNotEqual(result.exit_code, 0, "Task should fail with missing input reference")
+                self.assertNotEqual(
+                    result.exit_code, 0, "Task should fail with missing input reference"
+                )
 
                 # Check error message contains useful information
                 output = strip_ansi_codes(result.output)
@@ -381,13 +397,19 @@ tasks:
 
                 # Run task - should fail
                 result = self.runner.invoke(app, ["deploy"], env=self.env)
-                self.assertNotEqual(result.exit_code, 0, "Task should fail with missing output reference")
+                self.assertNotEqual(
+                    result.exit_code,
+                    0,
+                    "Task should fail with missing output reference",
+                )
 
                 # Check error message contains useful information
                 output = strip_ansi_codes(result.output)
                 self.assertIn("missing", output.lower())
                 self.assertIn("bundle", output)  # Available output should be mentioned
-                self.assertIn("sourcemap", output)  # Available output should be mentioned
+                self.assertIn(
+                    "sourcemap", output
+                )  # Available output should be mentioned
             finally:
                 os.chdir(original_cwd)
 
@@ -415,7 +437,11 @@ tasks:
 
                 # Run task - should fail
                 result = self.runner.invoke(app, ["build"], env=self.env)
-                self.assertNotEqual(result.exit_code, 0, "Task should fail when referencing anonymous inputs")
+                self.assertNotEqual(
+                    result.exit_code,
+                    0,
+                    "Task should fail when referencing anonymous inputs",
+                )
 
                 # Check error message mentions anonymous
                 output = strip_ansi_codes(result.output)
@@ -446,7 +472,11 @@ tasks:
 
                 # Run task - should fail
                 result = self.runner.invoke(app, ["build"], env=self.env)
-                self.assertNotEqual(result.exit_code, 0, "Task should fail when referencing anonymous outputs")
+                self.assertNotEqual(
+                    result.exit_code,
+                    0,
+                    "Task should fail when referencing anonymous outputs",
+                )
 
                 # Check error message mentions anonymous
                 output = strip_ansi_codes(result.output)
@@ -477,7 +507,9 @@ tasks:
 
                 # Run task - should fail
                 result = self.runner.invoke(app, ["build"], env=self.env)
-                self.assertNotEqual(result.exit_code, 0, "Task should fail when no inputs exist")
+                self.assertNotEqual(
+                    result.exit_code, 0, "Task should fail when no inputs exist"
+                )
 
                 # Check error message
                 output = strip_ansi_codes(result.output)
@@ -507,7 +539,9 @@ tasks:
 
                 # Run task - should fail
                 result = self.runner.invoke(app, ["build"], env=self.env)
-                self.assertNotEqual(result.exit_code, 0, "Task should fail when no outputs exist")
+                self.assertNotEqual(
+                    result.exit_code, 0, "Task should fail when no outputs exist"
+                )
 
                 # Check error message
                 output = strip_ansi_codes(result.output)
@@ -540,11 +574,15 @@ tasks:
 
                 # Run task - should fail (SRC != src)
                 result = self.runner.invoke(app, ["build"], env=self.env)
-                self.assertNotEqual(result.exit_code, 0, "Task should fail due to case mismatch")
+                self.assertNotEqual(
+                    result.exit_code, 0, "Task should fail due to case mismatch"
+                )
 
                 # Check error message mentions available name
                 output = strip_ansi_codes(result.output)
-                self.assertIn("src", output)  # The actual lowercase name should be in error
+                self.assertIn(
+                    "src", output
+                )  # The actual lowercase name should be in error
             finally:
                 os.chdir(original_cwd)
 
@@ -596,7 +634,9 @@ tasks:
 
                 # Run task
                 result = self.runner.invoke(app, ["process"], env=self.env)
-                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+                self.assertEqual(
+                    result.exit_code, 0, f"Command failed: {result.stdout}"
+                )
 
                 # Verify output file contains correct content
                 output_file = project_root / "output.txt"
@@ -635,11 +675,16 @@ tasks:
 
                 # Run task
                 result = self.runner.invoke(app, ["generate"], env=self.env)
-                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+                self.assertEqual(
+                    result.exit_code, 0, f"Command failed: {result.stdout}"
+                )
 
                 # Verify output file was created at correct path
                 output_file = project_root / "dist" / "result.txt"
-                self.assertTrue(output_file.exists(), "Output file should exist at variable-expanded path")
+                self.assertTrue(
+                    output_file.exists(),
+                    "Output file should exist at variable-expanded path",
+                )
                 self.assertEqual(output_file.read_text().strip(), "Generated")
             finally:
                 os.chdir(original_cwd)
@@ -679,11 +724,16 @@ tasks:
 
                 # Run task
                 result = self.runner.invoke(app, ["process"], env=self.env)
-                self.assertEqual(result.exit_code, 0, f"Command failed: {result.output}")
+                self.assertEqual(
+                    result.exit_code, 0, f"Command failed: {result.output}"
+                )
 
                 # Verify output file was created with correct name and content
                 output_file = project_root / "myapp-v2-output.txt"
-                self.assertTrue(output_file.exists(), "Output file should exist with variable-expanded name")
+                self.assertTrue(
+                    output_file.exists(),
+                    "Output file should exist with variable-expanded name",
+                )
                 self.assertEqual(output_file.read_text(), "Multi-var data")
             finally:
                 os.chdir(original_cwd)
@@ -724,7 +774,9 @@ tasks:
 
                 # Run task
                 result = self.runner.invoke(app, ["deploy"], env=self.env)
-                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+                self.assertEqual(
+                    result.exit_code, 0, f"Command failed: {result.stdout}"
+                )
 
                 # Verify output file exists at correct location (proves variable was expanded before self-ref)
                 output_file = project_root / "staging" / "deployed.js"
@@ -784,7 +836,9 @@ tasks:
 
                 # Run package task
                 result = self.runner.invoke(app, ["package"], env=self.env)
-                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+                self.assertEqual(
+                    result.exit_code, 0, f"Command failed: {result.stdout}"
+                )
 
                 # Verify tarball was created
                 tarball = project_root / "release.tar.gz"
@@ -822,11 +876,15 @@ tasks:
 
                 # Run compile task
                 result = self.runner.invoke(app, ["compile"], env=self.env)
-                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+                self.assertEqual(
+                    result.exit_code, 0, f"Command failed: {result.stdout}"
+                )
 
                 # Verify binary was created at correct location
                 binary = project_root / "build" / "v1" / "app.bin"
-                self.assertTrue(binary.exists(), "Binary should exist at dep-referenced path")
+                self.assertTrue(
+                    binary.exists(), "Binary should exist at dep-referenced path"
+                )
                 self.assertEqual(binary.read_text(), "binary\n")
             finally:
                 os.chdir(original_cwd)
@@ -863,7 +921,9 @@ tasks:
 
                 # Run process task
                 result = self.runner.invoke(app, ["process"], env=self.env)
-                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+                self.assertEqual(
+                    result.exit_code, 0, f"Command failed: {result.stdout}"
+                )
 
                 # Verify result file contains correct data
                 result_file = project_root / "processed.txt"
@@ -914,7 +974,9 @@ tasks:
 
                 # Run bundle task
                 result = self.runner.invoke(app, ["bundle"], env=self.env)
-                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+                self.assertEqual(
+                    result.exit_code, 0, f"Command failed: {result.stdout}"
+                )
 
                 # Verify bundle contains both modules
                 bundle_file = project_root / "app.js"
@@ -971,7 +1033,9 @@ tasks:
 
                 # Run task with mode=debug
                 result = self.runner.invoke(app, ["build", "mode=debug"], env=self.env)
-                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+                self.assertEqual(
+                    result.exit_code, 0, f"Command failed: {result.stdout}"
+                )
 
                 # Verify debug output
                 output_file = project_root / "output-debug.txt"
@@ -979,8 +1043,12 @@ tasks:
                 self.assertEqual(output_file.read_text(), "Debug mode")
 
                 # Run task with mode=release
-                result = self.runner.invoke(app, ["build", "mode=release"], env=self.env)
-                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+                result = self.runner.invoke(
+                    app, ["build", "mode=release"], env=self.env
+                )
+                self.assertEqual(
+                    result.exit_code, 0, f"Command failed: {result.stdout}"
+                )
 
                 # Verify release output
                 output_file = project_root / "output-release.txt"
@@ -1021,16 +1089,24 @@ tasks:
                 os.chdir(project_root)
 
                 # Deploy dev
-                result = self.runner.invoke(app, ["deploy", "environment=dev"], env=self.env)
-                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+                result = self.runner.invoke(
+                    app, ["deploy", "environment=dev"], env=self.env
+                )
+                self.assertEqual(
+                    result.exit_code, 0, f"Command failed: {result.stdout}"
+                )
 
                 deployed_file = project_root / "deployed-dev.yaml"
                 self.assertTrue(deployed_file.exists())
                 self.assertEqual(deployed_file.read_text(), "env: dev")
 
                 # Deploy prod
-                result = self.runner.invoke(app, ["deploy", "environment=prod"], env=self.env)
-                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+                result = self.runner.invoke(
+                    app, ["deploy", "environment=prod"], env=self.env
+                )
+                self.assertEqual(
+                    result.exit_code, 0, f"Command failed: {result.stdout}"
+                )
 
                 deployed_file = project_root / "deployed-prod.yaml"
                 self.assertTrue(deployed_file.exists())
@@ -1070,16 +1146,24 @@ tasks:
                 os.chdir(project_root)
 
                 # Package v1-stable
-                result = self.runner.invoke(app, ["package", "version=v1", "channel=stable"], env=self.env)
-                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+                result = self.runner.invoke(
+                    app, ["package", "version=v1", "channel=stable"], env=self.env
+                )
+                self.assertEqual(
+                    result.exit_code, 0, f"Command failed: {result.stdout}"
+                )
 
                 bundle = project_root / "dist-v1-stable.js"
                 self.assertTrue(bundle.exists())
                 self.assertEqual(bundle.read_text(), "v1-stable")
 
                 # Package v2-beta
-                result = self.runner.invoke(app, ["package", "version=v2", "channel=beta"], env=self.env)
-                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+                result = self.runner.invoke(
+                    app, ["package", "version=v2", "channel=beta"], env=self.env
+                )
+                self.assertEqual(
+                    result.exit_code, 0, f"Command failed: {result.stdout}"
+                )
 
                 bundle = project_root / "dist-v2-beta.js"
                 self.assertTrue(bundle.exists())
@@ -1125,8 +1209,12 @@ tasks:
                 os.chdir(project_root)
 
                 # Package for windows
-                result = self.runner.invoke(app, ["package", "platform=windows"], env=self.env)
-                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+                result = self.runner.invoke(
+                    app, ["package", "platform=windows"], env=self.env
+                )
+                self.assertEqual(
+                    result.exit_code, 0, f"Command failed: {result.stdout}"
+                )
 
                 setup = project_root / "setup-windows.exe"
                 self.assertTrue(setup.exists())
@@ -1181,7 +1269,9 @@ tasks:
 
                 # First run
                 result = self.runner.invoke(app, ["build"], env=self.env)
-                self.assertEqual(result.exit_code, 0, f"First run failed: {result.stdout}")
+                self.assertEqual(
+                    result.exit_code, 0, f"First run failed: {result.stdout}"
+                )
 
                 output_file = project_root / "output.txt"
                 self.assertTrue(output_file.exists())
@@ -1189,7 +1279,9 @@ tasks:
 
                 # Second run without changes - should skip
                 result = self.runner.invoke(app, ["build"], env=self.env)
-                self.assertEqual(result.exit_code, 0, f"Second run failed: {result.stdout}")
+                self.assertEqual(
+                    result.exit_code, 0, f"Second run failed: {result.stdout}"
+                )
                 # Task should be skipped (no "Running:" message for build)
                 output = strip_ansi_codes(result.stdout)
                 self.assertNotIn("Running: build", output)
@@ -1233,6 +1325,7 @@ tasks:
 
                 # Modify input file
                 import time
+
                 time.sleep(0.01)  # Ensure timestamp changes
                 src_file.write_text("Modified")
 
@@ -1451,6 +1544,7 @@ tasks:
 
                 # Modify source file
                 import time
+
                 time.sleep(0.01)
                 src_file.write_text("int main() { return 1; }")
 
@@ -1507,7 +1601,9 @@ tasks:
 
                 # Run task
                 result = self.runner.invoke(app, ["concat"], env=self.env)
-                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+                self.assertEqual(
+                    result.exit_code, 0, f"Command failed: {result.stdout}"
+                )
 
                 # Verify output file contains both files in order
                 output_file = project_root / "result.txt"
@@ -1543,7 +1639,9 @@ tasks:
 
                 # Run task
                 result = self.runner.invoke(app, ["generate"], env=self.env)
-                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+                self.assertEqual(
+                    result.exit_code, 0, f"Command failed: {result.stdout}"
+                )
 
                 # Verify both output files were created
                 first_file = project_root / "first.txt"
@@ -1589,7 +1687,9 @@ tasks:
 
                 # Run task
                 result = self.runner.invoke(app, ["process"], env=self.env)
-                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+                self.assertEqual(
+                    result.exit_code, 0, f"Command failed: {result.stdout}"
+                )
 
                 # Verify both output files
                 output_file = project_root / "output.txt"
@@ -1634,7 +1734,9 @@ tasks:
 
                 # Run task
                 result = self.runner.invoke(app, ["duplicate"], env=self.env)
-                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+                self.assertEqual(
+                    result.exit_code, 0, f"Command failed: {result.stdout}"
+                )
 
                 # Verify both copies have same content
                 copy1 = project_root / "copy1.txt"
@@ -1676,7 +1778,9 @@ tasks:
 
                 # Run task
                 result = self.runner.invoke(app, ["process"], env=self.env)
-                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+                self.assertEqual(
+                    result.exit_code, 0, f"Command failed: {result.stdout}"
+                )
 
                 # Verify output
                 output_file = project_root / "result.txt"
@@ -1713,7 +1817,9 @@ tasks:
 
                 # Run task - should fail
                 result = self.runner.invoke(app, ["build"], env=self.env)
-                self.assertNotEqual(result.exit_code, 0, "Task should fail with out-of-bounds index")
+                self.assertNotEqual(
+                    result.exit_code, 0, "Task should fail with out-of-bounds index"
+                )
 
                 # Check error message
                 output = strip_ansi_codes(result.output)
@@ -1745,7 +1851,9 @@ tasks:
 
                 # Run task - should fail
                 result = self.runner.invoke(app, ["generate"], env=self.env)
-                self.assertNotEqual(result.exit_code, 0, "Task should fail with out-of-bounds index")
+                self.assertNotEqual(
+                    result.exit_code, 0, "Task should fail with out-of-bounds index"
+                )
 
                 # Check error message
                 output = strip_ansi_codes(result.output)
@@ -1777,7 +1885,9 @@ tasks:
 
                 # Run task - should fail
                 result = self.runner.invoke(app, ["build"], env=self.env)
-                self.assertNotEqual(result.exit_code, 0, "Task should fail when no inputs exist")
+                self.assertNotEqual(
+                    result.exit_code, 0, "Task should fail when no inputs exist"
+                )
 
                 # Check error message
                 output = strip_ansi_codes(result.output)
@@ -1813,7 +1923,9 @@ tasks:
 
                 # Run task
                 result = self.runner.invoke(app, ["concat"], env=self.env)
-                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+                self.assertEqual(
+                    result.exit_code, 0, f"Command failed: {result.stdout}"
+                )
 
                 # Verify output file contains both files (glob expanded by shell)
                 output_file = project_root / "all.txt"

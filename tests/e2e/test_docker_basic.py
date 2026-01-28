@@ -63,16 +63,13 @@ tasks:
             self.assertEqual(
                 result.returncode,
                 0,
-                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
             )
 
             # Verify output
             output_file = project_root / "data" / "output.txt"
             self.assertTrue(output_file.exists(), "Output file not created")
-            self.assertEqual(
-                output_file.read_text().strip(),
-                "hello from docker"
-            )
+            self.assertEqual(output_file.read_text().strip(), "hello from docker")
 
     def test_file_creation_persists_to_host(self):
         """
@@ -114,7 +111,7 @@ tasks:
             self.assertEqual(
                 result.returncode,
                 0,
-                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
             )
 
             # Verify file exists on host
@@ -169,12 +166,14 @@ tasks:
             self.assertEqual(
                 result.returncode,
                 0,
-                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
             )
 
             # Verify output file
             output_file = project_root / "output" / "result.txt"
-            self.assertTrue(output_file.exists(), "Multi-line command output not created")
+            self.assertTrue(
+                output_file.exists(), "Multi-line command output not created"
+            )
 
             # Verify all steps executed
             content = output_file.read_text()

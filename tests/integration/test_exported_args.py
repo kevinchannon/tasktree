@@ -24,22 +24,20 @@ class TestExportedArgs(unittest.TestCase):
         """
         is_windows = platform.system() == "Windows"
         if is_windows:
-            env_check = 'echo %server% %user%'
+            env_check = "echo %server% %user%"
         else:
             env_check = 'echo "$server $user"'
 
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                f"""
+            recipe_path.write_text(f"""
 tasks:
   test:
     args:
       - $server
       - $user: {{ default: admin }}
     cmd: {env_check}
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
@@ -60,22 +58,20 @@ tasks:
         """
         is_windows = platform.system() == "Windows"
         if is_windows:
-            env_check = 'echo %server% %port%'
+            env_check = "echo %server% %port%"
         else:
             env_check = 'echo "$server $port"'
 
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                f"""
+            recipe_path.write_text(f"""
 tasks:
   test:
     args:
       - $server
       - $port: {{ default: "8080" }}
     cmd: {env_check}
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
@@ -99,22 +95,20 @@ tasks:
         """
         is_windows = platform.system() == "Windows"
         if is_windows:
-            env_check = 'echo %server% %port%'
+            env_check = "echo %server% %port%"
         else:
             env_check = 'echo "$server $port"'
 
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                f"""
+            recipe_path.write_text(f"""
 tasks:
   test:
     args:
       - $server
       - $port: {{ default: "8080" }}
     cmd: {env_check}
-"""
-            )
+""")
 
             # Use CLI to parse and execute (simulating real usage)
             from tasktree.cli import _parse_task_args
@@ -146,14 +140,12 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   test:
     args: [$server]
     cmd: echo {{ arg.server }}
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
@@ -177,22 +169,20 @@ tasks:
         is_windows = platform.system() == "Windows"
         if is_windows:
             # Windows: use both env vars and template substitution
-            cmd_line = 'echo Server %server% Port {{ arg.port }}'
+            cmd_line = "echo Server %server% Port {{ arg.port }}"
         else:
-            cmd_line = 'echo Server $server Port {{ arg.port }}'
+            cmd_line = "echo Server $server Port {{ arg.port }}"
 
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                f"""
+            recipe_path.write_text(f"""
 tasks:
   deploy:
     args:
       - $server
       - port: {{ default: 8080 }}
     cmd: {cmd_line}
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
@@ -216,16 +206,14 @@ tasks:
 
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   test:
     args: [$Server, $server]
     cmd: |
       echo "Server: $Server"
       echo "server: $server"
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
@@ -244,20 +232,18 @@ tasks:
         """
         is_windows = platform.system() == "Windows"
         if is_windows:
-            cmd = 'echo %message%'
+            cmd = "echo %message%"
         else:
             cmd = 'echo "$message"'
 
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                f"""
+            recipe_path.write_text(f"""
 tasks:
   test:
     args: [$message]
     cmd: {cmd}
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
@@ -317,14 +303,12 @@ tasks:
 
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                f"""
+            recipe_path.write_text(f"""
 tasks:
   deploy:
     args: [$app, $server]
     cmd: |{cmd}
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
@@ -343,7 +327,7 @@ tasks:
         """
         is_windows = platform.system() == "Windows"
         if is_windows:
-            cmd = 'echo %MY_VAR%'
+            cmd = "echo %MY_VAR%"
         else:
             cmd = 'echo "$MY_VAR"'
 
@@ -354,14 +338,12 @@ tasks:
         try:
             with TemporaryDirectory() as tmpdir:
                 recipe_path = Path(tmpdir) / "tasktree.yaml"
-                recipe_path.write_text(
-                    f"""
+                recipe_path.write_text(f"""
 tasks:
   test:
     args: [$MY_VAR]
     cmd: {cmd}
-"""
-                )
+""")
 
                 recipe = parse_recipe(recipe_path)
                 state = StateManager(recipe.project_root)
@@ -380,7 +362,6 @@ tasks:
             else:
                 os.environ["MY_VAR"] = original_value
 
-
     def test_protected_env_var_override_fails(self):
         """
         Test that attempting to override protected environment variables fails.
@@ -388,14 +369,12 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(
-                """
+            recipe_path.write_text("""
 tasks:
   test:
     args: [$PATH]
     cmd: echo "Should not execute"
-"""
-            )
+""")
 
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)

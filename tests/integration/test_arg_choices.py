@@ -16,8 +16,8 @@ def strip_ansi_codes(text: str) -> str:
     Remove ANSI escape sequences from text.
     @athena: 90023a269128
     """
-    ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
-    return ansi_escape.sub('', text)
+    ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
+    return ansi_escape.sub("", text)
 
 
 class TestArgChoices(unittest.TestCase):
@@ -58,7 +58,9 @@ tasks:
 
                 # Test valid choice
                 result = self.runner.invoke(app, ["deploy", "dev"], env=self.env)
-                self.assertEqual(result.exit_code, 0, f"Failed with output: {result.stdout}")
+                self.assertEqual(
+                    result.exit_code, 0, f"Failed with output: {result.stdout}"
+                )
 
                 log_content = (project_root / "deploy.log").read_text().strip()
                 self.assertIn("environment=dev", log_content)
@@ -161,7 +163,9 @@ tasks:
                 os.chdir(project_root)
 
                 # Test valid choice
-                result = self.runner.invoke(app, ["configure", "us-east-1"], env=self.env)
+                result = self.runner.invoke(
+                    app, ["configure", "us-east-1"], env=self.env
+                )
                 self.assertEqual(result.exit_code, 0)
 
                 log_content = (project_root / "config.log").read_text().strip()
@@ -226,7 +230,9 @@ tasks:
                 os.chdir(project_root)
 
                 # Test named argument with valid choice
-                result = self.runner.invoke(app, ["deploy", "myapp", "environment=staging"], env=self.env)
+                result = self.runner.invoke(
+                    app, ["deploy", "myapp", "environment=staging"], env=self.env
+                )
                 self.assertEqual(result.exit_code, 0)
 
                 log_content = (project_root / "deploy.log").read_text().strip()
@@ -291,7 +297,9 @@ tasks:
                 os.chdir(project_root)
 
                 # Test both valid
-                result = self.runner.invoke(app, ["deploy", "prod", "us-east-1"], env=self.env)
+                result = self.runner.invoke(
+                    app, ["deploy", "prod", "us-east-1"], env=self.env
+                )
                 self.assertEqual(result.exit_code, 0)
 
                 log_content = (project_root / "deploy.log").read_text().strip()
@@ -301,11 +309,15 @@ tasks:
                 (project_root / "deploy.log").unlink()
 
                 # Test first invalid
-                result = self.runner.invoke(app, ["deploy", "test", "us-east-1"], env=self.env)
+                result = self.runner.invoke(
+                    app, ["deploy", "test", "us-east-1"], env=self.env
+                )
                 self.assertNotEqual(result.exit_code, 0)
 
                 # Test second invalid
-                result = self.runner.invoke(app, ["deploy", "prod", "ap-south-1"], env=self.env)
+                result = self.runner.invoke(
+                    app, ["deploy", "prod", "ap-south-1"], env=self.env
+                )
                 self.assertNotEqual(result.exit_code, 0)
 
             finally:
@@ -334,7 +346,9 @@ tasks:
                 os.chdir(project_root)
 
                 # Test choice with space
-                result = self.runner.invoke(app, ["notify", "hello world"], env=self.env)
+                result = self.runner.invoke(
+                    app, ["notify", "hello world"], env=self.env
+                )
                 self.assertEqual(result.exit_code, 0)
 
                 log_content = (project_root / "notify.log").read_text().strip()

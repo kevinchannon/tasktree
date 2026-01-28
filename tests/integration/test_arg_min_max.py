@@ -16,8 +16,8 @@ def strip_ansi_codes(text: str) -> str:
     Remove ANSI escape sequences from text.
     @athena: 90023a269128
     """
-    ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
-    return ansi_escape.sub('', text)
+    ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
+    return ansi_escape.sub("", text)
 
 
 class TestArgMinMax(unittest.TestCase):
@@ -58,7 +58,9 @@ tasks:
 
                 # Test valid value within range
                 result = self.runner.invoke(app, ["deploy", "5"], env=self.env)
-                self.assertEqual(result.exit_code, 0, f"Failed with output: {result.stdout}")
+                self.assertEqual(
+                    result.exit_code, 0, f"Failed with output: {result.stdout}"
+                )
 
                 log_content = (project_root / "deploy.log").read_text().strip()
                 self.assertIn("replicas=5", log_content)

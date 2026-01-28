@@ -9,6 +9,7 @@ class TestHasher(unittest.TestCase):
     """
     @athena: de89e4e6136f
     """
+
     def test_hash_task_stability(self):
         """
         Test that task hashing is stable for same inputs.

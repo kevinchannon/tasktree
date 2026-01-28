@@ -12,6 +12,8 @@ import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from pathspec import PathSpec
+
 try:
     import pathspec
 except ImportError:
@@ -45,7 +47,9 @@ class DockerManager:
         @athena: eb7d4c5a27aa
         """
         self._project_root = project_root
-        self._built_images: dict[str, tuple[str, str]] = {}  # env_name -> (image_tag, image_id) cache
+        self._built_images: dict[str, tuple[str, str]] = (
+            {}
+        )  # env_name -> (image_tag, image_id) cache
 
     @staticmethod
     def _should_add_user_flag() -> bool:
@@ -197,7 +201,9 @@ class DockerManager:
 
         # Add shell and command
         shell = env.shell or "sh"
-        shell_args = env.args or [] if isinstance(env.args, list) else list(env.args.values())
+        shell_args = (
+            env.args or [] if isinstance(env.args, list) else list(env.args.values())
+        )
         docker_cmd.extend([shell, *shell_args, "-c", cmd])
 
         # Execute
@@ -315,9 +321,7 @@ def is_docker_environment(env: Environment) -> bool:
     return bool(env.dockerfile)
 
 
-def resolve_container_working_dir(
-    env_working_dir: str, task_working_dir: str
-) -> str:
+def resolve_container_working_dir(env_working_dir: str, task_working_dir: str) -> str:
     """
     Resolve working directory inside container.
 
@@ -348,7 +352,7 @@ def resolve_container_working_dir(
         return f"/{task_working_dir.lstrip('/')}"
 
 
-def parse_dockerignore(dockerignore_path: Path) -> "pathspec.PathSpec | None":
+def parse_dockerignore(dockerignore_path: Path) -> PathSpec | None:
     """
     Parse .dockerignore file into pathspec matcher.
 

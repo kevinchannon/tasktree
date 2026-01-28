@@ -41,7 +41,7 @@ tasks:
                 ["python3", "-m", "tasktree.cli", "bar", "production"],
                 cwd=tmp_dir,
                 capture_output=True,
-                text=True
+                text=True,
             )
 
             assert result.returncode == 0, f"Command failed: {result.stderr}"
@@ -76,10 +76,12 @@ tasks:
                 ["python3", "-m", "tasktree.cli", "deploy", "release"],
                 cwd=tmp_dir,
                 capture_output=True,
-                text=True
+                text=True,
             )
 
-            assert result.returncode == 0, f"Command failed: {result.stderr}\nStdout: {result.stdout}"
+            assert (
+                result.returncode == 0
+            ), f"Command failed: {result.stderr}\nStdout: {result.stdout}"
             # build should be called with mode=release
             assert "build_mode=release" in result.stdout
             # deploy should be called with m=release
@@ -111,7 +113,7 @@ tasks:
                 ["python3", "-m", "tasktree.cli", "test", "release", "x86_64"],
                 cwd=tmp_dir,
                 capture_output=True,
-                text=True
+                text=True,
             )
 
             assert result.returncode == 0, f"Command failed: {result.stderr}"
@@ -145,7 +147,7 @@ tasks:
                 ["python3", "-m", "tasktree.cli", "test", "debug"],
                 cwd=tmp_dir,
                 capture_output=True,
-                text=True
+                text=True,
             )
 
             assert result.returncode == 0, f"Command failed: {result.stderr}"
@@ -178,7 +180,7 @@ tasks:
                 ["python3", "-m", "tasktree.cli", "test"],
                 cwd=tmp_dir,
                 capture_output=True,
-                text=True
+                text=True,
             )
 
             assert result.returncode == 0, f"Command failed: {result.stderr}"
@@ -214,7 +216,7 @@ tasks:
                 ["python3", "-m", "tasktree.cli", "test", "release"],
                 cwd=tmp_dir,
                 capture_output=True,
-                text=True
+                text=True,
             )
 
             assert result.returncode == 0, f"Command failed: {result.stderr}"
@@ -247,7 +249,7 @@ tasks:
                 ["python3", "-m", "tasktree.cli", "test", "debug"],
                 cwd=tmp_dir,
                 capture_output=True,
-                text=True
+                text=True,
             )
 
             assert result.returncode != 0, "Command should have failed"

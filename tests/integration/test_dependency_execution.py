@@ -22,8 +22,8 @@ def strip_ansi_codes(text: str) -> str:
     Remove ANSI escape sequences from text.
     @athena: 90023a269128
     """
-    ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
-    return ansi_escape.sub('', text)
+    ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
+    return ansi_escape.sub("", text)
 
 
 class TestDependencyExecution(unittest.TestCase):
@@ -290,7 +290,9 @@ tasks:
 
             # Second run: build task runs (no inputs) but produces no changes
             # Change build command to do nothing (simulates cargo/make finding nothing to do)
-            recipe["tasks"]["build"]["cmd"] = 'echo "checking dependencies, nothing to do"'
+            recipe["tasks"]["build"][
+                "cmd"
+            ] = 'echo "checking dependencies, nothing to do"'
             recipe_path.write_text(yaml.dump(recipe))
 
             parsed_recipe = parse_recipe(recipe_path)
@@ -307,18 +309,18 @@ tasks:
             # (build command didn't touch it)
             current_mtime = build_artifact_path.stat().st_mtime
             assert (
-                    current_mtime == original_mtime
+                current_mtime == original_mtime
             ), f"Build artifact mtime changed unexpectedly: {original_mtime} -> {current_mtime}"
 
             # BUG FIX VERIFICATION: Package task should NOT run
             # because build's implicit output (build-artifact.txt) has unchanged mtime
             # This is the CORE assertion that verifies the bug is fixed
-            assert (
-                    statuses["package"].will_run == False
-            ), f"Package should not run when dependency produces no changes, but will_run={statuses['package'].will_run}, reason={statuses['package'].reason}"
+            assert not statuses[
+                "package"
+            ].will_run, f"Package should not run when dependency produces no changes, but will_run={statuses['package'].will_run}, reason={statuses['package'].reason}"
 
             assert (
-                    statuses["package"].reason == "fresh"
+                statuses["package"].reason == "fresh"
             ), f"Package should be fresh, but reason={statuses['package'].reason}"
 
     def test_dependency_actually_changes_outputs(self):
@@ -365,7 +367,7 @@ tasks:
             time.sleep(0.01)
 
             # Second run: modify generate command so it changes its output
-            recipe["tasks"]["generate"]["cmd"] = 'echo \'{"version": 2}\' > config.json'
+            recipe["tasks"]["generate"]["cmd"] = "echo '{\"version\": 2}' > config.json"
             recipe_path.write_text(yaml.dump(recipe))
 
             parsed_recipe = parse_recipe(recipe_path)
@@ -379,9 +381,9 @@ tasks:
             assert statuses["generate"].reason in ["no_outputs", "never_run"]
 
             # Build SHOULD run because generate's output changed
-            assert (
-                statuses["build"].will_run
-            ), "Build should run when dependency output changes"
+            assert statuses[
+                "build"
+            ].will_run, "Build should run when dependency output changes"
             # Reason could be "inputs_changed" or "never_run" (if generate's definition change
             # cascades to make build's implicit inputs appear as first-time)
             assert statuses["build"].reason in [

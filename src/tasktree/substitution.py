@@ -9,27 +9,28 @@ and {{ env.NAME }} placeholders with their corresponding values.
 import re
 from typing import Any
 
-
 # Pattern matches: {{ prefix.name }} with optional whitespace
 # Groups: (1) prefix (var|arg|env|tt), (2) name (identifier)
 PLACEHOLDER_PATTERN = re.compile(
-    r'\{\{\s*(var|arg|env|tt)\.([a-zA-Z_][a-zA-Z0-9_]*)\s*}}'
+    r"\{\{\s*(var|arg|env|tt)\.([a-zA-Z_][a-zA-Z0-9_]*)\s*}}"
 )
 
 # Pattern matches: {{ dep.task_name.outputs.output_name }} with optional whitespace
 # Groups: (1) task_name (can include dots for namespacing), (2) output_name (identifier)
 DEP_OUTPUT_PATTERN = re.compile(
-    r'\{\{\s*dep\.([a-zA-Z_][a-zA-Z0-9_.-]*)\.outputs\.([a-zA-Z_][a-zA-Z0-9_]*)\s*}}'
+    r"\{\{\s*dep\.([a-zA-Z_][a-zA-Z0-9_.-]*)\.outputs\.([a-zA-Z_][a-zA-Z0-9_]*)\s*}}"
 )
 
 # Pattern matches: {{ self.(inputs|outputs).name }} or {{ self.(inputs|outputs).0 }} with optional whitespace
 # Groups: (1) field (inputs|outputs), (2) name (identifier) or index (numeric)
 SELF_REFERENCE_PATTERN = re.compile(
-    r'\{\{\s*self\.(inputs|outputs)\.([a-zA-Z_][a-zA-Z0-9_]*|[0-9]+)\s*}}'
+    r"\{\{\s*self\.(inputs|outputs)\.([a-zA-Z_][a-zA-Z0-9_]*|[0-9]+)\s*}}"
 )
 
 
-def substitute_variables(text: str | dict[str, Any], variables: dict[str, str]) -> str | dict[str, Any]:
+def substitute_variables(
+    text: str | dict[str, Any], variables: dict[str, str]
+) -> str | dict[str, Any]:
     """
     Substitute {{ var.name }} placeholders with variable values.
 
@@ -51,13 +52,18 @@ def substitute_variables(text: str | dict[str, Any], variables: dict[str, str]) 
 
         for arg_name in text.keys():
             # Pull out and substitute the individual fields of an argument one at a time
-            for field in  [ "default", "min", "max" ]:
+            for field in ["default", "min", "max"]:
                 if field in text[arg_name]:
-                    text[arg_name][field] = substitute_variables(text[arg_name][field], variables)
+                    text[arg_name][field] = substitute_variables(
+                        text[arg_name][field], variables
+                    )
 
             # choices is a list of things
             if "choices" in text[arg_name]:
-                text[arg_name]["choices"] = [substitute_variables(c, variables) for c in text[arg_name]["choices"]]
+                text[arg_name]["choices"] = [
+                    substitute_variables(c, variables)
+                    for c in text[arg_name]["choices"]
+                ]
 
             return text
         else:
@@ -87,7 +93,9 @@ def substitute_variables(text: str | dict[str, Any], variables: dict[str, str]) 
         return PLACEHOLDER_PATTERN.sub(replace_match, text)
 
 
-def substitute_arguments(text: str, args: dict[str, Any], exported_args: set[str] | None = None) -> str:
+def substitute_arguments(
+    text: str, args: dict[str, Any], exported_args: set[str] | None = None
+) -> str:
     """
     Substitute {{ arg.name }} placeholders with argument values.
 
@@ -171,9 +179,7 @@ def substitute_environment(text: str) -> str:
 
         value = os.environ.get(name)
         if value is None:
-            raise ValueError(
-                f"Environment variable '{name}' is not set"
-            )
+            raise ValueError(f"Environment variable '{name}' is not set")
 
         return value
 
@@ -202,6 +208,7 @@ def substitute_builtin_variables(text: str, builtin_vars: dict[str, str]) -> str
     'Root: /home/user/project'
     @athena: 716250e3a71f
     """
+
     def replace_match(match: re.Match) -> str:
         prefix = match.group(1)
         name = match.group(2)
@@ -225,7 +232,7 @@ def substitute_dependency_args(
     template_value: str,
     parent_task_name: str,
     parent_args: dict[str, Any],
-    exported_args: set[str] | None = None
+    exported_args: set[str] | None = None,
 ) -> str:
     """
     Substitute {{ arg.* }} templates in dependency argument values.
@@ -356,6 +363,7 @@ def substitute_dependency_outputs(
     'Deploy dist/app.js'
     @athena: 1e537c8d579c
     """
+
     def replacer(match: re.Match) -> str:
         dep_task_name = match.group(1)
         output_name = match.group(2)
@@ -382,7 +390,11 @@ def substitute_dependency_outputs(
         # Look up the named output
         if output_name not in dep_task._output_map:
             available = list(dep_task._output_map.keys())
-            available_msg = ", ".join(available) if available else "(none - all outputs are anonymous)"
+            available_msg = (
+                ", ".join(available)
+                if available
+                else "(none - all outputs are anonymous)"
+            )
             raise ValueError(
                 f"Task '{current_task_name}' references output '{output_name}' "
                 f"from task '{dep_task_name}', but '{dep_task_name}' has no output named '{output_name}'.\n"
@@ -446,6 +458,7 @@ def substitute_self_references(
     'cp *.txt out/result.txt'
     @athena: 9d997ff08eef
     """
+
     def replacer(match: re.Match) -> str:
         field = match.group(1)  # "inputs" or "outputs"
         identifier = match.group(2)  # name or numeric index

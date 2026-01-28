@@ -21,7 +21,12 @@ from rich.tree import Tree
 
 from tasktree import __version__
 from tasktree.executor import Executor
-from tasktree.graph import build_dependency_tree, resolve_execution_order, resolve_dependency_output_references, resolve_self_references
+from tasktree.graph import (
+    build_dependency_tree,
+    resolve_execution_order,
+    resolve_dependency_output_references,
+    resolve_self_references,
+)
 from tasktree.hasher import hash_task, hash_args
 from tasktree.parser import Recipe, find_recipe_file, parse_arg_spec, parse_recipe
 from tasktree.state import StateManager
@@ -125,7 +130,9 @@ def _list_tasks(tasks_file: Optional[str] = None):
     """
     recipe = _get_recipe(tasks_file)
     if recipe is None:
-        console.print("[red]No recipe file found (tasktree.yaml, tasktree.yml, tt.yaml, or *.tasks)[/red]")
+        console.print(
+            "[red]No recipe file found (tasktree.yaml, tasktree.yml, tt.yaml, or *.tasks)[/red]"
+        )
         raise typer.Exit(1)
 
     # Calculate maximum task name length for fixed-width column (only visible tasks)
@@ -134,13 +141,17 @@ def _list_tasks(tasks_file: Optional[str] = None):
         task = recipe.get_task(name)
         if task and not task.private:
             visible_task_names.append(name)
-    max_task_name_len = max(len(name) for name in visible_task_names) if visible_task_names else 0
+    max_task_name_len = (
+        max(len(name) for name in visible_task_names) if visible_task_names else 0
+    )
 
     # Create borderless table with three columns
     table = Table(show_edge=False, show_header=False, box=None, padding=(0, 2))
 
     # Command column: fixed width to accommodate the longest task name
-    table.add_column("Command", style="bold cyan", no_wrap=True, width=max_task_name_len)
+    table.add_column(
+        "Command", style="bold cyan", no_wrap=True, width=max_task_name_len
+    )
 
     # Arguments column: allow wrapping with sensible max width
     table.add_column("Arguments", style="white", max_width=60)
@@ -169,7 +180,9 @@ def _show_task(task_name: str, tasks_file: Optional[str] = None):
     # Pass task_name as root_task for lazy variable evaluation
     recipe = _get_recipe(tasks_file, root_task=task_name)
     if recipe is None:
-        console.print("[red]No recipe file found (tasktree.yaml, tasktree.yml, tt.yaml, or *.tasks)[/red]")
+        console.print(
+            "[red]No recipe file found (tasktree.yaml, tasktree.yml, tt.yaml, or *.tasks)[/red]"
+        )
         raise typer.Exit(1)
 
     task = recipe.get_task(task_name)
@@ -202,9 +215,9 @@ def _show_task(task_name: str, tasks_file: Optional[str] = None):
     # Configure YAML dumper to use literal block style for multiline strings
     def literal_presenter(dumper, data):
         """Use literal block style (|) for strings containing newlines."""
-        if '\n' in data:
-            return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='|')
-        return dumper.represent_scalar('tag:yaml.org,2002:str', data)
+        if "\n" in data:
+            return dumper.represent_scalar("tag:yaml.org,2002:str", data, style="|")
+        return dumper.represent_scalar("tag:yaml.org,2002:str", data)
 
     yaml.add_representer(str, literal_presenter)
 
@@ -222,7 +235,9 @@ def _show_tree(task_name: str, tasks_file: Optional[str] = None):
     # Pass task_name as root_task for lazy variable evaluation
     recipe = _get_recipe(tasks_file, root_task=task_name)
     if recipe is None:
-        console.print("[red]No recipe file found (tasktree.yaml, tasktree.yml, tt.yaml, or *.tasks)[/red]")
+        console.print(
+            "[red]No recipe file found (tasktree.yaml, tasktree.yml, tt.yaml, or *.tasks)[/red]"
+        )
         raise typer.Exit(1)
 
     task = recipe.get_task(task_name)
@@ -307,10 +322,18 @@ def main(
         is_eager=True,
         help="Show version and exit",
     ),
-    list_opt: Optional[bool] = typer.Option(None, "--list", "-l", help="List all available tasks"),
-    show: Optional[str] = typer.Option(None, "--show", "-s", help="Show task definition"),
-    tree: Optional[str] = typer.Option(None, "--tree", "-t", help="Show dependency tree"),
-    tasks_file: Optional[str] = typer.Option(None, "--tasks", "-T", help="Path to recipe file (tasktree.yaml, *.tasks, etc.)"),
+    list_opt: Optional[bool] = typer.Option(
+        None, "--list", "-l", help="List all available tasks"
+    ),
+    show: Optional[str] = typer.Option(
+        None, "--show", "-s", help="Show task definition"
+    ),
+    tree: Optional[str] = typer.Option(
+        None, "--tree", "-t", help="Show dependency tree"
+    ),
+    tasks_file: Optional[str] = typer.Option(
+        None, "--tasks", "-T", help="Path to recipe file (tasktree.yaml, *.tasks, etc.)"
+    ),
     init: Optional[bool] = typer.Option(
         None, "--init", "-i", help="Create a blank tasktree.yaml"
     ),
@@ -327,7 +350,10 @@ def main(
         None, "--force", "-f", help="Force re-run all tasks (ignore freshness)"
     ),
     only: Optional[bool] = typer.Option(
-        None, "--only", "-o", help="Run only the specified task, skip dependencies (implies --force)"
+        None,
+        "--only",
+        "-o",
+        help="Run only the specified task, skip dependencies (implies --force)",
     ),
     env: Optional[str] = typer.Option(
         None, "--env", "-e", help="Override environment for all tasks"
@@ -374,11 +400,19 @@ def main(
     if task_args:
         # --only implies --force
         force_execution = force or only or False
-        _execute_dynamic_task(task_args, force=force_execution, only=only or False, env=env, tasks_file=tasks_file)
+        _execute_dynamic_task(
+            task_args,
+            force=force_execution,
+            only=only or False,
+            env=env,
+            tasks_file=tasks_file,
+        )
     else:
         recipe = _get_recipe(tasks_file)
         if recipe is None:
-            console.print("[red]No recipe file found (tasktree.yaml, tasktree.yml, tt.yaml, or *.tasks)[/red]")
+            console.print(
+                "[red]No recipe file found (tasktree.yaml, tasktree.yml, tt.yaml, or *.tasks)[/red]"
+            )
             console.print("Run [cyan]tt --init[/cyan] to create a blank recipe file")
             raise typer.Exit(1)
 
@@ -413,13 +447,17 @@ def _clean_state(tasks_file: Optional[str] = None) -> None:
 
     if state_path.exists():
         state_path.unlink()
-        console.print(f"[green]{get_action_success_string()} Removed {state_path}[/green]")
+        console.print(
+            f"[green]{get_action_success_string()} Removed {state_path}[/green]"
+        )
         console.print("All tasks will run fresh on next execution")
     else:
         console.print(f"[yellow]No state file found at {state_path}[/yellow]")
 
 
-def _get_recipe(recipe_file: Optional[str] = None, root_task: Optional[str] = None) -> Optional[Recipe]:
+def _get_recipe(
+    recipe_file: Optional[str] = None, root_task: Optional[str] = None
+) -> Optional[Recipe]:
     """
     Get parsed recipe or None if not found.
 
@@ -455,7 +493,13 @@ def _get_recipe(recipe_file: Optional[str] = None, root_task: Optional[str] = No
         raise typer.Exit(1)
 
 
-def _execute_dynamic_task(args: list[str], force: bool = False, only: bool = False, env: Optional[str] = None, tasks_file: Optional[str] = None) -> None:
+def _execute_dynamic_task(
+    args: list[str],
+    force: bool = False,
+    only: bool = False,
+    env: Optional[str] = None,
+    tasks_file: Optional[str] = None,
+) -> None:
     """
     Execute a task with its dependencies and handle argument parsing.
 
@@ -477,7 +521,9 @@ def _execute_dynamic_task(args: list[str], force: bool = False, only: bool = Fal
     # Pass task_name as root_task for lazy variable evaluation
     recipe = _get_recipe(tasks_file, root_task=task_name)
     if recipe is None:
-        console.print("[red]No recipe file found (tasktree.yaml, tasktree.yml, tt.yaml, or *.tasks)[/red]")
+        console.print(
+            "[red]No recipe file found (tasktree.yaml, tasktree.yml, tt.yaml, or *.tasks)[/red]"
+        )
         raise typer.Exit(1)
 
     # Apply global environment override if provided
@@ -537,7 +583,7 @@ def _execute_dynamic_task(args: list[str], force: bool = False, only: bool = Fal
             task.working_dir,
             task.args,
             executor._get_effective_env_name(task),
-            task.deps
+            task.deps,
         )
 
         # If task has arguments, append args hash to create unique cache key
@@ -553,9 +599,13 @@ def _execute_dynamic_task(args: list[str], force: bool = False, only: bool = Fal
     state.save()
     try:
         executor.execute_task(task_name, args_dict, force=force, only=only)
-        console.print(f"[green]{get_action_success_string()} Task '{task_name}' completed successfully[/green]")
+        console.print(
+            f"[green]{get_action_success_string()} Task '{task_name}' completed successfully[/green]"
+        )
     except Exception as e:
-        console.print(f"[red]{get_action_failure_string()} Task '{task_name}' failed: {e}[/red]")
+        console.print(
+            f"[red]{get_action_failure_string()} Task '{task_name}' failed: {e}[/red]"
+        )
         raise typer.Exit(1)
 
 
@@ -577,7 +627,7 @@ def _parse_task_args(arg_specs: list[str], arg_values: list[str]) -> dict[str, A
     """
     if not arg_specs:
         if arg_values:
-            console.print(f"[red]Task does not accept arguments[/red]")
+            console.print("[red]Task does not accept arguments[/red]")
             raise typer.Exit(1)
         return {}
 
@@ -601,7 +651,7 @@ def _parse_task_args(arg_specs: list[str], arg_values: list[str]) -> dict[str, A
         else:
             # Positional argument
             if positional_index >= len(parsed_specs):
-                console.print(f"[red]Too many arguments[/red]")
+                console.print("[red]Too many arguments[/red]")
                 raise typer.Exit(1)
             spec = parsed_specs[positional_index]
             arg_value = value_str
@@ -609,13 +659,19 @@ def _parse_task_args(arg_specs: list[str], arg_values: list[str]) -> dict[str, A
 
         # Convert value to appropriate type (exported args are always strings)
         try:
-            click_type = get_click_type(spec.arg_type, min_val=spec.min_val, max_val=spec.max_val)
+            click_type = get_click_type(
+                spec.arg_type, min_val=spec.min_val, max_val=spec.max_val
+            )
             converted_value = click_type.convert(arg_value, None, None)
 
             # Validate choices after type conversion
             if spec.choices is not None and converted_value not in spec.choices:
-                console.print(f"[red]Invalid value for {spec.name}: {converted_value!r}[/red]")
-                console.print(f"Valid choices: {', '.join(repr(c) for c in spec.choices)}")
+                console.print(
+                    f"[red]Invalid value for {spec.name}: {converted_value!r}[/red]"
+                )
+                console.print(
+                    f"Valid choices: {', '.join(repr(c) for c in spec.choices)}"
+                )
                 raise typer.Exit(1)
 
             args_dict[spec.name] = converted_value
@@ -630,10 +686,14 @@ def _parse_task_args(arg_specs: list[str], arg_values: list[str]) -> dict[str, A
         if spec.name not in args_dict:
             if spec.default is not None:
                 try:
-                    click_type = get_click_type(spec.arg_type, min_val=spec.min_val, max_val=spec.max_val)
+                    click_type = get_click_type(
+                        spec.arg_type, min_val=spec.min_val, max_val=spec.max_val
+                    )
                     args_dict[spec.name] = click_type.convert(spec.default, None, None)
                 except Exception as e:
-                    console.print(f"[red]Invalid default value for {spec.name}: {e}[/red]")
+                    console.print(
+                        f"[red]Invalid default value for {spec.name}: {e}[/red]"
+                    )
                     raise typer.Exit(1)
             else:
                 console.print(f"[red]Missing required argument: {spec.name}[/red]")
