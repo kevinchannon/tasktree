@@ -57,7 +57,7 @@ tasks:
                 )
                 self.assertEqual(result.exit_code, 0)
 
-                output = strip_ansi_codes(result.stdout)
+                output = strip_ansi_codes(result.output)
                 # Should NOT see normal execution messages
                 self.assertNotIn("completed successfully", output.lower())
 
@@ -89,7 +89,7 @@ tasks:
                 )
                 self.assertNotEqual(result.exit_code, 0)
 
-                output = strip_ansi_codes(result.stdout)
+                output = strip_ansi_codes(result.output)
                 # Should see error messages
                 self.assertIn("failed", output.lower())
 
@@ -122,7 +122,7 @@ tasks:
                 )
                 self.assertEqual(result.exit_code, 0)
 
-                output = strip_ansi_codes(result.stdout)
+                output = strip_ansi_codes(result.output)
                 # Should see normal completion message
                 self.assertIn("completed successfully", output.lower())
 
@@ -159,7 +159,7 @@ tasks:
                 self.assertEqual(result.exit_code, 0)
 
                 # Should still see normal info messages
-                output = strip_ansi_codes(result.stdout)
+                output = strip_ansi_codes(result.output)
                 self.assertIn("completed successfully", output.lower())
 
             finally:
@@ -195,7 +195,7 @@ tasks:
                 self.assertEqual(result.exit_code, 0)
 
                 # Should still see normal info messages
-                output = strip_ansi_codes(result.stdout)
+                output = strip_ansi_codes(result.output)
                 self.assertIn("completed successfully", output.lower())
 
             finally:
@@ -228,7 +228,7 @@ tasks:
                 )
                 self.assertEqual(result.exit_code, 0)
 
-                output = strip_ansi_codes(result.stdout)
+                output = strip_ansi_codes(result.output)
                 # Should see INFO-level messages (completed successfully)
                 self.assertIn("completed successfully", output.lower())
 
@@ -265,8 +265,8 @@ tasks:
                 self.assertEqual(result.exit_code, 0)
                 # List output is informational, not diagnostic logging,
                 # so it should still appear
-                self.assertIn("task1", result.stdout)
-                self.assertIn("task2", result.stdout)
+                self.assertIn("task1", result.output)
+                self.assertIn("task2", result.output)
 
             finally:
                 os.chdir(original_cwd)
@@ -301,7 +301,7 @@ tasks:
                 )
                 self.assertEqual(result.exit_code, 0)
 
-                output = strip_ansi_codes(result.stdout)
+                output = strip_ansi_codes(result.output)
                 # Should see completion message
                 self.assertIn("completed successfully", output.lower())
 
@@ -312,7 +312,7 @@ tasks:
                 )
                 self.assertEqual(result.exit_code, 0)
 
-                output = strip_ansi_codes(result.stdout)
+                output = strip_ansi_codes(result.output)
                 # Should NOT see completion messages at FATAL level
                 self.assertNotIn("completed successfully", output.lower())
 
