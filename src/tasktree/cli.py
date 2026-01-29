@@ -29,6 +29,7 @@ from tasktree.graph import (
 )
 from tasktree.hasher import hash_task, hash_args
 from tasktree.console_logger import ConsoleLogger, Logger
+from tasktree.logging import LogLevel
 from tasktree.parser import Recipe, find_recipe_file, parse_arg_spec, parse_recipe
 from tasktree.state import StateManager
 from tasktree.types import get_click_type
@@ -360,6 +361,19 @@ def main(
     env: Optional[str] = typer.Option(
         None, "--env", "-e", help="Override environment for all tasks"
     ),
+    log_level: Optional[str] = typer.Option(
+        "info",
+        "--log-level",
+        "-L",
+        help="""Control verbosity of tasktree's diagnostic messages.
+
+fatal: Only unrecoverable errors (malformed task files, missing dependencies)
+error: Fatal errors plus task execution failures
+warn: Errors plus warnings (deprecated features, configuration issues)
+info: Normal execution progress (default)
+debug: Variable values, resolved paths, environment details
+trace: Fine-grained execution tracing"""
+    ),
     task_args: Optional[List[str]] = typer.Argument(
         None, help="Task name and arguments"
     ),
@@ -379,7 +393,18 @@ def main(
     @athena: f76c75c12d10
     """
 
-    logger = ConsoleLogger(console)
+    # Parse log level from string to enum
+    log_level_map = {
+        "fatal": LogLevel.FATAL,
+        "error": LogLevel.ERROR,
+        "warn": LogLevel.WARN,
+        "info": LogLevel.INFO,
+        "debug": LogLevel.DEBUG,
+        "trace": LogLevel.TRACE,
+    }
+
+    level = log_level_map.get(log_level.lower() if log_level else "info", LogLevel.INFO)
+    logger = ConsoleLogger(console, level)
 
     if list_opt:
         _list_tasks(logger, tasks_file)
