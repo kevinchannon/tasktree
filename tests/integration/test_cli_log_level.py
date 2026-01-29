@@ -224,7 +224,7 @@ tasks:
                         f"Invalid log level '{invalid}' should produce exit code 2, got {result.exit_code}",
                     )
                     # Error message should indicate invalid choice
-                    output = strip_ansi_codes(result.stdout)
+                    output = strip_ansi_codes(result.output)
                     self.assertIn(
                         "is not one of",
                         output.lower(),
