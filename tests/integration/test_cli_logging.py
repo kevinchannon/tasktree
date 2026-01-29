@@ -1,7 +1,6 @@
 """Integration tests for log level filtering during task execution."""
 
 import os
-import re
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -9,14 +8,7 @@ from tempfile import TemporaryDirectory
 from typer.testing import CliRunner
 
 from tasktree.cli import app
-
-
-def strip_ansi_codes(text: str) -> str:
-    """
-    Remove ANSI escape sequences from text.
-    """
-    ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
-    return ansi_escape.sub("", text)
+from helpers.io import strip_ansi_codes
 
 
 class TestCLILogging(unittest.TestCase):
@@ -210,7 +202,3 @@ tasks:
 
             finally:
                 os.chdir(original_cwd)
-
-
-if __name__ == "__main__":
-    unittest.main()
