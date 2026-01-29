@@ -2,7 +2,7 @@ from tasktree.logging import Logger, LogLevel
 from rich.console import Console
 
 
-class ConsolLogger(Logger):
+class ConsoleLogger(Logger):
     def __init__(self, console: Console, level: LogLevel = LogLevel.INFO) -> None:
         self._console = console
         self._levels = [level]

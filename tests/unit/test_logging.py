@@ -7,17 +7,18 @@ from rich.table import Table
 from rich.syntax import Syntax
 from rich.tree import Tree
 
-from tasktree.console_logger import ConsolLogger
+from tasktree.console_logger import ConsoleLogger
 from tasktree.logging import LogLevel
 
 
 class TestLoggerFn(unittest.TestCase):
     """Tests for LoggerFn type alias."""
+
     def setUp(self):
         self._console = MagicMock()
         self._console.print = MagicMock()
 
-        self._logger = ConsolLogger(self._console)
+        self._logger = ConsoleLogger(self._console)
 
     def test_logger_fn_accepts_no_arguments(self):
         """Test that Logger can be called with no arguments."""
@@ -63,7 +64,9 @@ class TestLoggerFn(unittest.TestCase):
     def test_logger_accepts_kwargs(self):
         """Test that LoggerFn can be called with keyword arguments."""
         self._logger.log(LogLevel.INFO, "message", style="bold", justify="center")
-        self._console.print.assert_called_once_with("message", style="bold", justify="center")
+        self._console.print.assert_called_once_with(
+            "message", style="bold", justify="center"
+        )
 
     def test_logger_accepts_args_and_kwargs(self):
         """Test that Logger can be called with both args and kwargs."""
@@ -95,13 +98,14 @@ class TestLogLevel(unittest.TestCase):
 
 class TestLoggerLevels(unittest.TestCase):
     """Tests for make_leveled_logger function."""
+
     def setUp(self):
         self._console = MagicMock()
         self._console.print = MagicMock()
 
     def test_filters_messages_below_threshold(self):
         """Test that messages below the current level are filtered out."""
-        l = ConsolLogger(self._console, LogLevel.ERROR)
+        l = ConsoleLogger(self._console, LogLevel.ERROR)
         l.info("msg")
 
         self._console.print.assert_not_called()
@@ -111,14 +115,14 @@ class TestLoggerLevels(unittest.TestCase):
 
     def test_shows_messages_at_or_above_threshold(self):
         """Test that messages at or above the current level are shown."""
-        l = ConsolLogger(self._console, LogLevel.ERROR)
+        l = ConsoleLogger(self._console, LogLevel.ERROR)
 
         l.error("error!")
         l.fatal("fatal!!")
         self._console.print.assert_has_calls([call("error!"), call("fatal!!")])
 
     def test_push_and_pop_levels(self):
-        l = ConsolLogger(self._console, LogLevel.INFO)
+        l = ConsoleLogger(self._console, LogLevel.INFO)
 
         l.info("should see info 1")
         l.debug("should not see debug 1")
@@ -127,20 +131,22 @@ class TestLoggerLevels(unittest.TestCase):
         l.trace("should not see trace 1")
         l.push_level(LogLevel.TRACE)
         l.trace("should see trace 2")
-        l.pop_level()   # Back to debug level
+        l.pop_level()  # Back to debug level
         l.trace("should not see trace 3")
         l.debug("should see debug 3")
-        l.pop_level()   # Back to info
+        l.pop_level()  # Back to info
         l.debug("should not see debug 1")
         l.info("should see info 2")
 
-        self._console.print.assert_has_calls([
-            call("should see info 1"),
-            call("should see debug 2"),
-            call("should see trace 2"),
-            call("should see debug 3"),
-            call("should see info 2")
-        ])
+        self._console.print.assert_has_calls(
+            [
+                call("should see info 1"),
+                call("should see debug 2"),
+                call("should see trace 2"),
+                call("should see debug 3"),
+                call("should see info 2"),
+            ]
+        )
 
 
 if __name__ == "__main__":
