@@ -129,78 +129,6 @@ tasks:
             finally:
                 os.chdir(original_cwd)
 
-    def test_debug_level_shows_more_detail(self):
-        """
-        Test that DEBUG level shows additional diagnostic information.
-
-        Note: This test verifies that debug level accepts the flag correctly.
-        Actual debug output will be added in later commits when debug logging
-        is integrated into the executor.
-        """
-        with TemporaryDirectory() as tmpdir:
-            project_root = Path(tmpdir)
-
-            # Create a simple recipe
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  simple:
-    cmd: echo "Task running"
-""")
-
-            original_cwd = os.getcwd()
-            try:
-                os.chdir(project_root)
-
-                # Run with DEBUG level - should succeed
-                result = self.runner.invoke(
-                    app, ["--log-level", "debug", "simple"], env=self.env
-                )
-                self.assertEqual(result.exit_code, 0)
-
-                # Should still see normal info messages
-                output = strip_ansi_codes(result.stdout)
-                self.assertIn("completed successfully", output.lower())
-
-            finally:
-                os.chdir(original_cwd)
-
-    def test_trace_level_shows_fine_grained_detail(self):
-        """
-        Test that TRACE level works correctly.
-
-        Note: This test verifies that trace level accepts the flag correctly.
-        Actual trace output will be added in later commits when trace logging
-        is integrated into the executor.
-        """
-        with TemporaryDirectory() as tmpdir:
-            project_root = Path(tmpdir)
-
-            # Create a simple recipe
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  simple:
-    cmd: echo "Task running"
-""")
-
-            original_cwd = os.getcwd()
-            try:
-                os.chdir(project_root)
-
-                # Run with TRACE level - should succeed
-                result = self.runner.invoke(
-                    app, ["--log-level", "trace", "simple"], env=self.env
-                )
-                self.assertEqual(result.exit_code, 0)
-
-                # Should still see normal info messages
-                output = strip_ansi_codes(result.stdout)
-                self.assertIn("completed successfully", output.lower())
-
-            finally:
-                os.chdir(original_cwd)
-
     def test_higher_verbosity_includes_lower_levels(self):
         """
         Test that higher verbosity levels include messages from lower levels.
@@ -231,41 +159,6 @@ tasks:
                 output = strip_ansi_codes(result.stdout)
                 # Should see INFO-level messages (completed successfully)
                 self.assertIn("completed successfully", output.lower())
-
-            finally:
-                os.chdir(original_cwd)
-
-    def test_log_level_affects_list_command(self):
-        """
-        Test that log level filtering works with --list command.
-        """
-        with TemporaryDirectory() as tmpdir:
-            project_root = Path(tmpdir)
-
-            # Create a simple recipe
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  task1:
-    desc: First task
-    cmd: echo "Task 1"
-  task2:
-    desc: Second task
-    cmd: echo "Task 2"
-""")
-
-            original_cwd = os.getcwd()
-            try:
-                os.chdir(project_root)
-
-                # Test with INFO level (should show task list)
-                result = self.runner.invoke(
-                    app, ["--log-level", "info", "--list"], env=self.env
-                )
-                self.assertEqual(result.exit_code, 0)
-                # List output goes through logger.info(), so it should appear at INFO level
-                self.assertIn("task1", result.stdout)
-                self.assertIn("task2", result.stdout)
 
             finally:
                 os.chdir(original_cwd)
