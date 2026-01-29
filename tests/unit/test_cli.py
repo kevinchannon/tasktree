@@ -3,6 +3,7 @@
 import unittest
 from unittest.mock import patch
 
+import click
 import typer
 
 from tasktree.cli import (
@@ -11,6 +12,7 @@ from tasktree.cli import (
     get_action_failure_string,
     get_action_success_string,
 )
+from tasktree.logging import LogLevel
 from helpers.logging import logger_stub
 
 
@@ -155,6 +157,108 @@ class TestParseTaskArgs(unittest.TestCase):
             result,
             {"environment": "production", "region": "us-east-1", "verbose": True},
         )
+
+
+class TestLogLevelParsing(unittest.TestCase):
+    """
+    Tests for log level parsing logic.
+    """
+
+    def test_log_level_choice_accepts_valid_lowercase(self):
+        """
+        Test that Click.Choice accepts valid lowercase log levels.
+        """
+        choice = click.Choice(
+            ["fatal", "error", "warn", "info", "debug", "trace"],
+            case_sensitive=False
+        )
+
+        # All valid lowercase levels should be accepted
+        for level in ["fatal", "error", "warn", "info", "debug", "trace"]:
+            result = choice.convert(level, None, None)
+            self.assertEqual(result, level)
+
+    def test_log_level_choice_accepts_valid_uppercase(self):
+        """
+        Test that Click.Choice accepts valid uppercase log levels (case-insensitive).
+        """
+        choice = click.Choice(
+            ["fatal", "error", "warn", "info", "debug", "trace"],
+            case_sensitive=False
+        )
+
+        # All uppercase variants should be normalized to lowercase
+        test_cases = [
+            ("FATAL", "fatal"),
+            ("ERROR", "error"),
+            ("WARN", "warn"),
+            ("INFO", "info"),
+            ("DEBUG", "debug"),
+            ("TRACE", "trace"),
+        ]
+
+        for input_val, expected in test_cases:
+            result = choice.convert(input_val, None, None)
+            self.assertEqual(result, expected)
+
+    def test_log_level_choice_accepts_mixed_case(self):
+        """
+        Test that Click.Choice accepts mixed case log levels.
+        """
+        choice = click.Choice(
+            ["fatal", "error", "warn", "info", "debug", "trace"],
+            case_sensitive=False
+        )
+
+        # Mixed case variants should be normalized to lowercase
+        test_cases = [
+            ("Info", "info"),
+            ("DeBuG", "debug"),
+            ("WaRn", "warn"),
+        ]
+
+        for input_val, expected in test_cases:
+            result = choice.convert(input_val, None, None)
+            self.assertEqual(result, expected)
+
+    def test_log_level_choice_rejects_invalid(self):
+        """
+        Test that Click.Choice raises BadParameter for invalid log levels.
+        """
+        choice = click.Choice(
+            ["fatal", "error", "warn", "info", "debug", "trace"],
+            case_sensitive=False
+        )
+
+        # Invalid values should raise click.BadParameter
+        invalid_levels = ["verbose", "123", "warning", "critical", ""]
+
+        for invalid in invalid_levels:
+            with self.assertRaises(click.BadParameter) as cm:
+                choice.convert(invalid, None, None)
+            # Error message should indicate invalid choice
+            self.assertIn("is not one of", str(cm.exception).lower())
+
+    def test_log_level_mapping_to_enum(self):
+        """
+        Test that log level strings map to correct LogLevel enum values.
+        """
+        log_level_map = {
+            "fatal": LogLevel.FATAL,
+            "error": LogLevel.ERROR,
+            "warn": LogLevel.WARN,
+            "info": LogLevel.INFO,
+            "debug": LogLevel.DEBUG,
+            "trace": LogLevel.TRACE,
+        }
+
+        # Verify all mappings are correct
+        self.assertEqual(log_level_map["fatal"], LogLevel.FATAL)
+        self.assertEqual(log_level_map["error"], LogLevel.ERROR)
+        self.assertEqual(log_level_map["warn"], LogLevel.WARN)
+        self.assertEqual(log_level_map["info"], LogLevel.INFO)
+        self.assertEqual(log_level_map["debug"], LogLevel.DEBUG)
+        self.assertEqual(log_level_map["trace"], LogLevel.TRACE)
 
 
 class TestUnicodeSupport(unittest.TestCase):

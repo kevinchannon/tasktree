@@ -12,6 +12,7 @@ import sys
 from pathlib import Path
 from typing import Any, List, Optional
 
+import click
 import typer
 import yaml
 from rich.console import Console
@@ -29,6 +30,7 @@ from tasktree.graph import (
 )
 from tasktree.hasher import hash_task, hash_args
 from tasktree.console_logger import ConsoleLogger, Logger
+from tasktree.logging import LogLevel
 from tasktree.parser import Recipe, find_recipe_file, parse_arg_spec, parse_recipe
 from tasktree.state import StateManager
 from tasktree.types import get_click_type
@@ -360,6 +362,23 @@ def main(
     env: Optional[str] = typer.Option(
         None, "--env", "-e", help="Override environment for all tasks"
     ),
+    log_level: str = typer.Option(
+        "info",
+        "--log-level",
+        "-L",
+        click_type=click.Choice(
+            ["fatal", "error", "warn", "info", "debug", "trace"],
+            case_sensitive=False
+        ),
+        help="""Control verbosity of tasktree's diagnostic messages.
+
+fatal: Only unrecoverable errors (malformed task files, missing dependencies)
+error: Fatal errors plus task execution failures
+warn: Errors plus warnings (deprecated features, configuration issues)
+info: Normal execution progress (default)
+debug: Variable values, resolved paths, environment details
+trace: Fine-grained execution tracing"""
+    ),
     task_args: Optional[List[str]] = typer.Argument(
         None, help="Task name and arguments"
     ),
@@ -379,7 +398,19 @@ def main(
     @athena: f76c75c12d10
     """
 
-    logger = ConsoleLogger(console)
+    # Parse log level from string to enum
+    # Click.Choice with case_sensitive=False normalizes input to lowercase
+    log_level_map = {
+        "fatal": LogLevel.FATAL,
+        "error": LogLevel.ERROR,
+        "warn": LogLevel.WARN,
+        "info": LogLevel.INFO,
+        "debug": LogLevel.DEBUG,
+        "trace": LogLevel.TRACE,
+    }
+
+    level = log_level_map[log_level.lower()]
+    logger = ConsoleLogger(console, level)
 
     if list_opt:
         _list_tasks(logger, tasks_file)
