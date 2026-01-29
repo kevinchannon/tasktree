@@ -12,6 +12,7 @@ import sys
 from pathlib import Path
 from typing import Any, List, Optional
 
+import click
 import typer
 import yaml
 from rich.console import Console
@@ -361,10 +362,14 @@ def main(
     env: Optional[str] = typer.Option(
         None, "--env", "-e", help="Override environment for all tasks"
     ),
-    log_level: Optional[str] = typer.Option(
+    log_level: str = typer.Option(
         "info",
         "--log-level",
         "-L",
+        click_type=click.Choice(
+            ["fatal", "error", "warn", "info", "debug", "trace"],
+            case_sensitive=False
+        ),
         help="""Control verbosity of tasktree's diagnostic messages.
 
 fatal: Only unrecoverable errors (malformed task files, missing dependencies)
@@ -394,6 +399,7 @@ trace: Fine-grained execution tracing"""
     """
 
     # Parse log level from string to enum
+    # Click.Choice with case_sensitive=False normalizes input to lowercase
     log_level_map = {
         "fatal": LogLevel.FATAL,
         "error": LogLevel.ERROR,
@@ -403,7 +409,7 @@ trace: Fine-grained execution tracing"""
         "trace": LogLevel.TRACE,
     }
 
-    level = log_level_map.get(log_level.lower() if log_level else "info", LogLevel.INFO)
+    level = log_level_map[log_level.lower()]
     logger = ConsoleLogger(console, level)
 
     if list_opt:
