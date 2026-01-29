@@ -11,8 +11,8 @@ from tasktree.console_logger import ConsoleLogger
 from tasktree.logging import LogLevel
 
 
-class TestLoggerFn(unittest.TestCase):
-    """Tests for LoggerFn type alias."""
+class TestConsoleLogger(unittest.TestCase):
+    """Tests for ConsoleLogger implementation."""
 
     def setUp(self):
         self._console = MagicMock()
@@ -147,6 +147,45 @@ class TestLoggerLevels(unittest.TestCase):
                 call("should see info 2"),
             ]
         )
+
+    def test_pop_level_returns_popped_level(self):
+        """Test that pop_level() returns the level that was popped."""
+        l = ConsoleLogger(self._console, LogLevel.INFO)
+        l.push_level(LogLevel.DEBUG)
+        l.push_level(LogLevel.TRACE)
+
+        popped = l.pop_level()
+        self.assertEqual(popped, LogLevel.TRACE)
+
+        popped = l.pop_level()
+        self.assertEqual(popped, LogLevel.DEBUG)
+
+    def test_pop_level_raises_when_popping_base_level(self):
+        """Test that pop_level() raises RuntimeError when trying to pop the base level."""
+        l = ConsoleLogger(self._console, LogLevel.INFO)
+
+        with self.assertRaises(RuntimeError) as context:
+            l.pop_level()
+
+        self.assertIn("Cannot pop the base log level", str(context.exception))
+
+    def test_pop_level_allows_multiple_pushes_then_pops(self):
+        """Test that pop_level() works correctly after multiple pushes."""
+        l = ConsoleLogger(self._console, LogLevel.INFO)
+
+        # Push multiple levels
+        l.push_level(LogLevel.DEBUG)
+        l.push_level(LogLevel.TRACE)
+        l.push_level(LogLevel.ERROR)
+
+        # Pop them all back
+        self.assertEqual(l.pop_level(), LogLevel.ERROR)
+        self.assertEqual(l.pop_level(), LogLevel.TRACE)
+        self.assertEqual(l.pop_level(), LogLevel.DEBUG)
+
+        # Now trying to pop again should raise
+        with self.assertRaises(RuntimeError):
+            l.pop_level()
 
 
 if __name__ == "__main__":
