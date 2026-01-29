@@ -190,6 +190,50 @@ tasks:
             finally:
                 os.chdir(original_cwd)
 
+    def test_log_level_invalid_value_produces_error(self):
+        """
+        Test that invalid log level values produce clear error messages.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create a simple recipe
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+tasks:
+  simple:
+    desc: A simple task
+    cmd: echo "Hello world"
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Test invalid log level values
+                invalid_levels = ["verbose", "warning", "critical", "123"]
+
+                for invalid in invalid_levels:
+                    result = self.runner.invoke(
+                        app, ["--log-level", invalid, "simple"], env=self.env
+                    )
+                    # Should fail with exit code 2 (click.BadParameter)
+                    self.assertEqual(
+                        result.exit_code,
+                        2,
+                        f"Invalid log level '{invalid}' should produce exit code 2, got {result.exit_code}",
+                    )
+                    # Error message should mention valid choices
+                    output = strip_ansi_codes(result.stdout)
+                    self.assertIn(
+                        "invalid",
+                        output.lower(),
+                        f"Error message for '{invalid}' should mention 'invalid'",
+                    )
+
+            finally:
+                os.chdir(original_cwd)
+
 
 if __name__ == "__main__":
     unittest.main()
