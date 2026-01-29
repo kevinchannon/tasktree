@@ -9,6 +9,8 @@ from tasktree.executor import Executor
 from tasktree.parser import parse_recipe
 from tasktree.state import StateManager
 
+from helpers.logging import logger_stub
+
 
 class TestBuiltinVariables(unittest.TestCase):
     """
@@ -38,7 +40,6 @@ class TestBuiltinVariables(unittest.TestCase):
         Test that all 8 built-in variables work in task commands.
         @athena: 7475ff9ab274
         """
-        logger_fn = lambda *args, **kwargs: None
         # Create output file path
         output_file = Path(self.test_dir) / "output.txt"
 
@@ -62,7 +63,7 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        executor = Executor(recipe, state, logger_fn)
+        executor = Executor(recipe, state, logger_stub)
         executor.execute_task("test-vars")
 
         # Read output and verify
@@ -106,7 +107,6 @@ tasks:
         Test that timestamp is consistent throughout a single task execution.
         @athena: f4218b7b36aa
         """
-        logger_fn = lambda *args, **kwargs: None
         output_file = Path(self.test_dir) / "timestamps.txt"
 
         recipe_content = f"""
@@ -125,7 +125,7 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        executor = Executor(recipe, state, logger_fn)
+        executor = Executor(recipe, state, logger_stub)
         executor.execute_task("test-timestamp")
 
         output = output_file.read_text()
@@ -140,7 +140,6 @@ tasks:
         Test that tt.working_dir reflects the task's working_dir setting.
         @athena: a86743048406
         """
-        logger_fn = lambda *args, **kwargs: None
         # Create subdirectory
         subdir = Path(self.test_dir) / "subdir"
         subdir.mkdir()
@@ -157,7 +156,7 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        executor = Executor(recipe, state, logger_fn)
+        executor = Executor(recipe, state, logger_stub)
         executor.execute_task("test-workdir")
 
         output = output_file.read_text().strip()
@@ -169,7 +168,6 @@ tasks:
         Test that built-in variables work in multi-line commands.
         @athena: 23073e8f1c79
         """
-        logger_fn = lambda *args, **kwargs: None
         output_file = Path(self.test_dir) / "multiline.txt"
 
         recipe_content = f"""
@@ -185,7 +183,7 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        executor = Executor(recipe, state, logger_fn)
+        executor = Executor(recipe, state, logger_stub)
         executor.execute_task("test-multiline")
 
         output = output_file.read_text().strip()
@@ -197,7 +195,6 @@ tasks:
         Test that recipe_dir points to recipe file location, not project root.
         @athena: b6973ac2072a
         """
-        logger_fn = lambda *args, **kwargs: None
         # Create recipe in a subdirectory
         recipe_subdir = Path(self.test_dir) / "config"
         recipe_subdir.mkdir()
@@ -217,7 +214,7 @@ tasks:
         recipe = parse_recipe(recipe_path, project_root=Path(self.test_dir))
         state = StateManager(recipe.project_root)
         state.load()
-        executor = Executor(recipe, state, logger_fn)
+        executor = Executor(recipe, state, logger_stub)
         executor.execute_task("test-recipe-dir")
 
         output = output_file.read_text()
@@ -236,7 +233,6 @@ tasks:
         Test built-in variables work alongside regular variables and arguments.
         @athena: 14cee950d69d
         """
-        logger_fn = lambda *args, **kwargs: None
         output_file = Path(self.test_dir) / "mixed.txt"
 
         recipe_content = f"""
@@ -258,7 +254,7 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        executor = Executor(recipe, state, logger_fn)
+        executor = Executor(recipe, state, logger_stub)
         executor.execute_task("deploy", args_dict={"region": "us-west-1"})
 
         output = output_file.read_text()
@@ -276,7 +272,7 @@ tasks:
         Test that non-circular builtin variables can be used in working_dir.
         @athena: 4aafa319abad
         """
-        logger_fn = lambda *args, **kwargs: None
+
         # Create a directory that matches the task name
         task_dir = Path(self.test_dir) / "build-task"
         task_dir.mkdir()
@@ -295,7 +291,7 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        executor = Executor(recipe, state, logger_fn)
+        executor = Executor(recipe, state, logger_stub)
         executor.execute_task("build-task")
 
         output = output_file.read_text()
@@ -314,7 +310,7 @@ tasks:
         Test that builtin variables are substituted in environment volume mounts.
         @athena: 7655e3c1fe2d
         """
-        logger_fn = lambda *args, **kwargs: None
+
         from unittest.mock import patch, Mock
 
         # TODO why is this not used?
@@ -349,7 +345,7 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        executor = Executor(recipe, state, logger_fn)
+        executor = Executor(recipe, state, logger_stub)
 
         # Mock the docker subprocess calls to capture the command
         docker_run_command = None
@@ -436,7 +432,7 @@ tasks:
         Test that {{ env.* }} variables are substituted in environment fields.
         @athena: 6577b3cabf13
         """
-        logger_fn = lambda *args, **kwargs: None
+
         from unittest.mock import patch, Mock
 
         # Set test environment variable
@@ -471,7 +467,7 @@ tasks:
             recipe = parse_recipe(self.recipe_file)
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state, logger_fn)
+            executor = Executor(recipe, state, logger_stub)
 
             # Mock the docker subprocess calls to capture the command
             docker_run_command = None
@@ -552,7 +548,7 @@ tasks:
         Test that {{ var.* }} variables are substituted in environment fields.
         @athena: ade7a52fd275
         """
-        logger_fn = lambda *args, **kwargs: None
+
         from unittest.mock import patch, Mock
 
         recipe_content = """
@@ -586,7 +582,7 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        executor = Executor(recipe, state, logger_fn)
+        executor = Executor(recipe, state, logger_stub)
 
         # Mock the docker subprocess calls to capture the command
         docker_run_command = None

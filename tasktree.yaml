@@ -13,7 +13,11 @@ tasks:
   test:
     desc: Run the test suite
     inputs: [src/**/*.py, tests/**/*.py]
-    cmd: uv run pytest
+    cmd: |
+      # These are invoked separately so that they fail faster
+      PYTHONPATH=tests uv run pytest tests/unit
+      PYTHONPATH=tests uv run pytest tests/integration
+      PYTHONPATH=tests uv run pytest tests/e2e
 
   check-format:
     inputs: [src/**/*.py, tests/**/*.py]

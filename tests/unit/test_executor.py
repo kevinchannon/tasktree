@@ -7,6 +7,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, patch
 
+from helpers.logging import logger_stub
 from tasktree.executor import Executor
 from tasktree.parser import Recipe, Task
 from tasktree.state import StateManager, TaskState
@@ -22,7 +23,7 @@ class TestTaskStatus(unittest.TestCase):
         Test status for task that has never run.
         @athena: 442a5215f152
         """
-        logger_fn = lambda *args, **kwargs: None
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -34,9 +35,9 @@ class TestTaskStatus(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
-            status = executor.check_task_status(tasks["build"], {}, {})
+            status = executor.check_task_status(tasks["build"], {}, False)
             self.assertTrue(status.will_run)
             self.assertEqual(status.reason, "never_run")
 
@@ -45,7 +46,7 @@ class TestTaskStatus(unittest.TestCase):
         Test status for task with no inputs and no outputs (always runs).
         @athena: 61274fd5e6fd
         """
-        logger_fn = lambda *args, **kwargs: None
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -55,9 +56,9 @@ class TestTaskStatus(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
-            status = executor.check_task_status(tasks["test"], {}, {})
+            status = executor.check_task_status(tasks["test"], {}, False)
             self.assertTrue(status.will_run)
             self.assertEqual(status.reason, "no_outputs")
 
@@ -66,7 +67,7 @@ class TestTaskStatus(unittest.TestCase):
         Test status for task that is fresh.
         @athena: e02f287e5128
         """
-        logger_fn = lambda *args, **kwargs: None
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -108,7 +109,7 @@ class TestTaskStatus(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             status = executor.check_task_status(task, {})
             self.assertFalse(status.will_run)
@@ -127,7 +128,7 @@ class TestExecutor(unittest.TestCase):
         Test executing a simple task.
         @athena: 6c68df426cc6
         """
-        logger_fn = lambda *args, **kwargs: None
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -137,7 +138,7 @@ class TestExecutor(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             mock_run.return_value = MagicMock(returncode=0)
 
@@ -156,7 +157,7 @@ class TestExecutor(unittest.TestCase):
         Test executing task with dependencies.
         @athena: 1deabb08cdfa
         """
-        logger_fn = lambda *args, **kwargs: None
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -169,7 +170,7 @@ class TestExecutor(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             mock_run.return_value = MagicMock(returncode=0)
 
@@ -185,7 +186,7 @@ class TestExecutor(unittest.TestCase):
         Test executing task with arguments.
         @athena: 51d697100f5a
         """
-        logger_fn = lambda *args, **kwargs: None
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -201,7 +202,7 @@ class TestExecutor(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             mock_run.return_value = MagicMock(returncode=0)
 
@@ -220,7 +221,7 @@ class TestExecutor(unittest.TestCase):
         Test _run_command_as_script with single-line command.
         @athena: b08cbc7783d9
         """
-        logger_fn = lambda *args, **kwargs: None
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -230,7 +231,7 @@ class TestExecutor(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             mock_run.return_value = MagicMock(returncode=0)
 
@@ -265,7 +266,7 @@ class TestExecutor(unittest.TestCase):
         Test _run_command_as_script with preamble.
         @athena: 0d623d315756
         """
-        logger_fn = lambda *args, **kwargs: None
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -275,7 +276,7 @@ class TestExecutor(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             mock_run.return_value = MagicMock(returncode=0)
 
@@ -305,7 +306,7 @@ class TestExecutor(unittest.TestCase):
         Test _run_command_as_script with multi-line command.
         @athena: 1b973f429ae7
         """
-        logger_fn = lambda *args, **kwargs: None
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -315,7 +316,7 @@ class TestExecutor(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             mock_run.return_value = MagicMock(returncode=0)
 
@@ -348,7 +349,7 @@ class TestExecutor(unittest.TestCase):
         4. subprocess.run is called AFTER all script setup completes
         @athena: bd7375ce474d
         """
-        logger_fn = lambda *args, **kwargs: None
+
         import platform
         import stat
 
@@ -365,7 +366,7 @@ class TestExecutor(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             # Track all operations in order
             call_order = []
@@ -505,7 +506,7 @@ class TestMissingOutputs(unittest.TestCase):
         Test that fresh task with all outputs present should skip.
         @athena: 401d95b3c44f
         """
-        logger_fn = lambda *args, **kwargs: None
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -539,7 +540,7 @@ class TestMissingOutputs(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             status = executor.check_task_status(task, {})
             self.assertFalse(status.will_run)
@@ -550,7 +551,7 @@ class TestMissingOutputs(unittest.TestCase):
         Test that fresh task with missing output should run with outputs_missing reason.
         @athena: 3ef83cd3acb8
         """
-        logger_fn = lambda *args, **kwargs: None
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -582,7 +583,7 @@ class TestMissingOutputs(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             status = executor.check_task_status(task, {})
             self.assertTrue(status.will_run)
@@ -594,7 +595,7 @@ class TestMissingOutputs(unittest.TestCase):
         Test that task with some outputs present but not all should run.
         @athena: 6217f859b234
         """
-        logger_fn = lambda *args, **kwargs: None
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -627,7 +628,7 @@ class TestMissingOutputs(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             status = executor.check_task_status(task, {})
             self.assertTrue(status.will_run)
@@ -639,7 +640,7 @@ class TestMissingOutputs(unittest.TestCase):
         Test that first run (no state) uses never_run reason, not outputs_missing.
         @athena: 5c8a63d5d9db
         """
-        logger_fn = lambda *args, **kwargs: None
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -656,7 +657,7 @@ class TestMissingOutputs(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             status = executor.check_task_status(task, {})
             self.assertTrue(status.will_run)
@@ -667,7 +668,7 @@ class TestMissingOutputs(unittest.TestCase):
         Test that tasks with no outputs declared are unaffected.
         @athena: 782e6a7191c1
         """
-        logger_fn = lambda *args, **kwargs: None
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -680,7 +681,7 @@ class TestMissingOutputs(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             status = executor.check_task_status(task, {})
             self.assertTrue(status.will_run)
@@ -691,7 +692,7 @@ class TestMissingOutputs(unittest.TestCase):
         Test that output patterns resolve correctly with working_dir.
         @athena: 9c15753c5915
         """
-        logger_fn = lambda *args, **kwargs: None
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -728,7 +729,7 @@ class TestMissingOutputs(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             status = executor.check_task_status(task, {})
             self.assertFalse(status.will_run)
@@ -739,7 +740,7 @@ class TestMissingOutputs(unittest.TestCase):
         Test that glob pattern with zero matches triggers re-run.
         @athena: e01cba21a778
         """
-        logger_fn = lambda *args, **kwargs: None
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -771,7 +772,7 @@ class TestMissingOutputs(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             status = executor.check_task_status(task, {})
             self.assertTrue(status.will_run)
@@ -789,7 +790,7 @@ class TestExecutorErrors(unittest.TestCase):
         Test ExecutionError raised when subprocess fails.
         @athena: ba9aa0ed5f95
         """
-        logger_fn = lambda *args, **kwargs: None
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             recipe_path = project_root / "tasktree.yaml"
@@ -805,7 +806,7 @@ tasks:
 
             recipe = parse_recipe(recipe_path)
             state_manager = StateManager(project_root)
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             with self.assertRaises(ExecutionError) as cm:
                 executor.execute_task("fail", {})
@@ -816,7 +817,7 @@ tasks:
         Test error when working directory doesn't exist.
         @athena: f38eafecd3a0
         """
-        logger_fn = lambda *args, **kwargs: None
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             recipe_path = project_root / "tasktree.yaml"
@@ -833,7 +834,7 @@ tasks:
 
             recipe = parse_recipe(recipe_path)
             state_manager = StateManager(project_root)
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             with self.assertRaises((ExecutionError, FileNotFoundError, OSError)):
                 executor.execute_task("test", {})
@@ -843,7 +844,7 @@ tasks:
         Test error when command doesn't exist.
         @athena: c07df55f1b3f
         """
-        logger_fn = lambda *args, **kwargs: None
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             recipe_path = project_root / "tasktree.yaml"
@@ -859,7 +860,7 @@ tasks:
 
             recipe = parse_recipe(recipe_path)
             state_manager = StateManager(project_root)
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             with self.assertRaises(ExecutionError):
                 executor.execute_task("test", {})
@@ -869,7 +870,7 @@ tasks:
         Test error when command not executable.
         @athena: bd873c327af3
         """
-        logger_fn = lambda *args, **kwargs: None
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -891,7 +892,7 @@ tasks:
 
             recipe = parse_recipe(recipe_path)
             state_manager = StateManager(project_root)
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             with self.assertRaises((ExecutionError, PermissionError, OSError)):
                 executor.execute_task("test", {})
@@ -901,7 +902,7 @@ tasks:
         Test that using {{ tt.working_dir }} in working_dir raises clear error.
         @athena: 8ef45062b0a7
         """
-        logger_fn = lambda *args, **kwargs: None
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             recipe_path = project_root / "tasktree.yaml"
@@ -918,7 +919,7 @@ tasks:
 
             recipe = parse_recipe(recipe_path)
             state_manager = StateManager(project_root)
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             with self.assertRaises(ExecutionError) as cm:
                 executor.execute_task("test", {})
@@ -932,7 +933,7 @@ tasks:
         Test that non-circular builtin vars like {{ tt.task_name }} work in working_dir.
         @athena: fef78b324ff7
         """
-        logger_fn = lambda *args, **kwargs: None
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -954,7 +955,7 @@ tasks:
 
             recipe = parse_recipe(recipe_path)
             state_manager = StateManager(project_root)
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             # Should not raise - tt.task_name is allowed in working_dir
             executor.execute_task("test-task", {})
@@ -971,7 +972,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
         Test substituting single argument.
         @athena: af49a9f9df9c
         """
-        logger_fn = lambda *args, **kwargs: None
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -981,7 +982,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             result = executor._substitute_args(
                 "echo {{ arg.environment }}", {"environment": "production"}
@@ -993,7 +994,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
         Test substituting multiple arguments.
         @athena: 82c86230f01b
         """
-        logger_fn = lambda *args, **kwargs: None
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -1007,7 +1008,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             result = executor._substitute_args(
                 "deploy {{ arg.app }} to {{ arg.region }}",
@@ -1020,7 +1021,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
         Test raises error when arg not provided.
         @athena: 5cfbd5e8b848
         """
-        logger_fn = lambda *args, **kwargs: None
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -1034,7 +1035,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             # Missing argument should raise ValueError
             with self.assertRaises(ValueError) as cm:
@@ -1050,7 +1051,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
         Test detects changed file by mtime.
         @athena: d4a66a0298ad
         """
-        logger_fn = lambda *args, **kwargs: None
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -1075,7 +1076,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             # Check if inputs changed
             changed = executor._check_inputs_changed(task, cached_state, ["input.txt"])
@@ -1088,7 +1089,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
         Test detects missing output files.
         @athena: 993525e7038a
         """
-        logger_fn = lambda *args, **kwargs: None
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -1104,7 +1105,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             # Check for missing outputs
             missing = executor._check_outputs_missing(task)
@@ -1117,7 +1118,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
         Test expanding multiple glob patterns.
         @athena: 9b42d786c35a
         """
-        logger_fn = lambda *args, **kwargs: None
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -1133,7 +1134,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             # Expand multiple patterns
             result = executor._expand_globs(["*.txt", "*.py"], ".")
@@ -1155,7 +1156,7 @@ class TestOnlyMode(unittest.TestCase):
         Test that only=True executes only the target task, not dependencies.
         @athena: 8b8cb598d197
         """
-        logger_fn = lambda *args, **kwargs: None
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -1168,7 +1169,7 @@ class TestOnlyMode(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             mock_run.return_value = MagicMock(returncode=0)
 
@@ -1193,7 +1194,7 @@ class TestOnlyMode(unittest.TestCase):
         Test that only=True skips all dependencies in a chain.
         @athena: 0d66c025a5c7
         """
-        logger_fn = lambda *args, **kwargs: None
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -1207,7 +1208,7 @@ class TestOnlyMode(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             mock_run.return_value = MagicMock(returncode=0)
 
@@ -1232,7 +1233,7 @@ class TestOnlyMode(unittest.TestCase):
         Test that only=True forces execution (ignores freshness).
         @athena: e731a461bdff
         """
-        logger_fn = lambda *args, **kwargs: None
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -1266,7 +1267,7 @@ class TestOnlyMode(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             mock_run.return_value = MagicMock(returncode=0)
 
@@ -1290,7 +1291,7 @@ class TestMultilineExecution(unittest.TestCase):
         Test multi-line command content is written to temp file.
         @athena: 86b1e417b4c3
         """
-        logger_fn = lambda *args, **kwargs: None
+
         import platform
 
         # Skip on Windows (different shell syntax)
@@ -1312,7 +1313,7 @@ echo "line3" >> output.txt"""
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             # Let the command actually run (no mocking)
             executor.execute_task("build")
@@ -1337,7 +1338,7 @@ class TestEnvironmentResolution(unittest.TestCase):
         Test that global_env_override takes precedence.
         @athena: 0a0b4871c035
         """
-        logger_fn = lambda *args, **kwargs: None
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -1360,7 +1361,7 @@ class TestEnvironmentResolution(unittest.TestCase):
                 default_env="dev",
                 global_env_override="prod",  # Global override
             )
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             # Global override should win
             env_name = executor._get_effective_env_name(tasks["build"])
@@ -1371,7 +1372,7 @@ class TestEnvironmentResolution(unittest.TestCase):
         Test that task.env is used when no global override.
         @athena: 87c60056c58d
         """
-        logger_fn = lambda *args, **kwargs: None
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -1391,7 +1392,7 @@ class TestEnvironmentResolution(unittest.TestCase):
                 environments=envs,
                 default_env="prod",
             )
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             # Task env should win over default_env
             env_name = executor._get_effective_env_name(tasks["build"])
@@ -1402,7 +1403,7 @@ class TestEnvironmentResolution(unittest.TestCase):
         Test that default_env is used when task has no explicit env.
         @athena: 4e169f47c686
         """
-        logger_fn = lambda *args, **kwargs: None
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -1419,7 +1420,7 @@ class TestEnvironmentResolution(unittest.TestCase):
                 environments=envs,
                 default_env="prod",
             )
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             # Default env should be used
             env_name = executor._get_effective_env_name(tasks["build"])
@@ -1430,7 +1431,7 @@ class TestEnvironmentResolution(unittest.TestCase):
         Test that empty string is returned for platform default.
         @athena: 8e6f858e061c
         """
-        logger_fn = lambda *args, **kwargs: None
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -1441,7 +1442,7 @@ class TestEnvironmentResolution(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             # No envs defined, should return empty string
             env_name = executor._get_effective_env_name(tasks["build"])
@@ -1452,7 +1453,7 @@ class TestEnvironmentResolution(unittest.TestCase):
         Test resolving environment with custom shell and preamble.
         @athena: 38be6dfc26c8
         """
-        logger_fn = lambda *args, **kwargs: None
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
@@ -1472,7 +1473,7 @@ class TestEnvironmentResolution(unittest.TestCase):
                 recipe_path=project_root / "tasktree.yaml",
                 environments=envs,
             )
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             shell, preamble = executor._resolve_environment(tasks["build"])
             self.assertEqual(shell, "zsh")
@@ -1485,7 +1486,7 @@ class TestEnvironmentResolution(unittest.TestCase):
         Test that custom shell from environment is used for execution.
         @athena: 2e5ff72c2968
         """
-        logger_fn = lambda *args, **kwargs: None
+
         import platform
 
         captured_script_content = []
@@ -1512,7 +1513,7 @@ class TestEnvironmentResolution(unittest.TestCase):
                 recipe_path=project_root / "tasktree.yaml",
                 environments=envs,
             )
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             mock_run.side_effect = capture_script_content
             executor.execute_task("build")
@@ -1530,7 +1531,7 @@ class TestEnvironmentResolution(unittest.TestCase):
         Test that task hash changes when environment changes.
         @athena: b54e9f49a005
         """
-        logger_fn = lambda *args, **kwargs: None
+
         from tasktree.hasher import hash_task
 
         # Same task, different environments
@@ -1550,7 +1551,7 @@ class TestEnvironmentResolution(unittest.TestCase):
         Test that _run_task substitutes environment variables.
         @athena: c58b5584299e
         """
-        logger_fn = lambda *args, **kwargs: None
+
         os.environ["TEST_ENV_VAR"] = "test_value"
         captured_script_content = []
 
@@ -1579,7 +1580,7 @@ class TestEnvironmentResolution(unittest.TestCase):
                     project_root=project_root,
                     recipe_path=project_root / "tasktree.yaml",
                 )
-                executor = Executor(recipe, state_manager, logger_fn)
+                executor = Executor(recipe, state_manager, logger_stub)
 
                 mock_run.side_effect = capture_script_content
                 executor._run_task(tasks["test"], {})
@@ -1598,7 +1599,7 @@ class TestEnvironmentResolution(unittest.TestCase):
         Test environment variables work in working_dir.
         @athena: a2d488c3e905
         """
-        logger_fn = lambda *args, **kwargs: None
+
         os.environ["SUBDIR"] = "mydir"
         try:
             with TemporaryDirectory() as tmpdir:
@@ -1620,7 +1621,7 @@ class TestEnvironmentResolution(unittest.TestCase):
                     project_root=project_root,
                     recipe_path=project_root / "tasktree.yaml",
                 )
-                executor = Executor(recipe, state_manager, logger_fn)
+                executor = Executor(recipe, state_manager, logger_stub)
 
                 mock_run.return_value = MagicMock(returncode=0)
                 executor._run_task(tasks["test"], {})
@@ -1636,7 +1637,7 @@ class TestEnvironmentResolution(unittest.TestCase):
         Test undefined environment variable raises clear error.
         @athena: 4d17d3e6e7e9
         """
-        logger_fn = lambda *args, **kwargs: None
+
         # Ensure var is not set
         if "UNDEFINED_TEST_VAR" in os.environ:
             del os.environ["UNDEFINED_TEST_VAR"]
@@ -1657,7 +1658,7 @@ class TestEnvironmentResolution(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_fn)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             with self.assertRaises(ValueError) as cm:
                 executor._run_task(tasks["test"], {})

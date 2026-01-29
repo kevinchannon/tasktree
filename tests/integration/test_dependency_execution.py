@@ -11,6 +11,7 @@ from tempfile import TemporaryDirectory
 
 from typer.testing import CliRunner
 
+from helpers.logging import logger_stub
 from tasktree.cli import app
 from tasktree.executor import Executor
 from tasktree.parser import parse_recipe
@@ -243,7 +244,7 @@ tasks:
         - Bug (if present): 'package' runs because 'build' has will_run=True
         @athena: 54669115d3bd
         """
-        logger_fn = lambda *args, **kwargs: None
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -271,7 +272,7 @@ tasks:
             # This creates build-artifact.txt and package.tar.gz
             parsed_recipe = parse_recipe(recipe_path)
             state_manager = StateManager(project_root)
-            executor = Executor(parsed_recipe, state_manager, logger_fn)
+            executor = Executor(parsed_recipe, state_manager, logger_stub)
 
             statuses = executor.execute_task("package")
 
@@ -297,7 +298,7 @@ tasks:
             recipe_path.write_text(yaml.dump(recipe))
 
             parsed_recipe = parse_recipe(recipe_path)
-            executor = Executor(parsed_recipe, state_manager, logger_fn)
+            executor = Executor(parsed_recipe, state_manager, logger_stub)
 
             statuses = executor.execute_task("package")
 
@@ -331,7 +332,7 @@ tasks:
         This is the positive test case - ensure we didn't break normal behavior.
         @athena: 47401bca0465
         """
-        logger_fn = lambda *args, **kwargs: None
+
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -358,7 +359,7 @@ tasks:
             # First run: establish baseline
             parsed_recipe = parse_recipe(recipe_path)
             state_manager = StateManager(project_root)
-            executor = Executor(parsed_recipe, state_manager, logger_fn)
+            executor = Executor(parsed_recipe, state_manager, logger_stub)
 
             statuses = executor.execute_task("build")
 
@@ -373,7 +374,7 @@ tasks:
             recipe_path.write_text(yaml.dump(recipe))
 
             parsed_recipe = parse_recipe(recipe_path)
-            executor = Executor(parsed_recipe, state_manager, logger_fn)
+            executor = Executor(parsed_recipe, state_manager, logger_stub)
 
             statuses = executor.execute_task("build")
 

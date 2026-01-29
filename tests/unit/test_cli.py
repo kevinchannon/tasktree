@@ -11,6 +11,7 @@ from tasktree.cli import (
     get_action_failure_string,
     get_action_success_string,
 )
+from helpers.logging import logger_stub
 
 
 class TestParseTaskArgs(unittest.TestCase):
@@ -24,12 +25,11 @@ class TestParseTaskArgs(unittest.TestCase):
         Test parsing positional arguments.
         @athena: ead40436842f
         """
-        logger_fn = lambda *args, **kwargs: None
+
         arg_specs = ["environment", "region"]
         arg_values = ["production", "us-east-1"]
 
-        logger_fn = lambda *args, **kwargs: None
-        result = _parse_task_args(logger_fn, arg_specs, arg_values)
+        result = _parse_task_args(logger_stub, arg_specs, arg_values)
 
         self.assertEqual(result, {"environment": "production", "region": "us-east-1"})
 
@@ -38,12 +38,11 @@ class TestParseTaskArgs(unittest.TestCase):
         Test parsing name=value arguments.
         @athena: c2ca89ba1e4f
         """
-        logger_fn = lambda *args, **kwargs: None
+
         arg_specs = ["environment", "region"]
         arg_values = ["environment=production", "region=us-east-1"]
 
-        logger_fn = lambda *args, **kwargs: None
-        result = _parse_task_args(logger_fn, arg_specs, arg_values)
+        result = _parse_task_args(logger_stub, arg_specs, arg_values)
 
         self.assertEqual(result, {"environment": "production", "region": "us-east-1"})
 
@@ -52,12 +51,11 @@ class TestParseTaskArgs(unittest.TestCase):
         Test default values applied.
         @athena: 602a8176092f
         """
-        logger_fn = lambda *args, **kwargs: None
+
         arg_specs = ["environment", {"region": {"default": "us-west-1"}}]
         arg_values = ["production"]  # Only provide first arg
 
-        logger_fn = lambda *args, **kwargs: None
-        result = _parse_task_args(logger_fn, arg_specs, arg_values)
+        result = _parse_task_args(logger_stub, arg_specs, arg_values)
 
         self.assertEqual(result, {"environment": "production", "region": "us-west-1"})
 
@@ -66,7 +64,7 @@ class TestParseTaskArgs(unittest.TestCase):
         Test values converted to correct types.
         @athena: 8f91f676ccc3
         """
-        logger_fn = lambda *args, **kwargs: None
+
         arg_specs = [
             {"port": {"type": "int"}},
             {"debug": {"type": "bool"}},
@@ -74,8 +72,7 @@ class TestParseTaskArgs(unittest.TestCase):
         ]
         arg_values = ["8080", "true", "30.5"]
 
-        logger_fn = lambda *args, **kwargs: None
-        result = _parse_task_args(logger_fn, arg_specs, arg_values)
+        result = _parse_task_args(logger_stub, arg_specs, arg_values)
 
         self.assertEqual(result, {"port": 8080, "debug": True, "timeout": 30.5})
         self.assertIsInstance(result["port"], int)
@@ -87,60 +84,59 @@ class TestParseTaskArgs(unittest.TestCase):
         Test error for unknown argument name.
         @athena: 62871b34ab00
         """
-        logger_fn = lambda *args, **kwargs: None
+
         arg_specs = ["environment"]
         arg_values = ["unknown_arg=value"]
 
         with self.assertRaises(typer.Exit):
-            _parse_task_args(logger_fn, arg_specs, arg_values)
+            _parse_task_args(logger_stub, arg_specs, arg_values)
 
     def test_parse_task_args_too_many(self):
         """
         Test error for too many positional args.
         @athena: e4c241c88a7b
         """
-        logger_fn = lambda *args, **kwargs: None
+
         arg_specs = ["environment"]
         arg_values = ["production", "extra_value"]
 
         with self.assertRaises(typer.Exit):
-            _parse_task_args(logger_fn, arg_specs, arg_values)
+            _parse_task_args(logger_stub, arg_specs, arg_values)
 
     def test_parse_task_args_missing_required(self):
         """
         Test error for missing required argument.
         @athena: 30803a202881
         """
-        logger_fn = lambda *args, **kwargs: None
+
         arg_specs = ["environment", "region"]
         arg_values = ["production"]  # Missing 'region'
 
         with self.assertRaises(typer.Exit):
-            _parse_task_args(logger_fn, arg_specs, arg_values)
+            _parse_task_args(logger_stub, arg_specs, arg_values)
 
     def test_parse_task_args_invalid_type(self):
         """
         Test error for invalid type conversion.
         @athena: 0f8739363eea
         """
-        logger_fn = lambda *args, **kwargs: None
+
         arg_specs = [{"port": {"type": "int"}}]
         arg_values = ["not_a_number"]
 
         with self.assertRaises(typer.Exit):
-            _parse_task_args(logger_fn, arg_specs, arg_values)
+            _parse_task_args(logger_stub, arg_specs, arg_values)
 
     def test_parse_task_args_empty(self):
         """
         Test returns empty dict when no args.
         @athena: 04ad0b949f24
         """
-        logger_fn = lambda *args, **kwargs: None
+
         arg_specs = []
         arg_values = []
 
-        logger_fn = lambda *args, **kwargs: None
-        result = _parse_task_args(logger_fn, arg_specs, arg_values)
+        result = _parse_task_args(logger_stub, arg_specs, arg_values)
 
         self.assertEqual(result, {})
 
@@ -149,12 +145,11 @@ class TestParseTaskArgs(unittest.TestCase):
         Test mixing positional and named arguments.
         @athena: a9b3ce981587
         """
-        logger_fn = lambda *args, **kwargs: None
+
         arg_specs = ["environment", "region", {"verbose": {"type": "bool"}}]
         arg_values = ["production", "region=us-east-1", "verbose=true"]
 
-        logger_fn = lambda *args, **kwargs: None
-        result = _parse_task_args(logger_fn, arg_specs, arg_values)
+        result = _parse_task_args(logger_stub, arg_specs, arg_values)
 
         self.assertEqual(
             result,
