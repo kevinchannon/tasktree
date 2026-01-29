@@ -236,8 +236,8 @@ class TestLogLevelParsing(unittest.TestCase):
         for invalid in invalid_levels:
             with self.assertRaises(click.BadParameter) as cm:
                 choice.convert(invalid, None, None)
-            # Error message should mention valid choices
-            self.assertIn("valid", str(cm.exception).lower())
+            # Error message should indicate invalid choice
+            self.assertIn("is not one of", str(cm.exception).lower())
 
     def test_log_level_mapping_to_enum(self):
         """
