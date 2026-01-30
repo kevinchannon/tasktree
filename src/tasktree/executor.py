@@ -764,11 +764,11 @@ class Executor:
             script_file.write(cmd)
             script_file.flush()
 
-        try:
-            # Make executable on Unix/macOS
-            if not is_windows:
-                os.chmod(script_path, os.stat(script_path).st_mode | stat.S_IEXEC)
+        # Make executable on Unix/macOS (must happen after file is closed)
+        if not is_windows:
+            os.chmod(script_path, os.stat(script_path).st_mode | stat.S_IEXEC)
 
+        try:
             # Execute script file with streaming output
             try:
                 suppress_output = self.task_output.lower() == "none"

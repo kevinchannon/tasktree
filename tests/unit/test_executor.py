@@ -121,7 +121,7 @@ class TestExecutor(unittest.TestCase):
     @athena: 048894f2713e
     """
 
-    @patch("subprocess.run")
+    @patch("subprocess.Popen")
     @patch("os.chmod")
     def test_execute_simple_task(self, mock_chmod, mock_run):
         """
@@ -140,7 +140,11 @@ class TestExecutor(unittest.TestCase):
             )
             executor = Executor(recipe, state_manager, logger_stub)
 
-            mock_run.return_value = MagicMock(returncode=0)
+            mock_process = MagicMock()
+            mock_process.wait.return_value = 0
+            mock_process.stdout = None
+            mock_process.stderr = None
+            mock_run.return_value = mock_process
 
             executor.execute_task("build")
 
@@ -151,7 +155,7 @@ class TestExecutor(unittest.TestCase):
             script_path = call_args[0][0][0]
             self.assertTrue(script_path.endswith(".sh") or script_path.endswith(".bat"))
 
-    @patch("subprocess.run")
+    @patch("subprocess.Popen")
     def test_execute_with_dependencies(self, mock_run):
         """
         Test executing task with dependencies.
@@ -172,14 +176,18 @@ class TestExecutor(unittest.TestCase):
             )
             executor = Executor(recipe, state_manager, logger_stub)
 
-            mock_run.return_value = MagicMock(returncode=0)
+            mock_process = MagicMock()
+            mock_process.wait.return_value = 0
+            mock_process.stdout = None
+            mock_process.stderr = None
+            mock_run.return_value = mock_process
 
             executor.execute_task("build")
 
             # Verify both tasks were executed
             self.assertEqual(mock_run.call_count, 2)
 
-    @patch("subprocess.run")
+    @patch("subprocess.Popen")
     @patch("os.chmod")
     def test_execute_with_args(self, mock_chmod, mock_run):
         """
@@ -204,7 +212,11 @@ class TestExecutor(unittest.TestCase):
             )
             executor = Executor(recipe, state_manager, logger_stub)
 
-            mock_run.return_value = MagicMock(returncode=0)
+            mock_process = MagicMock()
+            mock_process.wait.return_value = 0
+            mock_process.stdout = None
+            mock_process.stderr = None
+            mock_run.return_value = mock_process
 
             executor.execute_task("deploy", {"environment": "production"})
 
@@ -213,7 +225,7 @@ class TestExecutor(unittest.TestCase):
             script_path = call_args[0][0][0]
             self.assertTrue(script_path.endswith(".sh") or script_path.endswith(".bat"))
 
-    @patch("subprocess.run")
+    @patch("subprocess.Popen")
     @patch("os.chmod")
     @patch("os.unlink")
     def test_run_command_as_script_single_line(self, mock_unlink, mock_chmod, mock_run):
@@ -233,7 +245,11 @@ class TestExecutor(unittest.TestCase):
             )
             executor = Executor(recipe, state_manager, logger_stub)
 
-            mock_run.return_value = MagicMock(returncode=0)
+            mock_process = MagicMock()
+            mock_process.wait.return_value = 0
+            mock_process.stdout = None
+            mock_process.stderr = None
+            mock_run.return_value = mock_process
 
             # Call the unified method directly
             executor._run_command_as_script(
@@ -256,7 +272,7 @@ class TestExecutor(unittest.TestCase):
             # Verify cleanup (unlink) was called
             mock_unlink.assert_called_once()
 
-    @patch("subprocess.run")
+    @patch("subprocess.Popen")
     @patch("os.chmod")
     @patch("os.unlink")
     def test_run_command_as_script_with_preamble(
@@ -278,7 +294,11 @@ class TestExecutor(unittest.TestCase):
             )
             executor = Executor(recipe, state_manager, logger_stub)
 
-            mock_run.return_value = MagicMock(returncode=0)
+            mock_process = MagicMock()
+            mock_process.wait.return_value = 0
+            mock_process.stdout = None
+            mock_process.stderr = None
+            mock_run.return_value = mock_process
 
             # Call with preamble
             executor._run_command_as_script(
@@ -298,7 +318,7 @@ class TestExecutor(unittest.TestCase):
             # Verify cleanup
             mock_unlink.assert_called_once()
 
-    @patch("subprocess.run")
+    @patch("subprocess.Popen")
     @patch("os.chmod")
     @patch("os.unlink")
     def test_run_command_as_script_multiline(self, mock_unlink, mock_chmod, mock_run):
@@ -318,7 +338,11 @@ class TestExecutor(unittest.TestCase):
             )
             executor = Executor(recipe, state_manager, logger_stub)
 
-            mock_run.return_value = MagicMock(returncode=0)
+            mock_process = MagicMock()
+            mock_process.wait.return_value = 0
+            mock_process.stdout = None
+            mock_process.stderr = None
+            mock_run.return_value = mock_process
 
             # Call with multi-line command
             executor._run_command_as_script(
@@ -1149,7 +1173,7 @@ class TestOnlyMode(unittest.TestCase):
     @athena: 68c6410591ab
     """
 
-    @patch("subprocess.run")
+    @patch("subprocess.Popen")
     @patch("os.chmod")
     def test_only_mode_skips_dependencies(self, mock_chmod, mock_run):
         """
@@ -1171,7 +1195,11 @@ class TestOnlyMode(unittest.TestCase):
             )
             executor = Executor(recipe, state_manager, logger_stub)
 
-            mock_run.return_value = MagicMock(returncode=0)
+            mock_process = MagicMock()
+            mock_process.wait.return_value = 0
+            mock_process.stdout = None
+            mock_process.stderr = None
+            mock_run.return_value = mock_process
 
             # Execute with only=True
             statuses = executor.execute_task("build", only=True)
@@ -1187,7 +1215,7 @@ class TestOnlyMode(unittest.TestCase):
             self.assertIn("build", statuses)
             self.assertNotIn("lint", statuses)
 
-    @patch("subprocess.run")
+    @patch("subprocess.Popen")
     @patch("os.chmod")
     def test_only_mode_with_multiple_dependencies(self, mock_chmod, mock_run):
         """
@@ -1210,7 +1238,11 @@ class TestOnlyMode(unittest.TestCase):
             )
             executor = Executor(recipe, state_manager, logger_stub)
 
-            mock_run.return_value = MagicMock(returncode=0)
+            mock_process = MagicMock()
+            mock_process.wait.return_value = 0
+            mock_process.stdout = None
+            mock_process.stderr = None
+            mock_run.return_value = mock_process
 
             # Execute test with only=True
             statuses = executor.execute_task("test", only=True)
@@ -1227,7 +1259,7 @@ class TestOnlyMode(unittest.TestCase):
             self.assertNotIn("build", statuses)
             self.assertNotIn("lint", statuses)
 
-    @patch("subprocess.run")
+    @patch("subprocess.Popen")
     def test_only_mode_forces_execution(self, mock_run):
         """
         Test that only=True forces execution (ignores freshness).
@@ -1269,7 +1301,11 @@ class TestOnlyMode(unittest.TestCase):
             )
             executor = Executor(recipe, state_manager, logger_stub)
 
-            mock_run.return_value = MagicMock(returncode=0)
+            mock_process = MagicMock()
+            mock_process.wait.return_value = 0
+            mock_process.stdout = None
+            mock_process.stderr = None
+            mock_run.return_value = mock_process
 
             # Execute with only=True
             statuses = executor.execute_task("build", only=True)
@@ -1479,7 +1515,7 @@ class TestEnvironmentResolution(unittest.TestCase):
             self.assertEqual(shell, "zsh")
             self.assertEqual(preamble, "set -e\n")
 
-    @patch("subprocess.run")
+    @patch("subprocess.Popen")
     @patch("os.chmod")
     def test_task_execution_uses_custom_shell(self, mock_chmod, mock_run):
         """
@@ -1544,7 +1580,7 @@ class TestEnvironmentResolution(unittest.TestCase):
         self.assertNotEqual(hash2, hash3)
         self.assertNotEqual(hash1, hash3)
 
-    @patch("subprocess.run")
+    @patch("subprocess.Popen")
     @patch("os.chmod")
     def test_run_task_substitutes_environment_variables(self, mock_chmod, mock_run):
         """
@@ -1593,7 +1629,7 @@ class TestEnvironmentResolution(unittest.TestCase):
         finally:
             del os.environ["TEST_ENV_VAR"]
 
-    @patch("subprocess.run")
+    @patch("subprocess.Popen")
     def test_run_task_env_substitution_in_working_dir(self, mock_run):
         """
         Test environment variables work in working_dir.
@@ -1623,7 +1659,11 @@ class TestEnvironmentResolution(unittest.TestCase):
                 )
                 executor = Executor(recipe, state_manager, logger_stub)
 
-                mock_run.return_value = MagicMock(returncode=0)
+                mock_process = MagicMock()
+            mock_process.wait.return_value = 0
+            mock_process.stdout = None
+            mock_process.stderr = None
+            mock_run.return_value = mock_process
                 executor._run_task(tasks["test"], {})
 
                 # Verify working_dir was substituted
@@ -1726,7 +1766,11 @@ class TestTaskOutputParameter(unittest.TestCase):
 
             # Mock subprocess.run to verify it's called
             with patch("subprocess.run") as mock_run:
-                mock_run.return_value = MagicMock(returncode=0)
+                mock_process = MagicMock()
+            mock_process.wait.return_value = 0
+            mock_process.stdout = None
+            mock_process.stderr = None
+            mock_run.return_value = mock_process
 
                 # Call _run_command_as_script - should not raise even without task_output parameter
                 executor._run_command_as_script(

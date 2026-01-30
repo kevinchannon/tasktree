@@ -299,7 +299,7 @@ class TestDockerManager(unittest.TestCase):
         self.project_root = Path("/fake/project")
         self.manager = DockerManager(self.project_root)
 
-    @patch("tasktree.docker.subprocess.run")
+    @patch("tasktree.docker.subprocess.Popen")
     def test_ensure_image_built_caching(self, mock_run):
         """
         Test that images are cached per invocation.
@@ -322,7 +322,14 @@ class TestDockerManager(unittest.TestCase):
                 return result
             return None
 
-        mock_run.side_effect = mock_run_side_effect
+        mock_subprocess_run.side_effect = mock_run_side_effect
+
+        # Mock subprocess.Popen for docker run
+        mock_process = Mock()
+        mock_process.wait.return_value = 0
+        mock_process.stdout = None
+        mock_process.stderr = None
+        mock_popen.return_value = mock_process
 
         # First call should check docker, build, and inspect
         tag1, image_id1 = self.manager.ensure_image_built(env)
@@ -337,7 +344,7 @@ class TestDockerManager(unittest.TestCase):
         self.assertEqual(image_id2, "sha256:abc123def456")
         self.assertEqual(mock_run.call_count, 3)  # No additional calls
 
-    @patch("tasktree.docker.subprocess.run")
+    @patch("tasktree.docker.subprocess.Popen")
     def test_build_command_structure(self, mock_run):
         """
         Test that docker build command is structured correctly.
@@ -358,7 +365,14 @@ class TestDockerManager(unittest.TestCase):
                 return result
             return None
 
-        mock_run.side_effect = mock_run_side_effect
+        mock_subprocess_run.side_effect = mock_run_side_effect
+
+        # Mock subprocess.Popen for docker run
+        mock_process = Mock()
+        mock_process.wait.return_value = 0
+        mock_process.stdout = None
+        mock_process.stderr = None
+        mock_popen.return_value = mock_process
 
         self.manager.ensure_image_built(env)
 
@@ -370,7 +384,7 @@ class TestDockerManager(unittest.TestCase):
         self.assertEqual(build_call_args[3], "tt-env-builder")
         self.assertEqual(build_call_args[4], "-f")
 
-    @patch("tasktree.docker.subprocess.run")
+    @patch("tasktree.docker.subprocess.Popen")
     def test_build_command_with_build_args(self, mock_run):
         """
         Test that docker build command includes --build-arg flags.
@@ -392,7 +406,14 @@ class TestDockerManager(unittest.TestCase):
                 return result
             return None
 
-        mock_run.side_effect = mock_run_side_effect
+        mock_subprocess_run.side_effect = mock_run_side_effect
+
+        # Mock subprocess.Popen for docker run
+        mock_process = Mock()
+        mock_process.wait.return_value = 0
+        mock_process.stdout = None
+        mock_process.stderr = None
+        mock_popen.return_value = mock_process
 
         self.manager.ensure_image_built(env)
 
@@ -421,7 +442,7 @@ class TestDockerManager(unittest.TestCase):
         self.assertEqual(build_args["FOO"], "fooable")
         self.assertEqual(build_args["bar"], "you're barred!")
 
-    @patch("tasktree.docker.subprocess.run")
+    @patch("tasktree.docker.subprocess.Popen")
     def test_build_command_with_empty_build_args(self, mock_run):
         """
         Test that docker build command works with empty build args dict.
@@ -443,7 +464,14 @@ class TestDockerManager(unittest.TestCase):
                 return result
             return None
 
-        mock_run.side_effect = mock_run_side_effect
+        mock_subprocess_run.side_effect = mock_run_side_effect
+
+        # Mock subprocess.Popen for docker run
+        mock_process = Mock()
+        mock_process.wait.return_value = 0
+        mock_process.stdout = None
+        mock_process.stderr = None
+        mock_popen.return_value = mock_process
 
         self.manager.ensure_image_built(env)
 
@@ -457,7 +485,7 @@ class TestDockerManager(unittest.TestCase):
         # Verify NO build args are included
         self.assertNotIn("--build-arg", build_call_args)
 
-    @patch("tasktree.docker.subprocess.run")
+    @patch("tasktree.docker.subprocess.Popen")
     def test_build_command_with_special_characters_in_args(self, mock_run):
         """
         Test that build args with special characters are handled correctly.
@@ -484,7 +512,14 @@ class TestDockerManager(unittest.TestCase):
                 return result
             return None
 
-        mock_run.side_effect = mock_run_side_effect
+        mock_subprocess_run.side_effect = mock_run_side_effect
+
+        # Mock subprocess.Popen for docker run
+        mock_process = Mock()
+        mock_process.wait.return_value = 0
+        mock_process.stdout = None
+        mock_process.stderr = None
+        mock_popen.return_value = mock_process
 
         self.manager.ensure_image_built(env)
 
@@ -571,11 +606,12 @@ class TestDockerManager(unittest.TestCase):
         self.assertFalse(self.manager._should_add_user_flag())
 
     @patch("tasktree.docker.subprocess.run")
+    @patch("tasktree.docker.subprocess.Popen")
     @patch("tasktree.docker.platform.system")
     @patch("tasktree.docker.os.getuid")
     @patch("tasktree.docker.os.getgid")
     def test_run_in_container_adds_user_flag_by_default(
-        self, mock_getgid, mock_getuid, mock_platform, mock_run
+        self, mock_getgid, mock_getuid, mock_platform, mock_popen, mock_subprocess_run
     ):
         """
         Test that --user flag is added by default on Linux.
@@ -592,7 +628,7 @@ class TestDockerManager(unittest.TestCase):
             shell="sh",
         )
 
-        # Mock docker --version, docker build, docker inspect, and docker run
+        # Mock subprocess.run for docker build and inspect
         def mock_run_side_effect(*args, **_kwargs):
             cmd = args[0]
             if "inspect" in cmd:
@@ -601,7 +637,14 @@ class TestDockerManager(unittest.TestCase):
                 return result
             return Mock()
 
-        mock_run.side_effect = mock_run_side_effect
+        mock_subprocess_run.side_effect = mock_run_side_effect
+
+        # Mock subprocess.Popen for docker run (container execution)
+        mock_process = Mock()
+        mock_process.wait.return_value = 0
+        mock_process.stdout = None
+        mock_process.stderr = None
+        mock_popen.return_value = mock_process
 
         self.manager.run_in_container(
             env=env,
@@ -610,8 +653,9 @@ class TestDockerManager(unittest.TestCase):
             container_working_dir="/workspace",
         )
 
-        # Find the docker run call (should be the 4th call: docker --version, build, inspect, run)
-        run_call_args = mock_run.call_args_list[3][0][0]
+        # Verify Popen was called for docker run
+        mock_popen.assert_called_once()
+        run_call_args = mock_popen.call_args[0][0]
 
         # Verify --user flag is present
         self.assertIn("--user", run_call_args)
@@ -619,8 +663,9 @@ class TestDockerManager(unittest.TestCase):
         self.assertEqual(run_call_args[user_flag_index + 1], "1000:1000")
 
     @patch("tasktree.docker.subprocess.run")
+    @patch("tasktree.docker.subprocess.Popen")
     @patch("tasktree.docker.platform.system")
-    def test_run_in_container_skips_user_flag_on_windows(self, mock_platform, mock_run):
+    def test_run_in_container_skips_user_flag_on_windows(self, mock_platform, mock_popen, mock_subprocess_run):
         """
         Test that --user flag is NOT added on Windows.
         @athena: 9895a4a884d6
@@ -634,7 +679,7 @@ class TestDockerManager(unittest.TestCase):
             shell="sh",
         )
 
-        # Mock docker --version, docker build, docker inspect, and docker run
+        # Mock subprocess.run for docker build and inspect
         def mock_run_side_effect(*args, **_kwargs):
             cmd = args[0]
             if "inspect" in cmd:
@@ -643,7 +688,14 @@ class TestDockerManager(unittest.TestCase):
                 return result
             return Mock()
 
-        mock_run.side_effect = mock_run_side_effect
+        mock_subprocess_run.side_effect = mock_run_side_effect
+
+        # Mock subprocess.Popen for docker run
+        mock_process = Mock()
+        mock_process.wait.return_value = 0
+        mock_process.stdout = None
+        mock_process.stderr = None
+        mock_popen.return_value = mock_process
 
         self.manager.run_in_container(
             env=env,
@@ -652,18 +704,20 @@ class TestDockerManager(unittest.TestCase):
             container_working_dir="/workspace",
         )
 
-        # Find the docker run call (should be the 4th call)
-        run_call_args = mock_run.call_args_list[3][0][0]
+        # Verify Popen was called
+        mock_popen.assert_called_once()
+        run_call_args = mock_popen.call_args[0][0]
 
         # Verify --user flag is NOT present
         self.assertNotIn("--user", run_call_args)
 
     @patch("tasktree.docker.subprocess.run")
+    @patch("tasktree.docker.subprocess.Popen")
     @patch("tasktree.docker.platform.system")
     @patch("tasktree.docker.os.getuid")
     @patch("tasktree.docker.os.getgid")
     def test_run_in_container_respects_run_as_root_flag(
-        self, mock_getgid, mock_getuid, mock_platform, mock_run
+        self, mock_getgid, mock_getuid, mock_platform, mock_popen, mock_subprocess_run
     ):
         """
         Test that run_as_root=True prevents --user flag from being added.
@@ -681,7 +735,7 @@ class TestDockerManager(unittest.TestCase):
             run_as_root=True,  # Explicitly request root
         )
 
-        # Mock docker --version, docker build, docker inspect, and docker run
+        # Mock subprocess.run for docker build and inspect
         def mock_run_side_effect(*args, **_kwargs):
             cmd = args[0]
             if "inspect" in cmd:
@@ -690,7 +744,14 @@ class TestDockerManager(unittest.TestCase):
                 return result
             return Mock()
 
-        mock_run.side_effect = mock_run_side_effect
+        mock_subprocess_run.side_effect = mock_run_side_effect
+
+        # Mock subprocess.Popen for docker run
+        mock_process = Mock()
+        mock_process.wait.return_value = 0
+        mock_process.stdout = None
+        mock_process.stderr = None
+        mock_popen.return_value = mock_process
 
         self.manager.run_in_container(
             env=env,
@@ -699,15 +760,17 @@ class TestDockerManager(unittest.TestCase):
             container_working_dir="/workspace",
         )
 
-        # Find the docker run call (should be the 4th call)
-        run_call_args = mock_run.call_args_list[3][0][0]
+        # Verify Popen was called
+        mock_popen.assert_called_once()
+        run_call_args = mock_popen.call_args[0][0]
 
         # Verify --user flag is NOT present when run_as_root=True
         self.assertNotIn("--user", run_call_args)
 
     @patch("tasktree.docker.subprocess.run")
+    @patch("tasktree.docker.subprocess.Popen")
     @patch("tasktree.docker.platform.system")
-    def test_run_in_container_includes_extra_args(self, mock_platform, mock_run):
+    def test_run_in_container_includes_extra_args(self, mock_platform, mock_popen, mock_subprocess_run):
         """
         Test that extra_args are properly included in docker run command.
         @athena: 7fcf0e6f7cfd
@@ -731,7 +794,14 @@ class TestDockerManager(unittest.TestCase):
                 return result
             return Mock()
 
-        mock_run.side_effect = mock_run_side_effect
+        mock_subprocess_run.side_effect = mock_run_side_effect
+
+        # Mock subprocess.Popen for docker run
+        mock_process = Mock()
+        mock_process.wait.return_value = 0
+        mock_process.stdout = None
+        mock_process.stderr = None
+        mock_popen.return_value = mock_process
 
         self.manager.run_in_container(
             env=env,
@@ -741,7 +811,8 @@ class TestDockerManager(unittest.TestCase):
         )
 
         # Find the docker run call (should be the 4th call)
-        run_call_args = mock_run.call_args_list[3][0][0]
+        mock_popen.assert_called_once()
+        run_call_args = mock_popen.call_args[0][0]
 
         # Verify extra_args are included in the command
         self.assertIn("--memory=512m", run_call_args)
@@ -761,8 +832,9 @@ class TestDockerManager(unittest.TestCase):
         self.assertLess(network_index, image_index)
 
     @patch("tasktree.docker.subprocess.run")
+    @patch("tasktree.docker.subprocess.Popen")
     @patch("tasktree.docker.platform.system")
-    def test_run_in_container_with_empty_extra_args(self, mock_platform, mock_run):
+    def test_run_in_container_with_empty_extra_args(self, mock_platform, mock_popen, mock_subprocess_run):
         """
         Test that empty extra_args list works correctly.
         @athena: 3a4ef02a0dfc
@@ -786,7 +858,14 @@ class TestDockerManager(unittest.TestCase):
                 return result
             return Mock()
 
-        mock_run.side_effect = mock_run_side_effect
+        mock_subprocess_run.side_effect = mock_run_side_effect
+
+        # Mock subprocess.Popen for docker run
+        mock_process = Mock()
+        mock_process.wait.return_value = 0
+        mock_process.stdout = None
+        mock_process.stderr = None
+        mock_popen.return_value = mock_process
 
         self.manager.run_in_container(
             env=env,
@@ -796,7 +875,8 @@ class TestDockerManager(unittest.TestCase):
         )
 
         # Should succeed without errors
-        run_call_args = mock_run.call_args_list[3][0][0]
+        mock_popen.assert_called_once()
+        run_call_args = mock_popen.call_args[0][0]
 
         # Basic command structure should be present
         self.assertEqual(run_call_args[0], "docker")
@@ -804,8 +884,9 @@ class TestDockerManager(unittest.TestCase):
         self.assertIn("tt-env-builder", run_call_args)
 
     @patch("tasktree.docker.subprocess.run")
+    @patch("tasktree.docker.subprocess.Popen")
     @patch("tasktree.docker.platform.system")
-    def test_run_in_container_with_shell_args(self, mock_platform, mock_run):
+    def test_run_in_container_with_shell_args(self, mock_platform, mock_popen, mock_subprocess_run):
         """
         Test that shell args list works correctly.
         @athena: ed24f4a0da40
@@ -829,7 +910,14 @@ class TestDockerManager(unittest.TestCase):
                 return result
             return Mock()
 
-        mock_run.side_effect = mock_run_side_effect
+        mock_subprocess_run.side_effect = mock_run_side_effect
+
+        # Mock subprocess.Popen for docker run
+        mock_process = Mock()
+        mock_process.wait.return_value = 0
+        mock_process.stdout = None
+        mock_process.stderr = None
+        mock_popen.return_value = mock_process
 
         self.manager.run_in_container(
             env=env,
@@ -839,14 +927,15 @@ class TestDockerManager(unittest.TestCase):
         )
 
         # Should succeed without errors
-        run_call_args = mock_run.call_args_list[3][0][0]
+        mock_popen.assert_called_once()
+        run_call_args = mock_popen.call_args[0][0]
 
         # Basic command structure should be present
         self.assertEqual(run_call_args[0], "docker")
         self.assertEqual(run_call_args[1], "run")
         self.assertIn("tt-env-builder", run_call_args)
 
-    @patch("tasktree.docker.subprocess.run")
+    @patch("tasktree.docker.subprocess.Popen")
     @patch("tasktree.docker.platform.system")
     def test_run_in_container_with_substituted_variables_in_volumes(
         self, mock_platform, mock_run
@@ -878,7 +967,14 @@ class TestDockerManager(unittest.TestCase):
                 return result
             return Mock()
 
-        mock_run.side_effect = mock_run_side_effect
+        mock_subprocess_run.side_effect = mock_run_side_effect
+
+        # Mock subprocess.Popen for docker run
+        mock_process = Mock()
+        mock_process.wait.return_value = 0
+        mock_process.stdout = None
+        mock_process.stderr = None
+        mock_popen.return_value = mock_process
 
         self.manager.run_in_container(
             env=env,
@@ -888,7 +984,8 @@ class TestDockerManager(unittest.TestCase):
         )
 
         # Find the docker run call (should be the 4th call)
-        run_call_args = mock_run.call_args_list[3][0][0]
+        mock_popen.assert_called_once()
+        run_call_args = mock_popen.call_args[0][0]
 
         # Find the -v flag and its argument
         volume_flag_index = run_call_args.index("-v")
