@@ -69,7 +69,7 @@ class Executor:
         "LOGNAME",
     }
 
-    def __init__(self, recipe: Recipe, state_manager: StateManager, logger: Logger):
+    def __init__(self, recipe: Recipe, state_manager: StateManager, logger: Logger, task_output: str = "all"):
         """
         Initialize executor.
 
@@ -77,11 +77,13 @@ class Executor:
         recipe: Parsed recipe containing all tasks
         state_manager: State manager for tracking task execution
         logger_fn: Logger function for output (matches Console.print signature)
+        task_output: Control task subprocess output (all, out, err, on-err, none)
         @athena: 21b65db48bca
         """
         self.recipe = recipe
         self.state = state_manager
         self.logger = logger
+        self.task_output = task_output
         self.docker_manager = docker_module.DockerManager(recipe.project_root)
 
     @staticmethod
@@ -622,7 +624,7 @@ class Executor:
             # Regular execution path - use unified script-based execution
             shell, preamble = self._resolve_environment(task)
             self._run_command_as_script(
-                cmd, working_dir, task.name, shell, preamble, exported_env_vars
+                cmd, working_dir, task.name, shell, preamble, exported_env_vars, self.task_output
             )
 
         # Update state
@@ -636,6 +638,7 @@ class Executor:
         shell: str,
         preamble: str,
         exported_env_vars: dict[str, str] | None = None,
+        task_output: str = "all",
     ) -> None:
         """
         Execute a command via temporary script file (unified execution path).
@@ -651,6 +654,7 @@ class Executor:
         shell: Shell to use for script execution
         preamble: Preamble text to prepend to script
         exported_env_vars: Exported arguments to set as environment variables
+        task_output: Control task subprocess output (all, out, err, on-err, none)
 
         Raises:
         ExecutionError: If command execution fails

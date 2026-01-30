@@ -379,6 +379,16 @@ info: Normal execution progress (default)
 debug: Variable values, resolved paths, environment details
 trace: Fine-grained execution tracing"""
     ),
+    task_output: str = typer.Option(
+        "all",
+        "--task-output",
+        "-O",
+        click_type=click.Choice(
+            ["all"],
+            case_sensitive=False
+        ),
+        help="Control task subprocess output display (all: show both stdout and stderr)",
+    ),
     task_args: Optional[List[str]] = typer.Argument(
         None, help="Task name and arguments"
     ),
@@ -442,6 +452,7 @@ trace: Fine-grained execution tracing"""
             only=only or False,
             env=env,
             tasks_file=tasks_file,
+            task_output=task_output.lower(),
         )
     else:
         recipe = _get_recipe(logger, tasks_file)
@@ -539,6 +550,7 @@ def _execute_dynamic_task(
     only: bool = False,
     env: Optional[str] = None,
     tasks_file: Optional[str] = None,
+    task_output: str = "all",
 ) -> None:
     """
     Execute a task with its dependencies and handle argument parsing.
@@ -550,6 +562,7 @@ def _execute_dynamic_task(
         only: Execute only the specified task, skip dependencies
         env: Override environment for task execution
         tasks_file: Path to recipe file (optional)
+        task_output: Control task subprocess output (all, out, err, on-err, none)
 
     @athena: 207f7635a60d
     """
@@ -594,7 +607,7 @@ def _execute_dynamic_task(
     # Create executor and state manager
     state = StateManager(recipe.project_root)
     state.load()
-    executor = Executor(recipe, state, logger)
+    executor = Executor(recipe, state, logger, task_output=task_output)
 
     # Resolve execution order to determine which tasks will actually run
     # This is important for correct state pruning after template substitution
