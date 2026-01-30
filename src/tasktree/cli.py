@@ -452,7 +452,7 @@ trace: Fine-grained execution tracing"""
             only=only or False,
             env=env,
             tasks_file=tasks_file,
-            task_output=task_output.lower(),
+            task_output=task_output,
         )
     else:
         recipe = _get_recipe(logger, tasks_file)

@@ -619,12 +619,12 @@ class Executor:
         # Route to Docker execution or regular execution
         if env and env.dockerfile:
             # Docker execution path
-            self._run_task_in_docker(task, env, cmd, working_dir, exported_env_vars)
+            self._run_task_in_docker(task, env, cmd, working_dir, exported_env_vars, self.task_output)
         else:
             # Regular execution path - use unified script-based execution
             shell, preamble = self._resolve_environment(task)
             self._run_command_as_script(
-                cmd, working_dir, task.name, shell, preamble, exported_env_vars, self.task_output
+                cmd, working_dir, task.name, shell, preamble, exported_env_vars
             )
 
         # Update state
@@ -638,7 +638,6 @@ class Executor:
         shell: str,
         preamble: str,
         exported_env_vars: dict[str, str] | None = None,
-        task_output: str = "all",
     ) -> None:
         """
         Execute a command via temporary script file (unified execution path).
@@ -654,7 +653,6 @@ class Executor:
         shell: Shell to use for script execution
         preamble: Preamble text to prepend to script
         exported_env_vars: Exported arguments to set as environment variables
-        task_output: Control task subprocess output (all, out, err, on-err, none)
 
         Raises:
         ExecutionError: If command execution fails
@@ -804,6 +802,7 @@ class Executor:
         cmd: str,
         working_dir: Path,
         exported_env_vars: dict[str, str] | None = None,
+        task_output: str = "all",
     ) -> None:
         """
         Execute task inside Docker container.
@@ -814,6 +813,7 @@ class Executor:
         cmd: Command to execute
         working_dir: Host working directory
         exported_env_vars: Exported arguments to set as environment variables
+        task_output: Control task subprocess output (all, out, err, on-err, none)
 
         Raises:
         ExecutionError: If Docker execution fails
