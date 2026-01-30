@@ -1650,6 +1650,87 @@ tt --env python test
 tt --force deploy production
 ```
 
+### Logging Control
+
+Task Tree provides fine-grained control over diagnostic logging verbosity through the `--log-level` flag. This allows you to adjust the amount of information displayed about task execution, from minimal error-only output to detailed trace logging.
+
+**Log Levels:**
+
+```bash
+# Show only fatal errors (malformed task files, missing dependencies)
+tt --log-level fatal build
+
+# Show fatal errors and task execution failures
+tt --log-level error build
+
+# Show errors and warnings (deprecated features, configuration issues)
+tt --log-level warn build
+
+# Show normal execution progress (default)
+tt --log-level info build
+tt build  # Same as above
+
+# Show detailed diagnostics (variable values, resolved paths, environment details)
+tt --log-level debug build
+
+# Show fine-grained execution tracing
+tt --log-level trace build
+```
+
+**Short Form:**
+
+```bash
+tt -L debug build
+tt -L trace test
+```
+
+**Case Insensitive:**
+
+```bash
+tt --log-level INFO build    # Works
+tt --log-level Debug test    # Works
+tt --log-level TRACE deploy  # Works
+```
+
+**Common Use Cases:**
+
+**Debugging Workflows:**
+```bash
+# See variable substitution and resolved paths
+tt --log-level debug deploy production
+
+# See detailed execution steps and internal state
+tt --log-level trace build
+```
+
+**CI/CD Environments:**
+```bash
+# Suppress progress messages, show only errors
+tt --log-level error build test package
+
+# Minimal output for clean build logs
+tt --log-level warn ci
+```
+
+**Normal Development:**
+```bash
+# Default level shows normal execution progress
+tt build test
+```
+
+**Understanding Log Levels:**
+
+- **FATAL** (least verbose): Only unrecoverable errors that prevent execution
+- **ERROR**: Fatal errors plus individual task failures
+- **WARN**: Errors plus warnings about deprecated features or configuration issues
+- **INFO** (default): Normal execution progress messages
+- **DEBUG**: Info plus variable values, resolved paths, environment configuration
+- **TRACE** (most verbose): Debug plus fine-grained execution tracing
+
+Log levels are hierarchical - setting a higher verbosity level (e.g., DEBUG) includes all messages from lower levels (FATAL, ERROR, WARN, INFO).
+
+**Note:** The `--log-level` flag controls Task Tree's own diagnostic messages. It does not affect the output of task commands themselves - use the standard shell redirection or command-specific options for that.
+
 ## Example: Full Build Pipeline
 
 ```yaml
