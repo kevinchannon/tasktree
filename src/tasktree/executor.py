@@ -13,6 +13,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+from threading import Thread
 from typing import Any
 
 from tasktree import docker as docker_module
@@ -70,6 +71,77 @@ class Executor:
         "USER",
         "LOGNAME",
     }
+
+    @staticmethod
+    def _stream_output(pipe, target):
+        """
+        Stream lines from pipe to target as they arrive.
+
+        Args:
+            pipe: Readable stream to read from
+            target: Writable stream to write to (sys.stdout or sys.stderr)
+        """
+        if pipe:
+            for line in pipe:
+                target.write(line)
+                target.flush()
+
+    @staticmethod
+    def _run_subprocess_streaming(
+        cmd: list[str],
+        cwd: Path,
+        env: dict[str, str],
+        show_stdout: bool = True,
+        show_stderr: bool = True,
+    ) -> int:
+        """
+        Run subprocess with streaming output.
+
+        Streams stdout/stderr to sys.stdout/sys.stderr in real-time using threads.
+        Works correctly in both production and CliRunner test contexts.
+
+        Args:
+            cmd: Command and arguments to execute
+            cwd: Working directory
+            env: Environment variables
+            show_stdout: Whether to display subprocess stdout
+            show_stderr: Whether to display subprocess stderr
+
+        Returns:
+            Exit code of the subprocess
+
+        Raises:
+            Does not raise - caller should check exit code
+        """
+        process = subprocess.Popen(
+            cmd,
+            cwd=cwd,
+            env=env,
+            stdout=subprocess.PIPE if show_stdout else subprocess.DEVNULL,
+            stderr=subprocess.PIPE if show_stderr else subprocess.DEVNULL,
+            text=True,
+            bufsize=1,  # Line buffered
+        )
+
+        # Use threads to avoid deadlock when both stdout and stderr have data
+        threads = []
+
+        if show_stdout and process.stdout:
+            t = Thread(target=Executor._stream_output, args=(process.stdout, sys.stdout))
+            t.start()
+            threads.append(t)
+
+        if show_stderr and process.stderr:
+            t = Thread(target=Executor._stream_output, args=(process.stderr, sys.stderr))
+            t.start()
+            threads.append(t)
+
+        # Wait for all output to be consumed
+        for t in threads:
+            t.join()
+
+        # Wait for process to complete
+        return process.wait()
 
     def __init__(self, recipe: Recipe, state_manager: StateManager, logger: Logger, task_output: str = "all"):
         """
@@ -697,45 +769,22 @@ class Executor:
             if not is_windows:
                 os.chmod(script_path, os.stat(script_path).st_mode | stat.S_IEXEC)
 
-            # Execute script file
+            # Execute script file with streaming output
             try:
-                def get_subprocess_stream(stream, suppress):
-                    """
-                    Determine the appropriate stream target for subprocess.
-
-                    Args:
-                        stream: The stream to check (sys.stdout or sys.stderr)
-                        suppress: Whether to suppress output (task_output == "none")
-
-                    Returns:
-                        subprocess.DEVNULL if suppressing,
-                        the stream if it has a valid file descriptor,
-                        None to let subprocess inherit default behavior
-                    """
-                    if suppress:
-                        return subprocess.DEVNULL
-
-                    # Only pass through if it's a real file descriptor
-                    try:
-                        stream.fileno()
-                        return stream
-                    except (AttributeError, io.UnsupportedOperation):
-                        return None  # Let subprocess inherit default
-
                 suppress_output = self.task_output.lower() == "none"
-
-                subprocess.run(
-                    [script_path],
+                exit_code = self._run_subprocess_streaming(
+                    cmd=[script_path],
                     cwd=working_dir,
-                    check=True,
-                    stdout=get_subprocess_stream(sys.stdout, suppress_output),
-                    stderr=get_subprocess_stream(sys.stderr, suppress_output),
                     env=env,
+                    show_stdout=not suppress_output,
+                    show_stderr=not suppress_output,
                 )
-            except subprocess.CalledProcessError as e:
-                raise ExecutionError(
-                    f"Task '{task_name}' failed with exit code {e.returncode}"
-                )
+                if exit_code != 0:
+                    raise ExecutionError(
+                        f"Task '{task_name}' failed with exit code {exit_code}"
+                    )
+            except ExecutionError:
+                raise
         finally:
             # Clean up temporary file
             try:
