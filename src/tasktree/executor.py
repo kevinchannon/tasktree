@@ -699,24 +699,54 @@ class Executor:
 
             # Execute script file
             try:
-                # Determine output targets based on task_output mode
-                if self.task_output.lower() == "none":
-                    stdout_target = subprocess.DEVNULL
-                    stderr_target = subprocess.DEVNULL
-                else:
-                    # Default: "all" mode - use current stdout/stderr
-                    # Works for both real execution and CliRunner
-                    stdout_target = sys.stdout
-                    stderr_target = sys.stderr
+                # Check if stdout/stderr support fileno() (real file descriptors)
+                # CliRunner uses StringIO which has fileno() method but raises when called
+                def supports_fileno(stream):
+                    """Check if a stream has a working fileno() method."""
+                    try:
+                        stream.fileno()
+                        return True
+                    except (AttributeError, OSError, io.UnsupportedOperation):
+                        return False
 
-                subprocess.run(
-                    [script_path],
-                    cwd=working_dir,
-                    check=True,
-                    stdout=stdout_target,
-                    stderr=stderr_target,
-                    env=env,
-                )
+                # Check if we're in CliRunner mode (streams don't support fileno)
+                # CliRunner needs special handling because it captures output via StringIO
+                is_cli_runner = not (supports_fileno(sys.stdout) and supports_fileno(sys.stderr))
+
+                if is_cli_runner:
+                    # CliRunner path: always capture, then conditionally write based on task_output
+                    result = subprocess.run(
+                        [script_path],
+                        cwd=working_dir,
+                        check=True,
+                        capture_output=True,
+                        text=True,
+                        env=env,
+                    )
+                    # Only write output if not suppressing
+                    if self.task_output.lower() != "none":
+                        if result.stdout:
+                            sys.stdout.write(result.stdout)
+                        if result.stderr:
+                            sys.stderr.write(result.stderr)
+                else:
+                    # Normal execution path: use appropriate streams based on task_output
+                    if self.task_output.lower() == "none":
+                        stdout_target = subprocess.DEVNULL
+                        stderr_target = subprocess.DEVNULL
+                    else:
+                        # Default: "all" mode - show everything
+                        stdout_target = sys.stdout
+                        stderr_target = sys.stderr
+
+                    subprocess.run(
+                        [script_path],
+                        cwd=working_dir,
+                        check=True,
+                        stdout=stdout_target,
+                        stderr=stderr_target,
+                        env=env,
+                    )
             except subprocess.CalledProcessError as e:
                 raise ExecutionError(
                     f"Task '{task_name}' failed with exit code {e.returncode}"
