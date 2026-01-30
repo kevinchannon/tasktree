@@ -698,14 +698,39 @@ class Executor:
 
             # Execute script file
             try:
-                subprocess.run(
-                    [script_path],
-                    cwd=working_dir,
-                    check=True,
-                    stdout=sys.stdout,
-                    stderr=sys.stderr,
-                    env=env,
+                # Check if stdout/stderr support fileno() (real file descriptors)
+                # CliRunner uses StringIO which doesn't support fileno()
+                stdout_has_fileno = hasattr(sys.stdout, "fileno") and callable(
+                    getattr(sys.stdout, "fileno", None)
                 )
+                stderr_has_fileno = hasattr(sys.stderr, "fileno") and callable(
+                    getattr(sys.stderr, "fileno", None)
+                )
+
+                if stdout_has_fileno and stderr_has_fileno:
+                    # Normal execution: pass streams directly
+                    subprocess.run(
+                        [script_path],
+                        cwd=working_dir,
+                        check=True,
+                        stdout=sys.stdout,
+                        stderr=sys.stderr,
+                        env=env,
+                    )
+                else:
+                    # CliRunner or other captured output: capture and write manually
+                    result = subprocess.run(
+                        [script_path],
+                        cwd=working_dir,
+                        check=True,
+                        capture_output=True,
+                        text=True,
+                        env=env,
+                    )
+                    if result.stdout:
+                        sys.stdout.write(result.stdout)
+                    if result.stderr:
+                        sys.stderr.write(result.stderr)
             except subprocess.CalledProcessError as e:
                 raise ExecutionError(
                     f"Task '{task_name}' failed with exit code {e.returncode}"
