@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import os
 import platform
 import stat
@@ -699,15 +700,17 @@ class Executor:
             # Execute script file
             try:
                 # Check if stdout/stderr support fileno() (real file descriptors)
-                # CliRunner uses StringIO which doesn't support fileno()
-                stdout_has_fileno = hasattr(sys.stdout, "fileno") and callable(
-                    getattr(sys.stdout, "fileno", None)
-                )
-                stderr_has_fileno = hasattr(sys.stderr, "fileno") and callable(
-                    getattr(sys.stderr, "fileno", None)
-                )
+                # CliRunner uses StringIO which has a fileno() method but it raises
+                # an exception when called. We need to actually try calling it.
+                def supports_fileno(stream):
+                    """Check if a stream has a working fileno() method."""
+                    try:
+                        stream.fileno()
+                        return True
+                    except (AttributeError, OSError, io.UnsupportedOperation):
+                        return False
 
-                if stdout_has_fileno and stderr_has_fileno:
+                if supports_fileno(sys.stdout) and supports_fileno(sys.stderr):
                     # Normal execution: pass streams directly
                     subprocess.run(
                         [script_path],
