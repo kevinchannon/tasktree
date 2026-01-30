@@ -700,8 +700,7 @@ class Executor:
             # Execute script file
             try:
                 # Check if stdout/stderr support fileno() (real file descriptors)
-                # CliRunner uses StringIO which has a fileno() method but it raises
-                # an exception when called. We need to actually try calling it.
+                # CliRunner uses StringIO which has fileno() method but raises when called
                 def supports_fileno(stream):
                     """Check if a stream has a working fileno() method."""
                     try:
@@ -710,18 +709,22 @@ class Executor:
                     except (AttributeError, OSError, io.UnsupportedOperation):
                         return False
 
-                if supports_fileno(sys.stdout) and supports_fileno(sys.stderr):
-                    # Normal execution: pass streams directly
-                    subprocess.run(
-                        [script_path],
-                        cwd=working_dir,
-                        check=True,
-                        stdout=sys.stdout,
-                        stderr=sys.stderr,
-                        env=env,
-                    )
+                # Determine output targets based on task_output mode
+                # For "all" mode: show everything
+                # Future modes: use subprocess.DEVNULL for suppression
+                should_suppress = False  # Will be: self.task_output == "none", etc.
+
+                if should_suppress:
+                    stdout_target = subprocess.DEVNULL
+                    stderr_target = subprocess.DEVNULL
                 else:
-                    # CliRunner or other captured output: capture and write manually
+                    stdout_target = sys.stdout
+                    stderr_target = sys.stderr
+
+                # If streams support fileno, pass target streams directly (most efficient)
+                # Otherwise capture and manually write (CliRunner compatibility)
+                if not should_suppress and not (supports_fileno(sys.stdout) and supports_fileno(sys.stderr)):
+                    # CliRunner path: capture and write manually
                     result = subprocess.run(
                         [script_path],
                         cwd=working_dir,
@@ -734,6 +737,16 @@ class Executor:
                         sys.stdout.write(result.stdout)
                     if result.stderr:
                         sys.stderr.write(result.stderr)
+                else:
+                    # Normal execution path: use target streams (including DEVNULL when suppressing)
+                    subprocess.run(
+                        [script_path],
+                        cwd=working_dir,
+                        check=True,
+                        stdout=stdout_target,
+                        stderr=stderr_target,
+                        env=env,
+                    )
             except subprocess.CalledProcessError as e:
                 raise ExecutionError(
                     f"Task '{task_name}' failed with exit code {e.returncode}"
