@@ -5,10 +5,12 @@ Provides Docker image building and container execution capabilities.
 
 from __future__ import annotations
 
+import io
 import os
 import platform
 import re
 import subprocess
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -210,24 +212,38 @@ class DockerManager:
 
         # Execute
         try:
-            # Determine output handling based on task_output mode
-            if task_output.lower() == "none":
-                # Suppress all output
-                result = subprocess.run(
-                    docker_cmd,
-                    cwd=working_dir,
-                    check=True,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-            else:
-                # Default: "all" mode - stream output to terminal
-                result = subprocess.run(
-                    docker_cmd,
-                    cwd=working_dir,
-                    check=True,
-                    capture_output=False,
-                )
+            def get_subprocess_stream(stream, suppress):
+                """
+                Determine the appropriate stream target for subprocess.
+
+                Args:
+                    stream: The stream to check (sys.stdout or sys.stderr)
+                    suppress: Whether to suppress output (task_output == "none")
+
+                Returns:
+                    subprocess.DEVNULL if suppressing,
+                    the stream if it has a valid file descriptor,
+                    None to let subprocess inherit default behavior
+                """
+                if suppress:
+                    return subprocess.DEVNULL
+
+                # Only pass through if it's a real file descriptor
+                try:
+                    stream.fileno()
+                    return stream
+                except (AttributeError, io.UnsupportedOperation):
+                    return None  # Let subprocess inherit default
+
+            suppress_output = task_output.lower() == "none"
+
+            result = subprocess.run(
+                docker_cmd,
+                cwd=working_dir,
+                check=True,
+                stdout=get_subprocess_stream(sys.stdout, suppress_output),
+                stderr=get_subprocess_stream(sys.stderr, suppress_output),
+            )
             return result
         except subprocess.CalledProcessError as e:
             raise DockerError(
