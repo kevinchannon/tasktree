@@ -1660,10 +1660,10 @@ class TestEnvironmentResolution(unittest.TestCase):
                 executor = Executor(recipe, state_manager, logger_stub)
 
                 mock_process = MagicMock()
-            mock_process.wait.return_value = 0
-            mock_process.stdout = None
-            mock_process.stderr = None
-            mock_run.return_value = mock_process
+                mock_process.wait.return_value = 0
+                mock_process.stdout = None
+                mock_process.stderr = None
+                mock_run.return_value = mock_process
                 executor._run_task(tasks["test"], {})
 
                 # Verify working_dir was substituted
@@ -1765,12 +1765,12 @@ class TestTaskOutputParameter(unittest.TestCase):
             executor = Executor(recipe, state_manager, logger_stub, task_output="all")
 
             # Mock subprocess.run to verify it's called
-            with patch("subprocess.run") as mock_run:
+            with patch("subprocess.Popen") as mock_run:
                 mock_process = MagicMock()
-            mock_process.wait.return_value = 0
-            mock_process.stdout = None
-            mock_process.stderr = None
-            mock_run.return_value = mock_process
+                mock_process.wait.return_value = 0
+                mock_process.stdout = None
+                mock_process.stderr = None
+                mock_run.return_value = mock_process
 
                 # Call _run_command_as_script - should not raise even without task_output parameter
                 executor._run_command_as_script(
