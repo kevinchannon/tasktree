@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import io
 import os
 import platform
 import stat
 import subprocess
+import sys
 import tempfile
 import time
 from dataclasses import dataclass, field
@@ -69,7 +71,7 @@ class Executor:
         "LOGNAME",
     }
 
-    def __init__(self, recipe: Recipe, state_manager: StateManager, logger: Logger):
+    def __init__(self, recipe: Recipe, state_manager: StateManager, logger: Logger, task_output: str = "all"):
         """
         Initialize executor.
 
@@ -77,11 +79,13 @@ class Executor:
         recipe: Parsed recipe containing all tasks
         state_manager: State manager for tracking task execution
         logger_fn: Logger function for output (matches Console.print signature)
+        task_output: Control task subprocess output (all, out, err, on-err, none)
         @athena: 21b65db48bca
         """
         self.recipe = recipe
         self.state = state_manager
         self.logger = logger
+        self.task_output = task_output
         self.docker_manager = docker_module.DockerManager(recipe.project_root)
 
     @staticmethod
@@ -617,7 +621,7 @@ class Executor:
         # Route to Docker execution or regular execution
         if env and env.dockerfile:
             # Docker execution path
-            self._run_task_in_docker(task, env, cmd, working_dir, exported_env_vars)
+            self._run_task_in_docker(task, env, cmd, working_dir, exported_env_vars, self.task_output)
         else:
             # Regular execution path - use unified script-based execution
             shell, preamble = self._resolve_environment(task)
@@ -695,13 +699,54 @@ class Executor:
 
             # Execute script file
             try:
-                subprocess.run(
-                    [script_path],
-                    cwd=working_dir,
-                    check=True,
-                    capture_output=False,
-                    env=env,
-                )
+                # Check if stdout/stderr support fileno() (real file descriptors)
+                # CliRunner uses StringIO which has fileno() method but raises when called
+                def supports_fileno(stream):
+                    """Check if a stream has a working fileno() method."""
+                    try:
+                        stream.fileno()
+                        return True
+                    except (AttributeError, OSError, io.UnsupportedOperation):
+                        return False
+
+                # Determine output targets based on task_output mode
+                # For "all" mode: show everything
+                # Future modes: use subprocess.DEVNULL for suppression
+                should_suppress = False  # Will be: self.task_output == "none", etc.
+
+                if should_suppress:
+                    stdout_target = subprocess.DEVNULL
+                    stderr_target = subprocess.DEVNULL
+                else:
+                    stdout_target = sys.stdout
+                    stderr_target = sys.stderr
+
+                # If streams support fileno, pass target streams directly (most efficient)
+                # Otherwise capture and manually write (CliRunner compatibility)
+                if not should_suppress and not (supports_fileno(sys.stdout) and supports_fileno(sys.stderr)):
+                    # CliRunner path: capture and write manually
+                    result = subprocess.run(
+                        [script_path],
+                        cwd=working_dir,
+                        check=True,
+                        capture_output=True,
+                        text=True,
+                        env=env,
+                    )
+                    if result.stdout:
+                        sys.stdout.write(result.stdout)
+                    if result.stderr:
+                        sys.stderr.write(result.stderr)
+                else:
+                    # Normal execution path: use target streams (including DEVNULL when suppressing)
+                    subprocess.run(
+                        [script_path],
+                        cwd=working_dir,
+                        check=True,
+                        stdout=stdout_target,
+                        stderr=stderr_target,
+                        env=env,
+                    )
             except subprocess.CalledProcessError as e:
                 raise ExecutionError(
                     f"Task '{task_name}' failed with exit code {e.returncode}"
@@ -800,6 +845,7 @@ class Executor:
         cmd: str,
         working_dir: Path,
         exported_env_vars: dict[str, str] | None = None,
+        task_output: str = "all",
     ) -> None:
         """
         Execute task inside Docker container.
@@ -810,6 +856,7 @@ class Executor:
         cmd: Command to execute
         working_dir: Host working directory
         exported_env_vars: Exported arguments to set as environment variables
+        task_output: Control task subprocess output (all, out, err, on-err, none)
 
         Raises:
         ExecutionError: If Docker execution fails

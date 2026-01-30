@@ -1667,5 +1667,79 @@ class TestEnvironmentResolution(unittest.TestCase):
             self.assertIn("not set", str(cm.exception))
 
 
+class TestTaskOutputParameter(unittest.TestCase):
+    """
+    Test task_output parameter handling in Executor.
+    """
+
+    def test_executor_stores_task_output_parameter(self):
+        """
+        Test that Executor.__init__() stores task_output parameter correctly.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+            tasks = {"test": Task(name="test", cmd="echo test")}
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+
+            # Test with explicit task_output value
+            executor = Executor(recipe, state_manager, logger_stub, task_output="all")
+            self.assertEqual(executor.task_output, "all")
+
+    def test_executor_task_output_defaults_to_all(self):
+        """
+        Test that Executor.__init__() defaults task_output to "all".
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+            tasks = {"test": Task(name="test", cmd="echo test")}
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+
+            # Test default value
+            executor = Executor(recipe, state_manager, logger_stub)
+            self.assertEqual(executor.task_output, "all")
+
+    def test_run_command_as_script_accesses_task_output_via_self(self):
+        """
+        Test that _run_command_as_script() can access task_output via self.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+            tasks = {"test": Task(name="test", cmd="echo test")}
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+
+            executor = Executor(recipe, state_manager, logger_stub, task_output="all")
+
+            # Mock subprocess.run to verify it's called
+            with patch("subprocess.run") as mock_run:
+                mock_run.return_value = MagicMock(returncode=0)
+
+                # Call _run_command_as_script - should not raise even without task_output parameter
+                executor._run_command_as_script(
+                    cmd="echo test",
+                    working_dir=project_root,
+                    task_name="test",
+                    shell="bash",
+                    preamble="",
+                )
+
+                # Verify subprocess.run was called (method executed successfully)
+                mock_run.assert_called_once()
+
+
 if __name__ == "__main__":
     unittest.main()

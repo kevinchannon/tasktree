@@ -384,5 +384,27 @@ class TestUnicodeSupport(unittest.TestCase):
         self.assertEqual(get_action_failure_string(), "[ FAIL ]")
 
 
+class TestTaskOutputParameter(unittest.TestCase):
+    """
+    Test task_output CLI parameter handling.
+    """
+
+    def test_task_output_accepts_all(self):
+        """
+        Test that task_output parameter accepts "all" value.
+        """
+        # This is a simple smoke test verifying Click accepts the value
+        # The actual normalization is handled by Click's Choice type
+        choice = click.Choice(["all"], case_sensitive=False)
+
+        # Should accept lowercase
+        result = choice.convert("all", None, None)
+        self.assertEqual(result, "all")
+
+        # Should accept uppercase (case-insensitive)
+        result = choice.convert("ALL", None, None)
+        self.assertEqual(result, "all")
+
+
 if __name__ == "__main__":
     unittest.main()
