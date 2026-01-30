@@ -147,6 +147,7 @@ class DockerManager:
         cmd: str,
         working_dir: Path,
         container_working_dir: str,
+        task_output: str = "all",
     ) -> subprocess.CompletedProcess:
         """
         Execute command inside Docker container.
@@ -156,6 +157,7 @@ class DockerManager:
         cmd: Command to execute
         working_dir: Host working directory (for resolving relative volume paths)
         container_working_dir: Working directory inside container
+        task_output: Control task subprocess output (all, none)
 
         Returns:
         CompletedProcess from subprocess.run
@@ -208,12 +210,24 @@ class DockerManager:
 
         # Execute
         try:
-            result = subprocess.run(
-                docker_cmd,
-                cwd=working_dir,
-                check=True,
-                capture_output=False,  # Stream output to terminal
-            )
+            # Determine output handling based on task_output mode
+            if task_output.lower() == "none":
+                # Suppress all output
+                result = subprocess.run(
+                    docker_cmd,
+                    cwd=working_dir,
+                    check=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            else:
+                # Default: "all" mode - stream output to terminal
+                result = subprocess.run(
+                    docker_cmd,
+                    cwd=working_dir,
+                    check=True,
+                    capture_output=False,
+                )
             return result
         except subprocess.CalledProcessError as e:
             raise DockerError(

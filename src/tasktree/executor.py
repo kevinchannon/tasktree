@@ -709,22 +709,12 @@ class Executor:
                     except (AttributeError, OSError, io.UnsupportedOperation):
                         return False
 
-                # Determine output targets based on task_output mode
-                # For "all" mode: show everything
-                # Future modes: use subprocess.DEVNULL for suppression
-                should_suppress = False  # Will be: self.task_output == "none", etc.
+                # Check if we're in CliRunner mode (streams don't support fileno)
+                # CliRunner needs special handling because it captures output via StringIO
+                is_cli_runner = not (supports_fileno(sys.stdout) and supports_fileno(sys.stderr))
 
-                if should_suppress:
-                    stdout_target = subprocess.DEVNULL
-                    stderr_target = subprocess.DEVNULL
-                else:
-                    stdout_target = sys.stdout
-                    stderr_target = sys.stderr
-
-                # If streams support fileno, pass target streams directly (most efficient)
-                # Otherwise capture and manually write (CliRunner compatibility)
-                if not should_suppress and not (supports_fileno(sys.stdout) and supports_fileno(sys.stderr)):
-                    # CliRunner path: capture and write manually
+                if is_cli_runner:
+                    # CliRunner path: always capture, then conditionally write based on task_output
                     result = subprocess.run(
                         [script_path],
                         cwd=working_dir,
@@ -733,12 +723,22 @@ class Executor:
                         text=True,
                         env=env,
                     )
-                    if result.stdout:
-                        sys.stdout.write(result.stdout)
-                    if result.stderr:
-                        sys.stderr.write(result.stderr)
+                    # Only write output if not suppressing
+                    if self.task_output.lower() != "none":
+                        if result.stdout:
+                            sys.stdout.write(result.stdout)
+                        if result.stderr:
+                            sys.stderr.write(result.stderr)
                 else:
-                    # Normal execution path: use target streams (including DEVNULL when suppressing)
+                    # Normal execution path: use appropriate streams based on task_output
+                    if self.task_output.lower() == "none":
+                        stdout_target = subprocess.DEVNULL
+                        stderr_target = subprocess.DEVNULL
+                    else:
+                        # Default: "all" mode - show everything
+                        stdout_target = sys.stdout
+                        stderr_target = sys.stderr
+
                     subprocess.run(
                         [script_path],
                         cwd=working_dir,
@@ -900,6 +900,7 @@ class Executor:
                 cmd=cmd,
                 working_dir=working_dir,
                 container_working_dir=container_working_dir,
+                task_output=task_output,
             )
         except docker_module.DockerError as e:
             raise ExecutionError(str(e)) from e

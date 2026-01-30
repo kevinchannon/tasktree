@@ -55,7 +55,7 @@ tasks:
                 self.assertEqual(
                     result.exit_code,
                     0,
-                    f"Command failed: {result.stdout}\n{result.stderr}",
+                    f"Command failed: {result.stdout}",
                 )
 
                 # Verify output file was created
@@ -97,7 +97,7 @@ tasks:
                 self.assertEqual(
                     result.exit_code,
                     0,
-                    f"Command failed: {result.stdout}\n{result.stderr}",
+                    f"Command failed: {result.stdout}",
                 )
 
                 # Verify output file was created with both lines
@@ -147,7 +147,7 @@ tasks:
                 self.assertEqual(
                     result.exit_code,
                     0,
-                    f"Command failed: {result.stdout}\n{result.stderr}",
+                    f"Command failed: {result.stdout}",
                 )
 
                 # Verify preamble environment variable was set
@@ -198,7 +198,7 @@ tasks:
                 self.assertEqual(
                     result.exit_code,
                     0,
-                    f"Command failed: {result.stdout}\n{result.stderr}",
+                    f"Command failed: {result.stdout}",
                 )
 
                 # Verify preamble variable was used

@@ -384,10 +384,10 @@ trace: Fine-grained execution tracing"""
         "--task-output",
         "-O",
         click_type=click.Choice(
-            ["all"],
+            ["all", "none"],
             case_sensitive=False
         ),
-        help="Control task subprocess output display (all: show both stdout and stderr)",
+        help="Control task subprocess output display (all: show both stdout and stderr, none: suppress all output)",
     ),
     task_args: Optional[List[str]] = typer.Argument(
         None, help="Task name and arguments"

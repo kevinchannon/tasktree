@@ -122,6 +122,103 @@ tasks:
             finally:
                 os.chdir(original_cwd)
 
+    def test_task_output_none_suppresses_all_output(self):
+        """
+        Test that --task-output=none suppresses all task output.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+tasks:
+  noisy:
+    cmd: |
+      echo "stdout message"
+      echo "stderr message" >&2
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Run with --task-output=none
+                result = self.runner.invoke(
+                    app, ["--task-output", "none", "noisy"], env=self.env
+                )
+                self.assertEqual(result.exit_code, 0)
+                # Task completion message should still appear (that's not task output)
+                self.assertIn("Task 'noisy' completed successfully", result.stdout)
+                # Task output should NOT appear
+                self.assertNotIn("stdout message", result.stdout)
+                self.assertNotIn("stderr message", result.stdout)
+
+            finally:
+                os.chdir(original_cwd)
+
+    def test_task_output_none_short_flag(self):
+        """
+        Test -O none works correctly.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+tasks:
+  build:
+    cmd: echo "Building application"
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Run with -O none
+                result = self.runner.invoke(app, ["-O", "none", "build"], env=self.env)
+                self.assertEqual(result.exit_code, 0)
+                self.assertIn("Task 'build' completed successfully", result.stdout)
+                # Task output should NOT appear
+                self.assertNotIn("Building application", result.stdout)
+
+            finally:
+                os.chdir(original_cwd)
+
+    def test_task_output_none_case_insensitive(self):
+        """
+        Test that --task-output=none accepts case-insensitive values.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+tasks:
+  test:
+    cmd: echo "Test output"
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Test various case variations
+                for value in ["none", "NONE", "None", "nOnE"]:
+                    result = self.runner.invoke(
+                        app, ["--task-output", value, "test"], env=self.env
+                    )
+                    self.assertEqual(
+                        result.exit_code,
+                        0,
+                        f"Failed with --task-output={value}",
+                    )
+                    self.assertIn("Task 'test' completed successfully", result.stdout)
+                    # Task output should NOT appear
+                    self.assertNotIn("Test output", result.stdout)
+
+            finally:
+                os.chdir(original_cwd)
+
 
 if __name__ == "__main__":
     unittest.main()
