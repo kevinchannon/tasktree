@@ -44,6 +44,8 @@ tasks:
                 result = self.runner.invoke(app, ["test"], env=self.env)
                 self.assertEqual(result.exit_code, 0)
                 self.assertIn("Task 'test' completed successfully", result.stdout)
+                # Verify task output is actually displayed
+                self.assertIn("Hello from task", result.stdout)
 
                 # Run with explicit --task-output=all
                 result = self.runner.invoke(
@@ -51,6 +53,8 @@ tasks:
                 )
                 self.assertEqual(result.exit_code, 0)
                 self.assertIn("Task 'test' completed successfully", result.stdout)
+                # Verify task output is actually displayed
+                self.assertIn("Hello from task", result.stdout)
 
             finally:
                 os.chdir(original_cwd)
@@ -77,6 +81,8 @@ tasks:
                 result = self.runner.invoke(app, ["-O", "all", "build"], env=self.env)
                 self.assertEqual(result.exit_code, 0)
                 self.assertIn("Task 'build' completed successfully", result.stdout)
+                # Verify task output is actually displayed
+                self.assertIn("Building", result.stdout)
 
             finally:
                 os.chdir(original_cwd)
@@ -110,6 +116,8 @@ tasks:
                         f"Failed with --task-output={value}",
                     )
                     self.assertIn("Task 'test' completed successfully", result.stdout)
+                    # Verify task output is actually displayed
+                    self.assertIn("Testing", result.stdout)
 
             finally:
                 os.chdir(original_cwd)
