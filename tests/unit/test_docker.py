@@ -299,8 +299,9 @@ class TestDockerManager(unittest.TestCase):
         self.project_root = Path("/fake/project")
         self.manager = DockerManager(self.project_root)
 
+    @patch("tasktree.docker.subprocess.run")
     @patch("tasktree.docker.subprocess.Popen")
-    def test_ensure_image_built_caching(self, mock_run):
+    def test_ensure_image_built_caching(self, mock_popen, mock_subprocess_run):
         """
         Test that images are cached per invocation.
         @athena: e02d8a260122
@@ -324,28 +325,22 @@ class TestDockerManager(unittest.TestCase):
 
         mock_subprocess_run.side_effect = mock_run_side_effect
 
-        # Mock subprocess.Popen for docker run
-        mock_process = Mock()
-        mock_process.wait.return_value = 0
-        mock_process.stdout = None
-        mock_process.stderr = None
-        mock_popen.return_value = mock_process
-
         # First call should check docker, build, and inspect
         tag1, image_id1 = self.manager.ensure_image_built(env)
         self.assertEqual(tag1, "tt-env-builder")
         self.assertEqual(image_id1, "sha256:abc123def456")
         # Should have called docker --version, docker build, and docker inspect
-        self.assertEqual(mock_run.call_count, 3)
+        self.assertEqual(mock_subprocess_run.call_count, 3)
 
         # Second call should use cache (no additional docker build)
         tag2, image_id2 = self.manager.ensure_image_built(env)
         self.assertEqual(tag2, "tt-env-builder")
         self.assertEqual(image_id2, "sha256:abc123def456")
-        self.assertEqual(mock_run.call_count, 3)  # No additional calls
+        self.assertEqual(mock_subprocess_run.call_count, 3)  # No additional calls
 
+    @patch("tasktree.docker.subprocess.run")
     @patch("tasktree.docker.subprocess.Popen")
-    def test_build_command_structure(self, mock_run):
+    def test_build_command_structure(self, mock_popen, mock_subprocess_run):
         """
         Test that docker build command is structured correctly.
         @athena: 39d801beba77
@@ -377,15 +372,16 @@ class TestDockerManager(unittest.TestCase):
         self.manager.ensure_image_built(env)
 
         # Check that docker build was called with correct args (2nd call, after docker --version)
-        build_call_args = mock_run.call_args_list[1][0][0]
+        build_call_args = mock_subprocess_run.call_args_list[1][0][0]
         self.assertEqual(build_call_args[0], "docker")
         self.assertEqual(build_call_args[1], "build")
         self.assertEqual(build_call_args[2], "-t")
         self.assertEqual(build_call_args[3], "tt-env-builder")
         self.assertEqual(build_call_args[4], "-f")
 
+    @patch("tasktree.docker.subprocess.run")
     @patch("tasktree.docker.subprocess.Popen")
-    def test_build_command_with_build_args(self, mock_run):
+    def test_build_command_with_build_args(self, mock_popen, mock_subprocess_run):
         """
         Test that docker build command includes --build-arg flags.
         @athena: 52ab7507bef3
@@ -418,7 +414,7 @@ class TestDockerManager(unittest.TestCase):
         self.manager.ensure_image_built(env)
 
         # Check that docker build was called with build args (2nd call, after docker --version)
-        build_call_args = mock_run.call_args_list[1][0][0]
+        build_call_args = mock_subprocess_run.call_args_list[1][0][0]
 
         # Verify basic command structure
         self.assertEqual(build_call_args[0], "docker")
@@ -442,8 +438,9 @@ class TestDockerManager(unittest.TestCase):
         self.assertEqual(build_args["FOO"], "fooable")
         self.assertEqual(build_args["bar"], "you're barred!")
 
+    @patch("tasktree.docker.subprocess.run")
     @patch("tasktree.docker.subprocess.Popen")
-    def test_build_command_with_empty_build_args(self, mock_run):
+    def test_build_command_with_empty_build_args(self, mock_popen, mock_subprocess_run):
         """
         Test that docker build command works with empty build args dict.
         @athena: ab6aed370b6d
@@ -476,7 +473,7 @@ class TestDockerManager(unittest.TestCase):
         self.manager.ensure_image_built(env)
 
         # Check that docker build was called (2nd call, after docker --version)
-        build_call_args = mock_run.call_args_list[1][0][0]
+        build_call_args = mock_subprocess_run.call_args_list[1][0][0]
 
         # Verify basic command structure
         self.assertEqual(build_call_args[0], "docker")
@@ -485,8 +482,9 @@ class TestDockerManager(unittest.TestCase):
         # Verify NO build args are included
         self.assertNotIn("--build-arg", build_call_args)
 
+    @patch("tasktree.docker.subprocess.run")
     @patch("tasktree.docker.subprocess.Popen")
-    def test_build_command_with_special_characters_in_args(self, mock_run):
+    def test_build_command_with_special_characters_in_args(self, mock_popen, mock_subprocess_run):
         """
         Test that build args with special characters are handled correctly.
         @athena: e7b4f0147089
@@ -524,7 +522,7 @@ class TestDockerManager(unittest.TestCase):
         self.manager.ensure_image_built(env)
 
         # Check that docker build was called (2nd call, after docker --version)
-        build_call_args = mock_run.call_args_list[1][0][0]
+        build_call_args = mock_subprocess_run.call_args_list[1][0][0]
 
         # Find all build arg pairs
         build_args = {}
@@ -935,10 +933,11 @@ class TestDockerManager(unittest.TestCase):
         self.assertEqual(run_call_args[1], "run")
         self.assertIn("tt-env-builder", run_call_args)
 
+    @patch("tasktree.docker.subprocess.run")
     @patch("tasktree.docker.subprocess.Popen")
     @patch("tasktree.docker.platform.system")
     def test_run_in_container_with_substituted_variables_in_volumes(
-        self, mock_platform, mock_run
+        self, mock_platform, mock_popen, mock_subprocess_run
     ):
         """
         Test that volume mounts work correctly after variable substitution.

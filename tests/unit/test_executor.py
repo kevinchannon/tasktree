@@ -417,21 +417,26 @@ class TestExecutor(unittest.TestCase):
                     captured_script_content = f.read()
                 return original_chmod(path, mode)
 
-            # Mock subprocess.run to capture when it's called
-            def mock_subprocess_run(*args, **kwargs):
-                call_order.append("subprocess.run")
+            # Mock subprocess.Popen to capture when it's called
+            def mock_subprocess_popen(*args, **kwargs):
+                call_order.append("subprocess.Popen")
                 # Verify the script still exists at this point
                 if captured_script_path:
                     script_path = args[0][0]
                     self.assertTrue(
                         Path(script_path).exists(),
-                        "Script should exist when subprocess.run is called",
+                        "Script should exist when subprocess.Popen is called",
                     )
-                return MagicMock(returncode=0)
+                # Return a mock process
+                mock_process = MagicMock()
+                mock_process.wait.return_value = 0
+                mock_process.stdout = None
+                mock_process.stderr = None
+                return mock_process
 
             # Apply patches
             with patch("os.chmod", side_effect=mock_chmod_func):
-                with patch("subprocess.run", side_effect=mock_subprocess_run):
+                with patch("subprocess.Popen", side_effect=mock_subprocess_popen):
                     executor._run_command_as_script(
                         cmd="echo hello\necho world",
                         working_dir=project_root,
@@ -505,18 +510,18 @@ class TestExecutor(unittest.TestCase):
                 preamble_idx, command_idx, "Preamble should come before command"
             )
 
-            # Requirement 4: Verify subprocess.run called AFTER all setup
+            # Requirement 4: Verify subprocess.Popen called AFTER all setup
             self.assertIn("chmod", call_order, "chmod should be called")
             self.assertIn(
-                "subprocess.run", call_order, "subprocess.run should be called"
+                "subprocess.Popen", call_order, "subprocess.Popen should be called"
             )
 
-            # Verify ordering: chmod should come before subprocess.run
+            # Verify ordering: chmod should come before subprocess.Popen
             chmod_idx = call_order.index("chmod")
-            subprocess_idx = call_order.index("subprocess.run")
+            subprocess_idx = call_order.index("subprocess.Popen")
 
             self.assertLess(
-                chmod_idx, subprocess_idx, "chmod should come before subprocess.run"
+                chmod_idx, subprocess_idx, "chmod should come before subprocess.Popen"
             )
 
 
@@ -1528,11 +1533,16 @@ class TestEnvironmentResolution(unittest.TestCase):
         captured_script_content = []
 
         def capture_script_content(*args, **kwargs):
-            # Read the script before subprocess.run returns
+            # Read the script before subprocess.Popen returns
             script_path = args[0][0]
             with open(script_path, "r") as f:
                 captured_script_content.append(f.read())
-            return MagicMock(returncode=0)
+            # Return a mock process for Popen
+            mock_process = MagicMock()
+            mock_process.wait.return_value = 0
+            mock_process.stdout = None
+            mock_process.stderr = None
+            return mock_process
 
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -1592,11 +1602,16 @@ class TestEnvironmentResolution(unittest.TestCase):
         captured_script_content = []
 
         def capture_script_content(*args, **kwargs):
-            # Read the script before subprocess.run returns
+            # Read the script before subprocess.Popen returns
             script_path = args[0][0]
             with open(script_path, "r") as f:
                 captured_script_content.append(f.read())
-            return MagicMock(returncode=0)
+            # Return a mock process for Popen
+            mock_process = MagicMock()
+            mock_process.wait.return_value = 0
+            mock_process.stdout = None
+            mock_process.stderr = None
+            return mock_process
 
         try:
             with TemporaryDirectory() as tmpdir:
