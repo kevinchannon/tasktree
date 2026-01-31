@@ -638,12 +638,12 @@ class Executor:
         # Route to Docker execution or regular execution
         if env and env.dockerfile:
             # Docker execution path
-            self._run_task_in_docker(task, env, cmd, working_dir, exported_env_vars, self.task_output)
+            self._run_task_in_docker(task, env, cmd, working_dir, process_runner, exported_env_vars, self.task_output)
         else:
             # Regular execution path - use unified script-based execution
             shell, preamble = self._resolve_environment(task)
             self._run_command_as_script(
-                cmd, working_dir, task.name, shell, preamble, exported_env_vars
+                cmd, working_dir, task.name, shell, preamble, process_runner, exported_env_vars
             )
 
         # Update state
@@ -656,6 +656,7 @@ class Executor:
         task_name: str,
         shell: str,
         preamble: str,
+        process_runner: ProcessRunner,
         exported_env_vars: dict[str, str] | None = None,
     ) -> None:
         """
@@ -671,6 +672,7 @@ class Executor:
         task_name: Task name (for error messages)
         shell: Shell to use for script execution
         preamble: Preamble text to prepend to script
+        process_runner: ProcessRunner instance to use for subprocess execution
         exported_env_vars: Exported arguments to set as environment variables
 
         Raises:
@@ -742,7 +744,7 @@ class Executor:
                 # Otherwise capture and manually write (CliRunner compatibility)
                 if not should_suppress and not (supports_fileno(sys.stdout) and supports_fileno(sys.stderr)):
                     # CliRunner path: capture and write manually
-                    result = subprocess.run(
+                    result = process_runner.run(
                         [script_path],
                         cwd=working_dir,
                         check=True,
@@ -756,7 +758,7 @@ class Executor:
                         sys.stderr.write(result.stderr)
                 else:
                     # Normal execution path: use target streams (including DEVNULL when suppressing)
-                    subprocess.run(
+                    process_runner.run(
                         [script_path],
                         cwd=working_dir,
                         check=True,
@@ -861,6 +863,7 @@ class Executor:
         env: Any,
         cmd: str,
         working_dir: Path,
+        process_runner: ProcessRunner,
         exported_env_vars: dict[str, str] | None = None,
         task_output: str = "all",
     ) -> None:
@@ -872,6 +875,7 @@ class Executor:
         env: Docker environment configuration
         cmd: Command to execute
         working_dir: Host working directory
+        process_runner: ProcessRunner instance to use for subprocess execution
         exported_env_vars: Exported arguments to set as environment variables
         task_output: Control task subprocess output (all, out, err, on-err, none)
 
@@ -917,6 +921,7 @@ class Executor:
                 cmd=cmd,
                 working_dir=working_dir,
                 container_working_dir=container_working_dir,
+                process_runner=process_runner,
             )
         except docker_module.DockerError as e:
             raise ExecutionError(str(e)) from e

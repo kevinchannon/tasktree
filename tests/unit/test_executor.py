@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 from helpers.logging import logger_stub
 from tasktree.executor import Executor
 from tasktree.parser import Recipe, Task
-from tasktree.process_runner import ProcessRunner
+from tasktree.process_runner import ProcessRunner, make_process_runner
 from tasktree.state import StateManager, TaskState
 
 
@@ -236,6 +236,9 @@ class TestExecutor(unittest.TestCase):
 
             mock_run.return_value = MagicMock(returncode=0)
 
+            # Create process runner for test
+            process_runner = make_process_runner()
+
             # Call the unified method directly
             executor._run_command_as_script(
                 cmd="echo hello",
@@ -243,6 +246,7 @@ class TestExecutor(unittest.TestCase):
                 task_name="test",
                 shell="bash",
                 preamble="",
+                process_runner=process_runner,
             )
 
             # Verify subprocess.run was called with a script path
@@ -281,6 +285,9 @@ class TestExecutor(unittest.TestCase):
 
             mock_run.return_value = MagicMock(returncode=0)
 
+            # Create process runner for test
+            process_runner = make_process_runner()
+
             # Call with preamble
             executor._run_command_as_script(
                 cmd="echo hello",
@@ -288,6 +295,7 @@ class TestExecutor(unittest.TestCase):
                 task_name="test",
                 shell="bash",
                 preamble="set -e\n",
+                process_runner=process_runner,
             )
 
             # Verify subprocess.run was called
@@ -321,6 +329,9 @@ class TestExecutor(unittest.TestCase):
 
             mock_run.return_value = MagicMock(returncode=0)
 
+            # Create process runner for test
+            process_runner = make_process_runner()
+
             # Call with multi-line command
             executor._run_command_as_script(
                 cmd="echo hello\necho world",
@@ -328,6 +339,7 @@ class TestExecutor(unittest.TestCase):
                 task_name="test",
                 shell="bash",
                 preamble="",
+                process_runner=process_runner,
             )
 
             # Verify subprocess.run was called
@@ -406,6 +418,9 @@ class TestExecutor(unittest.TestCase):
                     )
                 return MagicMock(returncode=0)
 
+            # Create process runner for test
+            process_runner = make_process_runner()
+
             # Apply patches
             with patch("os.chmod", side_effect=mock_chmod_func):
                 with patch("subprocess.run", side_effect=mock_subprocess_run):
@@ -415,6 +430,7 @@ class TestExecutor(unittest.TestCase):
                         task_name="test",
                         shell="bash",
                         preamble="set -e\n",
+                        process_runner=process_runner,
                     )
 
             # Requirement 1: Verify script was created with correct suffix
@@ -1725,6 +1741,9 @@ class TestTaskOutputParameter(unittest.TestCase):
 
             executor = Executor(recipe, state_manager, logger_stub, task_output="all")
 
+            # Create process runner for test
+            process_runner = make_process_runner()
+
             # Mock subprocess.run to verify it's called
             with patch("subprocess.run") as mock_run:
                 mock_run.return_value = MagicMock(returncode=0)
@@ -1736,6 +1755,7 @@ class TestTaskOutputParameter(unittest.TestCase):
                     task_name="test",
                     shell="bash",
                     preamble="",
+                    process_runner=process_runner,
                 )
 
                 # Verify subprocess.run was called (method executed successfully)

@@ -21,6 +21,7 @@ except ImportError:
 
 if TYPE_CHECKING:
     from tasktree.parser import Environment
+    from tasktree.process_runner import ProcessRunner
 
 
 class DockerError(Exception):
@@ -147,6 +148,7 @@ class DockerManager:
         cmd: str,
         working_dir: Path,
         container_working_dir: str,
+        process_runner: ProcessRunner,
     ) -> subprocess.CompletedProcess:
         """
         Execute command inside Docker container.
@@ -156,6 +158,7 @@ class DockerManager:
         cmd: Command to execute
         working_dir: Host working directory (for resolving relative volume paths)
         container_working_dir: Working directory inside container
+        process_runner: ProcessRunner instance to use for subprocess execution
 
         Returns:
         CompletedProcess from subprocess.run
@@ -208,7 +211,7 @@ class DockerManager:
 
         # Execute
         try:
-            result = subprocess.run(
+            result = process_runner.run(
                 docker_cmd,
                 cwd=working_dir,
                 check=True,
