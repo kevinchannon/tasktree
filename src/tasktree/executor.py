@@ -643,7 +643,7 @@ class Executor:
             # Regular execution path - use unified script-based execution
             shell, preamble = self._resolve_environment(task)
             self._run_command_as_script(
-                cmd, working_dir, task.name, shell, preamble, exported_env_vars, process_runner
+                cmd, working_dir, task.name, shell, preamble, process_runner, exported_env_vars
             )
 
         # Update state

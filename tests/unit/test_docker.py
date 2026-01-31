@@ -988,16 +988,18 @@ class TestDockerManager(unittest.TestCase):
         mock_process.stderr = None
         mock_popen.return_value = mock_process
 
+        mock_runner = MockProcessRunner()
         self.manager.run_in_container(
             env=env,
             cmd="echo hello",
             working_dir=Path("/fake/project"),
             container_working_dir="/workspace",
+            process_runner=mock_runner,
         )
 
-        # Find the docker run call (should be the 4th call)
-        mock_popen.assert_called_once()
-        run_call_args = mock_popen.call_args[0][0]
+        # Verify process runner was called
+        self.assertEqual(len(mock_runner.calls), 1)
+        run_call_args = mock_runner.calls[0][0]
 
         # Find the -v flag and its argument
         volume_flag_index = run_call_args.index("-v")

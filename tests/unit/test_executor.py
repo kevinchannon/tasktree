@@ -8,7 +8,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, patch
 
 from helpers.logging import logger_stub
-from helpers.process_runner import make_mock_process_runner_factory
+from helpers.process_runner import make_mock_process_runner_factory, MockProcessRunner
 from tasktree.executor import Executor
 from tasktree.parser import Recipe, Task
 from tasktree.state import StateManager, TaskState
@@ -316,16 +316,18 @@ class TestExecutor(unittest.TestCase):
             mock_run.return_value = mock_process
 
             # Call with multi-line command
+            mock_runner = MockProcessRunner()
             executor._run_command_as_script(
                 cmd="echo hello\necho world",
                 working_dir=project_root,
                 task_name="test",
                 shell="bash",
                 preamble="",
+                process_runner=mock_runner,
             )
 
-            # Verify subprocess.run was called
-            mock_run.assert_called_once()
+            # Verify process runner was called
+            self.assertEqual(len(mock_runner.calls), 1)
 
             # Verify chmod was called
             mock_chmod.assert_called_once()
@@ -406,6 +408,7 @@ class TestExecutor(unittest.TestCase):
                 return mock_process
 
             # Apply patches
+            mock_runner = MockProcessRunner()
             with patch("os.chmod", side_effect=mock_chmod_func):
                 with patch("subprocess.Popen", side_effect=mock_subprocess_popen):
                     executor._run_command_as_script(
@@ -414,6 +417,7 @@ class TestExecutor(unittest.TestCase):
                         task_name="test",
                         shell="bash",
                         preamble="set -e\n",
+                        process_runner=mock_runner,
                     )
 
             # Requirement 1: Verify script was created with correct suffix
@@ -1759,12 +1763,14 @@ class TestTaskOutputParameter(unittest.TestCase):
                 mock_run.return_value = mock_process
 
                 # Call _run_command_as_script - should not raise even without task_output parameter
+                mock_runner = MockProcessRunner()
                 executor._run_command_as_script(
                     cmd="echo test",
                     working_dir=project_root,
                     task_name="test",
                     shell="bash",
                     preamble="",
+                    process_runner=mock_runner,
                 )
 
                 # Verify subprocess.run was called (method executed successfully)
