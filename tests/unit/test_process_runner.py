@@ -145,6 +145,17 @@ class TestPassthroughProcessRunner(unittest.TestCase):
 
         mock_run.assert_called_once_with(['sleep', '10'], timeout=1)
 
+    @patch('tasktree.process_runner.subprocess.run')
+    def test_run_calls_subprocess_run_with_shell_true(self, mock_run):
+        """run() passes shell=True parameter to subprocess.run."""
+        mock_result = MagicMock(spec=subprocess.CompletedProcess)
+        mock_run.return_value = mock_result
+
+        result = self.runner.run('echo test', shell=True)
+
+        mock_run.assert_called_once_with('echo test', shell=True)
+        self.assertEqual(result, mock_result)
+
     def test_passthrough_runner_is_process_runner(self):
         """PassthroughProcessRunner implements ProcessRunner interface."""
         self.assertIsInstance(self.runner, ProcessRunner)

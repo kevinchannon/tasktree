@@ -8,12 +8,14 @@ import subprocess
 from abc import ABC, abstractmethod
 from typing import Any
 
+__all__ = ['ProcessRunner', 'PassthroughProcessRunner']
+
 
 class ProcessRunner(ABC):
     """Abstract interface for running subprocess commands."""
 
     @abstractmethod
-    def run(self, *args: Any, **kwargs: Any) -> subprocess.CompletedProcess:
+    def run(self, *args: Any, **kwargs: Any) -> subprocess.CompletedProcess[Any]:
         """Run a subprocess command.
 
         This method signature matches subprocess.run() to allow for direct
@@ -30,13 +32,13 @@ class ProcessRunner(ABC):
             subprocess.CalledProcessError: If check=True and process exits non-zero
             subprocess.TimeoutExpired: If timeout is exceeded
         """
-        pass
+        ...
 
 
 class PassthroughProcessRunner(ProcessRunner):
     """Process runner that directly delegates to subprocess.run."""
 
-    def run(self, *args: Any, **kwargs: Any) -> subprocess.CompletedProcess:
+    def run(self, *args: Any, **kwargs: Any) -> subprocess.CompletedProcess[Any]:
         """Run a subprocess command via subprocess.run.
 
         Args:
