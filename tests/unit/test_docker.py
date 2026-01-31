@@ -13,7 +13,7 @@ from tasktree.docker import (
     resolve_container_working_dir,
 )
 from tasktree.parser import Environment
-from tests.helpers.process_runner import MockProcessRunner
+from helpers.process_runner import MockProcessRunner
 
 
 class TestExtractFromImages(unittest.TestCase):
