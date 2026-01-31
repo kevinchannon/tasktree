@@ -8,6 +8,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, patch
 
 from helpers.logging import logger_stub
+from helpers.process_runner import make_mock_process_runner_factory
 from tasktree.executor import Executor
 from tasktree.parser import Recipe, Task
 from tasktree.state import StateManager, TaskState
@@ -121,9 +122,7 @@ class TestExecutor(unittest.TestCase):
     @athena: 048894f2713e
     """
 
-    @patch("subprocess.Popen")
-    @patch("os.chmod")
-    def test_execute_simple_task(self, mock_chmod, mock_run):
+    def test_execute_simple_task(self):
         """
         Test executing a simple task.
         @athena: 6c68df426cc6
@@ -138,13 +137,10 @@ class TestExecutor(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub)
 
-            mock_process = MagicMock()
-            mock_process.wait.return_value = 0
-            mock_process.stdout = None
-            mock_process.stderr = None
-            mock_run.return_value = mock_process
+            # Use mock ProcessRunner factory
+            mock_factory = make_mock_process_runner_factory(exit_code=0)
+            executor = Executor(recipe, state_manager, logger_stub, process_runner_factory=mock_factory)
 
             executor.execute_task("build")
 

@@ -28,6 +28,7 @@ from tasktree.logging import Logger, LogLevel
 from tasktree.parser import Recipe, Task, Environment
 from tasktree.state import StateManager, TaskState
 from tasktree.hasher import hash_environment_definition
+from tasktree.process_runner import make_process_runner, ProcessRunner
 
 
 @dataclass
@@ -72,78 +73,14 @@ class Executor:
         "LOGNAME",
     }
 
-    @staticmethod
-    def _stream_output(pipe, target):
-        """
-        Stream lines from pipe to target as they arrive.
-
-        Args:
-            pipe: Readable stream to read from
-            target: Writable stream to write to (sys.stdout or sys.stderr)
-        """
-        if pipe:
-            for line in pipe:
-                target.write(line)
-                target.flush()
-
-    @staticmethod
-    def _run_subprocess_streaming(
-        cmd: list[str],
-        cwd: Path,
-        env: dict[str, str],
-        show_stdout: bool = True,
-        show_stderr: bool = True,
-    ) -> int:
-        """
-        Run subprocess with streaming output.
-
-        Streams stdout/stderr to sys.stdout/sys.stderr in real-time using threads.
-        Works correctly in both production and CliRunner test contexts.
-
-        Args:
-            cmd: Command and arguments to execute
-            cwd: Working directory
-            env: Environment variables
-            show_stdout: Whether to display subprocess stdout
-            show_stderr: Whether to display subprocess stderr
-
-        Returns:
-            Exit code of the subprocess
-
-        Raises:
-            Does not raise - caller should check exit code
-        """
-        process = subprocess.Popen(
-            cmd,
-            cwd=cwd,
-            env=env,
-            stdout=subprocess.PIPE if show_stdout else subprocess.DEVNULL,
-            stderr=subprocess.PIPE if show_stderr else subprocess.DEVNULL,
-            text=True,
-            bufsize=1,  # Line buffered
-        )
-
-        # Use threads to avoid deadlock when both stdout and stderr have data
-        threads = []
-
-        if show_stdout and process.stdout:
-            t = Thread(target=Executor._stream_output, args=(process.stdout, sys.stdout))
-            t.start()
-            threads.append(t)
-
-        if show_stderr and process.stderr:
-            t = Thread(target=Executor._stream_output, args=(process.stderr, sys.stderr))
-            t.start()
-            threads.append(t)
-
-        # Wait for all output to be consumed
-        for t in threads:
-            t.join()
-
-        # Wait for process to complete
-        return process.wait()
-
-    def __init__(self, recipe: Recipe, state_manager: StateManager, logger: Logger, task_output: str = "all"):
+    def __init__(
+        self,
+        recipe: Recipe,
+        state_manager: StateManager,
+        logger: Logger,
+        task_output: str = "all",
+        process_runner_factory=None,
+    ):
         """
         Initialize executor.
 
@@ -152,6 +89,8 @@ class Executor:
         state_manager: State manager for tracking task execution
         logger_fn: Logger function for output (matches Console.print signature)
         task_output: Control task subprocess output (all, out, err, on-err, none)
+        process_runner_factory: Factory function for creating ProcessRunner instances
+                              (defaults to make_process_runner if None)
         @athena: 21b65db48bca
         """
         self.recipe = recipe
@@ -159,6 +98,9 @@ class Executor:
         self.logger = logger
         self.task_output = task_output
         self.docker_manager = docker_module.DockerManager(recipe.project_root)
+        self.process_runner_factory = (
+            process_runner_factory if process_runner_factory is not None else make_process_runner
+        )
 
     @staticmethod
     def _has_regular_args(task: Task) -> bool:
@@ -690,15 +632,18 @@ class Executor:
         # Execute command
         self.logger.log(LogLevel.INFO, f"Running: {task.name}")
 
+        # Create ProcessRunner for this task
+        process_runner = self.process_runner_factory(self.task_output)
+
         # Route to Docker execution or regular execution
         if env and env.dockerfile:
             # Docker execution path
-            self._run_task_in_docker(task, env, cmd, working_dir, exported_env_vars, self.task_output)
+            self._run_task_in_docker(task, env, cmd, working_dir, exported_env_vars, process_runner)
         else:
             # Regular execution path - use unified script-based execution
             shell, preamble = self._resolve_environment(task)
             self._run_command_as_script(
-                cmd, working_dir, task.name, shell, preamble, exported_env_vars
+                cmd, working_dir, task.name, shell, preamble, exported_env_vars, process_runner
             )
 
         # Update state
@@ -711,7 +656,8 @@ class Executor:
         task_name: str,
         shell: str,
         preamble: str,
-        exported_env_vars: dict[str, str] | None = None,
+        exported_env_vars: dict[str, str] | None,
+        process_runner: ProcessRunner,
     ) -> None:
         """
         Execute a command via temporary script file (unified execution path).
@@ -727,6 +673,7 @@ class Executor:
         shell: Shell to use for script execution
         preamble: Preamble text to prepend to script
         exported_env_vars: Exported arguments to set as environment variables
+        process_runner: ProcessRunner instance for subprocess execution
 
         Raises:
         ExecutionError: If command execution fails
@@ -769,15 +716,12 @@ class Executor:
             os.chmod(script_path, os.stat(script_path).st_mode | stat.S_IEXEC)
 
         try:
-            # Execute script file with streaming output
+            # Execute script file using ProcessRunner
             try:
-                suppress_output = self.task_output.lower() == "none"
-                exit_code = self._run_subprocess_streaming(
+                exit_code = process_runner.run(
                     cmd=[script_path],
                     cwd=working_dir,
                     env=env,
-                    show_stdout=not suppress_output,
-                    show_stderr=not suppress_output,
                 )
                 if exit_code != 0:
                     raise ExecutionError(
@@ -878,8 +822,8 @@ class Executor:
         env: Any,
         cmd: str,
         working_dir: Path,
-        exported_env_vars: dict[str, str] | None = None,
-        task_output: str = "all",
+        exported_env_vars: dict[str, str] | None,
+        process_runner: ProcessRunner,
     ) -> None:
         """
         Execute task inside Docker container.
@@ -890,7 +834,7 @@ class Executor:
         cmd: Command to execute
         working_dir: Host working directory
         exported_env_vars: Exported arguments to set as environment variables
-        task_output: Control task subprocess output (all, out, err, on-err, none)
+        process_runner: ProcessRunner instance for subprocess execution
 
         Raises:
         ExecutionError: If Docker execution fails
@@ -934,7 +878,7 @@ class Executor:
                 cmd=cmd,
                 working_dir=working_dir,
                 container_working_dir=container_working_dir,
-                task_output=task_output,
+                process_runner=process_runner,
             )
         except docker_module.DockerError as e:
             raise ExecutionError(str(e)) from e

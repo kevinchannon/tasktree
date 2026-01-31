@@ -10,6 +10,7 @@ from tasktree.parser import parse_recipe
 from tasktree.state import StateManager
 
 from helpers.logging import logger_stub
+from helpers.process_runner import make_mock_process_runner_factory, MockProcessRunner
 
 
 class TestBuiltinVariables(unittest.TestCase):
@@ -313,9 +314,6 @@ tasks:
 
         from unittest.mock import patch, Mock
 
-        # TODO why is this not used?
-        # output_file = Path(self.test_dir) / "docker_test.txt"
-
         recipe_content = """
 environments:
   test-env:
@@ -345,16 +343,17 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        executor = Executor(recipe, state, logger_stub)
 
-        # Mock the docker subprocess calls to capture the command
-        docker_run_command = None
+        # Reset shared mock state
+        MockProcessRunner.reset()
 
+        # Use mock ProcessRunner factory
+        mock_factory = make_mock_process_runner_factory(exit_code=0)
+        executor = Executor(recipe, state, logger_stub, process_runner_factory=mock_factory)
+
+        # Mock subprocess.run for docker build and inspect
         def mock_run(*args, **kwargs):
-            nonlocal docker_run_command
             cmd = args[0] if args else kwargs.get("args", [])
-            if isinstance(cmd, list) and "run" in cmd:
-                docker_run_command = cmd
             # Mock return values
             if isinstance(cmd, list) and "inspect" in cmd:
                 result = Mock()
@@ -368,6 +367,9 @@ tasks:
         with patch("tasktree.docker.subprocess.run", side_effect=mock_run):
             # Execute task
             executor.execute_task("docker-test")
+
+        # Get the docker run command from MockProcessRunner
+        docker_run_command = MockProcessRunner.get_last_docker_command()
 
         # Verify that volumes were substituted
         self.assertIsNotNone(
@@ -467,16 +469,17 @@ tasks:
             recipe = parse_recipe(self.recipe_file)
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state, logger_stub)
 
-            # Mock the docker subprocess calls to capture the command
-            docker_run_command = None
+            # Reset shared mock state
+            MockProcessRunner.reset()
 
+            # Use mock ProcessRunner factory
+            mock_factory = make_mock_process_runner_factory(exit_code=0)
+            executor = Executor(recipe, state, logger_stub, process_runner_factory=mock_factory)
+
+            # Mock subprocess.run for docker build and inspect
             def mock_run(*args, **kwargs):
-                nonlocal docker_run_command
                 cmd = args[0] if args else kwargs.get("args", [])
-                if isinstance(cmd, list) and "run" in cmd:
-                    docker_run_command = cmd
                 # Mock return values
                 if isinstance(cmd, list) and "inspect" in cmd:
                     result = Mock()
@@ -491,7 +494,10 @@ tasks:
                 # Execute task
                 executor.execute_task("docker-test")
 
-            # Verify that volumes were substituted
+            # Get the docker run command from MockProcessRunner
+            docker_run_command = MockProcessRunner.get_last_docker_command()
+
+            # Verify that docker command was captured
             self.assertIsNotNone(
                 docker_run_command, "Docker run command should have been captured"
             )
@@ -582,16 +588,17 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        executor = Executor(recipe, state, logger_stub)
 
-        # Mock the docker subprocess calls to capture the command
-        docker_run_command = None
+        # Reset shared mock state
+        MockProcessRunner.reset()
 
+        # Use mock ProcessRunner factory
+        mock_factory = make_mock_process_runner_factory(exit_code=0)
+        executor = Executor(recipe, state, logger_stub, process_runner_factory=mock_factory)
+
+        # Mock subprocess.run for docker build and inspect
         def mock_run(*args, **kwargs):
-            nonlocal docker_run_command
             cmd = args[0] if args else kwargs.get("args", [])
-            if isinstance(cmd, list) and "run" in cmd:
-                docker_run_command = cmd
             # Mock return values
             if isinstance(cmd, list) and "inspect" in cmd:
                 result = Mock()
@@ -606,7 +613,10 @@ tasks:
             # Execute task
             executor.execute_task("docker-test")
 
-        # Verify that volumes were substituted
+        # Get the docker run command from MockProcessRunner
+        docker_run_command = MockProcessRunner.get_last_docker_command()
+
+        # Verify that docker command was captured
         self.assertIsNotNone(
             docker_run_command, "Docker run command should have been captured"
         )

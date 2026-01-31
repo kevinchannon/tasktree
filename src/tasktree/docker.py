@@ -24,6 +24,7 @@ except ImportError:
 
 if TYPE_CHECKING:
     from tasktree.parser import Environment
+    from tasktree.process_runner import ProcessRunner
 
 
 class DockerError(Exception):
@@ -53,74 +54,6 @@ class DockerManager:
         self._built_images: dict[
             str, tuple[str, str]
         ] = {}  # env_name -> (image_tag, image_id) cache
-
-    @staticmethod
-    def _stream_output(pipe, target):
-        """
-        Stream lines from pipe to target as they arrive.
-
-        Args:
-            pipe: Readable stream to read from
-            target: Writable stream to write to (sys.stdout or sys.stderr)
-        """
-        if pipe:
-            for line in pipe:
-                target.write(line)
-                target.flush()
-
-    @staticmethod
-    def _run_subprocess_streaming(
-        cmd: list[str],
-        cwd: Path,
-        show_stdout: bool = True,
-        show_stderr: bool = True,
-    ) -> int:
-        """
-        Run subprocess with streaming output.
-
-        Streams stdout/stderr to sys.stdout/sys.stderr in real-time using threads.
-        Works correctly in both production and CliRunner test contexts.
-
-        Args:
-            cmd: Command and arguments to execute
-            cwd: Working directory
-            show_stdout: Whether to display subprocess stdout
-            show_stderr: Whether to display subprocess stderr
-
-        Returns:
-            Exit code of the subprocess
-
-        Raises:
-            Does not raise - caller should check exit code
-        """
-        process = subprocess.Popen(
-            cmd,
-            cwd=cwd,
-            stdout=subprocess.PIPE if show_stdout else subprocess.DEVNULL,
-            stderr=subprocess.PIPE if show_stderr else subprocess.DEVNULL,
-            text=True,
-            bufsize=1,  # Line buffered
-        )
-
-        # Use threads to avoid deadlock when both stdout and stderr have data
-        threads = []
-
-        if show_stdout and process.stdout:
-            t = Thread(target=DockerManager._stream_output, args=(process.stdout, sys.stdout))
-            t.start()
-            threads.append(t)
-
-        if show_stderr and process.stderr:
-            t = Thread(target=DockerManager._stream_output, args=(process.stderr, sys.stderr))
-            t.start()
-            threads.append(t)
-
-        # Wait for all output to be consumed
-        for t in threads:
-            t.join()
-
-        # Wait for process to complete
-        return process.wait()
 
     @staticmethod
     def _should_add_user_flag() -> bool:
@@ -218,7 +151,7 @@ class DockerManager:
         cmd: str,
         working_dir: Path,
         container_working_dir: str,
-        task_output: str = "all",
+        process_runner: ProcessRunner,
     ) -> subprocess.CompletedProcess:
         """
         Execute command inside Docker container.
@@ -228,7 +161,7 @@ class DockerManager:
         cmd: Command to execute
         working_dir: Host working directory (for resolving relative volume paths)
         container_working_dir: Working directory inside container
-        task_output: Control task subprocess output (all, none)
+        process_runner: ProcessRunner instance for subprocess execution
 
         Returns:
         CompletedProcess from subprocess.run
@@ -279,14 +212,12 @@ class DockerManager:
         )
         docker_cmd.extend([shell, *shell_args, "-c", cmd])
 
-        # Execute with streaming output
+        # Execute using ProcessRunner
         try:
-            suppress_output = task_output.lower() == "none"
-            exit_code = self._run_subprocess_streaming(
+            exit_code = process_runner.run(
                 cmd=docker_cmd,
                 cwd=working_dir,
-                show_stdout=not suppress_output,
-                show_stderr=not suppress_output,
+                env=None,  # Docker run doesn't need explicit env dict
             )
             if exit_code != 0:
                 raise DockerError(
