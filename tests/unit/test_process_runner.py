@@ -4,7 +4,7 @@ import subprocess
 import unittest
 from unittest.mock import MagicMock, patch
 
-from tasktree.process_runner import PassthroughProcessRunner, ProcessRunner
+from tasktree.process_runner import PassthroughProcessRunner, ProcessRunner, make_process_runner
 
 
 class TestProcessRunner(unittest.TestCase):
@@ -159,6 +159,26 @@ class TestPassthroughProcessRunner(unittest.TestCase):
     def test_passthrough_runner_is_process_runner(self):
         """PassthroughProcessRunner implements ProcessRunner interface."""
         self.assertIsInstance(self.runner, ProcessRunner)
+
+
+class TestMakeProcessRunner(unittest.TestCase):
+    """Tests for make_process_runner factory function."""
+
+    def test_make_process_runner_returns_process_runner(self):
+        """make_process_runner() returns a ProcessRunner instance."""
+        runner = make_process_runner()
+        self.assertIsInstance(runner, ProcessRunner)
+
+    def test_make_process_runner_returns_passthrough_runner(self):
+        """make_process_runner() returns a PassthroughProcessRunner instance."""
+        runner = make_process_runner()
+        self.assertIsInstance(runner, PassthroughProcessRunner)
+
+    def test_make_process_runner_returns_new_instance_each_call(self):
+        """make_process_runner() returns a new instance on each call."""
+        runner1 = make_process_runner()
+        runner2 = make_process_runner()
+        self.assertIsNot(runner1, runner2)
 
 
 if __name__ == '__main__':

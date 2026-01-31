@@ -8,7 +8,7 @@ import subprocess
 from abc import ABC, abstractmethod
 from typing import Any
 
-__all__ = ['ProcessRunner', 'PassthroughProcessRunner']
+__all__ = ['ProcessRunner', 'PassthroughProcessRunner', 'make_process_runner']
 
 
 class ProcessRunner(ABC):
@@ -53,3 +53,12 @@ class PassthroughProcessRunner(ProcessRunner):
             subprocess.TimeoutExpired: If timeout is exceeded
         """
         return subprocess.run(*args, **kwargs)
+
+
+def make_process_runner() -> ProcessRunner:
+    """Factory function for creating ProcessRunner instances.
+
+    Returns:
+        ProcessRunner: A new ProcessRunner instance
+    """
+    return PassthroughProcessRunner()

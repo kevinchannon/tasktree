@@ -13,7 +13,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from tasktree import docker as docker_module
 from tasktree.graph import (
@@ -25,6 +25,7 @@ from tasktree.graph import (
 from tasktree.hasher import hash_args, hash_task, make_cache_key
 from tasktree.logging import Logger, LogLevel
 from tasktree.parser import Recipe, Task, Environment
+from tasktree.process_runner import ProcessRunner
 from tasktree.state import StateManager, TaskState
 from tasktree.hasher import hash_environment_definition
 
@@ -71,7 +72,14 @@ class Executor:
         "LOGNAME",
     }
 
-    def __init__(self, recipe: Recipe, state_manager: StateManager, logger: Logger, task_output: str = "all"):
+    def __init__(
+        self,
+        recipe: Recipe,
+        state_manager: StateManager,
+        logger: Logger,
+        process_runner_factory: Callable[[], ProcessRunner],
+        task_output: str = "all",
+    ):
         """
         Initialize executor.
 
@@ -80,12 +88,14 @@ class Executor:
         state_manager: State manager for tracking task execution
         logger_fn: Logger function for output (matches Console.print signature)
         task_output: Control task subprocess output (all, out, err, on-err, none)
+        process_runner_factory: Factory function for creating ProcessRunner instances
         @athena: 21b65db48bca
         """
         self.recipe = recipe
         self.state = state_manager
         self.logger = logger
         self.task_output = task_output
+        self.process_runner_factory = process_runner_factory
         self.docker_manager = docker_module.DockerManager(recipe.project_root)
 
     @staticmethod
@@ -618,15 +628,18 @@ class Executor:
         # Execute command
         self.logger.log(LogLevel.INFO, f"Running: {task.name}")
 
+        # Get process runner instance for this task execution
+        process_runner = self.process_runner_factory()
+
         # Route to Docker execution or regular execution
         if env and env.dockerfile:
             # Docker execution path
-            self._run_task_in_docker(task, env, cmd, working_dir, exported_env_vars, self.task_output)
+            self._run_task_in_docker(task, env, cmd, working_dir, process_runner, exported_env_vars, self.task_output)
         else:
             # Regular execution path - use unified script-based execution
             shell, preamble = self._resolve_environment(task)
             self._run_command_as_script(
-                cmd, working_dir, task.name, shell, preamble, exported_env_vars
+                cmd, working_dir, task.name, shell, preamble, process_runner, exported_env_vars
             )
 
         # Update state
@@ -639,6 +652,7 @@ class Executor:
         task_name: str,
         shell: str,
         preamble: str,
+        process_runner: ProcessRunner,
         exported_env_vars: dict[str, str] | None = None,
     ) -> None:
         """
@@ -654,6 +668,7 @@ class Executor:
         task_name: Task name (for error messages)
         shell: Shell to use for script execution
         preamble: Preamble text to prepend to script
+        process_runner: ProcessRunner instance to use for subprocess execution
         exported_env_vars: Exported arguments to set as environment variables
 
         Raises:
@@ -725,7 +740,7 @@ class Executor:
                 # Otherwise capture and manually write (CliRunner compatibility)
                 if not should_suppress and not (supports_fileno(sys.stdout) and supports_fileno(sys.stderr)):
                     # CliRunner path: capture and write manually
-                    result = subprocess.run(
+                    result = process_runner.run(
                         [script_path],
                         cwd=working_dir,
                         check=True,
@@ -739,7 +754,7 @@ class Executor:
                         sys.stderr.write(result.stderr)
                 else:
                     # Normal execution path: use target streams (including DEVNULL when suppressing)
-                    subprocess.run(
+                    process_runner.run(
                         [script_path],
                         cwd=working_dir,
                         check=True,
@@ -844,6 +859,7 @@ class Executor:
         env: Any,
         cmd: str,
         working_dir: Path,
+        process_runner: ProcessRunner,
         exported_env_vars: dict[str, str] | None = None,
         task_output: str = "all",
     ) -> None:
@@ -855,6 +871,7 @@ class Executor:
         env: Docker environment configuration
         cmd: Command to execute
         working_dir: Host working directory
+        process_runner: ProcessRunner instance to use for subprocess execution
         exported_env_vars: Exported arguments to set as environment variables
         task_output: Control task subprocess output (all, out, err, on-err, none)
 
@@ -900,6 +917,7 @@ class Executor:
                 cmd=cmd,
                 working_dir=working_dir,
                 container_working_dir=container_working_dir,
+                process_runner=process_runner,
             )
         except docker_module.DockerError as e:
             raise ExecutionError(str(e)) from e

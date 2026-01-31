@@ -7,6 +7,7 @@ from tempfile import TemporaryDirectory
 from helpers.logging import logger_stub
 from tasktree.executor import Executor
 from tasktree.parser import Recipe, Task
+from tasktree.process_runner import make_process_runner
 from tasktree.state import StateManager
 
 
@@ -44,7 +45,7 @@ class TestMissingOutputsIntegration(unittest.TestCase):
             )
             state_manager = StateManager(project_root)
             state_manager.load()
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             # First run - task should execute (never run before)
             statuses = executor.execute_task("build")
@@ -99,7 +100,7 @@ class TestMissingOutputsIntegration(unittest.TestCase):
             )
             state_manager = StateManager(project_root)
             state_manager.load()
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             # First run - task should execute and create both outputs
             statuses = executor.execute_task("build")

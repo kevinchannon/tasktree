@@ -9,6 +9,7 @@ from tempfile import TemporaryDirectory
 from helpers.logging import logger_stub
 from tasktree.executor import Executor
 from tasktree.parser import parse_recipe
+from tasktree.process_runner import make_process_runner
 from tasktree.state import StateManager
 
 
@@ -44,7 +45,7 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state, logger_stub)
+            executor = Executor(recipe, state, logger_stub, make_process_runner)
 
             # Execute with exported args
             args_dict = {"server": "prod-server", "user": "admin"}
@@ -79,7 +80,7 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state, logger_stub)
+            executor = Executor(recipe, state, logger_stub, make_process_runner)
 
             # Execute with only server arg (port uses default)
             args_dict = {"server": "prod-server", "port": "8080"}
@@ -132,7 +133,7 @@ tasks:
             # Execute with args_dict from CLI
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state, logger_stub)
+            executor = Executor(recipe, state, logger_stub, make_process_runner)
             statuses = executor.execute_task("test", args_dict)
 
             self.assertIn("test", statuses)
@@ -155,7 +156,7 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state, logger_stub)
+            executor = Executor(recipe, state, logger_stub, make_process_runner)
 
             # Should raise error when trying to use exported arg in template
             args_dict = {"server": "prod-server"}
@@ -193,7 +194,7 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state, logger_stub)
+            executor = Executor(recipe, state, logger_stub, make_process_runner)
 
             args_dict = {"server": "prod-server", "port": 9000}
             statuses = executor.execute_task("deploy", args_dict)
@@ -225,7 +226,7 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state, logger_stub)
+            executor = Executor(recipe, state, logger_stub, make_process_runner)
 
             args_dict = {"Server": "UPPERCASE", "server": "lowercase"}
             statuses = executor.execute_task("test", args_dict)
@@ -256,7 +257,7 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state, logger_stub)
+            executor = Executor(recipe, state, logger_stub, make_process_runner)
 
             args_dict = {"message": "hello world with spaces"}
             statuses = executor.execute_task("test", args_dict)
@@ -324,7 +325,7 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state, logger_stub)
+            executor = Executor(recipe, state, logger_stub, make_process_runner)
 
             args_dict = {"app": "myapp", "server": "prod-server"}
             statuses = executor.execute_task("deploy", args_dict)
@@ -360,7 +361,7 @@ tasks:
                 recipe = parse_recipe(recipe_path)
                 state = StateManager(recipe.project_root)
                 state.load()
-                executor = Executor(recipe, state, logger_stub)
+                executor = Executor(recipe, state, logger_stub, make_process_runner)
 
                 # Exported arg should override the env var
                 args_dict = {"MY_VAR": "overridden"}
@@ -392,7 +393,7 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state, logger_stub)
+            executor = Executor(recipe, state, logger_stub, make_process_runner)
 
             # Should raise ValueError when trying to override PATH
             args_dict = {"PATH": "/malicious/path"}

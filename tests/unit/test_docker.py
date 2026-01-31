@@ -13,6 +13,7 @@ from tasktree.docker import (
     resolve_container_working_dir,
 )
 from tasktree.parser import Environment
+from tasktree.process_runner import make_process_runner
 
 
 class TestExtractFromImages(unittest.TestCase):
@@ -603,11 +604,13 @@ class TestDockerManager(unittest.TestCase):
 
         mock_run.side_effect = mock_run_side_effect
 
+        process_runner = make_process_runner()
         self.manager.run_in_container(
             env=env,
             cmd="echo hello",
             working_dir=Path("/fake/project"),
             container_working_dir="/workspace",
+            process_runner=process_runner,
         )
 
         # Find the docker run call (should be the 4th call: docker --version, build, inspect, run)
@@ -645,11 +648,13 @@ class TestDockerManager(unittest.TestCase):
 
         mock_run.side_effect = mock_run_side_effect
 
+        process_runner = make_process_runner()
         self.manager.run_in_container(
             env=env,
             cmd="echo hello",
             working_dir=Path("/fake/project"),
             container_working_dir="/workspace",
+            process_runner=process_runner,
         )
 
         # Find the docker run call (should be the 4th call)
@@ -692,11 +697,13 @@ class TestDockerManager(unittest.TestCase):
 
         mock_run.side_effect = mock_run_side_effect
 
+        process_runner = make_process_runner()
         self.manager.run_in_container(
             env=env,
             cmd="echo hello",
             working_dir=Path("/fake/project"),
             container_working_dir="/workspace",
+            process_runner=process_runner,
         )
 
         # Find the docker run call (should be the 4th call)
@@ -733,11 +740,13 @@ class TestDockerManager(unittest.TestCase):
 
         mock_run.side_effect = mock_run_side_effect
 
+        process_runner = make_process_runner()
         self.manager.run_in_container(
             env=env,
             cmd="echo hello",
             working_dir=Path("/fake/project"),
             container_working_dir="/workspace",
+            process_runner=process_runner,
         )
 
         # Find the docker run call (should be the 4th call)
@@ -788,11 +797,13 @@ class TestDockerManager(unittest.TestCase):
 
         mock_run.side_effect = mock_run_side_effect
 
+        process_runner = make_process_runner()
         self.manager.run_in_container(
             env=env,
             cmd="echo hello",
             working_dir=Path("/fake/project"),
             container_working_dir="/workspace",
+            process_runner=process_runner,
         )
 
         # Should succeed without errors
@@ -831,11 +842,13 @@ class TestDockerManager(unittest.TestCase):
 
         mock_run.side_effect = mock_run_side_effect
 
+        process_runner = make_process_runner()
         self.manager.run_in_container(
             env=env,
             cmd="echo hello",
             working_dir=Path("/fake/project"),
             container_working_dir="/workspace",
+            process_runner=process_runner,
         )
 
         # Should succeed without errors
@@ -880,11 +893,13 @@ class TestDockerManager(unittest.TestCase):
 
         mock_run.side_effect = mock_run_side_effect
 
+        process_runner = make_process_runner()
         self.manager.run_in_container(
             env=env,
             cmd="echo hello",
             working_dir=Path("/fake/project"),
             container_working_dir="/workspace",
+            process_runner=process_runner,
         )
 
         # Find the docker run call (should be the 4th call)
