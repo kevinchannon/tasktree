@@ -45,11 +45,11 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state, logger_stub, make_process_runner)
+            executor = Executor(recipe, state, logger_stub)
 
             # Execute with exported args
             args_dict = {"server": "prod-server", "user": "admin"}
-            statuses = executor.execute_task("test", args_dict)
+            statuses = executor.execute_task("test", make_process_runner, args_dict)
 
             # Should execute successfully (no exception = success)
             self.assertIn("test", statuses)
@@ -80,11 +80,11 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state, logger_stub, make_process_runner)
+            executor = Executor(recipe, state, logger_stub)
 
             # Execute with only server arg (port uses default)
             args_dict = {"server": "prod-server", "port": "8080"}
-            statuses = executor.execute_task("test", args_dict)
+            statuses = executor.execute_task("test", make_process_runner, args_dict)
 
             self.assertIn("test", statuses)
 
@@ -133,8 +133,8 @@ tasks:
             # Execute with args_dict from CLI
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state, logger_stub, make_process_runner)
-            statuses = executor.execute_task("test", args_dict)
+            executor = Executor(recipe, state, logger_stub)
+            statuses = executor.execute_task("test", make_process_runner, args_dict)
 
             self.assertIn("test", statuses)
 
@@ -156,12 +156,12 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state, logger_stub, make_process_runner)
+            executor = Executor(recipe, state, logger_stub)
 
             # Should raise error when trying to use exported arg in template
             args_dict = {"server": "prod-server"}
             with self.assertRaises(ValueError) as cm:
-                executor.execute_task("test", args_dict)
+                executor.execute_task("test", make_process_runner, args_dict)
 
             self.assertIn("server", str(cm.exception))
             self.assertIn("exported", str(cm.exception))
@@ -194,10 +194,10 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state, logger_stub, make_process_runner)
+            executor = Executor(recipe, state, logger_stub)
 
             args_dict = {"server": "prod-server", "port": 9000}
-            statuses = executor.execute_task("deploy", args_dict)
+            statuses = executor.execute_task("deploy", make_process_runner, args_dict)
 
             self.assertIn("deploy", statuses)
 
@@ -226,10 +226,10 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state, logger_stub, make_process_runner)
+            executor = Executor(recipe, state, logger_stub)
 
             args_dict = {"Server": "UPPERCASE", "server": "lowercase"}
-            statuses = executor.execute_task("test", args_dict)
+            statuses = executor.execute_task("test", make_process_runner, args_dict)
 
             self.assertIn("test", statuses)
 
@@ -257,10 +257,10 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state, logger_stub, make_process_runner)
+            executor = Executor(recipe, state, logger_stub)
 
             args_dict = {"message": "hello world with spaces"}
-            statuses = executor.execute_task("test", args_dict)
+            statuses = executor.execute_task("test", make_process_runner, args_dict)
 
             self.assertIn("test", statuses)
 
@@ -325,10 +325,10 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state, logger_stub, make_process_runner)
+            executor = Executor(recipe, state, logger_stub)
 
             args_dict = {"app": "myapp", "server": "prod-server"}
-            statuses = executor.execute_task("deploy", args_dict)
+            statuses = executor.execute_task("deploy", make_process_runner, args_dict)
 
             self.assertIn("deploy", statuses)
 
@@ -361,11 +361,11 @@ tasks:
                 recipe = parse_recipe(recipe_path)
                 state = StateManager(recipe.project_root)
                 state.load()
-                executor = Executor(recipe, state, logger_stub, make_process_runner)
+                executor = Executor(recipe, state, logger_stub)
 
                 # Exported arg should override the env var
                 args_dict = {"MY_VAR": "overridden"}
-                statuses = executor.execute_task("test", args_dict)
+                statuses = executor.execute_task("test", make_process_runner, args_dict)
 
                 self.assertIn("test", statuses)
         finally:
@@ -393,12 +393,12 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state, logger_stub, make_process_runner)
+            executor = Executor(recipe, state, logger_stub)
 
             # Should raise ValueError when trying to override PATH
             args_dict = {"PATH": "/malicious/path"}
             with self.assertRaises(ValueError) as cm:
-                executor.execute_task("test", args_dict)
+                executor.execute_task("test", make_process_runner, args_dict)
 
             self.assertIn("protected", str(cm.exception).lower())
             self.assertIn("PATH", str(cm.exception))

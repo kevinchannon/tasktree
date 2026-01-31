@@ -71,12 +71,13 @@ class DockerManager:
         # Check if os.getuid() and os.getgid() are available (Linux/macOS)
         return hasattr(os, "getuid") and hasattr(os, "getgid")
 
-    def ensure_image_built(self, env: Environment) -> tuple[str, str]:
+    def ensure_image_built(self, env: Environment, process_runner: ProcessRunner) -> tuple[str, str]:
         """
         Build Docker image if not already built this invocation.
 
         Args:
         env: Environment definition with dockerfile and context
+        process_runner: ProcessRunner instance for subprocess execution
 
         Returns:
         Tuple of (image_tag, image_id)
@@ -120,7 +121,7 @@ class DockerManager:
 
             docker_build_cmd.append(str(context_path))
 
-            subprocess.run(
+            process_runner.run(
                 docker_build_cmd,
                 check=True,
                 capture_output=False,  # Show build output to user
@@ -168,7 +169,7 @@ class DockerManager:
         @athena: f24fc9c27f81
         """
         # Ensure image is built (returns tag and ID)
-        image_tag, image_id = self.ensure_image_built(env)
+        image_tag, image_id = self.ensure_image_built(env, process_runner)
 
         # Build docker run command
         docker_cmd = ["docker", "run", "--rm"]

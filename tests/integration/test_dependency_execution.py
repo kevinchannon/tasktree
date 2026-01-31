@@ -273,9 +273,9 @@ tasks:
             # This creates build-artifact.txt and package.tar.gz
             parsed_recipe = parse_recipe(recipe_path)
             state_manager = StateManager(project_root)
-            executor = Executor(parsed_recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(parsed_recipe, state_manager, logger_stub)
 
-            statuses = executor.execute_task("package")
+            statuses = executor.execute_task("package", make_process_runner)
 
             assert statuses["build"].will_run  # First run, no state
             assert statuses["package"].will_run  # First run, no state
@@ -299,9 +299,9 @@ tasks:
             recipe_path.write_text(yaml.dump(recipe))
 
             parsed_recipe = parse_recipe(recipe_path)
-            executor = Executor(parsed_recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(parsed_recipe, state_manager, logger_stub)
 
-            statuses = executor.execute_task("package")
+            statuses = executor.execute_task("package", make_process_runner)
 
             # Build task should run (changed command = new task definition = "never_run")
             # OR if command hadn't changed, would be "no_outputs" (has outputs but no inputs)
@@ -360,9 +360,9 @@ tasks:
             # First run: establish baseline
             parsed_recipe = parse_recipe(recipe_path)
             state_manager = StateManager(project_root)
-            executor = Executor(parsed_recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(parsed_recipe, state_manager, logger_stub)
 
-            statuses = executor.execute_task("build")
+            statuses = executor.execute_task("build", make_process_runner)
 
             assert statuses["generate"].will_run
             assert statuses["build"].will_run
@@ -375,9 +375,9 @@ tasks:
             recipe_path.write_text(yaml.dump(recipe))
 
             parsed_recipe = parse_recipe(recipe_path)
-            executor = Executor(parsed_recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(parsed_recipe, state_manager, logger_stub)
 
-            statuses = executor.execute_task("build")
+            statuses = executor.execute_task("build", make_process_runner)
 
             # Generate runs (changed command = new definition = "never_run")
             # OR if command hadn't changed, would be "no_outputs" (has outputs but no inputs)

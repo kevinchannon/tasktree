@@ -608,7 +608,7 @@ def _execute_dynamic_task(
     # Create executor and state manager
     state = StateManager(recipe.project_root)
     state.load()
-    executor = Executor(recipe, state, logger, make_process_runner, task_output=task_output)
+    executor = Executor(recipe, state, logger, task_output=task_output)
 
     # Resolve execution order to determine which tasks will actually run
     # This is important for correct state pruning after template substitution
@@ -645,7 +645,7 @@ def _execute_dynamic_task(
     state.prune(valid_hashes)
     state.save()
     try:
-        executor.execute_task(task_name, args_dict, force=force, only=only)
+        executor.execute_task(task_name, make_process_runner, args_dict, force=force, only=only)
         logger.info(
             f"[green]{get_action_success_string()} Task '{task_name}' completed successfully[/green]",
         )

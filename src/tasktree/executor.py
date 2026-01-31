@@ -77,7 +77,6 @@ class Executor:
         recipe: Recipe,
         state_manager: StateManager,
         logger: Logger,
-        process_runner_factory: Callable[[], ProcessRunner],
         task_output: str = "all",
     ):
         """
@@ -88,14 +87,12 @@ class Executor:
         state_manager: State manager for tracking task execution
         logger_fn: Logger function for output (matches Console.print signature)
         task_output: Control task subprocess output (all, out, err, on-err, none)
-        process_runner_factory: Factory function for creating ProcessRunner instances
         @athena: 21b65db48bca
         """
         self.recipe = recipe
         self.state = state_manager
         self.logger = logger
         self.task_output = task_output
-        self.process_runner_factory = process_runner_factory
         self.docker_manager = docker_module.DockerManager(recipe.project_root)
 
     @staticmethod
@@ -360,6 +357,7 @@ class Executor:
         self,
         task: Task,
         args_dict: dict[str, Any],
+        process_runner: ProcessRunner,
         force: bool = False,
     ) -> TaskStatus:
         """
@@ -378,6 +376,7 @@ class Executor:
         Args:
         task: Task to check
         args_dict: Arguments for this task execution
+        process_runner: ProcessRunner instance for subprocess execution
         force: If True, ignore freshness and force execution
 
         Returns:
@@ -424,7 +423,7 @@ class Executor:
             )
 
         # Check if environment definition has changed
-        env_changed = self._check_environment_changed(task, cached_state, effective_env)
+        env_changed = self._check_environment_changed(task, cached_state, effective_env, process_runner)
         if env_changed:
             return TaskStatus(
                 task_name=task.name,
@@ -466,6 +465,7 @@ class Executor:
     def execute_task(
         self,
         task_name: str,
+        process_runner_factory: Callable[[], ProcessRunner],
         args_dict: dict[str, Any] | None = None,
         force: bool = False,
         only: bool = False,
@@ -475,6 +475,7 @@ class Executor:
 
         Args:
         task_name: Name of task to execute
+        process_runner_factory: Factory function for creating ProcessRunner instances
         args_dict: Arguments to pass to the task
         force: If True, ignore freshness and re-run all tasks
         only: If True, run only the specified task without dependencies (implies force=True)
@@ -517,8 +518,11 @@ class Executor:
             # Convert None to {} for internal use (None is used to distinguish simple deps in graph)
             args_dict_for_execution = task_args if task_args is not None else {}
 
+            # Create process runner for this task
+            process_runner = process_runner_factory()
+
             # Check if task needs to run (based on CURRENT filesystem state)
-            status = self.check_task_status(task, args_dict_for_execution, force=force)
+            status = self.check_task_status(task, args_dict_for_execution, process_runner, force=force)
 
             # Use a key that includes args for status tracking
             # Only include regular (non-exported) args in status key for parameterized dependencies
@@ -554,17 +558,18 @@ class Executor:
                         f"Warning: Re-running task '{name}' because declared outputs are missing",
                     )
 
-                self._run_task(task, args_dict_for_execution)
+                self._run_task(task, args_dict_for_execution, process_runner)
 
         return statuses
 
-    def _run_task(self, task: Task, args_dict: dict[str, Any]) -> None:
+    def _run_task(self, task: Task, args_dict: dict[str, Any], process_runner: ProcessRunner) -> None:
         """
         Execute a single task.
 
         Args:
         task: Task to execute
         args_dict: Arguments to substitute in command
+        process_runner: ProcessRunner instance for subprocess execution
 
         Raises:
         ExecutionError: If task execution fails
@@ -627,9 +632,6 @@ class Executor:
 
         # Execute command
         self.logger.log(LogLevel.INFO, f"Running: {task.name}")
-
-        # Get process runner instance for this task execution
-        process_runner = self.process_runner_factory()
 
         # Route to Docker execution or regular execution
         if env and env.dockerfile:
@@ -1043,7 +1045,7 @@ class Executor:
 
     # TODO: Understand why task isn't used
     def _check_environment_changed(
-        self, task: Task, cached_state: TaskState, env_name: str
+        self, task: Task, cached_state: TaskState, env_name: str, process_runner: ProcessRunner
     ) -> bool:
         """
         Check if environment definition has changed since last run.
@@ -1055,6 +1057,7 @@ class Executor:
         task: Task to check
         cached_state: Cached state from previous run
         env_name: Effective environment name (from _get_effective_env_name)
+        process_runner: ProcessRunner instance for subprocess execution
 
         Returns:
         True if environment definition changed, False otherwise
@@ -1089,13 +1092,13 @@ class Executor:
 
         # For Docker environments, also check if image ID changed
         if env.dockerfile:
-            return self._check_docker_image_changed(env, cached_state, env_name)
+            return self._check_docker_image_changed(env, cached_state, env_name, process_runner)
 
         # Shell environment with unchanged hash
         return False
 
     def _check_docker_image_changed(
-        self, env: Environment, cached_state: TaskState, env_name: str
+        self, env: Environment, cached_state: TaskState, env_name: str, process_runner: ProcessRunner
     ) -> bool:
         """
         Check if Docker image ID has changed.
@@ -1107,6 +1110,7 @@ class Executor:
         env: Docker environment definition
         cached_state: Cached state from previous run
         env_name: Environment name
+        process_runner: ProcessRunner instance for subprocess execution
 
         Returns:
         True if image ID changed, False otherwise
@@ -1114,7 +1118,7 @@ class Executor:
         """
         # Build/ensure image is built and get its ID
         try:
-            image_tag, current_image_id = self.docker_manager.ensure_image_built(env)
+            image_tag, current_image_id = self.docker_manager.ensure_image_built(env, process_runner)
         except Exception:
             # If we can't build, treat as changed (will fail later with better error)
             return True

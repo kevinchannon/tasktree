@@ -64,8 +64,8 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        executor = Executor(recipe, state, logger_stub, make_process_runner)
-        executor.execute_task("test-vars")
+        executor = Executor(recipe, state, logger_stub)
+        executor.execute_task("test-vars", make_process_runner)
 
         # Read output and verify
         output = output_file.read_text()
@@ -126,8 +126,8 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        executor = Executor(recipe, state, logger_stub, make_process_runner)
-        executor.execute_task("test-timestamp")
+        executor = Executor(recipe, state, logger_stub)
+        executor.execute_task("test-timestamp", make_process_runner)
 
         output = output_file.read_text()
         lines = output.strip().split("\n")
@@ -157,8 +157,8 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        executor = Executor(recipe, state, logger_stub, make_process_runner)
-        executor.execute_task("test-workdir")
+        executor = Executor(recipe, state, logger_stub)
+        executor.execute_task("test-workdir", make_process_runner)
 
         output = output_file.read_text().strip()
         # Should show the absolute path to subdir
@@ -184,8 +184,8 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        executor = Executor(recipe, state, logger_stub, make_process_runner)
-        executor.execute_task("test-multiline")
+        executor = Executor(recipe, state, logger_stub)
+        executor.execute_task("test-multiline", make_process_runner)
 
         output = output_file.read_text().strip()
         expected = f"{recipe.project_root.resolve()}/test-multiline"
@@ -215,8 +215,8 @@ tasks:
         recipe = parse_recipe(recipe_path, project_root=Path(self.test_dir))
         state = StateManager(recipe.project_root)
         state.load()
-        executor = Executor(recipe, state, logger_stub, make_process_runner)
-        executor.execute_task("test-recipe-dir")
+        executor = Executor(recipe, state, logger_stub)
+        executor.execute_task("test-recipe-dir", make_process_runner)
 
         output = output_file.read_text()
         lines = {
@@ -255,8 +255,8 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        executor = Executor(recipe, state, logger_stub, make_process_runner)
-        executor.execute_task("deploy", args_dict={"region": "us-west-1"})
+        executor = Executor(recipe, state, logger_stub)
+        executor.execute_task("deploy", make_process_runner, args_dict={"region": "us-west-1"})
 
         output = output_file.read_text()
         lines = [line for line in output.strip().split("\n")]
@@ -292,8 +292,8 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        executor = Executor(recipe, state, logger_stub, make_process_runner)
-        executor.execute_task("build-task")
+        executor = Executor(recipe, state, logger_stub)
+        executor.execute_task("build-task", make_process_runner)
 
         output = output_file.read_text()
         lines = {
@@ -346,7 +346,7 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        executor = Executor(recipe, state, logger_stub, make_process_runner)
+        executor = Executor(recipe, state, logger_stub)
 
         # Mock the docker subprocess calls to capture the command
         docker_run_command = None
@@ -368,7 +368,7 @@ tasks:
 
         with patch("tasktree.docker.subprocess.run", side_effect=mock_run):
             # Execute task
-            executor.execute_task("docker-test")
+            executor.execute_task("docker-test", make_process_runner)
 
         # Verify that volumes were substituted
         self.assertIsNotNone(
@@ -468,7 +468,7 @@ tasks:
             recipe = parse_recipe(self.recipe_file)
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state, logger_stub, make_process_runner)
+            executor = Executor(recipe, state, logger_stub)
 
             # Mock the docker subprocess calls to capture the command
             docker_run_command = None
@@ -490,7 +490,7 @@ tasks:
 
             with patch("tasktree.docker.subprocess.run", side_effect=mock_run):
                 # Execute task
-                executor.execute_task("docker-test")
+                executor.execute_task("docker-test", make_process_runner)
 
             # Verify that volumes were substituted
             self.assertIsNotNone(
@@ -583,7 +583,7 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        executor = Executor(recipe, state, logger_stub, make_process_runner)
+        executor = Executor(recipe, state, logger_stub)
 
         # Mock the docker subprocess calls to capture the command
         docker_run_command = None
@@ -605,7 +605,7 @@ tasks:
 
         with patch("tasktree.docker.subprocess.run", side_effect=mock_run):
             # Execute task
-            executor.execute_task("docker-test")
+            executor.execute_task("docker-test", make_process_runner)
 
         # Verify that volumes were substituted
         self.assertIsNotNone(

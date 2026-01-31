@@ -174,7 +174,7 @@ class TestCheckEnvironmentChanged(unittest.TestCase):
         )
         self.state_manager = StateManager(self.project_root)
         logger_fn = lambda *args, **kwargs: None
-        self.executor = Executor(self.recipe, self.state_manager, logger_fn, make_process_runner)
+        self.executor = Executor(self.recipe, self.state_manager, logger_fn)
 
     def test_check_environment_changed_no_env(self):
         """
@@ -292,7 +292,7 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         )
         self.state_manager = StateManager(self.project_root)
         logger_fn = lambda *args, **kwargs: None
-        self.executor = Executor(self.recipe, self.state_manager, logger_fn, make_process_runner)
+        self.executor = Executor(self.recipe, self.state_manager, logger_fn)
 
     def test_check_docker_image_changed_no_cached_id(self):
         """
