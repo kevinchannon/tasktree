@@ -10,7 +10,7 @@ import platform
 import re
 import subprocess
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 from pathspec import PathSpec
 
@@ -39,15 +39,21 @@ class DockerManager:
     @athena: 1a8a919eb05d
     """
 
-    def __init__(self, project_root: Path):
+    def __init__(
+        self,
+        project_root: Path,
+        process_runner_factory: Callable[[], "ProcessRunner"],
+    ):
         """
         Initialize Docker manager.
 
         Args:
         project_root: Root directory of the project (where tasktree.yaml is located)
+        process_runner_factory: Factory function for creating ProcessRunner instances
         @athena: eb7d4c5a27aa
         """
         self._project_root = project_root
+        self._process_runner_factory = process_runner_factory
         self._built_images: dict[
             str, tuple[str, str]
         ] = {}  # env_name -> (image_tag, image_id) cache
@@ -120,7 +126,8 @@ class DockerManager:
 
             docker_build_cmd.append(str(context_path))
 
-            subprocess.run(
+            process_runner = self._process_runner_factory()
+            process_runner.run(
                 docker_build_cmd,
                 check=True,
                 capture_output=False,  # Show build output to user

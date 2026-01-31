@@ -13,7 +13,7 @@ from tasktree.docker import (
     resolve_container_working_dir,
 )
 from tasktree.parser import Environment
-from tasktree.process_runner import make_process_runner
+from tasktree.process_runner import PassthroughProcessRunner, make_process_runner
 
 
 class TestExtractFromImages(unittest.TestCase):
@@ -298,7 +298,9 @@ class TestDockerManager(unittest.TestCase):
         @athena: a4d39428bb63
         """
         self.project_root = Path("/fake/project")
-        self.manager = DockerManager(self.project_root)
+        self.manager = DockerManager(
+            self.project_root, lambda: PassthroughProcessRunner()
+        )
 
     @patch("tasktree.docker.subprocess.run")
     def test_ensure_image_built_caching(self, mock_run):

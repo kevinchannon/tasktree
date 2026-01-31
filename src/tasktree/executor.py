@@ -96,7 +96,9 @@ class Executor:
         self.logger = logger
         self.task_output = task_output
         self.process_runner_factory = process_runner_factory
-        self.docker_manager = docker_module.DockerManager(recipe.project_root)
+        self.docker_manager = docker_module.DockerManager(
+            recipe.project_root, process_runner_factory
+        )
 
     @staticmethod
     def _has_regular_args(task: Task) -> bool:
