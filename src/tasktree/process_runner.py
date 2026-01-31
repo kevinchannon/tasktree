@@ -137,6 +137,127 @@ class StreamingProcessRunner:
         return process.wait()
 
 
+class PassthroughProcessRunner:
+    """
+    ProcessRunner that passes through all output using subprocess.run.
+
+    Uses capture_output=False to let subprocess output flow directly to
+    the terminal. This is the legacy behavior before task output control.
+    """
+
+    def run(
+        self,
+        cmd: list[str],
+        cwd: Path,
+        env: dict[str, str] | None = None,
+    ) -> int:
+        """
+        Run subprocess with passthrough output.
+
+        Args:
+            cmd: Command and arguments to execute
+            cwd: Working directory
+            env: Environment variables (None uses inherited environment)
+
+        Returns:
+            Exit code of the subprocess
+
+        Raises:
+            subprocess.CalledProcessError: If check=True and process fails
+        """
+        result = subprocess.run(
+            cmd,
+            cwd=cwd,
+            env=env,
+            capture_output=False,
+            check=False,
+        )
+        return result.returncode
+
+
+class SilentProcessRunner:
+    """
+    ProcessRunner that suppresses all output using subprocess.run.
+
+    Uses capture_output=True and discards the output. More efficient than
+    streaming when output is not needed.
+    """
+
+    def run(
+        self,
+        cmd: list[str],
+        cwd: Path,
+        env: dict[str, str] | None = None,
+    ) -> int:
+        """
+        Run subprocess with suppressed output.
+
+        Args:
+            cmd: Command and arguments to execute
+            cwd: Working directory
+            env: Environment variables (None uses inherited environment)
+
+        Returns:
+            Exit code of the subprocess
+
+        Raises:
+            subprocess.CalledProcessError: If check=True and process fails
+        """
+        result = subprocess.run(
+            cmd,
+            cwd=cwd,
+            env=env,
+            capture_output=True,
+            check=False,
+        )
+        return result.returncode
+
+
+class CapturingProcessRunner:
+    """
+    ProcessRunner that captures output for inspection.
+
+    Captures stdout and stderr, making them available via stdout/stderr attributes.
+    Used for utility commands where we need to inspect the output.
+    """
+
+    def __init__(self):
+        """Initialize the capturing process runner."""
+        self.stdout = ""
+        self.stderr = ""
+        self.returncode = 0
+
+    def run(
+        self,
+        cmd: list[str],
+        cwd: Path,
+        env: dict[str, str] | None = None,
+    ) -> int:
+        """
+        Run subprocess and capture output.
+
+        Args:
+            cmd: Command and arguments to execute
+            cwd: Working directory
+            env: Environment variables (None uses inherited environment)
+
+        Returns:
+            Exit code of the subprocess
+        """
+        result = subprocess.run(
+            cmd,
+            cwd=cwd,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.stdout = result.stdout
+        self.stderr = result.stderr
+        self.returncode = result.returncode
+        return result.returncode
+
+
 def make_process_runner(task_output: str) -> ProcessRunner:
     """
     Factory function to create a ProcessRunner based on task_output mode.
@@ -147,8 +268,7 @@ def make_process_runner(task_output: str) -> ProcessRunner:
     Returns:
         ProcessRunner instance configured for the specified output mode
     """
-    suppress_output = task_output.lower() == "none"
-    return StreamingProcessRunner(
-        show_stdout=not suppress_output,
-        show_stderr=not suppress_output,
-    )
+    if task_output.lower() == "none":
+        return SilentProcessRunner()
+    else:
+        return PassthroughProcessRunner()

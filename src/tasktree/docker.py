@@ -107,6 +107,8 @@ class DockerManager:
 
         # Build the image
         try:
+            from tasktree.process_runner import PassthroughProcessRunner
+
             docker_build_cmd = [
                 "docker",
                 "build",
@@ -123,16 +125,17 @@ class DockerManager:
 
             docker_build_cmd.append(str(context_path))
 
-            subprocess.run(
-                docker_build_cmd,
-                check=True,
-                capture_output=False,  # Show build output to user
+            # Use PassthroughProcessRunner to show build output
+            runner = PassthroughProcessRunner()
+            exit_code = runner.run(
+                cmd=docker_build_cmd,
+                cwd=self._project_root,
             )
-        except subprocess.CalledProcessError as e:
-            raise DockerError(
-                f"Failed to build Docker image for environment '{env.name}': "
-                f"docker build exited with code {e.returncode}"
-            ) from e
+            if exit_code != 0:
+                raise DockerError(
+                    f"Failed to build Docker image for environment '{env.name}': "
+                    f"docker build exited with code {exit_code}"
+                )
         except FileNotFoundError:
             raise DockerError(
                 "Docker command not found. Please install Docker and ensure it's in your PATH."
@@ -151,7 +154,7 @@ class DockerManager:
         cmd: str,
         working_dir: Path,
         container_working_dir: str,
-        process_runner: ProcessRunner | None = None,
+        process_runner: ProcessRunner,
     ) -> subprocess.CompletedProcess:
         """
         Execute command inside Docker container.
@@ -214,14 +217,7 @@ class DockerManager:
 
         # Execute using ProcessRunner
         try:
-            # If no process_runner provided, create a default one (for tests)
-            if process_runner is None:
-                from tasktree.process_runner import make_process_runner
-                runner = make_process_runner("all")  # Default to showing all output
-            else:
-                runner = process_runner
-
-            exit_code = runner.run(
+            exit_code = process_runner.run(
                 cmd=docker_cmd,
                 cwd=working_dir,
                 env=None,  # Docker run doesn't need explicit env dict
@@ -284,14 +280,20 @@ class DockerManager:
         DockerError: If docker is not available
         @athena: 8deaf8c5c05e
         """
+        from tasktree.process_runner import CapturingProcessRunner
+
         try:
-            subprocess.run(
-                ["docker", "--version"],
-                check=True,
-                capture_output=True,
-                text=True,
+            runner = CapturingProcessRunner()
+            exit_code = runner.run(
+                cmd=["docker", "--version"],
+                cwd=Path.cwd(),
             )
-        except (subprocess.CalledProcessError, FileNotFoundError):
+            if exit_code != 0:
+                raise DockerError(
+                    "Docker is not available. Please install Docker and ensure it's running.\n"
+                    "Visit https://docs.docker.com/get-docker/ for installation instructions."
+                )
+        except FileNotFoundError:
             raise DockerError(
                 "Docker is not available. Please install Docker and ensure it's running.\n"
                 "Visit https://docs.docker.com/get-docker/ for installation instructions."
@@ -312,17 +314,18 @@ class DockerManager:
         DockerError: If cannot inspect image
         @athena: 9e5aa77003ee
         """
-        try:
-            result = subprocess.run(
-                ["docker", "inspect", "--format={{.Id}}", image_tag],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-            image_id = result.stdout.strip()
-            return image_id
-        except subprocess.CalledProcessError as e:
-            raise DockerError(f"Failed to inspect image {image_tag}: {e.stderr}")
+        from tasktree.process_runner import CapturingProcessRunner
+
+        runner = CapturingProcessRunner()
+        exit_code = runner.run(
+            cmd=["docker", "inspect", "--format={{.Id}}", image_tag],
+            cwd=Path.cwd(),
+        )
+        if exit_code != 0:
+            raise DockerError(f"Failed to inspect image {image_tag}: {runner.stderr}")
+
+        image_id = runner.stdout.strip()
+        return image_id
 
 
 def is_docker_environment(env: Environment) -> bool:
