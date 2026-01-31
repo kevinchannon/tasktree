@@ -169,6 +169,7 @@ class PassthroughProcessRunner:
             cmd,
             cwd=cwd,
             env=env,
+            capture_output=False,
             check=False,
         )
         return result.returncode
