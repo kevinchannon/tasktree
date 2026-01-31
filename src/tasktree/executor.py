@@ -13,7 +13,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from tasktree import docker as docker_module
 from tasktree.graph import (
@@ -25,6 +25,7 @@ from tasktree.graph import (
 from tasktree.hasher import hash_args, hash_task, make_cache_key
 from tasktree.logging import Logger, LogLevel
 from tasktree.parser import Recipe, Task, Environment
+from tasktree.process_runner import ProcessRunner
 from tasktree.state import StateManager, TaskState
 from tasktree.hasher import hash_environment_definition
 
@@ -71,7 +72,14 @@ class Executor:
         "LOGNAME",
     }
 
-    def __init__(self, recipe: Recipe, state_manager: StateManager, logger: Logger, task_output: str = "all"):
+    def __init__(
+        self,
+        recipe: Recipe,
+        state_manager: StateManager,
+        logger: Logger,
+        task_output: str = "all",
+        process_runner_factory: Callable[[], ProcessRunner] | None = None,
+    ):
         """
         Initialize executor.
 
@@ -80,12 +88,14 @@ class Executor:
         state_manager: State manager for tracking task execution
         logger_fn: Logger function for output (matches Console.print signature)
         task_output: Control task subprocess output (all, out, err, on-err, none)
+        process_runner_factory: Factory function for creating ProcessRunner instances
         @athena: 21b65db48bca
         """
         self.recipe = recipe
         self.state = state_manager
         self.logger = logger
         self.task_output = task_output
+        self.process_runner_factory = process_runner_factory
         self.docker_manager = docker_module.DockerManager(recipe.project_root)
 
     @staticmethod
@@ -617,6 +627,13 @@ class Executor:
 
         # Execute command
         self.logger.log(LogLevel.INFO, f"Running: {task.name}")
+
+        # Get process runner instance for this task execution
+        if self.process_runner_factory:
+            process_runner = self.process_runner_factory()
+        else:
+            from tasktree.process_runner import make_process_runner
+            process_runner = make_process_runner()
 
         # Route to Docker execution or regular execution
         if env and env.dockerfile:

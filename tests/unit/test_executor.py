@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 from helpers.logging import logger_stub
 from tasktree.executor import Executor
 from tasktree.parser import Recipe, Task
+from tasktree.process_runner import ProcessRunner
 from tasktree.state import StateManager, TaskState
 
 
@@ -1739,6 +1740,106 @@ class TestTaskOutputParameter(unittest.TestCase):
 
                 # Verify subprocess.run was called (method executed successfully)
                 mock_run.assert_called_once()
+
+
+class TestExecutorProcessRunnerFactory(unittest.TestCase):
+    """Tests for Executor's process_runner_factory parameter."""
+
+    def test_executor_accepts_process_runner_factory(self):
+        """Executor can be initialized with a process_runner_factory parameter."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+            recipe = Recipe(
+                tasks={},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+
+            mock_factory = MagicMock()
+            executor = Executor(
+                recipe,
+                state_manager,
+                logger_stub,
+                process_runner_factory=mock_factory
+            )
+
+            self.assertEqual(executor.process_runner_factory, mock_factory)
+
+    def test_executor_stores_none_when_no_factory_provided(self):
+        """Executor stores None for process_runner_factory when not provided."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+            recipe = Recipe(
+                tasks={},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+
+            executor = Executor(recipe, state_manager, logger_stub)
+
+            self.assertIsNone(executor.process_runner_factory)
+
+    @patch('tasktree.executor.subprocess.run')
+    def test_executor_uses_factory_in_run_task(self, mock_subprocess_run):
+        """Executor calls process_runner_factory in _run_task."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+
+            # Create a simple task
+            task = Task(name="test", cmd="echo test")
+            recipe = Recipe(
+                tasks={"test": task},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+
+            # Create mock process runner
+            mock_runner = MagicMock(spec=ProcessRunner)
+            mock_factory = MagicMock(return_value=mock_runner)
+
+            executor = Executor(
+                recipe,
+                state_manager,
+                logger_stub,
+                process_runner_factory=mock_factory
+            )
+
+            # Execute the task
+            executor._run_task(task, {})
+
+            # Verify factory was called
+            mock_factory.assert_called_once()
+
+    @patch('tasktree.executor.make_process_runner')
+    @patch('tasktree.executor.subprocess.run')
+    def test_executor_uses_default_factory_when_none_provided(self, mock_subprocess_run, mock_make_process_runner):
+        """Executor uses make_process_runner when no factory provided."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+
+            # Create a simple task
+            task = Task(name="test", cmd="echo test")
+            recipe = Recipe(
+                tasks={"test": task},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+
+            # Create mock process runner
+            mock_runner = MagicMock(spec=ProcessRunner)
+            mock_make_process_runner.return_value = mock_runner
+
+            executor = Executor(recipe, state_manager, logger_stub)
+
+            # Execute the task
+            executor._run_task(task, {})
+
+            # Verify make_process_runner was called
+            mock_make_process_runner.assert_called_once()
 
 
 if __name__ == "__main__":
