@@ -77,8 +77,8 @@ class Executor:
         recipe: Recipe,
         state_manager: StateManager,
         logger: Logger,
+        process_runner_factory: Callable[[], ProcessRunner],
         task_output: str = "all",
-        process_runner_factory: Callable[[], ProcessRunner] | None = None,
     ):
         """
         Initialize executor.
@@ -629,11 +629,7 @@ class Executor:
         self.logger.log(LogLevel.INFO, f"Running: {task.name}")
 
         # Get process runner instance for this task execution
-        if self.process_runner_factory:
-            process_runner = self.process_runner_factory()
-        else:
-            from tasktree.process_runner import make_process_runner
-            process_runner = make_process_runner()
+        process_runner = self.process_runner_factory()
 
         # Route to Docker execution or regular execution
         if env and env.dockerfile:

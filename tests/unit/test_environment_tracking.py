@@ -6,6 +6,7 @@ from pathlib import Path
 from tasktree.executor import Executor
 from tasktree.hasher import hash_environment_definition
 from tasktree.parser import Environment, Recipe, Task
+from tasktree.process_runner import make_process_runner
 from tasktree.state import StateManager, TaskState
 
 
@@ -173,7 +174,7 @@ class TestCheckEnvironmentChanged(unittest.TestCase):
         )
         self.state_manager = StateManager(self.project_root)
         logger_fn = lambda *args, **kwargs: None
-        self.executor = Executor(self.recipe, self.state_manager, logger_fn)
+        self.executor = Executor(self.recipe, self.state_manager, logger_fn, make_process_runner)
 
     def test_check_environment_changed_no_env(self):
         """
@@ -291,7 +292,7 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         )
         self.state_manager = StateManager(self.project_root)
         logger_fn = lambda *args, **kwargs: None
-        self.executor = Executor(self.recipe, self.state_manager, logger_fn)
+        self.executor = Executor(self.recipe, self.state_manager, logger_fn, make_process_runner)
 
     def test_check_docker_image_changed_no_cached_id(self):
         """
