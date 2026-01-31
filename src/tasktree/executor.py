@@ -656,8 +656,8 @@ class Executor:
         task_name: str,
         shell: str,
         preamble: str,
-        exported_env_vars: dict[str, str] | None,
-        process_runner: ProcessRunner,
+        exported_env_vars: dict[str, str] | None = None,
+        process_runner: ProcessRunner | None = None,
     ) -> None:
         """
         Execute a command via temporary script file (unified execution path).
@@ -718,7 +718,9 @@ class Executor:
         try:
             # Execute script file using ProcessRunner
             try:
-                exit_code = process_runner.run(
+                # If no process_runner provided, create one from factory
+                runner = process_runner if process_runner is not None else self.process_runner_factory(self.task_output)
+                exit_code = runner.run(
                     cmd=[script_path],
                     cwd=working_dir,
                     env=env,

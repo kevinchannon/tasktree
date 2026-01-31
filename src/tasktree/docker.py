@@ -151,7 +151,7 @@ class DockerManager:
         cmd: str,
         working_dir: Path,
         container_working_dir: str,
-        process_runner: ProcessRunner,
+        process_runner: ProcessRunner | None = None,
     ) -> subprocess.CompletedProcess:
         """
         Execute command inside Docker container.
@@ -214,7 +214,14 @@ class DockerManager:
 
         # Execute using ProcessRunner
         try:
-            exit_code = process_runner.run(
+            # If no process_runner provided, create a default one (for tests)
+            if process_runner is None:
+                from tasktree.process_runner import make_process_runner
+                runner = make_process_runner("all")  # Default to showing all output
+            else:
+                runner = process_runner
+
+            exit_code = runner.run(
                 cmd=docker_cmd,
                 cwd=working_dir,
                 env=None,  # Docker run doesn't need explicit env dict
