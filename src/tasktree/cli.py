@@ -32,6 +32,7 @@ from tasktree.hasher import hash_task, hash_args
 from tasktree.console_logger import ConsoleLogger, Logger
 from tasktree.logging import LogLevel
 from tasktree.parser import Recipe, find_recipe_file, parse_arg_spec, parse_recipe
+from tasktree.process_runner import make_process_runner
 from tasktree.state import StateManager
 from tasktree.types import get_click_type
 
@@ -607,7 +608,7 @@ def _execute_dynamic_task(
     # Create executor and state manager
     state = StateManager(recipe.project_root)
     state.load()
-    executor = Executor(recipe, state, logger, task_output=task_output)
+    executor = Executor(recipe, state, logger, make_process_runner, task_output=task_output)
 
     # Resolve execution order to determine which tasks will actually run
     # This is important for correct state pruning after template substitution
