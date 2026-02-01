@@ -158,7 +158,7 @@ tasks:
 """)
 
             # Parse the recipe
-            recipe, _ = parse_recipe(recipe_file)
+            recipe = parse_recipe(recipe_file)
 
             # Create executor with StdoutOnlyProcessRunner factory
             executor = Executor(
@@ -216,7 +216,7 @@ tasks:
 """)
 
             # Parse the recipe
-            recipe, _ = parse_recipe(recipe_file)
+            recipe = parse_recipe(recipe_file)
 
             # Create executor with StdoutOnlyProcessRunner factory
             executor = Executor(
@@ -256,7 +256,7 @@ tasks:
 """)
 
             # Parse the recipe
-            recipe, _ = parse_recipe(recipe_file)
+            recipe = parse_recipe(recipe_file)
 
             # Create executor with StdoutOnlyProcessRunner factory
             executor = Executor(
