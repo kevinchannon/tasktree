@@ -604,7 +604,7 @@ def _execute_dynamic_task(
     # Create executor and state manager
     state = StateManager(recipe.project_root)
     state.load()
-    executor = Executor(recipe, state, logger, task_output=task_output)
+    executor = Executor(recipe, state, logger, make_process_runner)
 
     # Resolve execution order to determine which tasks will actually run
     # This is important for correct state pruning after template substitution
@@ -643,7 +643,7 @@ def _execute_dynamic_task(
     try:
         executor.execute_task(
             task_name,
-            lambda: make_process_runner(TaskOutputTypes.ALL),
+            TaskOutputTypes(task_output.lower()),
             args_dict,
             force=force,
             only=only,

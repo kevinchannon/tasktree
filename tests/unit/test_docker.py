@@ -326,14 +326,18 @@ class TestDockerManager(unittest.TestCase):
         mock_run.side_effect = mock_run_side_effect
 
         # First call should check docker, build, and inspect
-        tag1, image_id1 = self.manager.ensure_image_built(env, make_process_runner(TaskOutputTypes.ALL))
+        tag1, image_id1 = self.manager.ensure_image_built(
+            env, make_process_runner(TaskOutputTypes.ALL)
+        )
         self.assertEqual(tag1, "tt-env-builder")
         self.assertEqual(image_id1, "sha256:abc123def456")
         # Should have called docker --version, docker build, and docker inspect
         self.assertEqual(mock_run.call_count, 3)
 
         # Second call should use cache (no additional docker build)
-        tag2, image_id2 = self.manager.ensure_image_built(env, make_process_runner(TaskOutputTypes.ALL))
+        tag2, image_id2 = self.manager.ensure_image_built(
+            env, make_process_runner(TaskOutputTypes.ALL)
+        )
         self.assertEqual(tag2, "tt-env-builder")
         self.assertEqual(image_id2, "sha256:abc123def456")
         self.assertEqual(mock_run.call_count, 3)  # No additional calls
