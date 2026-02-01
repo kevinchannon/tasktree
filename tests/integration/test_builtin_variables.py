@@ -64,8 +64,8 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        executor = Executor(recipe, state, logger_stub)
-        executor.execute_task("test-vars", lambda: make_process_runner(TaskOutputTypes.ALL))
+        executor = Executor(recipe, state, logger_stub, make_process_runner)
+        executor.execute_task("test-vars", TaskOutputTypes.ALL)
 
         # Read output and verify
         output = output_file.read_text()
@@ -126,8 +126,8 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        executor = Executor(recipe, state, logger_stub)
-        executor.execute_task("test-timestamp", lambda: make_process_runner(TaskOutputTypes.ALL))
+        executor = Executor(recipe, state, logger_stub, make_process_runner)
+        executor.execute_task("test-timestamp", TaskOutputTypes.ALL)
 
         output = output_file.read_text()
         lines = output.strip().split("\n")
@@ -157,8 +157,8 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        executor = Executor(recipe, state, logger_stub)
-        executor.execute_task("test-workdir", lambda: make_process_runner(TaskOutputTypes.ALL))
+        executor = Executor(recipe, state, logger_stub, make_process_runner)
+        executor.execute_task("test-workdir", TaskOutputTypes.ALL)
 
         output = output_file.read_text().strip()
         # Should show the absolute path to subdir
@@ -184,8 +184,8 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        executor = Executor(recipe, state, logger_stub)
-        executor.execute_task("test-multiline", lambda: make_process_runner(TaskOutputTypes.ALL))
+        executor = Executor(recipe, state, logger_stub, make_process_runner)
+        executor.execute_task("test-multiline", TaskOutputTypes.ALL)
 
         output = output_file.read_text().strip()
         expected = f"{recipe.project_root.resolve()}/test-multiline"
@@ -215,8 +215,8 @@ tasks:
         recipe = parse_recipe(recipe_path, project_root=Path(self.test_dir))
         state = StateManager(recipe.project_root)
         state.load()
-        executor = Executor(recipe, state, logger_stub)
-        executor.execute_task("test-recipe-dir", lambda: make_process_runner(TaskOutputTypes.ALL))
+        executor = Executor(recipe, state, logger_stub, make_process_runner)
+        executor.execute_task("test-recipe-dir", TaskOutputTypes.ALL)
 
         output = output_file.read_text()
         lines = {
@@ -255,9 +255,9 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        executor = Executor(recipe, state, logger_stub)
+        executor = Executor(recipe, state, logger_stub, make_process_runner)
         executor.execute_task(
-            "deploy", lambda: make_process_runner(TaskOutputTypes.ALL), args_dict={"region": "us-west-1"}
+            "deploy", TaskOutputTypes.ALL, args_dict={"region": "us-west-1"}
         )
 
         output = output_file.read_text()
@@ -294,8 +294,8 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        executor = Executor(recipe, state, logger_stub)
-        executor.execute_task("build-task", lambda: make_process_runner(TaskOutputTypes.ALL))
+        executor = Executor(recipe, state, logger_stub, make_process_runner)
+        executor.execute_task("build-task", TaskOutputTypes.ALL)
 
         output = output_file.read_text()
         lines = {
@@ -348,7 +348,7 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        executor = Executor(recipe, state, logger_stub)
+        executor = Executor(recipe, state, logger_stub, make_process_runner)
 
         # Mock the docker subprocess calls to capture the command
         docker_run_command = None
@@ -370,7 +370,7 @@ tasks:
 
         with patch("tasktree.docker.subprocess.run", side_effect=mock_run):
             # Execute task
-            executor.execute_task("docker-test", lambda: make_process_runner(TaskOutputTypes.ALL))
+            executor.execute_task("docker-test", TaskOutputTypes.ALL)
 
         # Verify that volumes were substituted
         self.assertIsNotNone(
@@ -470,7 +470,7 @@ tasks:
             recipe = parse_recipe(self.recipe_file)
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state, logger_stub)
+            executor = Executor(recipe, state, logger_stub, make_process_runner)
 
             # Mock the docker subprocess calls to capture the command
             docker_run_command = None
@@ -492,7 +492,7 @@ tasks:
 
             with patch("tasktree.docker.subprocess.run", side_effect=mock_run):
                 # Execute task
-                executor.execute_task("docker-test", lambda: make_process_runner(TaskOutputTypes.ALL))
+                executor.execute_task("docker-test", TaskOutputTypes.ALL)
 
             # Verify that volumes were substituted
             self.assertIsNotNone(
@@ -585,7 +585,7 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        executor = Executor(recipe, state, logger_stub)
+        executor = Executor(recipe, state, logger_stub, make_process_runner)
 
         # Mock the docker subprocess calls to capture the command
         docker_run_command = None
@@ -607,7 +607,7 @@ tasks:
 
         with patch("tasktree.docker.subprocess.run", side_effect=mock_run):
             # Execute task
-            executor.execute_task("docker-test", lambda: make_process_runner(TaskOutputTypes.ALL))
+            executor.execute_task("docker-test", TaskOutputTypes.ALL)
 
         # Verify that volumes were substituted
         self.assertIsNotNone(

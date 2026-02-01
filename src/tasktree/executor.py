@@ -77,7 +77,7 @@ class Executor:
         recipe: Recipe,
         state_manager: StateManager,
         logger: Logger,
-        task_output: str = "all",
+        process_runner_factory: Callable[[Any], ProcessRunner],
     ):
         """
         Initialize executor.
@@ -86,13 +86,13 @@ class Executor:
         recipe: Parsed recipe containing all tasks
         state_manager: State manager for tracking task execution
         logger_fn: Logger function for output (matches Console.print signature)
-        task_output: Control task subprocess output (all, out, err, on-err, none)
+        process_runner_factory: Factory function for creating ProcessRunner instances
         @athena: d09e6a537c99
         """
         self.recipe = recipe
         self.state = state_manager
         self.logger = logger
-        self.task_output = task_output
+        self._process_runner_factory = process_runner_factory
         self.docker_manager = docker_module.DockerManager(recipe.project_root)
 
     @staticmethod
@@ -466,7 +466,7 @@ class Executor:
     def execute_task(
         self,
         task_name: str,
-        process_runner_factory: Callable[[], ProcessRunner],
+        task_output_type: Any,
         args_dict: dict[str, Any] | None = None,
         force: bool = False,
         only: bool = False,
@@ -476,7 +476,7 @@ class Executor:
 
         Args:
         task_name: Name of task to execute
-        process_runner_factory: Factory function for creating ProcessRunner instances
+        task_output_type: TaskOutputTypes enum value for controlling subprocess output
         args_dict: Arguments to pass to the task
         force: If True, ignore freshness and re-run all tasks
         only: If True, run only the specified task without dependencies (implies force=True)
@@ -519,7 +519,7 @@ class Executor:
             # Convert None to {} for internal use (None is used to distinguish simple deps in graph)
             args_dict_for_execution = task_args if task_args is not None else {}
 
-            process_runner = process_runner_factory()
+            process_runner = self._process_runner_factory(task_output_type)
 
             # Check if task needs to run (based on CURRENT filesystem state)
             status = self.check_task_status(

@@ -601,10 +601,17 @@ def _execute_dynamic_task(
     # Parse task arguments
     args_dict = _parse_task_args(logger, task.args, task_args)
 
+    # Parse task_output string to enum
+    # Click.Choice with case_sensitive=False normalizes input to lowercase
+    task_output_map = {
+        "all": TaskOutputTypes.ALL,
+    }
+    task_output_enum = task_output_map[task_output.lower()]
+
     # Create executor and state manager
     state = StateManager(recipe.project_root)
     state.load()
-    executor = Executor(recipe, state, logger, task_output=task_output)
+    executor = Executor(recipe, state, logger, make_process_runner)
 
     # Resolve execution order to determine which tasks will actually run
     # This is important for correct state pruning after template substitution
@@ -643,7 +650,7 @@ def _execute_dynamic_task(
     try:
         executor.execute_task(
             task_name,
-            lambda: make_process_runner(TaskOutputTypes.ALL),
+            task_output_enum,
             args_dict,
             force=force,
             only=only,

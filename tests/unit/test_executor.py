@@ -36,7 +36,7 @@ class TestTaskStatus(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             status = executor.check_task_status(
                 tasks["build"], {}, make_process_runner(TaskOutputTypes.ALL), False
@@ -59,7 +59,7 @@ class TestTaskStatus(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
             process_runner = make_process_runner(TaskOutputTypes.ALL)
 
             status = executor.check_task_status(
@@ -115,7 +115,7 @@ class TestTaskStatus(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             status = executor.check_task_status(task, {}, make_process_runner(TaskOutputTypes.ALL))
             self.assertFalse(status.will_run)
@@ -143,13 +143,13 @@ class TestExecutor(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             process_runner_spy = MagicMock(spec=ProcessRunner)
             fake_proc_runner_factory = MagicMock()
             fake_proc_runner_factory.return_value = process_runner_spy
 
-            executor.execute_task("build", fake_proc_runner_factory)
+            executor.execute_task("build", TaskOutputTypes.ALL)
 
             # Verify subprocess was called with a script path
             process_runner_spy.run.assert_called_once()
@@ -176,13 +176,13 @@ class TestExecutor(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             process_runner_spy = MagicMock(spec=ProcessRunner)
             fake_proc_runner_factory = MagicMock()
             fake_proc_runner_factory.return_value = process_runner_spy
 
-            executor.execute_task("build", fake_proc_runner_factory)
+            executor.execute_task("build", TaskOutputTypes.ALL)
 
             # Verify both tasks were executed
             self.assertEqual(process_runner_spy.run.call_count, 2)
@@ -209,7 +209,7 @@ class TestExecutor(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             process_runner_spy = MagicMock(spec=ProcessRunner)
             fake_proc_runner_factory = MagicMock()
@@ -241,7 +241,7 @@ class TestExecutor(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             process_runner_spy = MagicMock(spec=ProcessRunner)
 
@@ -284,7 +284,7 @@ class TestExecutor(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
             process_runner_spy = MagicMock(spec=ProcessRunner)
 
             # Call with preamble
@@ -318,7 +318,7 @@ class TestExecutor(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             process_runner_spy = MagicMock(spec=ProcessRunner)
 
@@ -363,7 +363,7 @@ class TestExecutor(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             # Track all operations in order
             call_order = []
@@ -541,7 +541,7 @@ class TestMissingOutputs(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
             process_runner = make_process_runner(TaskOutputTypes.ALL)
 
             status = executor.check_task_status(task, {}, process_runner)
@@ -585,7 +585,7 @@ class TestMissingOutputs(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
             process_runner = make_process_runner(TaskOutputTypes.ALL)
 
             status = executor.check_task_status(task, {}, process_runner)
@@ -631,7 +631,7 @@ class TestMissingOutputs(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
             process_runner = make_process_runner(TaskOutputTypes.ALL)
 
             status = executor.check_task_status(task, {}, process_runner)
@@ -661,7 +661,7 @@ class TestMissingOutputs(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
             process_runner = make_process_runner(TaskOutputTypes.ALL)
 
             status = executor.check_task_status(task, {}, process_runner)
@@ -686,7 +686,7 @@ class TestMissingOutputs(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
             process_runner = make_process_runner(TaskOutputTypes.ALL)
 
             status = executor.check_task_status(task, {}, process_runner)
@@ -735,7 +735,7 @@ class TestMissingOutputs(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
             process_runner = make_process_runner(TaskOutputTypes.ALL)
 
             status = executor.check_task_status(task, {}, process_runner)
@@ -779,7 +779,7 @@ class TestMissingOutputs(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
             process_runner = make_process_runner(TaskOutputTypes.ALL)
 
             status = executor.check_task_status(task, {}, process_runner)
@@ -814,10 +814,10 @@ tasks:
 
             recipe = parse_recipe(recipe_path)
             state_manager = StateManager(project_root)
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             with self.assertRaises(ExecutionError) as cm:
-                executor.execute_task("fail", lambda: make_process_runner(TaskOutputTypes.ALL), {})
+                executor.execute_task("fail", TaskOutputTypes.ALL, {})
             self.assertIn("exit code", str(cm.exception).lower())
 
     def test_execute_working_dir_not_found(self):
@@ -842,10 +842,10 @@ tasks:
 
             recipe = parse_recipe(recipe_path)
             state_manager = StateManager(project_root)
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             with self.assertRaises((ExecutionError, FileNotFoundError, OSError)):
-                executor.execute_task("test", lambda: make_process_runner(TaskOutputTypes.ALL), {})
+                executor.execute_task("test", TaskOutputTypes.ALL, {})
 
     def test_execute_command_not_found(self):
         """
@@ -868,10 +868,10 @@ tasks:
 
             recipe = parse_recipe(recipe_path)
             state_manager = StateManager(project_root)
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             with self.assertRaises(ExecutionError):
-                executor.execute_task("test", lambda: make_process_runner(TaskOutputTypes.ALL), {})
+                executor.execute_task("test", TaskOutputTypes.ALL, {})
 
     def test_execute_permission_denied(self):
         """
@@ -900,10 +900,10 @@ tasks:
 
             recipe = parse_recipe(recipe_path)
             state_manager = StateManager(project_root)
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             with self.assertRaises((ExecutionError, PermissionError, OSError)):
-                executor.execute_task("test", lambda: make_process_runner(TaskOutputTypes.ALL), {})
+                executor.execute_task("test", TaskOutputTypes.ALL, {})
 
     def test_builtin_working_dir_in_working_dir_raises_error(self):
         """
@@ -927,10 +927,10 @@ tasks:
 
             recipe = parse_recipe(recipe_path)
             state_manager = StateManager(project_root)
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             with self.assertRaises(ExecutionError) as cm:
-                executor.execute_task("test", lambda: make_process_runner(TaskOutputTypes.ALL), {})
+                executor.execute_task("test", TaskOutputTypes.ALL, {})
 
             error_msg = str(cm.exception)
             self.assertIn("Cannot use {{ tt.working_dir }}", error_msg)
@@ -963,10 +963,10 @@ tasks:
 
             recipe = parse_recipe(recipe_path)
             state_manager = StateManager(project_root)
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             # Should not raise - tt.task_name is allowed in working_dir
-            executor.execute_task("test-task", lambda: make_process_runner(TaskOutputTypes.ALL), {})
+            executor.execute_task("test-task", TaskOutputTypes.ALL, {})
 
 
 class TestExecutorPrivateMethods(unittest.TestCase):
@@ -990,7 +990,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             result = executor._substitute_args(
                 "echo {{ arg.environment }}", {"environment": "production"}
@@ -1016,7 +1016,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             result = executor._substitute_args(
                 "deploy {{ arg.app }} to {{ arg.region }}",
@@ -1043,7 +1043,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             # Missing argument should raise ValueError
             with self.assertRaises(ValueError) as cm:
@@ -1084,7 +1084,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             # Check if inputs changed
             changed = executor._check_inputs_changed(task, cached_state, ["input.txt"])
@@ -1113,7 +1113,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             # Check for missing outputs
             missing = executor._check_outputs_missing(task)
@@ -1142,7 +1142,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             # Expand multiple patterns
             result = executor._expand_globs(["*.txt", "*.py"], ".")
@@ -1176,7 +1176,7 @@ class TestOnlyMode(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
             process_runner_spy = MagicMock(spec=ProcessRunner)
 
             fake_proc_runner_factory = MagicMock()
@@ -1184,7 +1184,7 @@ class TestOnlyMode(unittest.TestCase):
 
             # Execute with only=True
             statuses = executor.execute_task(
-                "build", fake_proc_runner_factory, only=True
+                "build", TaskOutputTypes.ALL, only=True
             )
 
             # Verify only build was executed, not lint
@@ -1218,7 +1218,7 @@ class TestOnlyMode(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             process_runner_spy = MagicMock(spec=ProcessRunner)
             fake_proc_runner_factory = MagicMock()
@@ -1226,7 +1226,7 @@ class TestOnlyMode(unittest.TestCase):
 
             # Execute test with only=True
             statuses = executor.execute_task(
-                "test", fake_proc_runner_factory, only=True
+                "test", TaskOutputTypes.ALL, only=True
             )
 
             # Verify only test was executed
@@ -1280,7 +1280,7 @@ class TestOnlyMode(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             process_runner_spy = MagicMock(spec=ProcessRunner)
             fake_proc_runner_factory = MagicMock()
@@ -1288,7 +1288,7 @@ class TestOnlyMode(unittest.TestCase):
 
             # Execute with only=True
             statuses = executor.execute_task(
-                "build", fake_proc_runner_factory, only=True
+                "build", TaskOutputTypes.ALL, only=True
             )
 
             # Verify task was executed despite being fresh (only implies force)
@@ -1330,10 +1330,10 @@ echo "line3" >> output.txt"""
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             # Let the command actually run (no mocking)
-            executor.execute_task("build", lambda: make_process_runner(TaskOutputTypes.ALL))
+            executor.execute_task("build", TaskOutputTypes.ALL)
 
             # Verify output file was created with all three lines
             output_file = project_root / "output.txt"
@@ -1378,7 +1378,7 @@ class TestEnvironmentResolution(unittest.TestCase):
                 default_env="dev",
                 global_env_override="prod",  # Global override
             )
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             # Global override should win
             env_name = executor._get_effective_env_name(tasks["build"])
@@ -1409,7 +1409,7 @@ class TestEnvironmentResolution(unittest.TestCase):
                 environments=envs,
                 default_env="prod",
             )
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             # Task env should win over default_env
             env_name = executor._get_effective_env_name(tasks["build"])
@@ -1437,7 +1437,7 @@ class TestEnvironmentResolution(unittest.TestCase):
                 environments=envs,
                 default_env="prod",
             )
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             # Default env should be used
             env_name = executor._get_effective_env_name(tasks["build"])
@@ -1459,7 +1459,7 @@ class TestEnvironmentResolution(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             # No envs defined, should return empty string
             env_name = executor._get_effective_env_name(tasks["build"])
@@ -1490,7 +1490,7 @@ class TestEnvironmentResolution(unittest.TestCase):
                 recipe_path=project_root / "tasktree.yaml",
                 environments=envs,
             )
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             shell, preamble = executor._resolve_environment(tasks["build"])
             self.assertEqual(shell, "zsh")
@@ -1529,7 +1529,7 @@ class TestEnvironmentResolution(unittest.TestCase):
                 recipe_path=project_root / "tasktree.yaml",
                 environments=envs,
             )
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             process_runner_spy = MagicMock(spec=ProcessRunner)
             process_runner_spy.run.side_effect = capture_script_content
@@ -1537,7 +1537,7 @@ class TestEnvironmentResolution(unittest.TestCase):
             fake_proc_runner_factory = MagicMock()
             fake_proc_runner_factory.return_value = process_runner_spy
 
-            executor.execute_task("build", fake_proc_runner_factory)
+            executor.execute_task("build", TaskOutputTypes.ALL)
 
             # Verify script execution was used and contains fish shell
             self.assertEqual(len(captured_script_content), 1)
@@ -1600,7 +1600,7 @@ class TestEnvironmentResolution(unittest.TestCase):
                     project_root=project_root,
                     recipe_path=project_root / "tasktree.yaml",
                 )
-                executor = Executor(recipe, state_manager, logger_stub)
+                executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
                 process_runner_spy = MagicMock(spec=ProcessRunner)
                 process_runner_spy.run.side_effect = capture_script_content
@@ -1642,7 +1642,7 @@ class TestEnvironmentResolution(unittest.TestCase):
                     project_root=project_root,
                     recipe_path=project_root / "tasktree.yaml",
                 )
-                executor = Executor(recipe, state_manager, logger_stub)
+                executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
                 process_runner_spy = MagicMock(spec=ProcessRunner)
                 executor._run_task(tasks["test"], {}, process_runner_spy)
@@ -1679,7 +1679,7 @@ class TestEnvironmentResolution(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             with self.assertRaises(ValueError) as cm:
                 executor._run_task(tasks["test"], {}, make_process_runner(TaskOutputTypes.ALL))
@@ -1734,7 +1734,7 @@ class TestTaskOutputParameter(unittest.TestCase):
             )
 
             # Test default value
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
             self.assertEqual(executor.task_output, "all")
 
     def test_run_command_as_script_accesses_task_output_via_self(self):
@@ -1799,7 +1799,7 @@ class TestExecutorProcessRunner(unittest.TestCase):
             process_runner_spy = MagicMock(spec=ProcessRunner)
             process_runner_spy.run.return_value = MagicMock(returncode=0)
 
-            executor = Executor(recipe, state_manager, logger_stub)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
             executor._run_task(task, {}, process_runner_spy)
 
             process_runner_spy.run.assert_called_once()

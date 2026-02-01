@@ -273,9 +273,9 @@ tasks:
             # This creates build-artifact.txt and package.tar.gz
             parsed_recipe = parse_recipe(recipe_path)
             state_manager = StateManager(project_root)
-            executor = Executor(parsed_recipe, state_manager, logger_stub)
+            executor = Executor(parsed_recipe, state_manager, logger_stub, make_process_runner)
 
-            statuses = executor.execute_task("package", lambda: make_process_runner(TaskOutputTypes.ALL))
+            statuses = executor.execute_task("package", TaskOutputTypes.ALL)
 
             assert statuses["build"].will_run  # First run, no state
             assert statuses["package"].will_run  # First run, no state
@@ -299,9 +299,9 @@ tasks:
             recipe_path.write_text(yaml.dump(recipe))
 
             parsed_recipe = parse_recipe(recipe_path)
-            executor = Executor(parsed_recipe, state_manager, logger_stub)
+            executor = Executor(parsed_recipe, state_manager, logger_stub, make_process_runner)
 
-            statuses = executor.execute_task("package", lambda: make_process_runner(TaskOutputTypes.ALL))
+            statuses = executor.execute_task("package", TaskOutputTypes.ALL)
 
             # Build task should run (changed command = new task definition = "never_run")
             # OR if command hadn't changed, would be "no_outputs" (has outputs but no inputs)
@@ -360,9 +360,9 @@ tasks:
             # First run: establish baseline
             parsed_recipe = parse_recipe(recipe_path)
             state_manager = StateManager(project_root)
-            executor = Executor(parsed_recipe, state_manager, logger_stub)
+            executor = Executor(parsed_recipe, state_manager, logger_stub, make_process_runner)
 
-            statuses = executor.execute_task("build", lambda: make_process_runner(TaskOutputTypes.ALL))
+            statuses = executor.execute_task("build", TaskOutputTypes.ALL)
 
             assert statuses["generate"].will_run
             assert statuses["build"].will_run
@@ -375,9 +375,9 @@ tasks:
             recipe_path.write_text(yaml.dump(recipe))
 
             parsed_recipe = parse_recipe(recipe_path)
-            executor = Executor(parsed_recipe, state_manager, logger_stub)
+            executor = Executor(parsed_recipe, state_manager, logger_stub, make_process_runner)
 
-            statuses = executor.execute_task("build", lambda: make_process_runner(TaskOutputTypes.ALL))
+            statuses = executor.execute_task("build", TaskOutputTypes.ALL)
 
             # Generate runs (changed command = new definition = "never_run")
             # OR if command hadn't changed, would be "no_outputs" (has outputs but no inputs)
