@@ -154,3 +154,43 @@ tasks:
             self.assertIn("This is stdout", result.stdout)
             self.assertNotIn("This is stderr", result.stdout)
             self.assertNotIn("This is stderr", result.stderr)
+
+    def test_task_output_none_suppresses_all_output(self):
+        """
+        Test that --task-output=none suppresses both stdout and stderr.
+        @athena: TBD
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create recipe with task that outputs to both stdout and stderr
+            (project_root / "tasktree.yaml").write_text("""
+tasks:
+  mixed-output:
+    outputs: [done.txt]
+    cmd: |
+      echo "This is stdout"
+      echo "This is stderr" >&2
+      echo "done" > done.txt
+""")
+
+            # Execute with --task-output=none
+            result = run_tasktree_cli(
+                ["--task-output=none", "mixed-output"], cwd=project_root
+            )
+
+            # Assert success
+            self.assertEqual(
+                result.returncode,
+                0,
+                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
+            )
+
+            # Verify neither stdout nor stderr appear in output
+            self.assertNotIn("This is stdout", result.stdout)
+            self.assertNotIn("This is stderr", result.stdout)
+            self.assertNotIn("This is stderr", result.stderr)
+
+            # Verify output file was created (task still ran)
+            output_file = project_root / "done.txt"
+            self.assertTrue(output_file.exists(), "Output file not created")
