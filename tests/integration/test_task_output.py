@@ -12,7 +12,7 @@ from typer.testing import CliRunner
 
 from helpers.logging import logger_stub
 from tasktree.cli import app
-from tasktree.executor import Executor
+from tasktree.executor import Executor, ExecutionError
 from tasktree.parser import parse_recipe
 from tasktree.process_runner import TaskOutputTypes, make_process_runner
 from tasktree.state import StateManager
@@ -235,7 +235,7 @@ tasks:
             original_cwd = os.getcwd()
             try:
                 os.chdir(project_root)
-                with self.assertRaises(subprocess.CalledProcessError):
+                with self.assertRaises(ExecutionError):
                     executor.execute_task("fail", TaskOutputTypes.OUT)
 
             finally:

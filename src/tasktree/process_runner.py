@@ -175,6 +175,8 @@ class StdoutOnlyProcessRunner(ProcessRunner):
         # Extract parameters that need special handling
         check = kwargs.pop("check", False)
         timeout = kwargs.pop("timeout", None)
+        # Remove capture_output if present - not supported by Popen
+        kwargs.pop("capture_output", None)
 
         # Force stdout/stderr handling
         kwargs["stdout"] = subprocess.PIPE
