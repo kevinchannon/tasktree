@@ -143,13 +143,12 @@ class TestExecutor(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             process_runner_spy = MagicMock(spec=ProcessRunner)
             fake_proc_runner_factory = MagicMock()
             fake_proc_runner_factory.return_value = process_runner_spy
 
-            executor.execute_task("build", TaskOutputTypes.ALL)
+            Executor(recipe, state_manager, logger_stub, fake_proc_runner_factory).execute_task("build", TaskOutputTypes.ALL)
 
             # Verify subprocess was called with a script path
             process_runner_spy.run.assert_called_once()
@@ -176,13 +175,12 @@ class TestExecutor(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             process_runner_spy = MagicMock(spec=ProcessRunner)
             fake_proc_runner_factory = MagicMock()
             fake_proc_runner_factory.return_value = process_runner_spy
 
-            executor.execute_task("build", TaskOutputTypes.ALL)
+            Executor(recipe, state_manager, logger_stub, fake_proc_runner_factory).execute_task("build", TaskOutputTypes.ALL)
 
             # Verify both tasks were executed
             self.assertEqual(process_runner_spy.run.call_count, 2)
@@ -209,11 +207,13 @@ class TestExecutor(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             process_runner_spy = MagicMock(spec=ProcessRunner)
             fake_proc_runner_factory = MagicMock()
             fake_proc_runner_factory.return_value = process_runner_spy
+
+            executor = Executor(recipe, state_manager, logger_stub, fake_proc_runner_factory)
+
 
             executor.execute_task(
                 "deploy", fake_proc_runner_factory, {"environment": "production"}
@@ -1176,14 +1176,13 @@ class TestOnlyMode(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
-            process_runner_spy = MagicMock(spec=ProcessRunner)
 
+            process_runner_spy = MagicMock(spec=ProcessRunner)
             fake_proc_runner_factory = MagicMock()
             fake_proc_runner_factory.return_value = process_runner_spy
 
             # Execute with only=True
-            statuses = executor.execute_task(
+            statuses = Executor(recipe, state_manager, logger_stub, fake_proc_runner_factory).execute_task(
                 "build", TaskOutputTypes.ALL, only=True
             )
 
@@ -1218,14 +1217,12 @@ class TestOnlyMode(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
-
             process_runner_spy = MagicMock(spec=ProcessRunner)
             fake_proc_runner_factory = MagicMock()
             fake_proc_runner_factory.return_value = process_runner_spy
 
             # Execute test with only=True
-            statuses = executor.execute_task(
+            statuses = Executor(recipe, state_manager, logger_stub, fake_proc_runner_factory).execute_task(
                 "test", TaskOutputTypes.ALL, only=True
             )
 
@@ -1280,14 +1277,13 @@ class TestOnlyMode(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             process_runner_spy = MagicMock(spec=ProcessRunner)
             fake_proc_runner_factory = MagicMock()
             fake_proc_runner_factory.return_value = process_runner_spy
 
             # Execute with only=True
-            statuses = executor.execute_task(
+            statuses = Executor(recipe, state_manager, logger_stub, fake_proc_runner_factory).execute_task(
                 "build", TaskOutputTypes.ALL, only=True
             )
 
@@ -1529,7 +1525,6 @@ class TestEnvironmentResolution(unittest.TestCase):
                 recipe_path=project_root / "tasktree.yaml",
                 environments=envs,
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             process_runner_spy = MagicMock(spec=ProcessRunner)
             process_runner_spy.run.side_effect = capture_script_content
@@ -1537,7 +1532,7 @@ class TestEnvironmentResolution(unittest.TestCase):
             fake_proc_runner_factory = MagicMock()
             fake_proc_runner_factory.return_value = process_runner_spy
 
-            executor.execute_task("build", TaskOutputTypes.ALL)
+            Executor(recipe, state_manager, logger_stub, fake_proc_runner_factory).execute_task("build", TaskOutputTypes.ALL)
 
             # Verify script execution was used and contains fish shell
             self.assertEqual(len(captured_script_content), 1)
@@ -1694,49 +1689,6 @@ class TestTaskOutputParameter(unittest.TestCase):
     @athena: c15f20ce7913
     """
 
-    def test_executor_stores_task_output_parameter(self):
-        """
-        Test that Executor.__init__() stores task_output parameter correctly.
-        @athena: 2fd609c98e4e
-        """
-        with TemporaryDirectory() as tmpdir:
-            project_root = Path(tmpdir)
-            state_manager = StateManager(project_root)
-            tasks = {"test": Task(name="test", cmd="echo test")}
-            recipe = Recipe(
-                tasks=tasks,
-                project_root=project_root,
-                recipe_path=project_root / "tasktree.yaml",
-            )
-
-            # Test with explicit task_output value
-            executor = Executor(
-                recipe,
-                state_manager,
-                logger_stub,
-                task_output="all",
-            )
-            self.assertEqual(executor.task_output, "all")
-
-    def test_executor_task_output_defaults_to_all(self):
-        """
-        Test that Executor.__init__() defaults task_output to "all".
-        @athena: cbedcfbb20f4
-        """
-        with TemporaryDirectory() as tmpdir:
-            project_root = Path(tmpdir)
-            state_manager = StateManager(project_root)
-            tasks = {"test": Task(name="test", cmd="echo test")}
-            recipe = Recipe(
-                tasks=tasks,
-                project_root=project_root,
-                recipe_path=project_root / "tasktree.yaml",
-            )
-
-            # Test default value
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
-            self.assertEqual(executor.task_output, "all")
-
     def test_run_command_as_script_accesses_task_output_via_self(self):
         """
         Test that _run_command_as_script() can access task_output via self.
@@ -1756,7 +1708,7 @@ class TestTaskOutputParameter(unittest.TestCase):
                 recipe,
                 state_manager,
                 logger_stub,
-                task_output="all",
+                make_process_runner,
             )
 
             process_runner_spy = MagicMock(spec=ProcessRunner)

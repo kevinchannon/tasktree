@@ -4,10 +4,11 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import MagicMock
 
 from tasktree.executor import Executor
 from tasktree.parser import parse_recipe
-from tasktree.process_runner import TaskOutputTypes, make_process_runner
+from tasktree.process_runner import TaskOutputTypes, make_process_runner, ProcessRunner
 from tasktree.state import StateManager
 
 from helpers.logging import logger_stub
@@ -348,7 +349,6 @@ tasks:
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
         state.load()
-        executor = Executor(recipe, state, logger_stub, make_process_runner)
 
         # Mock the docker subprocess calls to capture the command
         docker_run_command = None
@@ -368,7 +368,16 @@ tasks:
             result.returncode = 0
             return result
 
-        with patch("tasktree.docker.subprocess.run", side_effect=mock_run):
+        process_runner_spy = MagicMock(spec=ProcessRunner)
+        process_runner_spy.run.side_effect = mock_run
+
+        fake_proc_runner_factory = MagicMock()
+        fake_proc_runner_factory.return_value = process_runner_spy
+
+        executor = Executor(recipe, state, logger_stub, fake_proc_runner_factory)
+
+        # Still need to mock subprocess.run because it's used to docker inspect
+        with patch("tasktree.process_runner.subprocess.run", side_effect=mock_run):
             # Execute task
             executor.execute_task("docker-test", TaskOutputTypes.ALL)
 

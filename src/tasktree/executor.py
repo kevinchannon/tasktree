@@ -647,7 +647,6 @@ class Executor:
                 working_dir,
                 process_runner,
                 exported_env_vars,
-                self.task_output,
             )
         else:
             # Regular execution path - use unified script-based execution
@@ -883,7 +882,6 @@ class Executor:
         working_dir: Path,
         process_runner: ProcessRunner,
         exported_env_vars: dict[str, str] | None = None,
-        task_output: str = "all",
     ) -> None:
         """
         Execute task inside Docker container.
