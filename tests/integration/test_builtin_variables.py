@@ -257,7 +257,7 @@ tasks:
         state.load()
         executor = Executor(recipe, state, logger_stub)
         executor.execute_task(
-            "deploy", make_process_runner, args_dict={"region": "us-west-1"}
+            "deploy", lambda: make_process_runner(TaskOutputTypes.ALL), args_dict={"region": "us-west-1"}
         )
 
         output = output_file.read_text()
