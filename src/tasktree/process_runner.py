@@ -6,9 +6,26 @@ better testability and dependency injection.
 
 import subprocess
 from abc import ABC, abstractmethod
+from enum import Enum
 from typing import Any
 
-__all__ = ["ProcessRunner", "PassthroughProcessRunner", "SilentProcessRunner", "make_process_runner"]
+__all__ = [
+    "ProcessRunner",
+    "PassthroughProcessRunner",
+    "SilentProcessRunner",
+    "TaskOutputTypes",
+    "make_process_runner",
+]
+
+
+class TaskOutputTypes(Enum):
+    """
+    Enum defining task output control modes.
+    @athena: TBD
+    """
+
+    ALL = "all"
+    NONE = "none"
 
 
 class ProcessRunner(ABC):
@@ -95,12 +112,24 @@ class SilentProcessRunner(ProcessRunner):
         return subprocess.run(*args, **kwargs)
 
 
-def make_process_runner() -> ProcessRunner:
+def make_process_runner(output_type: TaskOutputTypes) -> ProcessRunner:
     """
     Factory function for creating ProcessRunner instances.
 
+    Args:
+    output_type: The type of output control to use
+
     Returns:
     ProcessRunner: A new ProcessRunner instance
+
+    Raises:
+    ValueError: If an invalid TaskOutputTypes value is provided
     @athena: ba1d2e048716
     """
-    return PassthroughProcessRunner()
+    match output_type:
+        case TaskOutputTypes.ALL:
+            return PassthroughProcessRunner()
+        case TaskOutputTypes.NONE:
+            return SilentProcessRunner()
+        case _:
+            raise ValueError(f"Invalid TaskOutputTypes: {output_type}")

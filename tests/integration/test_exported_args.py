@@ -9,7 +9,7 @@ from tempfile import TemporaryDirectory
 from helpers.logging import logger_stub
 from tasktree.executor import Executor
 from tasktree.parser import parse_recipe
-from tasktree.process_runner import make_process_runner
+from tasktree.process_runner import TaskOutputTypes, make_process_runner
 from tasktree.state import StateManager
 
 
@@ -49,7 +49,7 @@ tasks:
 
             # Execute with exported args
             args_dict = {"server": "prod-server", "user": "admin"}
-            statuses = executor.execute_task("test", make_process_runner, args_dict)
+            statuses = executor.execute_task("test", lambda: make_process_runner(TaskOutputTypes.ALL), args_dict)
 
             # Should execute successfully (no exception = success)
             self.assertIn("test", statuses)
@@ -84,7 +84,7 @@ tasks:
 
             # Execute with only server arg (port uses default)
             args_dict = {"server": "prod-server", "port": "8080"}
-            statuses = executor.execute_task("test", make_process_runner, args_dict)
+            statuses = executor.execute_task("test", lambda: make_process_runner(TaskOutputTypes.ALL), args_dict)
 
             self.assertIn("test", statuses)
 
@@ -134,7 +134,7 @@ tasks:
             state = StateManager(recipe.project_root)
             state.load()
             executor = Executor(recipe, state, logger_stub)
-            statuses = executor.execute_task("test", make_process_runner, args_dict)
+            statuses = executor.execute_task("test", lambda: make_process_runner(TaskOutputTypes.ALL), args_dict)
 
             self.assertIn("test", statuses)
 
@@ -161,7 +161,7 @@ tasks:
             # Should raise error when trying to use exported arg in template
             args_dict = {"server": "prod-server"}
             with self.assertRaises(ValueError) as cm:
-                executor.execute_task("test", make_process_runner, args_dict)
+                executor.execute_task("test", lambda: make_process_runner(TaskOutputTypes.ALL), args_dict)
 
             self.assertIn("server", str(cm.exception))
             self.assertIn("exported", str(cm.exception))
@@ -197,7 +197,7 @@ tasks:
             executor = Executor(recipe, state, logger_stub)
 
             args_dict = {"server": "prod-server", "port": 9000}
-            statuses = executor.execute_task("deploy", make_process_runner, args_dict)
+            statuses = executor.execute_task("deploy", lambda: make_process_runner(TaskOutputTypes.ALL), args_dict)
 
             self.assertIn("deploy", statuses)
 
@@ -229,7 +229,7 @@ tasks:
             executor = Executor(recipe, state, logger_stub)
 
             args_dict = {"Server": "UPPERCASE", "server": "lowercase"}
-            statuses = executor.execute_task("test", make_process_runner, args_dict)
+            statuses = executor.execute_task("test", lambda: make_process_runner(TaskOutputTypes.ALL), args_dict)
 
             self.assertIn("test", statuses)
 
@@ -260,7 +260,7 @@ tasks:
             executor = Executor(recipe, state, logger_stub)
 
             args_dict = {"message": "hello world with spaces"}
-            statuses = executor.execute_task("test", make_process_runner, args_dict)
+            statuses = executor.execute_task("test", lambda: make_process_runner(TaskOutputTypes.ALL), args_dict)
 
             self.assertIn("test", statuses)
 
@@ -328,7 +328,7 @@ tasks:
             executor = Executor(recipe, state, logger_stub)
 
             args_dict = {"app": "myapp", "server": "prod-server"}
-            statuses = executor.execute_task("deploy", make_process_runner, args_dict)
+            statuses = executor.execute_task("deploy", lambda: make_process_runner(TaskOutputTypes.ALL), args_dict)
 
             self.assertIn("deploy", statuses)
 
@@ -365,7 +365,7 @@ tasks:
 
                 # Exported arg should override the env var
                 args_dict = {"MY_VAR": "overridden"}
-                statuses = executor.execute_task("test", make_process_runner, args_dict)
+                statuses = executor.execute_task("test", lambda: make_process_runner(TaskOutputTypes.ALL), args_dict)
 
                 self.assertIn("test", statuses)
         finally:
@@ -398,7 +398,7 @@ tasks:
             # Should raise ValueError when trying to override PATH
             args_dict = {"PATH": "/malicious/path"}
             with self.assertRaises(ValueError) as cm:
-                executor.execute_task("test", make_process_runner, args_dict)
+                executor.execute_task("test", lambda: make_process_runner(TaskOutputTypes.ALL), args_dict)
 
             self.assertIn("protected", str(cm.exception).lower())
             self.assertIn("PATH", str(cm.exception))

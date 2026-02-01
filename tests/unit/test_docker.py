@@ -13,7 +13,7 @@ from tasktree.docker import (
     resolve_container_working_dir,
 )
 from tasktree.parser import Environment
-from tasktree.process_runner import make_process_runner
+from tasktree.process_runner import TaskOutputTypes, make_process_runner
 
 
 class TestExtractFromImages(unittest.TestCase):
@@ -326,14 +326,14 @@ class TestDockerManager(unittest.TestCase):
         mock_run.side_effect = mock_run_side_effect
 
         # First call should check docker, build, and inspect
-        tag1, image_id1 = self.manager.ensure_image_built(env, make_process_runner())
+        tag1, image_id1 = self.manager.ensure_image_built(env, make_process_runner(TaskOutputTypes.ALL))
         self.assertEqual(tag1, "tt-env-builder")
         self.assertEqual(image_id1, "sha256:abc123def456")
         # Should have called docker --version, docker build, and docker inspect
         self.assertEqual(mock_run.call_count, 3)
 
         # Second call should use cache (no additional docker build)
-        tag2, image_id2 = self.manager.ensure_image_built(env, make_process_runner())
+        tag2, image_id2 = self.manager.ensure_image_built(env, make_process_runner(TaskOutputTypes.ALL))
         self.assertEqual(tag2, "tt-env-builder")
         self.assertEqual(image_id2, "sha256:abc123def456")
         self.assertEqual(mock_run.call_count, 3)  # No additional calls
@@ -360,7 +360,7 @@ class TestDockerManager(unittest.TestCase):
             return None
 
         mock_run.side_effect = mock_run_side_effect
-        self.manager.ensure_image_built(env, make_process_runner())
+        self.manager.ensure_image_built(env, make_process_runner(TaskOutputTypes.ALL))
 
         # Check that docker build was called with correct args (2nd call, after docker --version)
         build_call_args = mock_run.call_args_list[1][0][0]
@@ -394,7 +394,7 @@ class TestDockerManager(unittest.TestCase):
 
         mock_run.side_effect = mock_run_side_effect
 
-        self.manager.ensure_image_built(env, make_process_runner())
+        self.manager.ensure_image_built(env, make_process_runner(TaskOutputTypes.ALL))
 
         # Check that docker build was called with build args (2nd call, after docker --version)
         build_call_args = mock_run.call_args_list[1][0][0]
@@ -445,7 +445,7 @@ class TestDockerManager(unittest.TestCase):
 
         mock_run.side_effect = mock_run_side_effect
 
-        self.manager.ensure_image_built(env, make_process_runner())
+        self.manager.ensure_image_built(env, make_process_runner(TaskOutputTypes.ALL))
 
         # Check that docker build was called (2nd call, after docker --version)
         build_call_args = mock_run.call_args_list[1][0][0]
@@ -486,7 +486,7 @@ class TestDockerManager(unittest.TestCase):
 
         mock_run.side_effect = mock_run_side_effect
 
-        self.manager.ensure_image_built(env, make_process_runner())
+        self.manager.ensure_image_built(env, make_process_runner(TaskOutputTypes.ALL))
 
         # Check that docker build was called (2nd call, after docker --version)
         build_call_args = mock_run.call_args_list[1][0][0]
@@ -603,7 +603,7 @@ class TestDockerManager(unittest.TestCase):
 
         mock_run.side_effect = mock_run_side_effect
 
-        process_runner = make_process_runner()
+        process_runner = make_process_runner(TaskOutputTypes.ALL)
         self.manager.run_in_container(
             env=env,
             cmd="echo hello",
@@ -647,7 +647,7 @@ class TestDockerManager(unittest.TestCase):
 
         mock_run.side_effect = mock_run_side_effect
 
-        process_runner = make_process_runner()
+        process_runner = make_process_runner(TaskOutputTypes.ALL)
         self.manager.run_in_container(
             env=env,
             cmd="echo hello",
@@ -696,7 +696,7 @@ class TestDockerManager(unittest.TestCase):
 
         mock_run.side_effect = mock_run_side_effect
 
-        process_runner = make_process_runner()
+        process_runner = make_process_runner(TaskOutputTypes.ALL)
         self.manager.run_in_container(
             env=env,
             cmd="echo hello",
@@ -739,7 +739,7 @@ class TestDockerManager(unittest.TestCase):
 
         mock_run.side_effect = mock_run_side_effect
 
-        process_runner = make_process_runner()
+        process_runner = make_process_runner(TaskOutputTypes.ALL)
         self.manager.run_in_container(
             env=env,
             cmd="echo hello",
@@ -796,7 +796,7 @@ class TestDockerManager(unittest.TestCase):
 
         mock_run.side_effect = mock_run_side_effect
 
-        process_runner = make_process_runner()
+        process_runner = make_process_runner(TaskOutputTypes.ALL)
         self.manager.run_in_container(
             env=env,
             cmd="echo hello",
@@ -841,7 +841,7 @@ class TestDockerManager(unittest.TestCase):
 
         mock_run.side_effect = mock_run_side_effect
 
-        process_runner = make_process_runner()
+        process_runner = make_process_runner(TaskOutputTypes.ALL)
         self.manager.run_in_container(
             env=env,
             cmd="echo hello",
@@ -892,7 +892,7 @@ class TestDockerManager(unittest.TestCase):
 
         mock_run.side_effect = mock_run_side_effect
 
-        process_runner = make_process_runner()
+        process_runner = make_process_runner(TaskOutputTypes.ALL)
         self.manager.run_in_container(
             env=env,
             cmd="echo hello",

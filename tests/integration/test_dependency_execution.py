@@ -15,7 +15,7 @@ from helpers.logging import logger_stub
 from tasktree.cli import app
 from tasktree.executor import Executor
 from tasktree.parser import parse_recipe
-from tasktree.process_runner import make_process_runner
+from tasktree.process_runner import TaskOutputTypes, make_process_runner
 from tasktree.state import StateManager
 
 
@@ -275,7 +275,7 @@ tasks:
             state_manager = StateManager(project_root)
             executor = Executor(parsed_recipe, state_manager, logger_stub)
 
-            statuses = executor.execute_task("package", make_process_runner)
+            statuses = executor.execute_task("package", lambda: make_process_runner(TaskOutputTypes.ALL))
 
             assert statuses["build"].will_run  # First run, no state
             assert statuses["package"].will_run  # First run, no state
@@ -301,7 +301,7 @@ tasks:
             parsed_recipe = parse_recipe(recipe_path)
             executor = Executor(parsed_recipe, state_manager, logger_stub)
 
-            statuses = executor.execute_task("package", make_process_runner)
+            statuses = executor.execute_task("package", lambda: make_process_runner(TaskOutputTypes.ALL))
 
             # Build task should run (changed command = new task definition = "never_run")
             # OR if command hadn't changed, would be "no_outputs" (has outputs but no inputs)
@@ -362,7 +362,7 @@ tasks:
             state_manager = StateManager(project_root)
             executor = Executor(parsed_recipe, state_manager, logger_stub)
 
-            statuses = executor.execute_task("build", make_process_runner)
+            statuses = executor.execute_task("build", lambda: make_process_runner(TaskOutputTypes.ALL))
 
             assert statuses["generate"].will_run
             assert statuses["build"].will_run
@@ -377,7 +377,7 @@ tasks:
             parsed_recipe = parse_recipe(recipe_path)
             executor = Executor(parsed_recipe, state_manager, logger_stub)
 
-            statuses = executor.execute_task("build", make_process_runner)
+            statuses = executor.execute_task("build", lambda: make_process_runner(TaskOutputTypes.ALL))
 
             # Generate runs (changed command = new definition = "never_run")
             # OR if command hadn't changed, would be "no_outputs" (has outputs but no inputs)
