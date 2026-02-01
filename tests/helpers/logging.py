@@ -5,6 +5,7 @@ class LoggerStub(Logger):
     """
     @athena: 66c436ea15ac
     """
+
     def log(self, _level: LogLevel, *args, **kwargs) -> None:
         """
         @athena: 9fdf29a0ce94

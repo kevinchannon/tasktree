@@ -127,9 +127,8 @@ class TestExecutor(unittest.TestCase):
     @athena: 2b01be6f3e51
     """
 
-    @patch("subprocess.run")
     @patch("os.chmod")
-    def test_execute_simple_task(self, mock_chmod, mock_run):
+    def test_execute_simple_task(self, _chmod_fake):
         """
         Test executing a simple task.
         @athena: 6ba5a319dd19
@@ -146,19 +145,20 @@ class TestExecutor(unittest.TestCase):
             )
             executor = Executor(recipe, state_manager, logger_stub)
 
-            mock_run.return_value = MagicMock(returncode=0)
+            process_runner_spy = MagicMock(spec=ProcessRunner)
+            fake_proc_runner_factory = MagicMock()
+            fake_proc_runner_factory.return_value = process_runner_spy
 
-            executor.execute_task("build", make_process_runner)
+            executor.execute_task("build", fake_proc_runner_factory)
 
             # Verify subprocess was called with a script path
-            mock_run.assert_called_once()
-            call_args = mock_run.call_args
+            process_runner_spy.run.assert_called_once()
+            call_args = process_runner_spy.run.call_args
             # Command should be passed as [script_path]
             script_path = call_args[0][0][0]
             self.assertTrue(script_path.endswith(".sh") or script_path.endswith(".bat"))
 
-    @patch("subprocess.run")
-    def test_execute_with_dependencies(self, mock_run):
+    def test_execute_with_dependencies(self):
         """
         Test executing task with dependencies.
         @athena: bd3de7c1bb8c
@@ -178,16 +178,17 @@ class TestExecutor(unittest.TestCase):
             )
             executor = Executor(recipe, state_manager, logger_stub)
 
-            mock_run.return_value = MagicMock(returncode=0)
+            process_runner_spy = MagicMock(spec=ProcessRunner)
+            fake_proc_runner_factory = MagicMock()
+            fake_proc_runner_factory.return_value = process_runner_spy
 
-            executor.execute_task("build", make_process_runner)
+            executor.execute_task("build", fake_proc_runner_factory)
 
             # Verify both tasks were executed
-            self.assertEqual(mock_run.call_count, 2)
+            self.assertEqual(process_runner_spy.run.call_count, 2)
 
-    @patch("subprocess.run")
     @patch("os.chmod")
-    def test_execute_with_args(self, mock_chmod, mock_run):
+    def test_execute_with_args(self, _fake_chmod):
         """
         Test executing task with arguments.
         @athena: a4ec6b06333f
@@ -210,21 +211,22 @@ class TestExecutor(unittest.TestCase):
             )
             executor = Executor(recipe, state_manager, logger_stub)
 
-            mock_run.return_value = MagicMock(returncode=0)
+            process_runner_spy = MagicMock(spec=ProcessRunner)
+            fake_proc_runner_factory = MagicMock()
+            fake_proc_runner_factory.return_value = process_runner_spy
 
             executor.execute_task(
-                "deploy", make_process_runner, {"environment": "production"}
+                "deploy", fake_proc_runner_factory, {"environment": "production"}
             )
 
             # Verify command had arguments substituted and passed as script
-            call_args = mock_run.call_args
+            call_args = process_runner_spy.run.call_args
             script_path = call_args[0][0][0]
             self.assertTrue(script_path.endswith(".sh") or script_path.endswith(".bat"))
 
-    @patch("subprocess.run")
     @patch("os.chmod")
     @patch("os.unlink")
-    def test_run_command_as_script_single_line(self, mock_unlink, mock_chmod, mock_run):
+    def test_run_command_as_script_single_line(self, mock_unlink, mock_chmod):
         """
         Test _run_command_as_script with single-line command.
         @athena: 791553a2ae01
@@ -241,10 +243,7 @@ class TestExecutor(unittest.TestCase):
             )
             executor = Executor(recipe, state_manager, logger_stub)
 
-            mock_run.return_value = MagicMock(returncode=0)
-
-            # Create process runner for test
-            process_runner = make_process_runner()
+            process_runner_spy = MagicMock(spec=ProcessRunner)
 
             # Call the unified method directly
             executor._run_command_as_script(
@@ -253,12 +252,12 @@ class TestExecutor(unittest.TestCase):
                 task_name="test",
                 shell="bash",
                 preamble="",
-                process_runner=process_runner,
+                process_runner=process_runner_spy,
             )
 
             # Verify subprocess.run was called with a script path
-            mock_run.assert_called_once()
-            call_args = mock_run.call_args
+            process_runner_spy.run.assert_called_once()
+            call_args = process_runner_spy.run.call_args
             script_path = call_args[0][0][0]
             self.assertTrue(script_path.endswith(".sh"))
 
@@ -268,12 +267,9 @@ class TestExecutor(unittest.TestCase):
             # Verify cleanup (unlink) was called
             mock_unlink.assert_called_once()
 
-    @patch("subprocess.run")
     @patch("os.chmod")
     @patch("os.unlink")
-    def test_run_command_as_script_with_preamble(
-        self, mock_unlink, mock_chmod, mock_run
-    ):
+    def test_run_command_as_script_with_preamble(self, unlink_spy, chmod_spy):
         """
         Test _run_command_as_script with preamble.
         @athena: fcb783aa3c67
@@ -289,11 +285,7 @@ class TestExecutor(unittest.TestCase):
                 recipe_path=project_root / "tasktree.yaml",
             )
             executor = Executor(recipe, state_manager, logger_stub)
-
-            mock_run.return_value = MagicMock(returncode=0)
-
-            # Create process runner for test
-            process_runner = make_process_runner()
+            process_runner_spy = MagicMock(spec=ProcessRunner)
 
             # Call with preamble
             executor._run_command_as_script(
@@ -302,22 +294,16 @@ class TestExecutor(unittest.TestCase):
                 task_name="test",
                 shell="bash",
                 preamble="set -e\n",
-                process_runner=process_runner,
+                process_runner=process_runner_spy,
             )
 
-            # Verify subprocess.run was called
-            mock_run.assert_called_once()
+            process_runner_spy.run.assert_called_once()
+            chmod_spy.assert_called_once()
+            unlink_spy.assert_called_once()
 
-            # Verify chmod was called
-            mock_chmod.assert_called_once()
-
-            # Verify cleanup
-            mock_unlink.assert_called_once()
-
-    @patch("subprocess.run")
     @patch("os.chmod")
     @patch("os.unlink")
-    def test_run_command_as_script_multiline(self, mock_unlink, mock_chmod, mock_run):
+    def test_run_command_as_script_multiline(self, unlink_spy, chmod_spy):
         """
         Test _run_command_as_script with multi-line command.
         @athena: c7500eea58e2
@@ -334,29 +320,20 @@ class TestExecutor(unittest.TestCase):
             )
             executor = Executor(recipe, state_manager, logger_stub)
 
-            mock_run.return_value = MagicMock(returncode=0)
+            process_runner_spy = MagicMock(spec=ProcessRunner)
 
-            # Create process runner for test
-            process_runner = make_process_runner()
-
-            # Call with multi-line command
             executor._run_command_as_script(
                 cmd="echo hello\necho world",
                 working_dir=project_root,
                 task_name="test",
                 shell="bash",
                 preamble="",
-                process_runner=process_runner,
+                process_runner=process_runner_spy,
             )
 
-            # Verify subprocess.run was called
-            mock_run.assert_called_once()
-
-            # Verify chmod was called
-            mock_chmod.assert_called_once()
-
-            # Verify cleanup
-            mock_unlink.assert_called_once()
+            process_runner_spy.run.assert_called_once()
+            chmod_spy.assert_called_once()
+            unlink_spy.assert_called_once()
 
     def test_run_command_as_script_comprehensive_validation(self):
         """
@@ -366,7 +343,7 @@ class TestExecutor(unittest.TestCase):
         1. Script is created with correct name/suffix
         2. Script is made executable with chmod
         3. Script content has correct ordering (shebang -> preamble -> command)
-        4. subprocess.run is called AFTER all script setup completes
+        4. ProcessRunner is called AFTER all script setup completes
         @athena: 4eec41b394ec
         """
 
@@ -1180,9 +1157,8 @@ class TestOnlyMode(unittest.TestCase):
     @athena: 9b470eafd594
     """
 
-    @patch("subprocess.run")
     @patch("os.chmod")
-    def test_only_mode_skips_dependencies(self, mock_chmod, mock_run):
+    def test_only_mode_skips_dependencies(self, _fake_chmod):
         """
         Test that only=True executes only the target task, not dependencies.
         @athena: 88af1cf22c38
@@ -1201,15 +1177,19 @@ class TestOnlyMode(unittest.TestCase):
                 recipe_path=project_root / "tasktree.yaml",
             )
             executor = Executor(recipe, state_manager, logger_stub)
+            process_runner_spy = MagicMock(spec=ProcessRunner)
 
-            mock_run.return_value = MagicMock(returncode=0)
+            fake_proc_runner_factory = MagicMock()
+            fake_proc_runner_factory.return_value = process_runner_spy
 
             # Execute with only=True
-            statuses = executor.execute_task("build", make_process_runner, only=True)
+            statuses = executor.execute_task(
+                "build", fake_proc_runner_factory, only=True
+            )
 
             # Verify only build was executed, not lint
-            self.assertEqual(mock_run.call_count, 1)
-            call_args = mock_run.call_args
+            self.assertEqual(process_runner_spy.run.call_count, 1)
+            call_args = process_runner_spy.run.call_args
             script_path = call_args[0][0][0]
             self.assertTrue(script_path.endswith(".sh") or script_path.endswith(".bat"))
 
@@ -1218,9 +1198,8 @@ class TestOnlyMode(unittest.TestCase):
             self.assertIn("build", statuses)
             self.assertNotIn("lint", statuses)
 
-    @patch("subprocess.run")
     @patch("os.chmod")
-    def test_only_mode_with_multiple_dependencies(self, mock_chmod, mock_run):
+    def test_only_mode_with_multiple_dependencies(self, _fake_chmod):
         """
         Test that only=True skips all dependencies in a chain.
         @athena: c6ba6d4a8fb8
@@ -1241,14 +1220,18 @@ class TestOnlyMode(unittest.TestCase):
             )
             executor = Executor(recipe, state_manager, logger_stub)
 
-            mock_run.return_value = MagicMock(returncode=0)
+            process_runner_spy = MagicMock(spec=ProcessRunner)
+            fake_proc_runner_factory = MagicMock()
+            fake_proc_runner_factory.return_value = process_runner_spy
 
             # Execute test with only=True
-            statuses = executor.execute_task("test", make_process_runner, only=True)
+            statuses = executor.execute_task(
+                "test", fake_proc_runner_factory, only=True
+            )
 
             # Verify only test was executed
-            self.assertEqual(mock_run.call_count, 1)
-            call_args = mock_run.call_args
+            self.assertEqual(process_runner_spy.run.call_count, 1)
+            call_args = process_runner_spy.run.call_args
             script_path = call_args[0][0][0]
             self.assertTrue(script_path.endswith(".sh") or script_path.endswith(".bat"))
 
@@ -1258,8 +1241,7 @@ class TestOnlyMode(unittest.TestCase):
             self.assertNotIn("build", statuses)
             self.assertNotIn("lint", statuses)
 
-    @patch("subprocess.run")
-    def test_only_mode_forces_execution(self, mock_run):
+    def test_only_mode_forces_execution(self):
         """
         Test that only=True forces execution (ignores freshness).
         @athena: 87fd4889aa19
@@ -1300,13 +1282,17 @@ class TestOnlyMode(unittest.TestCase):
             )
             executor = Executor(recipe, state_manager, logger_stub)
 
-            mock_run.return_value = MagicMock(returncode=0)
+            process_runner_spy = MagicMock(spec=ProcessRunner)
+            fake_proc_runner_factory = MagicMock()
+            fake_proc_runner_factory.return_value = process_runner_spy
 
             # Execute with only=True
-            statuses = executor.execute_task("build", make_process_runner, only=True)
+            statuses = executor.execute_task(
+                "build", fake_proc_runner_factory, only=True
+            )
 
             # Verify task was executed despite being fresh (only implies force)
-            self.assertEqual(mock_run.call_count, 1)
+            self.assertEqual(process_runner_spy.run.call_count, 1)
             self.assertTrue(statuses["build"].will_run)
             self.assertEqual(statuses["build"].reason, "forced")
 
@@ -1510,9 +1496,8 @@ class TestEnvironmentResolution(unittest.TestCase):
             self.assertEqual(shell, "zsh")
             self.assertEqual(preamble, "set -e\n")
 
-    @patch("subprocess.run")
     @patch("os.chmod")
-    def test_task_execution_uses_custom_shell(self, mock_chmod, mock_run):
+    def test_task_execution_uses_custom_shell(self, _fake_chmod):
         """
         Test that custom shell from environment is used for execution.
         @athena: af5465f2617e
@@ -1523,7 +1508,7 @@ class TestEnvironmentResolution(unittest.TestCase):
         captured_script_content = []
 
         def capture_script_content(*args, **kwargs):
-            # Read the script before subprocess.run returns
+            # Read the script before process runner returns
             script_path = args[0][0]
             with open(script_path, "r") as f:
                 captured_script_content.append(f.read())
@@ -1546,8 +1531,13 @@ class TestEnvironmentResolution(unittest.TestCase):
             )
             executor = Executor(recipe, state_manager, logger_stub)
 
-            mock_run.side_effect = capture_script_content
-            executor.execute_task("build", make_process_runner)
+            process_runner_spy = MagicMock(spec=ProcessRunner)
+            process_runner_spy.run.side_effect = capture_script_content
+
+            fake_proc_runner_factory = MagicMock()
+            fake_proc_runner_factory.return_value = process_runner_spy
+
+            executor.execute_task("build", fake_proc_runner_factory)
 
             # Verify script execution was used and contains fish shell
             self.assertEqual(len(captured_script_content), 1)
@@ -1575,9 +1565,8 @@ class TestEnvironmentResolution(unittest.TestCase):
         self.assertNotEqual(hash2, hash3)
         self.assertNotEqual(hash1, hash3)
 
-    @patch("subprocess.run")
     @patch("os.chmod")
-    def test_run_task_substitutes_environment_variables(self, mock_chmod, mock_run):
+    def test_run_task_substitutes_environment_variables(self, _fake_chmod):
         """
         Test that _run_task substitutes environment variables.
         @athena: 6ff1df5d470b
@@ -1613,8 +1602,10 @@ class TestEnvironmentResolution(unittest.TestCase):
                 )
                 executor = Executor(recipe, state_manager, logger_stub)
 
-                mock_run.side_effect = capture_script_content
-                executor._run_task(tasks["test"], {}, make_process_runner())
+                process_runner_spy = MagicMock(spec=ProcessRunner)
+                process_runner_spy.run.side_effect = capture_script_content
+
+                executor._run_task(tasks["test"], {}, process_runner_spy)
 
                 # Verify command has env var substituted in the script
                 self.assertEqual(len(captured_script_content), 1)
@@ -1624,8 +1615,7 @@ class TestEnvironmentResolution(unittest.TestCase):
         finally:
             del os.environ["TEST_ENV_VAR"]
 
-    @patch("subprocess.run")
-    def test_run_task_env_substitution_in_working_dir(self, mock_run):
+    def test_run_task_env_substitution_in_working_dir(self):
         """
         Test environment variables work in working_dir.
         @athena: 918844bd22d1
@@ -1654,11 +1644,11 @@ class TestEnvironmentResolution(unittest.TestCase):
                 )
                 executor = Executor(recipe, state_manager, logger_stub)
 
-                mock_run.return_value = MagicMock(returncode=0)
-                executor._run_task(tasks["test"], {}, make_process_runner())
+                process_runner_spy = MagicMock(spec=ProcessRunner)
+                executor._run_task(tasks["test"], {}, process_runner_spy)
 
                 # Verify working_dir was substituted
-                called_cwd = mock_run.call_args[1]["cwd"]
+                called_cwd = process_runner_spy.run.call_args[1]["cwd"]
                 self.assertEqual(called_cwd, project_root / "mydir")
         finally:
             del os.environ["SUBDIR"]
