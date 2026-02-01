@@ -8,7 +8,7 @@ import subprocess
 from abc import ABC, abstractmethod
 from typing import Any
 
-__all__ = ["ProcessRunner", "PassthroughProcessRunner", "make_process_runner"]
+__all__ = ["ProcessRunner", "PassthroughProcessRunner", "SilentProcessRunner", "make_process_runner"]
 
 
 class ProcessRunner(ABC):
@@ -62,6 +62,36 @@ class PassthroughProcessRunner(ProcessRunner):
         subprocess.TimeoutExpired: If timeout is exceeded
         @athena: 9f6363a621f2
         """
+        return subprocess.run(*args, **kwargs)
+
+
+class SilentProcessRunner(ProcessRunner):
+    """
+    Process runner that suppresses all subprocess output by redirecting to DEVNULL.
+    @athena: TBD
+    """
+
+    def run(self, *args: Any, **kwargs: Any) -> subprocess.CompletedProcess[Any]:
+        """
+        Run a subprocess command with stdout and stderr suppressed.
+
+        This implementation forces stdout=DEVNULL and stderr=DEVNULL to discard
+        all subprocess output, regardless of what the caller requests.
+
+        Args:
+        *args: Positional arguments passed to subprocess.run
+        **kwargs: Keyword arguments passed to subprocess.run
+
+        Returns:
+        subprocess.CompletedProcess: The completed process result
+
+        Raises:
+        subprocess.CalledProcessError: If check=True and process exits non-zero
+        subprocess.TimeoutExpired: If timeout is exceeded
+        @athena: TBD
+        """
+        kwargs["stdout"] = subprocess.DEVNULL
+        kwargs["stderr"] = subprocess.DEVNULL
         return subprocess.run(*args, **kwargs)
 
 

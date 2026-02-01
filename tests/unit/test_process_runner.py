@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 from tasktree.process_runner import (
     PassthroughProcessRunner,
     ProcessRunner,
+    SilentProcessRunner,
     make_process_runner,
 )
 
@@ -191,6 +192,157 @@ class TestPassthroughProcessRunner(unittest.TestCase):
         @athena: 8eb7b69f432a
         """
         self.assertIsInstance(self.runner, ProcessRunner)
+
+
+class TestSilentProcessRunner(unittest.TestCase):
+    """
+    Tests for SilentProcessRunner implementation.
+    @athena: TBD
+    """
+
+    def setUp(self):
+        """
+        Set up test fixtures.
+        @athena: TBD
+        """
+        self.runner = SilentProcessRunner()
+
+    @patch("tasktree.process_runner.subprocess.run")
+    def test_run_suppresses_stdout(self, mock_run):
+        """
+        run() sets stdout to DEVNULL to suppress output.
+        @athena: TBD
+        """
+        mock_result = MagicMock(spec=subprocess.CompletedProcess)
+        mock_run.return_value = mock_result
+
+        result = self.runner.run(["echo", "test"])
+
+        mock_run.assert_called_once()
+        call_kwargs = mock_run.call_args[1]
+        self.assertEqual(call_kwargs["stdout"], subprocess.DEVNULL)
+        self.assertEqual(result, mock_result)
+
+    @patch("tasktree.process_runner.subprocess.run")
+    def test_run_suppresses_stderr(self, mock_run):
+        """
+        run() sets stderr to DEVNULL to suppress error output.
+        @athena: TBD
+        """
+        mock_result = MagicMock(spec=subprocess.CompletedProcess)
+        mock_run.return_value = mock_result
+
+        result = self.runner.run(["echo", "test"])
+
+        mock_run.assert_called_once()
+        call_kwargs = mock_run.call_args[1]
+        self.assertEqual(call_kwargs["stderr"], subprocess.DEVNULL)
+        self.assertEqual(result, mock_result)
+
+    @patch("tasktree.process_runner.subprocess.run")
+    def test_run_overrides_stdout_parameter(self, mock_run):
+        """
+        run() overrides stdout even if caller specifies it.
+        @athena: TBD
+        """
+        mock_result = MagicMock(spec=subprocess.CompletedProcess)
+        mock_run.return_value = mock_result
+
+        # Caller tries to set stdout=PIPE, but should be overridden to DEVNULL
+        result = self.runner.run(["echo", "test"], stdout=subprocess.PIPE)
+
+        mock_run.assert_called_once()
+        call_kwargs = mock_run.call_args[1]
+        self.assertEqual(call_kwargs["stdout"], subprocess.DEVNULL)
+        self.assertEqual(result, mock_result)
+
+    @patch("tasktree.process_runner.subprocess.run")
+    def test_run_overrides_stderr_parameter(self, mock_run):
+        """
+        run() overrides stderr even if caller specifies it.
+        @athena: TBD
+        """
+        mock_result = MagicMock(spec=subprocess.CompletedProcess)
+        mock_run.return_value = mock_result
+
+        # Caller tries to set stderr=PIPE, but should be overridden to DEVNULL
+        result = self.runner.run(["echo", "test"], stderr=subprocess.PIPE)
+
+        mock_run.assert_called_once()
+        call_kwargs = mock_run.call_args[1]
+        self.assertEqual(call_kwargs["stderr"], subprocess.DEVNULL)
+        self.assertEqual(result, mock_result)
+
+    @patch("tasktree.process_runner.subprocess.run")
+    def test_run_preserves_other_parameters(self, mock_run):
+        """
+        run() preserves other parameters like check, cwd, env.
+        @athena: TBD
+        """
+        mock_result = MagicMock(spec=subprocess.CompletedProcess)
+        mock_run.return_value = mock_result
+        env = {"PATH": "/usr/bin"}
+
+        result = self.runner.run(["ls"], check=True, cwd="/tmp", env=env)
+
+        mock_run.assert_called_once()
+        call_args, call_kwargs = mock_run.call_args
+        self.assertEqual(call_args, (["ls"],))
+        self.assertEqual(call_kwargs["check"], True)
+        self.assertEqual(call_kwargs["cwd"], "/tmp")
+        self.assertEqual(call_kwargs["env"], env)
+        self.assertEqual(call_kwargs["stdout"], subprocess.DEVNULL)
+        self.assertEqual(call_kwargs["stderr"], subprocess.DEVNULL)
+        self.assertEqual(result, mock_result)
+
+    @patch("tasktree.process_runner.subprocess.run")
+    def test_run_raises_called_process_error_when_check_true(self, mock_run):
+        """
+        run() propagates CalledProcessError when check=True and process fails.
+        @athena: TBD
+        """
+        mock_run.side_effect = subprocess.CalledProcessError(
+            returncode=1, cmd=["false"]
+        )
+
+        with self.assertRaises(subprocess.CalledProcessError) as context:
+            self.runner.run(["false"], check=True)
+
+        self.assertEqual(context.exception.returncode, 1)
+
+    @patch("tasktree.process_runner.subprocess.run")
+    def test_run_raises_timeout_expired(self, mock_run):
+        """
+        run() propagates TimeoutExpired when timeout is exceeded.
+        @athena: TBD
+        """
+        mock_run.side_effect = subprocess.TimeoutExpired(cmd=["sleep", "10"], timeout=1)
+
+        with self.assertRaises(subprocess.TimeoutExpired):
+            self.runner.run(["sleep", "10"], timeout=1)
+
+    def test_silent_runner_is_process_runner(self):
+        """
+        SilentProcessRunner implements ProcessRunner interface.
+        @athena: TBD
+        """
+        self.assertIsInstance(self.runner, ProcessRunner)
+
+    @patch("tasktree.process_runner.subprocess.run")
+    def test_run_returns_completed_process(self, mock_run):
+        """
+        run() returns subprocess.CompletedProcess from subprocess.run.
+        @athena: TBD
+        """
+        expected_result = subprocess.CompletedProcess(
+            args=["echo", "test"], returncode=0
+        )
+        mock_run.return_value = expected_result
+
+        result = self.runner.run(["echo", "test"])
+
+        self.assertEqual(result, expected_result)
+        self.assertIsInstance(result, subprocess.CompletedProcess)
 
 
 class TestMakeProcessRunner(unittest.TestCase):
