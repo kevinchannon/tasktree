@@ -601,13 +601,6 @@ def _execute_dynamic_task(
     # Parse task arguments
     args_dict = _parse_task_args(logger, task.args, task_args)
 
-    # Parse task_output string to enum
-    # Click.Choice with case_sensitive=False normalizes input to lowercase
-    task_output_map = {
-        "all": TaskOutputTypes.ALL,
-    }
-    task_output_enum = task_output_map[task_output.lower()]
-
     # Create executor and state manager
     state = StateManager(recipe.project_root)
     state.load()
@@ -650,7 +643,7 @@ def _execute_dynamic_task(
     try:
         executor.execute_task(
             task_name,
-            task_output_enum,
+            TaskOutputTypes(task_output.lower()),
             args_dict,
             force=force,
             only=only,
