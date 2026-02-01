@@ -148,6 +148,9 @@ class StdoutOnlyProcessRunner(ProcessRunner):
         in real-time while discarding stderr. The interface remains synchronous
         from the caller's perspective.
 
+        Buffering strategy: Uses line buffering (bufsize=1) to ensure output
+        appears promptly while maintaining reasonable performance.
+
         Args:
             *args: Positional arguments passed to subprocess.Popen
             **kwargs: Keyword arguments passed to subprocess.Popen
@@ -173,23 +176,32 @@ class StdoutOnlyProcessRunner(ProcessRunner):
         # Start the process
         process = subprocess.Popen(*args, **kwargs)
 
-        # Start thread to stream stdout
+        # Start thread to stream stdout with a descriptive name for debugging
         thread = Thread(
             target=StdoutOnlyProcessRunner._stream_output,
             args=(process.stdout, sys.stdout),
+            name="stdout-streamer",
         )
         thread.start()
 
-        # Wait for thread to complete
-        thread.join()
-
-        # Wait for process to complete
+        # Wait for process to complete first, then join thread
         try:
             returncode = process.wait(timeout=timeout)
         except subprocess.TimeoutExpired:
             process.kill()
             process.wait()
+            # Ensure thread cleanup even on timeout
+            if process.stdout:
+                process.stdout.close()
+            thread.join(timeout=1.0)
             raise
+        finally:
+            # Ensure stdout pipe is closed
+            if process.stdout:
+                process.stdout.close()
+
+        # Wait for thread to finish streaming remaining output
+        thread.join(timeout=1.0)
 
         # Check return code if requested
         if check and returncode != 0:
