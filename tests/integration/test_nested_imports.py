@@ -14,7 +14,7 @@ from tasktree.cli import app
 def strip_ansi_codes(text: str) -> str:
     """
     Remove ANSI escape sequences from text.
-    @athena: 90023a269128
+    @athena: 853120f3304f
     """
     ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
     return ansi_escape.sub("", text)
@@ -23,7 +23,7 @@ def strip_ansi_codes(text: str) -> str:
 class TestNestedImports(unittest.TestCase):
     """
     Integration tests for nested import execution.
-    @athena: 8a7d4d69938e
+    @athena: 77a91725ee77
     """
 
     def setUp(self):
@@ -37,7 +37,7 @@ class TestNestedImports(unittest.TestCase):
     def test_nested_import_task_execution(self):
         """
         Test that tasks from nested imports execute correctly.
-        @athena: 20a8920dc54c
+        @athena: 14bc7bd25f21
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)

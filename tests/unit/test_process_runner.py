@@ -12,29 +12,47 @@ from tasktree.process_runner import (
 
 
 class TestProcessRunner(unittest.TestCase):
-    """Tests for ProcessRunner abstract interface."""
+    """
+    Tests for ProcessRunner abstract interface.
+    @athena: 2bff092195e6
+    """
 
     def test_process_runner_is_abstract(self):
-        """ProcessRunner cannot be instantiated directly."""
+        """
+        ProcessRunner cannot be instantiated directly.
+        @athena: daac65da93e2
+        """
         with self.assertRaises(TypeError):
             ProcessRunner()
 
     def test_process_runner_has_run_method(self):
-        """ProcessRunner defines run as an abstract method."""
+        """
+        ProcessRunner defines run as an abstract method.
+        @athena: 93aee4ee423d
+        """
         self.assertTrue(hasattr(ProcessRunner, "run"))
         self.assertTrue(callable(getattr(ProcessRunner, "run")))
 
 
 class TestPassthroughProcessRunner(unittest.TestCase):
-    """Tests for PassthroughProcessRunner implementation."""
+    """
+    Tests for PassthroughProcessRunner implementation.
+    @athena: 23c89ef36346
+    """
 
     def setUp(self):
-        """Set up test fixtures."""
+        """
+        Set up test fixtures.
+        @athena: 61cd9d62c968
+        """
         self.runner = PassthroughProcessRunner()
 
     @patch("tasktree.process_runner.subprocess.run")
     def test_run_calls_subprocess_run_with_positional_args(self, mock_run):
-        """run() passes positional arguments to subprocess.run."""
+        """
+        run() passes positional arguments to subprocess.run.
+        @athena: fdbd1736580a
+        """
         mock_result = MagicMock(spec=subprocess.CompletedProcess)
         mock_run.return_value = mock_result
 
@@ -45,7 +63,10 @@ class TestPassthroughProcessRunner(unittest.TestCase):
 
     @patch("tasktree.process_runner.subprocess.run")
     def test_run_calls_subprocess_run_with_keyword_args(self, mock_run):
-        """run() passes keyword arguments to subprocess.run."""
+        """
+        run() passes keyword arguments to subprocess.run.
+        @athena: 273fec922ecb
+        """
         mock_result = MagicMock(spec=subprocess.CompletedProcess)
         mock_run.return_value = mock_result
 
@@ -60,7 +81,10 @@ class TestPassthroughProcessRunner(unittest.TestCase):
 
     @patch("tasktree.process_runner.subprocess.run")
     def test_run_calls_subprocess_run_with_cwd(self, mock_run):
-        """run() passes cwd parameter to subprocess.run."""
+        """
+        run() passes cwd parameter to subprocess.run.
+        @athena: 70d97cb42a40
+        """
         mock_result = MagicMock(spec=subprocess.CompletedProcess)
         mock_run.return_value = mock_result
 
@@ -71,7 +95,10 @@ class TestPassthroughProcessRunner(unittest.TestCase):
 
     @patch("tasktree.process_runner.subprocess.run")
     def test_run_calls_subprocess_run_with_env(self, mock_run):
-        """run() passes env parameter to subprocess.run."""
+        """
+        run() passes env parameter to subprocess.run.
+        @athena: a4c3d81350b2
+        """
         mock_result = MagicMock(spec=subprocess.CompletedProcess)
         mock_run.return_value = mock_result
         env = {"PATH": "/usr/bin", "HOME": "/home/test"}
@@ -83,7 +110,10 @@ class TestPassthroughProcessRunner(unittest.TestCase):
 
     @patch("tasktree.process_runner.subprocess.run")
     def test_run_calls_subprocess_run_with_stdout_stderr(self, mock_run):
-        """run() passes stdout and stderr parameters to subprocess.run."""
+        """
+        run() passes stdout and stderr parameters to subprocess.run.
+        @athena: e41a18e7158b
+        """
         mock_result = MagicMock(spec=subprocess.CompletedProcess)
         mock_run.return_value = mock_result
 
@@ -98,7 +128,10 @@ class TestPassthroughProcessRunner(unittest.TestCase):
 
     @patch("tasktree.process_runner.subprocess.run")
     def test_run_returns_completed_process(self, mock_run):
-        """run() returns subprocess.CompletedProcess from subprocess.run."""
+        """
+        run() returns subprocess.CompletedProcess from subprocess.run.
+        @athena: 9869c9cb26a3
+        """
         expected_result = subprocess.CompletedProcess(
             args=["echo", "test"], returncode=0, stdout="test\n", stderr=""
         )
@@ -111,7 +144,10 @@ class TestPassthroughProcessRunner(unittest.TestCase):
 
     @patch("tasktree.process_runner.subprocess.run")
     def test_run_raises_called_process_error_when_check_true(self, mock_run):
-        """run() propagates CalledProcessError when check=True and process fails."""
+        """
+        run() propagates CalledProcessError when check=True and process fails.
+        @athena: bfe001d890b9
+        """
         mock_run.side_effect = subprocess.CalledProcessError(
             returncode=1, cmd=["false"]
         )
@@ -124,7 +160,10 @@ class TestPassthroughProcessRunner(unittest.TestCase):
 
     @patch("tasktree.process_runner.subprocess.run")
     def test_run_raises_timeout_expired(self, mock_run):
-        """run() propagates TimeoutExpired when timeout is exceeded."""
+        """
+        run() propagates TimeoutExpired when timeout is exceeded.
+        @athena: d00a1b51cec2
+        """
         mock_run.side_effect = subprocess.TimeoutExpired(cmd=["sleep", "10"], timeout=1)
 
         with self.assertRaises(subprocess.TimeoutExpired):
@@ -134,7 +173,10 @@ class TestPassthroughProcessRunner(unittest.TestCase):
 
     @patch("tasktree.process_runner.subprocess.run")
     def test_run_calls_subprocess_run_with_shell_true(self, mock_run):
-        """run() passes shell=True parameter to subprocess.run."""
+        """
+        run() passes shell=True parameter to subprocess.run.
+        @athena: 3d0b2b764077
+        """
         mock_result = MagicMock(spec=subprocess.CompletedProcess)
         mock_run.return_value = mock_result
 
@@ -144,25 +186,40 @@ class TestPassthroughProcessRunner(unittest.TestCase):
         self.assertEqual(result, mock_result)
 
     def test_passthrough_runner_is_process_runner(self):
-        """PassthroughProcessRunner implements ProcessRunner interface."""
+        """
+        PassthroughProcessRunner implements ProcessRunner interface.
+        @athena: 8eb7b69f432a
+        """
         self.assertIsInstance(self.runner, ProcessRunner)
 
 
 class TestMakeProcessRunner(unittest.TestCase):
-    """Tests for make_process_runner factory function."""
+    """
+    Tests for make_process_runner factory function.
+    @athena: 80c9607632a3
+    """
 
     def test_make_process_runner_returns_process_runner(self):
-        """make_process_runner() returns a ProcessRunner instance."""
+        """
+        make_process_runner() returns a ProcessRunner instance.
+        @athena: b7f0ca78d157
+        """
         runner = make_process_runner()
         self.assertIsInstance(runner, ProcessRunner)
 
     def test_make_process_runner_returns_passthrough_runner(self):
-        """make_process_runner() returns a PassthroughProcessRunner instance."""
+        """
+        make_process_runner() returns a PassthroughProcessRunner instance.
+        @athena: 5e847eb56856
+        """
         runner = make_process_runner()
         self.assertIsInstance(runner, PassthroughProcessRunner)
 
     def test_make_process_runner_returns_new_instance_each_call(self):
-        """make_process_runner() returns a new instance on each call."""
+        """
+        make_process_runner() returns a new instance on each call.
+        @athena: 4e6d6d5fefe5
+        """
         runner1 = make_process_runner()
         runner2 = make_process_runner()
         self.assertIsNot(runner1, runner2)

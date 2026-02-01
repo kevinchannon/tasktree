@@ -122,7 +122,7 @@ class IPv6Type(click.ParamType):
 class DateTimeType(click.ParamType):
     """
     Validates datetime in format YYYY-MM-DDTHH:MM:SS.
-    @athena: c3bafa3e22e3
+    @athena: 0b935a25fb23
     """
 
     name = "datetime"
@@ -131,7 +131,7 @@ class DateTimeType(click.ParamType):
         self, value: Any, param: Optional[click.Parameter], ctx: Optional[click.Context]
     ) -> str:
         """
-        @athena: 13fa66adfe94
+        @athena: 9c7bb2d672cc
         """
         if isinstance(value, str):
             try:
@@ -180,7 +180,7 @@ def get_click_type(
 
     Raises:
     ValueError: If type_name is not recognized
-    @athena: d0912868676f
+    @athena: 523ff9c66303
     """
     if type_name not in TYPE_MAPPING:
         raise ValueError(f"Unknown type: {type_name}")

@@ -36,7 +36,7 @@ class DockerError(Exception):
 class DockerManager:
     """
     Manages Docker image building and container execution.
-    @athena: 1a8a919eb05d
+    @athena: f8f5c2693d84
     """
 
     def __init__(self, project_root: Path):
@@ -88,7 +88,7 @@ class DockerManager:
 
         Raises:
         DockerError: If docker command not available or build fails
-        @athena: 9b3c11c29fbb
+        @athena: 42b53d2685e0
         """
         # Check if already built this invocation
         if env.name in self._built_images:
@@ -168,7 +168,7 @@ class DockerManager:
 
         Raises:
         DockerError: If docker run fails
-        @athena: f24fc9c27f81
+        @athena: ef024ea2c182
         """
         # Ensure image is built (returns tag and ID)
         image_tag, image_id = self.ensure_image_built(env, process_runner)
@@ -367,7 +367,7 @@ def parse_dockerignore(dockerignore_path: Path) -> PathSpec | None:
 
     Returns:
     PathSpec object for matching, or None if file doesn't exist or pathspec not available
-    @athena: 62bc07a3c6d0
+    @athena: 13fca9ee5a73
     """
     if pathspec is None:
         # pathspec library not available - can't parse .dockerignore

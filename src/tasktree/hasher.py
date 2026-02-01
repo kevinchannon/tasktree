@@ -35,12 +35,12 @@ def _normalize_choices_lists(
     Normalize argument choices lists by sorting them for deterministic hashing.
 
     Args:
-        args: List of argument specifications (strings or dicts)
+    args: List of argument specifications (strings or dicts)
 
     Returns:
-        List of argument specs with sorted choices lists
+    List of argument specs with sorted choices lists
 
-    @athena: 7512379275e3
+    @athena: dc34b6fb09a6
     """
     normalized_args = []
     for arg in args:
@@ -114,7 +114,7 @@ def hash_task(
 
     Returns:
     8-character hash of task definition
-    @athena: 7a461d51a8bb
+    @athena: 815a47cf1af0
     """
     data = {
         "cmd": cmd,
@@ -173,7 +173,7 @@ def hash_environment_definition(env) -> str:
 
     Returns:
     16-character hash of environment definition
-    @athena: 2de34f1a0b4a
+    @athena: a54f6c171ba9
     """
     # Import inside function to avoid circular dependency
 

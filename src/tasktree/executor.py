@@ -57,7 +57,7 @@ class ExecutionError(Exception):
 class Executor:
     """
     Executes tasks with incremental execution logic.
-    @athena: 88e82151721d
+    @athena: 779b12944194
     """
 
     # Protected environment variables that cannot be overridden by exported args
@@ -87,7 +87,7 @@ class Executor:
         state_manager: State manager for tracking task execution
         logger_fn: Logger function for output (matches Console.print signature)
         task_output: Control task subprocess output (all, out, err, on-err, none)
-        @athena: 21b65db48bca
+        @athena: d09e6a537c99
         """
         self.recipe = recipe
         self.state = state_manager
@@ -105,7 +105,7 @@ class Executor:
 
         Returns:
         True if task has at least one regular (non-exported) argument, False otherwise
-        @athena: a4c7816bfe61
+        @athena: c529cda63cce
         """
         if not task.args:
             return False
@@ -137,7 +137,7 @@ class Executor:
 
         Returns:
         Dictionary containing only regular (non-exported) arguments
-        @athena: 974e5e32bbd7
+        @athena: 1ae863406335
         """
         if not task.args or not task_args:
             return {}
@@ -174,7 +174,7 @@ class Executor:
 
         Raises:
         ExecutionError: If any built-in variable fails to resolve
-        @athena: 3b4c0ec70ad7
+        @athena: a0c1316fd713
         """
         import os
 
@@ -228,7 +228,7 @@ class Executor:
 
         Raises:
         ExecutionError: If any built-in variable fails to resolve
-        @athena: bb8c385cb0a5
+        @athena: 7f6203e8d617
         """
         # Get early builtin vars (those that don't depend on working_dir)
         builtin_vars = self._collect_early_builtin_variables(task, timestamp)
@@ -381,7 +381,7 @@ class Executor:
 
         Returns:
         TaskStatus indicating whether task will run and why
-        @athena: 7252f5db8a4d
+        @athena: 03922de1bd23
         """
         # If force flag is set, always run
         if force:
@@ -486,7 +486,7 @@ class Executor:
 
         Raises:
         ExecutionError: If task execution fails
-        @athena: 1c293ee6a6fa
+        @athena: 4773fc590d9a
         """
         if args_dict is None:
             args_dict = {}
@@ -577,7 +577,7 @@ class Executor:
 
         Raises:
         ExecutionError: If task execution fails
-        @athena: 4b49652a7afd
+        @athena: b5abffeef10a
         """
         # Capture timestamp at task start for consistency (in UTC)
         task_start_time = datetime.now(timezone.utc)
@@ -694,7 +694,7 @@ class Executor:
         Raises:
         ExecutionError: If command execution fails
         @athena: TBD
-        @athena: 96e85dc15b5c
+        @athena: 228cc00e7665
         """
         # Prepare environment with exported args
         env = self._prepare_env_with_exports(exported_env_vars)
@@ -810,7 +810,7 @@ class Executor:
 
         Raises:
         ValueError: If builtin variable or environment variable is not defined
-        @athena: 21e2ccd27dbb
+        @athena: eba6e3d62062
         """
         from dataclasses import replace
 
@@ -899,7 +899,7 @@ class Executor:
 
         Raises:
         ExecutionError: If Docker execution fails
-        @athena: fe972e4c97a3
+        @athena: 61725a57e304
         """
         # Get builtin variables for substitution in environment fields
         task_start_time = datetime.now(timezone.utc)
@@ -956,7 +956,7 @@ class Executor:
 
         Raises:
         ExecutionError: If {{ tt.working_dir }} placeholder is found
-        @athena: 617a0c609f4d
+        @athena: 82822f02716a
         """
         import re
 
@@ -1085,7 +1085,7 @@ class Executor:
 
         Returns:
         True if environment definition changed, False otherwise
-        @athena: 052561b75455
+        @athena: e206e104150a
         """
         # If using platform default (no environment), no definition to track
         if not env_name:
@@ -1144,7 +1144,7 @@ class Executor:
 
         Returns:
         True if image ID changed, False otherwise
-        @athena: 0443710cf356
+        @athena: bc954288e4ad
         """
         # Build/ensure image is built and get its ID
         try:
@@ -1345,7 +1345,7 @@ class Executor:
     def _update_state(self, task: Task, args_dict: dict[str, Any]) -> None:
         """
         Update state after task execution.
-        @athena: 1fcfdfcb9be9
+        @athena: f4d3efdaac7c
         """
         cache_key = self._cache_key(task, args_dict)
         input_state = self._input_files_to_modified_times(task)
@@ -1363,6 +1363,9 @@ class Executor:
         self.state.save()
 
     def _cache_key(self, task: Task, args_dict: dict[str, Any]) -> str:
+        """
+        @athena: d20ce4090741
+        """
         effective_env = self._get_effective_env_name(task)
         task_hash = hash_task(
             task.cmd,
@@ -1376,6 +1379,9 @@ class Executor:
         return make_cache_key(task_hash, args_hash)
 
     def _input_files_to_modified_times(self, task: Task) -> dict[str, float]:
+        """
+        @athena: 7e5ba779a41f
+        """
         input_files = self._expand_globs(self._get_all_inputs(task), task.working_dir)
 
         input_state = {}
@@ -1393,6 +1399,9 @@ class Executor:
     def _docker_inputs_to_modified_times(
         self, env_name: str, env: Environment
     ) -> dict[str, float]:
+        """
+        @athena: bfe53b0d56cd
+        """
         input_state = dict()
         # Record Dockerfile mtime
         dockerfile_path = self.recipe.project_root / env.dockerfile

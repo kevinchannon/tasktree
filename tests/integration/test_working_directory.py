@@ -14,7 +14,7 @@ from tasktree.cli import app
 def strip_ansi_codes(text: str) -> str:
     """
     Remove ANSI escape sequences from text.
-    @athena: 90023a269128
+    @athena: 853120f3304f
     """
     ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
     return ansi_escape.sub("", text)
@@ -23,7 +23,7 @@ def strip_ansi_codes(text: str) -> str:
 class TestWorkingDirectory(unittest.TestCase):
     """
     Test that tasks execute in correct working directory.
-    @athena: 7e69e14f69b1
+    @athena: 30605ca3f3d8
     """
 
     def setUp(self):
@@ -120,7 +120,7 @@ tasks:
     def test_default_working_dir_is_invocation_dir_not_tasks_file_dir(self):
         """
         Test that without explicit working_dir, tasks run from where tt is invoked, not where the tasks file is.
-        @athena: 5988c6fff43d
+        @athena: 3c6c15e7eb12
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)

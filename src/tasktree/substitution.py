@@ -256,7 +256,7 @@ def substitute_dependency_args(
     Example:
     >>> substitute_dependency_args("{{ arg.mode }}", "build", {"mode": "debug"})
     'debug'
-    @athena: 3d07a1b4e6bc
+    @athena: 4ffd5664e3ec
     """
     # Check for disallowed placeholder types in dependency args
     # Only {{ arg.* }} is allowed, not {{ var.* }}, {{ env.* }}, or {{ tt.* }}
@@ -361,7 +361,7 @@ def substitute_dependency_outputs(
     ...     {"build": build_task}
     ... )
     'Deploy dist/app.js'
-    @athena: 1e537c8d579c
+    @athena: 3fbf79c15ee9
     """
 
     def replacer(match: re.Match) -> str:

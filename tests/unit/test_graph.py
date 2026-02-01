@@ -146,13 +146,13 @@ class TestGetImplicitInputs(unittest.TestCase):
 class TestGraphErrors(unittest.TestCase):
     """
     Tests for graph error conditions.
-    @athena: 9e00702d4e11
+    @athena: 086247682401
     """
 
     def test_graph_cycle_error(self):
         """
         Test CycleError raised for circular dependencies.
-        @athena: 623dc07ceacc
+        @athena: a3ad7fd26e99
         """
         # Create a circular dependency: A -> B -> C -> A
         tasks = {

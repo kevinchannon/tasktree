@@ -131,7 +131,7 @@ def _format_task_arguments(arg_specs: list[str | dict]) -> str:
 def _list_tasks(logger: Logger, tasks_file: Optional[str] = None):
     """
     List all available tasks with descriptions.
-    @athena: 778f231737a1
+    @athena: 907819fc0cc7
     """
     recipe = _get_recipe(logger, tasks_file)
     if recipe is None:
@@ -180,7 +180,7 @@ def _list_tasks(logger: Logger, tasks_file: Optional[str] = None):
 def _show_task(logger: Logger, task_name: str, tasks_file: Optional[str] = None):
     """
     Show task definition with syntax highlighting.
-    @athena: 79ae3e330662
+    @athena: a6b71673d4b7
     """
     # Pass task_name as root_task for lazy variable evaluation
     recipe = _get_recipe(logger, tasks_file, root_task=task_name)
@@ -235,7 +235,7 @@ def _show_task(logger: Logger, task_name: str, tasks_file: Optional[str] = None)
 def _show_tree(logger: Logger, task_name: str, tasks_file: Optional[str] = None):
     """
     Show dependency tree structure.
-    @athena: a906cef99324
+    @athena: 88fbc03f4915
     """
     # Pass task_name as root_task for lazy variable evaluation
     recipe = _get_recipe(logger, tasks_file, root_task=task_name)
@@ -265,7 +265,7 @@ def _show_tree(logger: Logger, task_name: str, tasks_file: Optional[str] = None)
 def _init_recipe(logger: Logger):
     """
     Create a blank recipe file with commented examples.
-    @athena: 189726c9b6c0
+    @athena: f05c0eb014d4
     """
     recipe_path = Path("tasktree.yaml")
     if recipe_path.exists():
@@ -402,7 +402,7 @@ trace: Fine-grained execution tracing""",
     tt deploy prod region=us-1   # Run 'deploy' with arguments
     tt --list                    # List all tasks
     tt --tree test               # Show dependency tree for 'test'
-    @athena: f76c75c12d10
+    @athena: 40e6fdbe6100
     """
 
     # Parse log level from string to enum
@@ -474,7 +474,7 @@ trace: Fine-grained execution tracing""",
 def _clean_state(logger: Logger, tasks_file: Optional[str] = None) -> None:
     """
     Remove the .tasktree-state file to reset task execution state.
-    @athena: a0ddf4b333d4
+    @athena: 2f270f8a2d70
     """
     if tasks_file:
         recipe_path = Path(tasks_file)
@@ -512,7 +512,7 @@ def _get_recipe(
     recipe_file: Optional path to recipe file. If not provided, searches for recipe file.
     root_task: Optional root task for lazy variable evaluation. If provided, only variables
     reachable from this task will be evaluated (performance optimization).
-    @athena: 0ee00c67df25
+    @athena: ded906495d18
     """
     if recipe_file:
         recipe_path = Path(recipe_file)
@@ -553,15 +553,15 @@ def _execute_dynamic_task(
     Execute a task with its dependencies and handle argument parsing.
 
     Args:
-        logger: Logger interface for output
-        args: Task name followed by optional task arguments
-        force: Force re-execution even if task is up-to-date
-        only: Execute only the specified task, skip dependencies
-        env: Override environment for task execution
-        tasks_file: Path to recipe file (optional)
-        task_output: Control task subprocess output (all, out, err, on-err, none)
+    logger: Logger interface for output
+    args: Task name followed by optional task arguments
+    force: Force re-execution even if task is up-to-date
+    only: Execute only the specified task, skip dependencies
+    env: Override environment for task execution
+    tasks_file: Path to recipe file (optional)
+    task_output: Control task subprocess output (all, out, err, on-err, none)
 
-    @athena: 207f7635a60d
+    @athena: 36ae914a5bc7
     """
     if not args:
         return
@@ -661,17 +661,17 @@ def _parse_task_args(
     Parse and validate task arguments from command line values.
 
     Args:
-        logger: Logger interface for output
-        arg_specs: Task argument specifications with types and defaults
-        arg_values: Raw argument values from command line (positional or named)
+    logger: Logger interface for output
+    arg_specs: Task argument specifications with types and defaults
+    arg_values: Raw argument values from command line (positional or named)
 
     Returns:
-        Dictionary mapping argument names to typed, validated values
+    Dictionary mapping argument names to typed, validated values
 
     Raises:
-        typer.Exit: If arguments are invalid, missing, or unknown
+    typer.Exit: If arguments are invalid, missing, or unknown
 
-    @athena: 2072a35f9d11
+    @athena: d9a7ea55c3d6
     """
     if not arg_specs:
         if arg_values:

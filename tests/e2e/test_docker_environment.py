@@ -10,7 +10,7 @@ from . import is_docker_available, run_tasktree_cli
 class TestDockerEnvironment(unittest.TestCase):
     """
     Test Docker environment variable and configuration features.
-    @athena: bbec6d8f7a15
+    @athena: c7c662b4eea1
     """
 
     @classmethod
@@ -28,7 +28,7 @@ class TestDockerEnvironment(unittest.TestCase):
     def test_environment_variable_injection(self):
         """
         Test that env_vars are passed to container correctly.
-        @athena: 94effb1f30be
+        @athena: c271cc48b3ff
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -85,7 +85,7 @@ tasks:
     def test_container_working_directory(self):
         """
         Test that container working_dir is set correctly.
-        @athena: 5055a66d1b47
+        @athena: 79d7fac1169e
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -137,7 +137,7 @@ tasks:
     def test_extra_docker_args(self):
         """
         Test that extra_args are passed to docker run.
-        @athena: b5e7e4e4c590
+        @athena: 6b8eb410e4a4
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)

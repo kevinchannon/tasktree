@@ -153,13 +153,13 @@ class TestHashEnvironmentDefinition(unittest.TestCase):
 class TestCheckEnvironmentChanged(unittest.TestCase):
     """
     Test environment change detection in executor.
-    @athena: b42390cf0de2
+    @athena: e7202cf8d971
     """
 
     def setUp(self):
         """
         Set up test environment.
-        @athena: 8c8fc79aa030
+        @athena: f157d4dcbdad
         """
         self.project_root = Path("/tmp/test")
         self.env = Environment(
@@ -182,7 +182,7 @@ class TestCheckEnvironmentChanged(unittest.TestCase):
     def test_check_environment_changed_no_env(self):
         """
         Test that platform default (no env) returns False.
-        @athena: 10b3a2c6bc27
+        @athena: 56d8c158de7d
         """
 
         task = Task(name="test", cmd="echo test")
@@ -197,7 +197,7 @@ class TestCheckEnvironmentChanged(unittest.TestCase):
     def test_check_environment_changed_first_run(self):
         """
         Test that missing cached hash returns True.
-        @athena: 54b0622d0eb0
+        @athena: a4f11f0f5f39
         """
 
         task = Task(name="test", cmd="echo test", env="test")
@@ -212,7 +212,7 @@ class TestCheckEnvironmentChanged(unittest.TestCase):
     def test_check_environment_changed_unchanged(self):
         """
         Test that matching hash returns False.
-        @athena: 4d10c2c7fcd2
+        @athena: 218c97f22523
         """
         task = Task(name="test", cmd="echo test", env="test")
 
@@ -231,7 +231,7 @@ class TestCheckEnvironmentChanged(unittest.TestCase):
     def test_check_environment_changed_shell_modified(self):
         """
         Test that modified shell is detected.
-        @athena: 1df7ba624294
+        @athena: a2b621275515
         """
         task = Task(name="test", cmd="echo test", env="test")
 
@@ -257,7 +257,7 @@ class TestCheckEnvironmentChanged(unittest.TestCase):
     def test_check_environment_changed_deleted_env(self):
         """
         Test that deleted environment returns True.
-        @athena: ab19e56fb26c
+        @athena: 1ee2b820e19f
         """
 
         task = Task(name="test", cmd="echo test", env="test")
@@ -278,13 +278,13 @@ class TestCheckEnvironmentChanged(unittest.TestCase):
 class TestCheckDockerImageChanged(unittest.TestCase):
     """
     Test Docker image ID change detection in executor.
-    @athena: 34c813c4622f
+    @athena: e1e6afc3d943
     """
 
     def setUp(self):
         """
         Set up test environment.
-        @athena: baa2603ffab2
+        @athena: c2d62daebe7d
         """
 
         self.project_root = Path("/tmp/test")
@@ -309,7 +309,7 @@ class TestCheckDockerImageChanged(unittest.TestCase):
     def test_check_docker_image_changed_no_cached_id(self):
         """
         Test that missing cached image ID returns True (first run).
-        @athena: c8ce33886b1d
+        @athena: b0f9b4e70a6f
         """
 
         # TODO why is this not used?
@@ -339,7 +339,7 @@ class TestCheckDockerImageChanged(unittest.TestCase):
     def test_check_docker_image_changed_same_id(self):
         """
         Test that matching image ID returns False.
-        @athena: 9e50aee15bc7
+        @athena: e141f18876b2
         """
 
         # TODO why is this not used?
@@ -367,7 +367,7 @@ class TestCheckDockerImageChanged(unittest.TestCase):
     def test_check_docker_image_changed_different_id(self):
         """
         Test that different image ID returns True (unpinned base updated).
-        @athena: 71d86b1fb8ca
+        @athena: 997fd2e71a45
         """
 
         # TODO why is this not used?
@@ -396,7 +396,7 @@ class TestCheckDockerImageChanged(unittest.TestCase):
     def test_check_environment_changed_docker_yaml_and_image(self):
         """
         Test that Docker environment checks both YAML hash and image ID.
-        @athena: a1722cdc17bf
+        @athena: fccc97ebb3ab
         """
 
         task = Task(name="test", cmd="echo test", env="builder")
@@ -430,7 +430,7 @@ class TestCheckDockerImageChanged(unittest.TestCase):
     def test_check_environment_changed_docker_yaml_changed(self):
         """
         Test that YAML change detected without checking image ID.
-        @athena: bb6e09710e73
+        @athena: f3ea6140643e
         """
 
         task = Task(name="test", cmd="echo test", env="builder")

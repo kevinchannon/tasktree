@@ -238,13 +238,13 @@ class TestFormatTaskArguments(unittest.TestCase):
 class TestListFormatting(unittest.TestCase):
     """
     Tests for _list_tasks() output formatting.
-    @athena: 7db6f9cebc23
+    @athena: b2b2c8a1fbd0
     """
 
     def setUp(self):
         """
         Set up test fixtures.
-        @athena: d852c203b9f3
+        @athena: 96edd4c45f23
         """
         self.console_patch = patch("tasktree.cli.console")
         self.mock_console = self.console_patch.start()
@@ -273,7 +273,7 @@ class TestListFormatting(unittest.TestCase):
     def test_list_uses_borderless_table_format(self, mock_get_recipe):
         """
         Test list uses borderless table format.
-        @athena: f60d9db65551
+        @athena: 641b3b172e8c
         """
         tasks = {"build": Task(name="build", cmd="echo build", desc="Build task")}
         mock_get_recipe.return_value = self._create_mock_recipe(tasks)
@@ -296,7 +296,7 @@ class TestListFormatting(unittest.TestCase):
     def test_list_applies_correct_column_padding(self, mock_get_recipe):
         """
         Test list applies correct column padding.
-        @athena: 4400c3e87f5f
+        @athena: ea17f575fb24
         """
         tasks = {"build": Task(name="build", cmd="echo build", desc="Build task")}
         mock_get_recipe.return_value = self._create_mock_recipe(tasks)
@@ -316,7 +316,7 @@ class TestListFormatting(unittest.TestCase):
     ):
         """
         Test list calculates command column width from longest task name.
-        @athena: a8d8f216cd14
+        @athena: a7a8d601adc3
         """
         tasks = {
             "short": Task(name="short", cmd="echo", desc="Short"),
@@ -339,7 +339,7 @@ class TestListFormatting(unittest.TestCase):
     def test_list_command_column_never_wraps(self, mock_get_recipe):
         """
         Test list command column never wraps.
-        @athena: 5d87d3b1edd4
+        @athena: 4db4b68b2102
         """
         tasks = {"task": Task(name="task", cmd="echo", desc="Task")}
         mock_get_recipe.return_value = self._create_mock_recipe(tasks)
@@ -356,7 +356,7 @@ class TestListFormatting(unittest.TestCase):
     def test_list_shows_namespaced_tasks(self, mock_get_recipe):
         """
         Test list shows namespaced tasks.
-        @athena: 843f958d660f
+        @athena: 807cf14cc0b0
         """
         tasks = {
             "build": Task(name="build", cmd="echo", desc="Build"),
@@ -376,7 +376,7 @@ class TestListFormatting(unittest.TestCase):
     def test_list_formats_tasks_from_multiple_namespaces(self, mock_get_recipe):
         """
         Test list formats tasks from multiple namespaces.
-        @athena: 761fecea895d
+        @athena: 55d9faeb0fea
         """
         tasks = {
             "build": Task(name="build", cmd="echo", desc="Build"),
@@ -397,7 +397,7 @@ class TestListFormatting(unittest.TestCase):
     def test_list_handles_empty_task_list(self, mock_get_recipe):
         """
         Test list handles empty task list.
-        @athena: 8eba30f066c9
+        @athena: b8d30ea7454e
         """
         tasks = {}
         mock_get_recipe.return_value = self._create_mock_recipe(tasks)
@@ -415,7 +415,7 @@ class TestListFormatting(unittest.TestCase):
     def test_list_handles_tasks_with_long_descriptions(self, mock_get_recipe):
         """
         Test list handles tasks with long descriptions.
-        @athena: 28fab971dc2f
+        @athena: 45501e99d5f9
         """
         long_desc = (
             "This is a very long description that should wrap in the description column "
@@ -435,7 +435,7 @@ class TestListFormatting(unittest.TestCase):
     def test_list_applies_bold_style_to_task_names(self, mock_get_recipe):
         """
         Test list applies bold style to task names.
-        @athena: 5e15db396a23
+        @athena: 720a4e3c3960
         """
         tasks = {"build": Task(name="build", cmd="echo", desc="Build")}
         mock_get_recipe.return_value = self._create_mock_recipe(tasks)
@@ -453,7 +453,7 @@ class TestListFormatting(unittest.TestCase):
     def test_list_separates_columns_visually(self, mock_get_recipe):
         """
         Test list separates columns visually.
-        @athena: 81ae146961ac
+        @athena: ea1fb6d5427c
         """
         tasks = {"build": Task(name="build", cmd="echo", desc="Build", args=["env"])}
         mock_get_recipe.return_value = self._create_mock_recipe(tasks)
@@ -471,7 +471,7 @@ class TestListFormatting(unittest.TestCase):
     def test_list_excludes_private_tasks(self, mock_get_recipe):
         """
         Test that private tasks are excluded from list output.
-        @athena: 2e376baf6ab4
+        @athena: d9f0d2209f82
         """
         tasks = {
             "public": Task(
@@ -495,7 +495,7 @@ class TestListFormatting(unittest.TestCase):
     def test_list_includes_tasks_without_private_field(self, mock_get_recipe):
         """
         Test that tasks without private field (default False) are included.
-        @athena: 90c9c3c42970
+        @athena: 2f230bccb2c8
         """
         tasks = {
             "default": Task(name="default", cmd="echo default", desc="Default task"),
@@ -514,7 +514,7 @@ class TestListFormatting(unittest.TestCase):
     def test_list_with_mixed_private_and_public_tasks(self, mock_get_recipe):
         """
         Test list with mixed private and public tasks.
-        @athena: 43ae91ae6522
+        @athena: 656ffd39220e
         """
         tasks = {
             "public1": Task(
@@ -542,7 +542,7 @@ class TestListFormatting(unittest.TestCase):
     def test_list_with_only_private_tasks(self, mock_get_recipe):
         """
         Test list with only private tasks shows empty table.
-        @athena: 11ecb613c582
+        @athena: 174f6fabcc98
         """
         tasks = {
             "private1": Task(

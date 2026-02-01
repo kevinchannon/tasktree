@@ -98,7 +98,7 @@ def resolve_dependency_invocation(
     ...     recipe
     ... )
     DependencyInvocation("build", {"mode": "production"})
-    @athena: 968bae796809
+    @athena: dd9a84821159
     """
     # Simple string case - no args to substitute
     if isinstance(dep_spec, str):
@@ -260,7 +260,7 @@ def resolve_execution_order(
     Raises:
     TaskNotFoundError: If target task or any dependency doesn't exist
     CycleError: If a dependency cycle is detected
-    @athena: b4443e1cb45d
+    @athena: 687f627efc75
     """
     if target_task not in recipe.tasks:
         raise TaskNotFoundError(f"Task not found: {target_task}")
@@ -607,7 +607,7 @@ def build_dependency_tree(
 
     Returns:
     Nested dictionary representing the dependency tree
-    @athena: 570e5c663887
+    @athena: 8c853b393bdb
     """
     if target_task not in recipe.tasks:
         raise TaskNotFoundError(f"Task not found: {target_task}")

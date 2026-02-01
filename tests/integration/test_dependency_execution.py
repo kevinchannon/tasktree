@@ -22,7 +22,7 @@ from tasktree.state import StateManager
 def strip_ansi_codes(text: str) -> str:
     """
     Remove ANSI escape sequences from text.
-    @athena: 90023a269128
+    @athena: 853120f3304f
     """
     ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
     return ansi_escape.sub("", text)
@@ -31,7 +31,7 @@ def strip_ansi_codes(text: str) -> str:
 class TestDependencyExecution(unittest.TestCase):
     """
     Test that dependency chains execute correctly end-to-end.
-    @athena: 93e9b0c24e68
+    @athena: 068e6b9342f5
     """
 
     def setUp(self):
@@ -243,7 +243,7 @@ tasks:
         - Task 'package' depends on 'build' (implicitly gets build outputs as inputs)
         - Expected: 'package' should NOT run because build's outputs didn't change
         - Bug (if present): 'package' runs because 'build' has will_run=True
-        @athena: 54669115d3bd
+        @athena: 81aeb05cdf35
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -331,7 +331,7 @@ tasks:
         Test that tasks DO run when dependency outputs actually change.
 
         This is the positive test case - ensure we didn't break normal behavior.
-        @athena: 47401bca0465
+        @athena: 6eb8d76fe9d6
         """
 
         with TemporaryDirectory() as tmpdir:

@@ -14,11 +14,13 @@ from helpers.io import strip_ansi_codes
 class TestLogLevelCLIFlag(unittest.TestCase):
     """
     Test that --log-level CLI flag correctly controls log output verbosity.
+    @athena: 80824a6205e9
     """
 
     def setUp(self):
         """
         Set up test fixtures.
+        @athena: 563ac9b21ae9
         """
         self.runner = CliRunner()
         self.env = {"NO_COLOR": "1"}  # Disable color output for consistent assertions
@@ -26,6 +28,7 @@ class TestLogLevelCLIFlag(unittest.TestCase):
     def test_log_level_flag_accepts_all_levels(self):
         """
         Test that --log-level accepts all six valid levels.
+        @athena: f668c3a0b3ae
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -61,6 +64,7 @@ tasks:
     def test_log_level_flag_short_form(self):
         """
         Test that -L short form works.
+        @athena: 1bf3beba29fc
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -90,6 +94,7 @@ tasks:
     def test_log_level_default_is_info(self):
         """
         Test that default log level is INFO (preserves current behavior).
+        @athena: a2e6cb309980
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -119,6 +124,7 @@ tasks:
     def test_log_level_with_list_command(self):
         """
         Test that --log-level works with --list command.
+        @athena: fe9fd5601433
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -153,6 +159,7 @@ tasks:
     def test_log_level_case_insensitive(self):
         """
         Test that log level parsing is case-insensitive.
+        @athena: 3770f5c54df1
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -187,6 +194,7 @@ tasks:
     def test_log_level_invalid_value_produces_error(self):
         """
         Test that invalid log level values produce clear error messages.
+        @athena: 02529c00b8a1
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
