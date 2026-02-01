@@ -216,7 +216,7 @@ class TestExecutor(unittest.TestCase):
 
 
             executor.execute_task(
-                "deploy", fake_proc_runner_factory, {"environment": "production"}
+                "deploy", TaskOutputTypes.ALL, {"environment": "production"}
             )
 
             # Verify command had arguments substituted and passed as script
