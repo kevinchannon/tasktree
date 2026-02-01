@@ -56,9 +56,7 @@ class TestPassthroughProcessRunner(unittest.TestCase):
         @athena: fdbd1736580a
         """
         result = self.runner.run(
-            [sys.executable, "-c", "print('test')"],
-            capture_output=True,
-            text=True
+            [sys.executable, "-c", "print('test')"], capture_output=True, text=True
         )
 
         self.assertIsInstance(result, subprocess.CompletedProcess)
@@ -71,9 +69,7 @@ class TestPassthroughProcessRunner(unittest.TestCase):
         @athena: 273fec922ecb
         """
         result = self.runner.run(
-            [sys.executable, "-c", "print('hello')"],
-            stdout=subprocess.PIPE,
-            text=True
+            [sys.executable, "-c", "print('hello')"], stdout=subprocess.PIPE, text=True
         )
 
         self.assertEqual(result.stdout.strip(), "hello")
@@ -86,7 +82,7 @@ class TestPassthroughProcessRunner(unittest.TestCase):
         result = self.runner.run(
             [sys.executable, "-c", "import sys; sys.stderr.write('error\\n')"],
             stderr=subprocess.PIPE,
-            text=True
+            text=True,
         )
 
         self.assertEqual(result.stderr.strip(), "error")
@@ -101,13 +97,12 @@ class TestPassthroughProcessRunner(unittest.TestCase):
             [sys.executable, "-c", "import os; print(os.getcwd())"],
             cwd=test_dir,
             capture_output=True,
-            text=True
+            text=True,
         )
 
         # Use realpath to handle symlinks (e.g., /tmp -> /private/tmp on macOS)
         self.assertEqual(
-            os.path.realpath(result.stdout.strip()),
-            os.path.realpath(test_dir)
+            os.path.realpath(result.stdout.strip()), os.path.realpath(test_dir)
         )
 
     def test_run_uses_env_parameter(self):
@@ -120,7 +115,7 @@ class TestPassthroughProcessRunner(unittest.TestCase):
             [sys.executable, "-c", "import os; print(os.environ.get('TEST_VAR', ''))"],
             env=env,
             capture_output=True,
-            text=True
+            text=True,
         )
 
         self.assertEqual(result.stdout.strip(), "test_value")
@@ -131,8 +126,7 @@ class TestPassthroughProcessRunner(unittest.TestCase):
         @athena: 9869c9cb26a3
         """
         result = self.runner.run(
-            [sys.executable, "-c", "print('test')"],
-            capture_output=True
+            [sys.executable, "-c", "print('test')"], capture_output=True
         )
 
         self.assertIsInstance(result, subprocess.CompletedProcess)
@@ -145,8 +139,7 @@ class TestPassthroughProcessRunner(unittest.TestCase):
         """
         with self.assertRaises(subprocess.CalledProcessError) as context:
             self.runner.run(
-                [sys.executable, "-c", "import sys; sys.exit(1)"],
-                check=True
+                [sys.executable, "-c", "import sys; sys.exit(1)"], check=True
             )
 
         self.assertEqual(context.exception.returncode, 1)
@@ -158,8 +151,7 @@ class TestPassthroughProcessRunner(unittest.TestCase):
         """
         with self.assertRaises(subprocess.TimeoutExpired):
             self.runner.run(
-                [sys.executable, "-c", "import time; time.sleep(10)"],
-                timeout=0.1
+                [sys.executable, "-c", "import time; time.sleep(10)"], timeout=0.1
             )
 
     def test_run_executes_shell_command(self):
@@ -171,7 +163,7 @@ class TestPassthroughProcessRunner(unittest.TestCase):
             f"{sys.executable} -c \"print('shell test')\"",
             shell=True,
             capture_output=True,
-            text=True
+            text=True,
         )
 
         self.assertEqual(result.stdout.strip(), "shell test")
@@ -233,9 +225,7 @@ class TestSilentProcessRunner(unittest.TestCase):
         """
         # Caller tries to capture stdout, but should be overridden to DEVNULL
         result = self.runner.run(
-            [sys.executable, "-c", "print('test')"],
-            stdout=subprocess.PIPE,
-            text=True
+            [sys.executable, "-c", "print('test')"], stdout=subprocess.PIPE, text=True
         )
 
         # stdout should still be None because DEVNULL overrides PIPE
@@ -250,7 +240,7 @@ class TestSilentProcessRunner(unittest.TestCase):
         result = self.runner.run(
             [sys.executable, "-c", "import sys; sys.stderr.write('error\\n')"],
             stderr=subprocess.PIPE,
-            text=True
+            text=True,
         )
 
         # stderr should still be None because DEVNULL overrides PIPE
@@ -265,9 +255,13 @@ class TestSilentProcessRunner(unittest.TestCase):
 
         # This command would print the cwd and env var, but output is suppressed
         result = self.runner.run(
-            [sys.executable, "-c", "import os; print(os.getcwd()); print(os.environ.get('TEST_VAR'))"],
+            [
+                sys.executable,
+                "-c",
+                "import os; print(os.getcwd()); print(os.environ.get('TEST_VAR'))",
+            ],
             cwd="/tmp",
-            env=env
+            env=env,
         )
 
         # Command should succeed even though output is suppressed
@@ -283,8 +277,7 @@ class TestSilentProcessRunner(unittest.TestCase):
         """
         with self.assertRaises(subprocess.CalledProcessError) as context:
             self.runner.run(
-                [sys.executable, "-c", "import sys; sys.exit(1)"],
-                check=True
+                [sys.executable, "-c", "import sys; sys.exit(1)"], check=True
             )
 
         self.assertEqual(context.exception.returncode, 1)
@@ -296,8 +289,7 @@ class TestSilentProcessRunner(unittest.TestCase):
         """
         with self.assertRaises(subprocess.TimeoutExpired):
             self.runner.run(
-                [sys.executable, "-c", "import time; time.sleep(10)"],
-                timeout=0.1
+                [sys.executable, "-c", "import time; time.sleep(10)"], timeout=0.1
             )
 
     def test_silent_runner_is_process_runner(self):
@@ -312,9 +304,7 @@ class TestSilentProcessRunner(unittest.TestCase):
         run() returns subprocess.CompletedProcess instance.
         @athena: TBD
         """
-        result = self.runner.run(
-            [sys.executable, "-c", "print('test')"]
-        )
+        result = self.runner.run([sys.executable, "-c", "print('test')"])
 
         self.assertIsInstance(result, subprocess.CompletedProcess)
         self.assertEqual(result.returncode, 0)
@@ -326,8 +316,11 @@ class TestSilentProcessRunner(unittest.TestCase):
         """
         # Command that writes to both stdout and stderr
         result = self.runner.run(
-            [sys.executable, "-c",
-             "import sys; print('stdout'); sys.stderr.write('stderr\\n')"]
+            [
+                sys.executable,
+                "-c",
+                "import sys; print('stdout'); sys.stderr.write('stderr\\n')",
+            ]
         )
 
         self.assertEqual(result.returncode, 0)

@@ -117,7 +117,9 @@ class TestTaskStatus(unittest.TestCase):
             )
             executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
-            status = executor.check_task_status(task, {}, make_process_runner(TaskOutputTypes.ALL))
+            status = executor.check_task_status(
+                task, {}, make_process_runner(TaskOutputTypes.ALL)
+            )
             self.assertFalse(status.will_run)
             self.assertEqual(status.reason, "fresh")
 
@@ -148,7 +150,9 @@ class TestExecutor(unittest.TestCase):
             fake_proc_runner_factory = MagicMock()
             fake_proc_runner_factory.return_value = process_runner_spy
 
-            Executor(recipe, state_manager, logger_stub, fake_proc_runner_factory).execute_task("build", TaskOutputTypes.ALL)
+            Executor(
+                recipe, state_manager, logger_stub, fake_proc_runner_factory
+            ).execute_task("build", TaskOutputTypes.ALL)
 
             # Verify subprocess was called with a script path
             process_runner_spy.run.assert_called_once()
@@ -180,7 +184,9 @@ class TestExecutor(unittest.TestCase):
             fake_proc_runner_factory = MagicMock()
             fake_proc_runner_factory.return_value = process_runner_spy
 
-            Executor(recipe, state_manager, logger_stub, fake_proc_runner_factory).execute_task("build", TaskOutputTypes.ALL)
+            Executor(
+                recipe, state_manager, logger_stub, fake_proc_runner_factory
+            ).execute_task("build", TaskOutputTypes.ALL)
 
             # Verify both tasks were executed
             self.assertEqual(process_runner_spy.run.call_count, 2)
@@ -212,8 +218,9 @@ class TestExecutor(unittest.TestCase):
             fake_proc_runner_factory = MagicMock()
             fake_proc_runner_factory.return_value = process_runner_spy
 
-            executor = Executor(recipe, state_manager, logger_stub, fake_proc_runner_factory)
-
+            executor = Executor(
+                recipe, state_manager, logger_stub, fake_proc_runner_factory
+            )
 
             executor.execute_task(
                 "deploy", TaskOutputTypes.ALL, {"environment": "production"}
@@ -1182,9 +1189,9 @@ class TestOnlyMode(unittest.TestCase):
             fake_proc_runner_factory.return_value = process_runner_spy
 
             # Execute with only=True
-            statuses = Executor(recipe, state_manager, logger_stub, fake_proc_runner_factory).execute_task(
-                "build", TaskOutputTypes.ALL, only=True
-            )
+            statuses = Executor(
+                recipe, state_manager, logger_stub, fake_proc_runner_factory
+            ).execute_task("build", TaskOutputTypes.ALL, only=True)
 
             # Verify only build was executed, not lint
             self.assertEqual(process_runner_spy.run.call_count, 1)
@@ -1222,9 +1229,9 @@ class TestOnlyMode(unittest.TestCase):
             fake_proc_runner_factory.return_value = process_runner_spy
 
             # Execute test with only=True
-            statuses = Executor(recipe, state_manager, logger_stub, fake_proc_runner_factory).execute_task(
-                "test", TaskOutputTypes.ALL, only=True
-            )
+            statuses = Executor(
+                recipe, state_manager, logger_stub, fake_proc_runner_factory
+            ).execute_task("test", TaskOutputTypes.ALL, only=True)
 
             # Verify only test was executed
             self.assertEqual(process_runner_spy.run.call_count, 1)
@@ -1283,9 +1290,9 @@ class TestOnlyMode(unittest.TestCase):
             fake_proc_runner_factory.return_value = process_runner_spy
 
             # Execute with only=True
-            statuses = Executor(recipe, state_manager, logger_stub, fake_proc_runner_factory).execute_task(
-                "build", TaskOutputTypes.ALL, only=True
-            )
+            statuses = Executor(
+                recipe, state_manager, logger_stub, fake_proc_runner_factory
+            ).execute_task("build", TaskOutputTypes.ALL, only=True)
 
             # Verify task was executed despite being fresh (only implies force)
             self.assertEqual(process_runner_spy.run.call_count, 1)
@@ -1532,7 +1539,9 @@ class TestEnvironmentResolution(unittest.TestCase):
             fake_proc_runner_factory = MagicMock()
             fake_proc_runner_factory.return_value = process_runner_spy
 
-            Executor(recipe, state_manager, logger_stub, fake_proc_runner_factory).execute_task("build", TaskOutputTypes.ALL)
+            Executor(
+                recipe, state_manager, logger_stub, fake_proc_runner_factory
+            ).execute_task("build", TaskOutputTypes.ALL)
 
             # Verify script execution was used and contains fish shell
             self.assertEqual(len(captured_script_content), 1)
@@ -1595,7 +1604,9 @@ class TestEnvironmentResolution(unittest.TestCase):
                     project_root=project_root,
                     recipe_path=project_root / "tasktree.yaml",
                 )
-                executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+                executor = Executor(
+                    recipe, state_manager, logger_stub, make_process_runner
+                )
 
                 process_runner_spy = MagicMock(spec=ProcessRunner)
                 process_runner_spy.run.side_effect = capture_script_content
@@ -1637,7 +1648,9 @@ class TestEnvironmentResolution(unittest.TestCase):
                     project_root=project_root,
                     recipe_path=project_root / "tasktree.yaml",
                 )
-                executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+                executor = Executor(
+                    recipe, state_manager, logger_stub, make_process_runner
+                )
 
                 process_runner_spy = MagicMock(spec=ProcessRunner)
                 executor._run_task(tasks["test"], {}, process_runner_spy)
@@ -1677,7 +1690,9 @@ class TestEnvironmentResolution(unittest.TestCase):
             executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             with self.assertRaises(ValueError) as cm:
-                executor._run_task(tasks["test"], {}, make_process_runner(TaskOutputTypes.ALL))
+                executor._run_task(
+                    tasks["test"], {}, make_process_runner(TaskOutputTypes.ALL)
+                )
 
             self.assertIn("UNDEFINED_TEST_VAR", str(cm.exception))
             self.assertIn("not set", str(cm.exception))

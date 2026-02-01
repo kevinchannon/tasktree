@@ -273,7 +273,9 @@ tasks:
             # This creates build-artifact.txt and package.tar.gz
             parsed_recipe = parse_recipe(recipe_path)
             state_manager = StateManager(project_root)
-            executor = Executor(parsed_recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(
+                parsed_recipe, state_manager, logger_stub, make_process_runner
+            )
 
             statuses = executor.execute_task("package", TaskOutputTypes.ALL)
 
@@ -299,7 +301,9 @@ tasks:
             recipe_path.write_text(yaml.dump(recipe))
 
             parsed_recipe = parse_recipe(recipe_path)
-            executor = Executor(parsed_recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(
+                parsed_recipe, state_manager, logger_stub, make_process_runner
+            )
 
             statuses = executor.execute_task("package", TaskOutputTypes.ALL)
 
@@ -360,7 +364,9 @@ tasks:
             # First run: establish baseline
             parsed_recipe = parse_recipe(recipe_path)
             state_manager = StateManager(project_root)
-            executor = Executor(parsed_recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(
+                parsed_recipe, state_manager, logger_stub, make_process_runner
+            )
 
             statuses = executor.execute_task("build", TaskOutputTypes.ALL)
 
@@ -375,7 +381,9 @@ tasks:
             recipe_path.write_text(yaml.dump(recipe))
 
             parsed_recipe = parse_recipe(recipe_path)
-            executor = Executor(parsed_recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(
+                parsed_recipe, state_manager, logger_stub, make_process_runner
+            )
 
             statuses = executor.execute_task("build", TaskOutputTypes.ALL)
 
