@@ -237,6 +237,57 @@ tasks:
             finally:
                 os.chdir(original_cwd)
 
+    def test_rapid_successive_task_execution(self):
+        """
+        Test that threads are properly cleaned up during rapid successive executions.
+        @athena: TBD
+        """
+        import threading
+
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create a recipe with a quick task
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+tasks:
+  quick:
+    cmd: python3 -c "print('quick task')"
+""")
+
+            # Parse the recipe
+            recipe, _ = parse_recipe(recipe_file)
+
+            # Create executor with StdoutOnlyProcessRunner factory
+            executor = Executor(
+                recipe=recipe,
+                project_root=project_root,
+                state_file=project_root / ".tasktree-state",
+                verbose=False,
+                process_runner_factory=make_process_runner,
+            )
+
+            # Execute the task multiple times rapidly
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+                initial_thread_count = threading.active_count()
+
+                # Run task 10 times rapidly
+                for _ in range(10):
+                    executor.execute_task("quick", TaskOutputTypes.OUT, force=True)
+
+                # Verify thread count hasn't grown (threads were cleaned up)
+                final_thread_count = threading.active_count()
+                self.assertEqual(
+                    initial_thread_count,
+                    final_thread_count,
+                    "Thread count should not increase after multiple task executions",
+                )
+
+            finally:
+                os.chdir(original_cwd)
+
 
 if __name__ == "__main__":
     unittest.main()

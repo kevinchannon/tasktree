@@ -130,15 +130,24 @@ class StdoutOnlyProcessRunner(ProcessRunner):
         """
         Stream output from a pipe to a target stream.
 
+        Handles exceptions gracefully to avoid silent thread failures.
+        If the pipe is closed or an error occurs during reading/writing,
+        the function returns without raising an exception.
+
         Args:
             pipe: Input pipe to read from
             target: Output stream to write to
         @athena: TBD
         """
         if pipe:
-            for line in pipe:
-                target.write(line)
-                target.flush()
+            try:
+                for line in pipe:
+                    target.write(line)
+                    target.flush()
+            except (OSError, ValueError):
+                # Pipe closed or other I/O error - this is expected when
+                # process is killed or stdout is closed
+                pass
 
     def run(self, *args: Any, **kwargs: Any) -> subprocess.CompletedProcess[Any]:
         """
