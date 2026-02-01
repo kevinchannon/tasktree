@@ -817,7 +817,7 @@ tasks:
             executor = Executor(recipe, state_manager, logger_stub)
 
             with self.assertRaises(ExecutionError) as cm:
-                executor.execute_task("fail", make_process_runner, {})
+                executor.execute_task("fail", lambda: make_process_runner(TaskOutputTypes.ALL), {})
             self.assertIn("exit code", str(cm.exception).lower())
 
     def test_execute_working_dir_not_found(self):
@@ -845,7 +845,7 @@ tasks:
             executor = Executor(recipe, state_manager, logger_stub)
 
             with self.assertRaises((ExecutionError, FileNotFoundError, OSError)):
-                executor.execute_task("test", make_process_runner, {})
+                executor.execute_task("test", lambda: make_process_runner(TaskOutputTypes.ALL), {})
 
     def test_execute_command_not_found(self):
         """
@@ -871,7 +871,7 @@ tasks:
             executor = Executor(recipe, state_manager, logger_stub)
 
             with self.assertRaises(ExecutionError):
-                executor.execute_task("test", make_process_runner, {})
+                executor.execute_task("test", lambda: make_process_runner(TaskOutputTypes.ALL), {})
 
     def test_execute_permission_denied(self):
         """
@@ -903,7 +903,7 @@ tasks:
             executor = Executor(recipe, state_manager, logger_stub)
 
             with self.assertRaises((ExecutionError, PermissionError, OSError)):
-                executor.execute_task("test", make_process_runner, {})
+                executor.execute_task("test", lambda: make_process_runner(TaskOutputTypes.ALL), {})
 
     def test_builtin_working_dir_in_working_dir_raises_error(self):
         """
@@ -930,7 +930,7 @@ tasks:
             executor = Executor(recipe, state_manager, logger_stub)
 
             with self.assertRaises(ExecutionError) as cm:
-                executor.execute_task("test", make_process_runner, {})
+                executor.execute_task("test", lambda: make_process_runner(TaskOutputTypes.ALL), {})
 
             error_msg = str(cm.exception)
             self.assertIn("Cannot use {{ tt.working_dir }}", error_msg)
@@ -966,7 +966,7 @@ tasks:
             executor = Executor(recipe, state_manager, logger_stub)
 
             # Should not raise - tt.task_name is allowed in working_dir
-            executor.execute_task("test-task", make_process_runner, {})
+            executor.execute_task("test-task", lambda: make_process_runner(TaskOutputTypes.ALL), {})
 
 
 class TestExecutorPrivateMethods(unittest.TestCase):
@@ -1333,7 +1333,7 @@ echo "line3" >> output.txt"""
             executor = Executor(recipe, state_manager, logger_stub)
 
             # Let the command actually run (no mocking)
-            executor.execute_task("build", make_process_runner)
+            executor.execute_task("build", lambda: make_process_runner(TaskOutputTypes.ALL))
 
             # Verify output file was created with all three lines
             output_file = project_root / "output.txt"
