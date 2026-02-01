@@ -10,10 +10,12 @@ from tempfile import TemporaryDirectory
 
 from typer.testing import CliRunner
 
+from helpers.logging import logger_stub
 from tasktree.cli import app
 from tasktree.executor import Executor
 from tasktree.parser import parse_recipe
 from tasktree.process_runner import TaskOutputTypes, make_process_runner
+from tasktree.state import StateManager
 
 
 class TestTaskOutputOption(unittest.TestCase):
@@ -160,13 +162,14 @@ tasks:
             # Parse the recipe
             recipe = parse_recipe(recipe_file)
 
-            # Create executor with StdoutOnlyProcessRunner factory
+            # Create state manager and executor
+            state_manager = StateManager(project_root)
+            state_manager.load()
             executor = Executor(
-                recipe=recipe,
-                project_root=project_root,
-                state_file=project_root / ".tasktree-state",
-                verbose=False,
-                process_runner_factory=make_process_runner,
+                recipe,
+                state_manager,
+                logger_stub,
+                make_process_runner,
             )
 
             # Execute the task with OUT mode, capturing stdout and stderr
@@ -218,13 +221,14 @@ tasks:
             # Parse the recipe
             recipe = parse_recipe(recipe_file)
 
-            # Create executor with StdoutOnlyProcessRunner factory
+            # Create state manager and executor
+            state_manager = StateManager(project_root)
+            state_manager.load()
             executor = Executor(
-                recipe=recipe,
-                project_root=project_root,
-                state_file=project_root / ".tasktree-state",
-                verbose=False,
-                process_runner_factory=make_process_runner,
+                recipe,
+                state_manager,
+                logger_stub,
+                make_process_runner,
             )
 
             # Execute the task with OUT mode - should raise an exception
@@ -258,13 +262,14 @@ tasks:
             # Parse the recipe
             recipe = parse_recipe(recipe_file)
 
-            # Create executor with StdoutOnlyProcessRunner factory
+            # Create state manager and executor
+            state_manager = StateManager(project_root)
+            state_manager.load()
             executor = Executor(
-                recipe=recipe,
-                project_root=project_root,
-                state_file=project_root / ".tasktree-state",
-                verbose=False,
-                process_runner_factory=make_process_runner,
+                recipe,
+                state_manager,
+                logger_stub,
+                make_process_runner,
             )
 
             # Execute the task multiple times rapidly
