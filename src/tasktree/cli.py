@@ -32,7 +32,7 @@ from tasktree.hasher import hash_task, hash_args
 from tasktree.console_logger import ConsoleLogger, Logger
 from tasktree.logging import LogLevel
 from tasktree.parser import Recipe, find_recipe_file, parse_arg_spec, parse_recipe
-from tasktree.process_runner import make_process_runner
+from tasktree.process_runner import TaskOutputTypes, make_process_runner
 from tasktree.state import StateManager
 from tasktree.types import get_click_type
 
@@ -642,7 +642,11 @@ def _execute_dynamic_task(
     state.save()
     try:
         executor.execute_task(
-            task_name, make_process_runner, args_dict, force=force, only=only
+            task_name,
+            lambda: make_process_runner(TaskOutputTypes.ALL),
+            args_dict,
+            force=force,
+            only=only,
         )
         logger.info(
             f"[green]{get_action_success_string()} Task '{task_name}' completed successfully[/green]",

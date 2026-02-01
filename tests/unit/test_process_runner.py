@@ -9,6 +9,7 @@ from tasktree.process_runner import (
     PassthroughProcessRunner,
     ProcessRunner,
     SilentProcessRunner,
+    TaskOutputTypes,
     make_process_runner,
 )
 
@@ -340,30 +341,35 @@ class TestMakeProcessRunner(unittest.TestCase):
     @athena: 80c9607632a3
     """
 
-    def test_make_process_runner_returns_process_runner(self):
+    def test_make_process_runner_with_all_returns_passthrough(self):
         """
-        make_process_runner() returns a ProcessRunner instance.
-        @athena: b7f0ca78d157
+        make_process_runner(TaskOutputTypes.ALL) returns PassthroughProcessRunner.
+        @athena: TBD
         """
-        runner = make_process_runner()
-        self.assertIsInstance(runner, ProcessRunner)
-
-    def test_make_process_runner_returns_passthrough_runner(self):
-        """
-        make_process_runner() returns a PassthroughProcessRunner instance.
-        @athena: 5e847eb56856
-        """
-        runner = make_process_runner()
+        runner = make_process_runner(TaskOutputTypes.ALL)
         self.assertIsInstance(runner, PassthroughProcessRunner)
 
-    def test_make_process_runner_returns_new_instance_each_call(self):
+    def test_make_process_runner_with_none_returns_silent(self):
         """
-        make_process_runner() returns a new instance on each call.
-        @athena: 4e6d6d5fefe5
+        make_process_runner(TaskOutputTypes.NONE) returns SilentProcessRunner.
+        @athena: TBD
         """
-        runner1 = make_process_runner()
-        runner2 = make_process_runner()
-        self.assertIsNot(runner1, runner2)
+        runner = make_process_runner(TaskOutputTypes.NONE)
+        self.assertIsInstance(runner, SilentProcessRunner)
+
+    def test_make_process_runner_with_invalid_raises_error(self):
+        """
+        make_process_runner() raises ValueError for invalid TaskOutputTypes.
+        @athena: TBD
+        """
+        # Create an invalid enum value by casting
+        invalid_value = "invalid"
+        with self.assertRaises(ValueError) as cm:
+            # We can't create an invalid enum value directly, so we'll test
+            # by creating a string that would fail enum validation
+            make_process_runner(invalid_value)  # type: ignore
+
+        self.assertIn("Invalid TaskOutputTypes", str(cm.exception))
 
 
 if __name__ == "__main__":

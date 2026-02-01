@@ -7,7 +7,7 @@ from helpers.logging import logger_stub
 from tasktree.executor import Executor
 from tasktree.hasher import hash_environment_definition
 from tasktree.parser import Environment, Recipe, Task
-from tasktree.process_runner import make_process_runner
+from tasktree.process_runner import TaskOutputTypes, make_process_runner
 from tasktree.state import StateManager, TaskState
 
 
@@ -189,7 +189,7 @@ class TestCheckEnvironmentChanged(unittest.TestCase):
         cached_state = TaskState(last_run=123.0, input_state={})
 
         result = self.executor._check_environment_changed(
-            task, cached_state, "", make_process_runner()
+            task, cached_state, "", make_process_runner(TaskOutputTypes.ALL)
         )
 
         self.assertFalse(result)
@@ -204,7 +204,7 @@ class TestCheckEnvironmentChanged(unittest.TestCase):
         cached_state = TaskState(last_run=123.0, input_state={})
 
         result = self.executor._check_environment_changed(
-            task, cached_state, "test", make_process_runner()
+            task, cached_state, "test", make_process_runner(TaskOutputTypes.ALL)
         )
 
         self.assertTrue(result)
@@ -223,7 +223,7 @@ class TestCheckEnvironmentChanged(unittest.TestCase):
         )
 
         result = self.executor._check_environment_changed(
-            task, cached_state, "test", make_process_runner()
+            task, cached_state, "test", make_process_runner(TaskOutputTypes.ALL)
         )
 
         self.assertFalse(result)
@@ -249,7 +249,7 @@ class TestCheckEnvironmentChanged(unittest.TestCase):
         )
 
         result = self.executor._check_environment_changed(
-            task, cached_state, "test", make_process_runner()
+            task, cached_state, "test", make_process_runner(TaskOutputTypes.ALL)
         )
 
         self.assertTrue(result)
@@ -269,7 +269,7 @@ class TestCheckEnvironmentChanged(unittest.TestCase):
         self.recipe.environments = {}
 
         result = self.executor._check_environment_changed(
-            task, cached_state, "test", make_process_runner()
+            task, cached_state, "test", make_process_runner(TaskOutputTypes.ALL)
         )
 
         self.assertTrue(result)
@@ -331,7 +331,7 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         )
 
         result = self.executor._check_docker_image_changed(
-            self.env, cached_state, "builder", make_process_runner()
+            self.env, cached_state, "builder", make_process_runner(TaskOutputTypes.ALL)
         )
 
         self.assertTrue(result)
@@ -359,7 +359,7 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         )
 
         result = self.executor._check_docker_image_changed(
-            self.env, cached_state, "builder", make_process_runner()
+            self.env, cached_state, "builder", make_process_runner(TaskOutputTypes.ALL)
         )
 
         self.assertFalse(result)
@@ -388,7 +388,7 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         )
 
         result = self.executor._check_docker_image_changed(
-            self.env, cached_state, "builder", make_process_runner()
+            self.env, cached_state, "builder", make_process_runner(TaskOutputTypes.ALL)
         )
 
         self.assertTrue(result)
@@ -423,7 +423,7 @@ class TestCheckDockerImageChanged(unittest.TestCase):
 
         # Should return False (both YAML and image ID unchanged)
         result = self.executor._check_environment_changed(
-            task, cached_state, "builder", make_process_runner()
+            task, cached_state, "builder", make_process_runner(TaskOutputTypes.ALL)
         )
         self.assertFalse(result)
 
@@ -456,7 +456,7 @@ class TestCheckDockerImageChanged(unittest.TestCase):
 
         # Should return True (YAML changed)
         result = self.executor._check_environment_changed(
-            task, cached_state, "builder", make_process_runner()
+            task, cached_state, "builder", make_process_runner(TaskOutputTypes.ALL)
         )
         self.assertTrue(result)
 

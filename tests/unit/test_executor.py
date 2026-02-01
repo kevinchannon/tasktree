@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 from helpers.logging import logger_stub
 from tasktree.executor import Executor
 from tasktree.parser import Recipe, Task
-from tasktree.process_runner import ProcessRunner, make_process_runner
+from tasktree.process_runner import ProcessRunner, TaskOutputTypes, make_process_runner
 from tasktree.state import StateManager, TaskState
 
 
@@ -39,7 +39,7 @@ class TestTaskStatus(unittest.TestCase):
             executor = Executor(recipe, state_manager, logger_stub)
 
             status = executor.check_task_status(
-                tasks["build"], {}, make_process_runner(), False
+                tasks["build"], {}, make_process_runner(TaskOutputTypes.ALL), False
             )
             self.assertTrue(status.will_run)
             self.assertEqual(status.reason, "never_run")
@@ -60,7 +60,7 @@ class TestTaskStatus(unittest.TestCase):
                 recipe_path=project_root / "tasktree.yaml",
             )
             executor = Executor(recipe, state_manager, logger_stub)
-            process_runner = make_process_runner()
+            process_runner = make_process_runner(TaskOutputTypes.ALL)
 
             status = executor.check_task_status(
                 tasks["test"], {}, process_runner, False
@@ -117,7 +117,7 @@ class TestTaskStatus(unittest.TestCase):
             )
             executor = Executor(recipe, state_manager, logger_stub)
 
-            status = executor.check_task_status(task, {}, make_process_runner())
+            status = executor.check_task_status(task, {}, make_process_runner(TaskOutputTypes.ALL))
             self.assertFalse(status.will_run)
             self.assertEqual(status.reason, "fresh")
 
@@ -403,7 +403,7 @@ class TestExecutor(unittest.TestCase):
                 return MagicMock(returncode=0)
 
             # Create process runner for test
-            process_runner = make_process_runner()
+            process_runner = make_process_runner(TaskOutputTypes.ALL)
 
             # Apply patches
             with patch("os.chmod", side_effect=mock_chmod_func):
@@ -542,7 +542,7 @@ class TestMissingOutputs(unittest.TestCase):
                 recipe_path=project_root / "tasktree.yaml",
             )
             executor = Executor(recipe, state_manager, logger_stub)
-            process_runner = make_process_runner()
+            process_runner = make_process_runner(TaskOutputTypes.ALL)
 
             status = executor.check_task_status(task, {}, process_runner)
             self.assertFalse(status.will_run)
@@ -586,7 +586,7 @@ class TestMissingOutputs(unittest.TestCase):
                 recipe_path=project_root / "tasktree.yaml",
             )
             executor = Executor(recipe, state_manager, logger_stub)
-            process_runner = make_process_runner()
+            process_runner = make_process_runner(TaskOutputTypes.ALL)
 
             status = executor.check_task_status(task, {}, process_runner)
             self.assertTrue(status.will_run)
@@ -632,7 +632,7 @@ class TestMissingOutputs(unittest.TestCase):
                 recipe_path=project_root / "tasktree.yaml",
             )
             executor = Executor(recipe, state_manager, logger_stub)
-            process_runner = make_process_runner()
+            process_runner = make_process_runner(TaskOutputTypes.ALL)
 
             status = executor.check_task_status(task, {}, process_runner)
             self.assertTrue(status.will_run)
@@ -662,7 +662,7 @@ class TestMissingOutputs(unittest.TestCase):
                 recipe_path=project_root / "tasktree.yaml",
             )
             executor = Executor(recipe, state_manager, logger_stub)
-            process_runner = make_process_runner()
+            process_runner = make_process_runner(TaskOutputTypes.ALL)
 
             status = executor.check_task_status(task, {}, process_runner)
             self.assertTrue(status.will_run)
@@ -687,7 +687,7 @@ class TestMissingOutputs(unittest.TestCase):
                 recipe_path=project_root / "tasktree.yaml",
             )
             executor = Executor(recipe, state_manager, logger_stub)
-            process_runner = make_process_runner()
+            process_runner = make_process_runner(TaskOutputTypes.ALL)
 
             status = executor.check_task_status(task, {}, process_runner)
             self.assertTrue(status.will_run)
@@ -736,7 +736,7 @@ class TestMissingOutputs(unittest.TestCase):
                 recipe_path=project_root / "tasktree.yaml",
             )
             executor = Executor(recipe, state_manager, logger_stub)
-            process_runner = make_process_runner()
+            process_runner = make_process_runner(TaskOutputTypes.ALL)
 
             status = executor.check_task_status(task, {}, process_runner)
             self.assertFalse(status.will_run)
@@ -780,7 +780,7 @@ class TestMissingOutputs(unittest.TestCase):
                 recipe_path=project_root / "tasktree.yaml",
             )
             executor = Executor(recipe, state_manager, logger_stub)
-            process_runner = make_process_runner()
+            process_runner = make_process_runner(TaskOutputTypes.ALL)
 
             status = executor.check_task_status(task, {}, process_runner)
             self.assertTrue(status.will_run)
@@ -1682,7 +1682,7 @@ class TestEnvironmentResolution(unittest.TestCase):
             executor = Executor(recipe, state_manager, logger_stub)
 
             with self.assertRaises(ValueError) as cm:
-                executor._run_task(tasks["test"], {}, make_process_runner())
+                executor._run_task(tasks["test"], {}, make_process_runner(TaskOutputTypes.ALL))
 
             self.assertIn("UNDEFINED_TEST_VAR", str(cm.exception))
             self.assertIn("not set", str(cm.exception))

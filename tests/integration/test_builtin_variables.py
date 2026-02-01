@@ -7,7 +7,7 @@ from pathlib import Path
 
 from tasktree.executor import Executor
 from tasktree.parser import parse_recipe
-from tasktree.process_runner import make_process_runner
+from tasktree.process_runner import TaskOutputTypes, make_process_runner
 from tasktree.state import StateManager
 
 from helpers.logging import logger_stub
@@ -65,7 +65,7 @@ tasks:
         state = StateManager(recipe.project_root)
         state.load()
         executor = Executor(recipe, state, logger_stub)
-        executor.execute_task("test-vars", make_process_runner)
+        executor.execute_task("test-vars", lambda: make_process_runner(TaskOutputTypes.ALL))
 
         # Read output and verify
         output = output_file.read_text()
@@ -127,7 +127,7 @@ tasks:
         state = StateManager(recipe.project_root)
         state.load()
         executor = Executor(recipe, state, logger_stub)
-        executor.execute_task("test-timestamp", make_process_runner)
+        executor.execute_task("test-timestamp", lambda: make_process_runner(TaskOutputTypes.ALL))
 
         output = output_file.read_text()
         lines = output.strip().split("\n")
@@ -158,7 +158,7 @@ tasks:
         state = StateManager(recipe.project_root)
         state.load()
         executor = Executor(recipe, state, logger_stub)
-        executor.execute_task("test-workdir", make_process_runner)
+        executor.execute_task("test-workdir", lambda: make_process_runner(TaskOutputTypes.ALL))
 
         output = output_file.read_text().strip()
         # Should show the absolute path to subdir
@@ -185,7 +185,7 @@ tasks:
         state = StateManager(recipe.project_root)
         state.load()
         executor = Executor(recipe, state, logger_stub)
-        executor.execute_task("test-multiline", make_process_runner)
+        executor.execute_task("test-multiline", lambda: make_process_runner(TaskOutputTypes.ALL))
 
         output = output_file.read_text().strip()
         expected = f"{recipe.project_root.resolve()}/test-multiline"
@@ -216,7 +216,7 @@ tasks:
         state = StateManager(recipe.project_root)
         state.load()
         executor = Executor(recipe, state, logger_stub)
-        executor.execute_task("test-recipe-dir", make_process_runner)
+        executor.execute_task("test-recipe-dir", lambda: make_process_runner(TaskOutputTypes.ALL))
 
         output = output_file.read_text()
         lines = {
@@ -295,7 +295,7 @@ tasks:
         state = StateManager(recipe.project_root)
         state.load()
         executor = Executor(recipe, state, logger_stub)
-        executor.execute_task("build-task", make_process_runner)
+        executor.execute_task("build-task", lambda: make_process_runner(TaskOutputTypes.ALL))
 
         output = output_file.read_text()
         lines = {
@@ -370,7 +370,7 @@ tasks:
 
         with patch("tasktree.docker.subprocess.run", side_effect=mock_run):
             # Execute task
-            executor.execute_task("docker-test", make_process_runner)
+            executor.execute_task("docker-test", lambda: make_process_runner(TaskOutputTypes.ALL))
 
         # Verify that volumes were substituted
         self.assertIsNotNone(
@@ -492,7 +492,7 @@ tasks:
 
             with patch("tasktree.docker.subprocess.run", side_effect=mock_run):
                 # Execute task
-                executor.execute_task("docker-test", make_process_runner)
+                executor.execute_task("docker-test", lambda: make_process_runner(TaskOutputTypes.ALL))
 
             # Verify that volumes were substituted
             self.assertIsNotNone(
@@ -607,7 +607,7 @@ tasks:
 
         with patch("tasktree.docker.subprocess.run", side_effect=mock_run):
             # Execute task
-            executor.execute_task("docker-test", make_process_runner)
+            executor.execute_task("docker-test", lambda: make_process_runner(TaskOutputTypes.ALL))
 
         # Verify that volumes were substituted
         self.assertIsNotNone(
