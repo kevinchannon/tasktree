@@ -25,7 +25,7 @@ from tasktree.graph import (
 from tasktree.hasher import hash_args, hash_task, make_cache_key
 from tasktree.logging import Logger, LogLevel
 from tasktree.parser import Recipe, Task, Environment
-from tasktree.process_runner import ProcessRunner
+from tasktree.process_runner import ProcessRunner, TaskOutputTypes
 from tasktree.state import StateManager, TaskState
 from tasktree.hasher import hash_environment_definition
 
@@ -77,7 +77,7 @@ class Executor:
         recipe: Recipe,
         state_manager: StateManager,
         logger: Logger,
-        process_runner_factory: Callable[[Any], ProcessRunner],
+        process_runner_factory: Callable[[TaskOutputTypes], ProcessRunner]
     ):
         """
         Initialize executor.
