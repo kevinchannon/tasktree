@@ -126,9 +126,10 @@ def make_process_runner(output_type: TaskOutputTypes) -> ProcessRunner:
     ValueError: If an invalid TaskOutputTypes value is provided
     @athena: ba1d2e048716
     """
-    if output_type == TaskOutputTypes.ALL:
-        return PassthroughProcessRunner()
-    elif output_type == TaskOutputTypes.NONE:
-        return SilentProcessRunner()
-    else:
-        raise ValueError(f"Invalid TaskOutputTypes: {output_type}")
+    match output_type:
+        case TaskOutputTypes.ALL:
+            return PassthroughProcessRunner()
+        case TaskOutputTypes.NONE:
+            return SilentProcessRunner()
+        case _:
+            raise ValueError(f"Invalid TaskOutputTypes: {output_type}")
