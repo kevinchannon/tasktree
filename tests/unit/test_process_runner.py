@@ -1,5 +1,6 @@
 """Unit tests for process_runner module."""
 
+import os
 import subprocess
 import sys
 import unittest
@@ -94,14 +95,19 @@ class TestPassthroughProcessRunner(unittest.TestCase):
         run() executes command in specified working directory.
         @athena: 70d97cb42a40
         """
+        test_dir = "/tmp"
         result = self.runner.run(
             [sys.executable, "-c", "import os; print(os.getcwd())"],
-            cwd="/tmp",
+            cwd=test_dir,
             capture_output=True,
             text=True
         )
 
-        self.assertEqual(result.stdout.strip(), "/tmp")
+        # Use realpath to handle symlinks (e.g., /tmp -> /private/tmp on macOS)
+        self.assertEqual(
+            os.path.realpath(result.stdout.strip()),
+            os.path.realpath(test_dir)
+        )
 
     def test_run_uses_env_parameter(self):
         """
