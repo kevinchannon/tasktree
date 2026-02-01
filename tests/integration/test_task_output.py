@@ -1,6 +1,9 @@
 """Integration tests for task output control."""
 
+import io
 import os
+import subprocess
+import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -166,17 +169,32 @@ tasks:
                 process_runner_factory=make_process_runner,
             )
 
-            # Execute the task with OUT mode
+            # Execute the task with OUT mode, capturing stdout and stderr
             original_cwd = os.getcwd()
+            captured_stdout = io.StringIO()
+            captured_stderr = io.StringIO()
+
             try:
                 os.chdir(project_root)
-                executor.execute_task("test", TaskOutputTypes.OUT)
+                # Redirect sys.stdout and sys.stderr to capture output
+                old_stdout = sys.stdout
+                old_stderr = sys.stderr
+                sys.stdout = captured_stdout
+                sys.stderr = captured_stderr
 
-                # If we get here, the task executed successfully
-                # The stdout would have been streamed (we can't easily capture it in this test)
-                # and stderr would have been suppressed
-                # The test passes if no exception is raised
-                self.assertTrue(True)
+                try:
+                    executor.execute_task("test", TaskOutputTypes.OUT)
+                finally:
+                    sys.stdout = old_stdout
+                    sys.stderr = old_stderr
+
+                # Verify stdout was captured (streamed through)
+                stdout_content = captured_stdout.getvalue()
+                self.assertIn("stdout output", stdout_content)
+
+                # Verify stderr was NOT captured (suppressed)
+                stderr_content = captured_stderr.getvalue()
+                self.assertNotIn("stderr output", stderr_content)
 
             finally:
                 os.chdir(original_cwd)
@@ -213,7 +231,7 @@ tasks:
             original_cwd = os.getcwd()
             try:
                 os.chdir(project_root)
-                with self.assertRaises(Exception):  # Should raise due to non-zero exit
+                with self.assertRaises(subprocess.CalledProcessError):
                     executor.execute_task("fail", TaskOutputTypes.OUT)
 
             finally:
