@@ -368,8 +368,7 @@ def main(
         "--log-level",
         "-L",
         click_type=click.Choice(
-            ["fatal", "error", "warn", "info", "debug", "trace"],
-            case_sensitive=False
+            ["fatal", "error", "warn", "info", "debug", "trace"], case_sensitive=False
         ),
         help="""Control verbosity of tasktree's diagnostic messages.
 
@@ -378,16 +377,13 @@ error: Fatal errors plus task execution failures
 warn: Errors plus warnings (deprecated features, configuration issues)
 info: Normal execution progress (default)
 debug: Variable values, resolved paths, environment details
-trace: Fine-grained execution tracing"""
+trace: Fine-grained execution tracing""",
     ),
     task_output: str = typer.Option(
         "all",
         "--task-output",
         "-O",
-        click_type=click.Choice(
-            ["all"],
-            case_sensitive=False
-        ),
+        click_type=click.Choice(["all"], case_sensitive=False),
         help="Control task subprocess output display (all: show both stdout and stderr)",
     ),
     task_args: Optional[List[str]] = typer.Argument(
@@ -557,7 +553,7 @@ def _execute_dynamic_task(
     Execute a task with its dependencies and handle argument parsing.
 
     Args:
-        logger_fn: Logger function for output
+        logger: Logger interface for output
         args: Task name followed by optional task arguments
         force: Force re-execution even if task is up-to-date
         only: Execute only the specified task, skip dependencies
@@ -645,7 +641,9 @@ def _execute_dynamic_task(
     state.prune(valid_hashes)
     state.save()
     try:
-        executor.execute_task(task_name, make_process_runner, args_dict, force=force, only=only)
+        executor.execute_task(
+            task_name, make_process_runner, args_dict, force=force, only=only
+        )
         logger.info(
             f"[green]{get_action_success_string()} Task '{task_name}' completed successfully[/green]",
         )
@@ -663,7 +661,7 @@ def _parse_task_args(
     Parse and validate task arguments from command line values.
 
     Args:
-        logger_fn: Logger function for output
+        logger: Logger interface for output
         arg_specs: Task argument specifications with types and defaults
         arg_values: Raw argument values from command line (positional or named)
 

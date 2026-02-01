@@ -8,7 +8,7 @@ import subprocess
 from abc import ABC, abstractmethod
 from typing import Any
 
-__all__ = ['ProcessRunner', 'PassthroughProcessRunner', 'make_process_runner']
+__all__ = ["ProcessRunner", "PassthroughProcessRunner", "make_process_runner"]
 
 
 class ProcessRunner(ABC):

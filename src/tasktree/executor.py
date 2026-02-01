@@ -422,8 +422,9 @@ class Executor:
                 reason="never_run",
             )
 
-        # Check if environment definition has changed
-        env_changed = self._check_environment_changed(task, cached_state, effective_env, process_runner)
+        env_changed = self._check_environment_changed(
+            task, cached_state, effective_env, process_runner
+        )
         if env_changed:
             return TaskStatus(
                 task_name=task.name,
@@ -518,11 +519,12 @@ class Executor:
             # Convert None to {} for internal use (None is used to distinguish simple deps in graph)
             args_dict_for_execution = task_args if task_args is not None else {}
 
-            # Create process runner for this task
             process_runner = process_runner_factory()
 
             # Check if task needs to run (based on CURRENT filesystem state)
-            status = self.check_task_status(task, args_dict_for_execution, process_runner, force=force)
+            status = self.check_task_status(
+                task, args_dict_for_execution, process_runner, force=force
+            )
 
             # Use a key that includes args for status tracking
             # Only include regular (non-exported) args in status key for parameterized dependencies
@@ -562,7 +564,9 @@ class Executor:
 
         return statuses
 
-    def _run_task(self, task: Task, args_dict: dict[str, Any], process_runner: ProcessRunner) -> None:
+    def _run_task(
+        self, task: Task, args_dict: dict[str, Any], process_runner: ProcessRunner
+    ) -> None:
         """
         Execute a single task.
 
@@ -636,12 +640,26 @@ class Executor:
         # Route to Docker execution or regular execution
         if env and env.dockerfile:
             # Docker execution path
-            self._run_task_in_docker(task, env, cmd, working_dir, process_runner, exported_env_vars, self.task_output)
+            self._run_task_in_docker(
+                task,
+                env,
+                cmd,
+                working_dir,
+                process_runner,
+                exported_env_vars,
+                self.task_output,
+            )
         else:
             # Regular execution path - use unified script-based execution
             shell, preamble = self._resolve_environment(task)
             self._run_command_as_script(
-                cmd, working_dir, task.name, shell, preamble, process_runner, exported_env_vars
+                cmd,
+                working_dir,
+                task.name,
+                shell,
+                preamble,
+                process_runner,
+                exported_env_vars,
             )
 
         # Update state
@@ -740,7 +758,9 @@ class Executor:
 
                 # If streams support fileno, pass target streams directly (most efficient)
                 # Otherwise capture and manually write (CliRunner compatibility)
-                if not should_suppress and not (supports_fileno(sys.stdout) and supports_fileno(sys.stderr)):
+                if not should_suppress and not (
+                    supports_fileno(sys.stdout) and supports_fileno(sys.stderr)
+                ):
                     # CliRunner path: capture and write manually
                     result = process_runner.run(
                         [script_path],
@@ -1045,7 +1065,11 @@ class Executor:
 
     # TODO: Understand why task isn't used
     def _check_environment_changed(
-        self, task: Task, cached_state: TaskState, env_name: str, process_runner: ProcessRunner
+        self,
+        task: Task,
+        cached_state: TaskState,
+        env_name: str,
+        process_runner: ProcessRunner,
     ) -> bool:
         """
         Check if environment definition has changed since last run.
@@ -1092,13 +1116,19 @@ class Executor:
 
         # For Docker environments, also check if image ID changed
         if env.dockerfile:
-            return self._check_docker_image_changed(env, cached_state, env_name, process_runner)
+            return self._check_docker_image_changed(
+                env, cached_state, env_name, process_runner
+            )
 
         # Shell environment with unchanged hash
         return False
 
     def _check_docker_image_changed(
-        self, env: Environment, cached_state: TaskState, env_name: str, process_runner: ProcessRunner
+        self,
+        env: Environment,
+        cached_state: TaskState,
+        env_name: str,
+        process_runner: ProcessRunner,
     ) -> bool:
         """
         Check if Docker image ID has changed.
@@ -1118,7 +1148,9 @@ class Executor:
         """
         # Build/ensure image is built and get its ID
         try:
-            image_tag, current_image_id = self.docker_manager.ensure_image_built(env, process_runner)
+            image_tag, current_image_id = self.docker_manager.ensure_image_built(
+                env, process_runner
+            )
         except Exception:
             # If we can't build, treat as changed (will fail later with better error)
             return True

@@ -79,7 +79,9 @@ tasks:
                 os.chdir(project_root)
 
                 # Test short form -L
-                result = self.runner.invoke(app, ["-L", "debug", "simple"], env=self.env)
+                result = self.runner.invoke(
+                    app, ["-L", "debug", "simple"], env=self.env
+                )
                 self.assertEqual(result.exit_code, 0)
 
             finally:

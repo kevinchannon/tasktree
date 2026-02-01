@@ -256,7 +256,9 @@ tasks:
         state = StateManager(recipe.project_root)
         state.load()
         executor = Executor(recipe, state, logger_stub)
-        executor.execute_task("deploy", make_process_runner, args_dict={"region": "us-west-1"})
+        executor.execute_task(
+            "deploy", make_process_runner, args_dict={"region": "us-west-1"}
+        )
 
         output = output_file.read_text()
         lines = [line for line in output.strip().split("\n")]

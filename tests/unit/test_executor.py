@@ -37,9 +37,10 @@ class TestTaskStatus(unittest.TestCase):
                 recipe_path=project_root / "tasktree.yaml",
             )
             executor = Executor(recipe, state_manager, logger_stub)
-            process_runner = make_process_runner()
 
-            status = executor.check_task_status(tasks["build"], {}, process_runner, False)
+            status = executor.check_task_status(
+                tasks["build"], {}, make_process_runner(), False
+            )
             self.assertTrue(status.will_run)
             self.assertEqual(status.reason, "never_run")
 
@@ -61,7 +62,9 @@ class TestTaskStatus(unittest.TestCase):
             executor = Executor(recipe, state_manager, logger_stub)
             process_runner = make_process_runner()
 
-            status = executor.check_task_status(tasks["test"], {}, process_runner, False)
+            status = executor.check_task_status(
+                tasks["test"], {}, process_runner, False
+            )
             self.assertTrue(status.will_run)
             self.assertEqual(status.reason, "no_outputs")
 
@@ -113,9 +116,8 @@ class TestTaskStatus(unittest.TestCase):
                 recipe_path=project_root / "tasktree.yaml",
             )
             executor = Executor(recipe, state_manager, logger_stub)
-            process_runner = make_process_runner()
 
-            status = executor.check_task_status(task, {}, process_runner)
+            status = executor.check_task_status(task, {}, make_process_runner())
             self.assertFalse(status.will_run)
             self.assertEqual(status.reason, "fresh")
 
@@ -210,7 +212,9 @@ class TestExecutor(unittest.TestCase):
 
             mock_run.return_value = MagicMock(returncode=0)
 
-            executor.execute_task("deploy", make_process_runner, {"environment": "production"})
+            executor.execute_task(
+                "deploy", make_process_runner, {"environment": "production"}
+            )
 
             # Verify command had arguments substituted and passed as script
             call_args = mock_run.call_args
@@ -1343,7 +1347,7 @@ echo "line3" >> output.txt"""
             executor = Executor(recipe, state_manager, logger_stub)
 
             # Let the command actually run (no mocking)
-            executor.execute_task("build")
+            executor.execute_task("build", make_process_runner)
 
             # Verify output file was created with all three lines
             output_file = project_root / "output.txt"
@@ -1543,7 +1547,7 @@ class TestEnvironmentResolution(unittest.TestCase):
             executor = Executor(recipe, state_manager, logger_stub)
 
             mock_run.side_effect = capture_script_content
-            executor.execute_task("build")
+            executor.execute_task("build", make_process_runner)
 
             # Verify script execution was used and contains fish shell
             self.assertEqual(len(captured_script_content), 1)
@@ -1610,7 +1614,7 @@ class TestEnvironmentResolution(unittest.TestCase):
                 executor = Executor(recipe, state_manager, logger_stub)
 
                 mock_run.side_effect = capture_script_content
-                executor._run_task(tasks["test"], {})
+                executor._run_task(tasks["test"], {}, make_process_runner())
 
                 # Verify command has env var substituted in the script
                 self.assertEqual(len(captured_script_content), 1)
@@ -1651,7 +1655,7 @@ class TestEnvironmentResolution(unittest.TestCase):
                 executor = Executor(recipe, state_manager, logger_stub)
 
                 mock_run.return_value = MagicMock(returncode=0)
-                executor._run_task(tasks["test"], {})
+                executor._run_task(tasks["test"], {}, make_process_runner())
 
                 # Verify working_dir was substituted
                 called_cwd = mock_run.call_args[1]["cwd"]
@@ -1688,7 +1692,7 @@ class TestEnvironmentResolution(unittest.TestCase):
             executor = Executor(recipe, state_manager, logger_stub)
 
             with self.assertRaises(ValueError) as cm:
-                executor._run_task(tasks["test"], {})
+                executor._run_task(tasks["test"], {}, make_process_runner())
 
             self.assertIn("UNDEFINED_TEST_VAR", str(cm.exception))
             self.assertIn("not set", str(cm.exception))
@@ -1714,7 +1718,12 @@ class TestTaskOutputParameter(unittest.TestCase):
             )
 
             # Test with explicit task_output value
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner, task_output="all")
+            executor = Executor(
+                recipe,
+                state_manager,
+                logger_stub,
+                task_output="all",
+            )
             self.assertEqual(executor.task_output, "all")
 
     def test_executor_task_output_defaults_to_all(self):
@@ -1749,61 +1758,37 @@ class TestTaskOutputParameter(unittest.TestCase):
                 recipe_path=project_root / "tasktree.yaml",
             )
 
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner, task_output="all")
-
-            # Create process runner for test
-            process_runner = make_process_runner()
-
-            # Mock subprocess.run to verify it's called
-            with patch("subprocess.run") as mock_run:
-                mock_run.return_value = MagicMock(returncode=0)
-
-                # Call _run_command_as_script - should not raise even without task_output parameter
-                executor._run_command_as_script(
-                    cmd="echo test",
-                    working_dir=project_root,
-                    task_name="test",
-                    shell="bash",
-                    preamble="",
-                    process_runner=process_runner,
-                )
-
-                # Verify subprocess.run was called (method executed successfully)
-                mock_run.assert_called_once()
-
-
-class TestExecutorProcessRunnerFactory(unittest.TestCase):
-    """Tests for Executor's process_runner_factory parameter."""
-
-    def test_executor_accepts_process_runner_factory(self):
-        """Executor can be initialized with a process_runner_factory parameter."""
-        with TemporaryDirectory() as tmpdir:
-            project_root = Path(tmpdir)
-            state_manager = StateManager(project_root)
-            recipe = Recipe(
-                tasks={},
-                project_root=project_root,
-                recipe_path=project_root / "tasktree.yaml",
-            )
-
-            mock_factory = MagicMock()
             executor = Executor(
                 recipe,
                 state_manager,
                 logger_stub,
-                mock_factory
+                task_output="all",
             )
 
-            self.assertEqual(executor.process_runner_factory, mock_factory)
+            process_runner_spy = MagicMock(spec=ProcessRunner)
+            process_runner_spy.run.return_value = MagicMock(returncode=0)
 
-    @patch('tasktree.executor.subprocess.run')
-    def test_executor_uses_factory_in_run_task(self, mock_subprocess_run):
+            executor._run_command_as_script(
+                cmd="echo test",
+                working_dir=project_root,
+                task_name="test",
+                shell="bash",
+                preamble="",
+                process_runner=process_runner_spy,
+            )
+
+            process_runner_spy.run.assert_called_once()
+
+
+class TestExecutorProcessRunner(unittest.TestCase):
+    """Tests for Executor's process_runner_factory parameter."""
+
+    def test_executor_uses_process_runner_in_run_task(self):
         """Executor calls process_runner_factory in _run_task."""
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
 
-            # Create a simple task
             task = Task(name="test", cmd="echo test")
             recipe = Recipe(
                 tasks={"test": task},
@@ -1811,22 +1796,14 @@ class TestExecutorProcessRunnerFactory(unittest.TestCase):
                 recipe_path=project_root / "tasktree.yaml",
             )
 
-            # Create mock process runner
-            mock_runner = MagicMock(spec=ProcessRunner)
-            mock_factory = MagicMock(return_value=mock_runner)
+            process_runner_spy = MagicMock(spec=ProcessRunner)
+            process_runner_spy.run.return_value = MagicMock(returncode=0)
 
-            executor = Executor(
-                recipe,
-                state_manager,
-                logger_stub,
-                mock_factory
-            )
+            executor = Executor(recipe, state_manager, logger_stub)
+            executor._run_task(task, {}, process_runner_spy)
 
-            # Execute the task
-            executor._run_task(task, {})
+            process_runner_spy.run.assert_called_once()
 
-            # Verify factory was called
-            mock_factory.assert_called_once()
 
 if __name__ == "__main__":
     unittest.main()

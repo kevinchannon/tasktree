@@ -169,8 +169,7 @@ class TestLogLevelParsing(unittest.TestCase):
         Test that Click.Choice accepts valid lowercase log levels.
         """
         choice = click.Choice(
-            ["fatal", "error", "warn", "info", "debug", "trace"],
-            case_sensitive=False
+            ["fatal", "error", "warn", "info", "debug", "trace"], case_sensitive=False
         )
 
         # All valid lowercase levels should be accepted
@@ -183,8 +182,7 @@ class TestLogLevelParsing(unittest.TestCase):
         Test that Click.Choice accepts valid uppercase log levels (case-insensitive).
         """
         choice = click.Choice(
-            ["fatal", "error", "warn", "info", "debug", "trace"],
-            case_sensitive=False
+            ["fatal", "error", "warn", "info", "debug", "trace"], case_sensitive=False
         )
 
         # All uppercase variants should be normalized to lowercase
@@ -206,8 +204,7 @@ class TestLogLevelParsing(unittest.TestCase):
         Test that Click.Choice accepts mixed case log levels.
         """
         choice = click.Choice(
-            ["fatal", "error", "warn", "info", "debug", "trace"],
-            case_sensitive=False
+            ["fatal", "error", "warn", "info", "debug", "trace"], case_sensitive=False
         )
 
         # Mixed case variants should be normalized to lowercase
@@ -226,8 +223,7 @@ class TestLogLevelParsing(unittest.TestCase):
         Test that Click.Choice raises BadParameter for invalid log levels.
         """
         choice = click.Choice(
-            ["fatal", "error", "warn", "info", "debug", "trace"],
-            case_sensitive=False
+            ["fatal", "error", "warn", "info", "debug", "trace"], case_sensitive=False
         )
 
         # Invalid values should raise click.BadParameter

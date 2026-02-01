@@ -71,7 +71,9 @@ class DockerManager:
         # Check if os.getuid() and os.getgid() are available (Linux/macOS)
         return hasattr(os, "getuid") and hasattr(os, "getgid")
 
-    def ensure_image_built(self, env: Environment, process_runner: ProcessRunner) -> tuple[str, str]:
+    def ensure_image_built(
+        self, env: Environment, process_runner: ProcessRunner
+    ) -> tuple[str, str]:
         """
         Build Docker image if not already built this invocation.
 
