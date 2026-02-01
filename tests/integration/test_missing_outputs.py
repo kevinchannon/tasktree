@@ -13,7 +13,7 @@ from tasktree.state import StateManager
 
 class TestMissingOutputsIntegration(unittest.TestCase):
     """
-    @athena: 1f63af9e940d
+    @athena: c4550664bdc1
     """
 
     def test_missing_outputs_integration(self):
@@ -24,7 +24,7 @@ class TestMissingOutputsIntegration(unittest.TestCase):
         2. Delete one output file
         3. Run again - should execute and warn
         4. Run third time - should skip (outputs now exist)
-        @athena: 4bb3c6a8724f
+        @athena: 6b4d40bdfe7a
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -45,16 +45,16 @@ class TestMissingOutputsIntegration(unittest.TestCase):
             )
             state_manager = StateManager(project_root)
             state_manager.load()
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             # First run - task should execute (never run before)
-            statuses = executor.execute_task("build")
+            statuses = executor.execute_task("build", make_process_runner)
             self.assertTrue(statuses["build"].will_run)
             self.assertEqual(statuses["build"].reason, "never_run")
             self.assertTrue((project_root / "output.txt").exists())
 
             # Second run - task should skip (fresh)
-            statuses = executor.execute_task("build")
+            statuses = executor.execute_task("build", make_process_runner)
             self.assertFalse(statuses["build"].will_run)
             self.assertEqual(statuses["build"].reason, "fresh")
 
@@ -63,13 +63,13 @@ class TestMissingOutputsIntegration(unittest.TestCase):
             self.assertFalse((project_root / "output.txt").exists())
 
             # Third run - task should execute due to missing outputs
-            statuses = executor.execute_task("build")
+            statuses = executor.execute_task("build", make_process_runner)
             self.assertTrue(statuses["build"].will_run)
             self.assertEqual(statuses["build"].reason, "outputs_missing")
             self.assertTrue((project_root / "output.txt").exists())
 
             # Fourth run - task should skip again (outputs exist)
-            statuses = executor.execute_task("build")
+            statuses = executor.execute_task("build", make_process_runner)
             self.assertFalse(statuses["build"].will_run)
             self.assertEqual(statuses["build"].reason, "fresh")
 
@@ -79,7 +79,7 @@ class TestMissingOutputsIntegration(unittest.TestCase):
 
         When a task declares multiple outputs but only some exist,
         the task should run to regenerate all outputs.
-        @athena: 2f92abc88ead
+        @athena: c4d759c7abc3
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -100,17 +100,17 @@ class TestMissingOutputsIntegration(unittest.TestCase):
             )
             state_manager = StateManager(project_root)
             state_manager.load()
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             # First run - task should execute and create both outputs
-            statuses = executor.execute_task("build")
+            statuses = executor.execute_task("build", make_process_runner)
             self.assertTrue(statuses["build"].will_run)
             self.assertEqual(statuses["build"].reason, "never_run")
             self.assertTrue((project_root / "output1.txt").exists())
             self.assertTrue((project_root / "output2.txt").exists())
 
             # Second run - task should skip (both outputs exist)
-            statuses = executor.execute_task("build")
+            statuses = executor.execute_task("build", make_process_runner)
             self.assertFalse(statuses["build"].will_run)
             self.assertEqual(statuses["build"].reason, "fresh")
 
@@ -120,7 +120,7 @@ class TestMissingOutputsIntegration(unittest.TestCase):
             self.assertTrue((project_root / "output2.txt").exists())
 
             # Third run - task should execute due to partial missing outputs
-            statuses = executor.execute_task("build")
+            statuses = executor.execute_task("build", make_process_runner)
             self.assertTrue(statuses["build"].will_run)
             self.assertEqual(statuses["build"].reason, "outputs_missing")
             self.assertIn("output1.txt", statuses["build"].changed_files)

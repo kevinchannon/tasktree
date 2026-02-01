@@ -57,7 +57,7 @@ class ExecutionError(Exception):
 class Executor:
     """
     Executes tasks with incremental execution logic.
-    @athena: 88e82151721d
+    @athena: 779b12944194
     """
 
     # Protected environment variables that cannot be overridden by exported args
@@ -77,7 +77,6 @@ class Executor:
         recipe: Recipe,
         state_manager: StateManager,
         logger: Logger,
-        process_runner_factory: Callable[[], ProcessRunner],
         task_output: str = "all",
     ):
         """
@@ -88,14 +87,12 @@ class Executor:
         state_manager: State manager for tracking task execution
         logger_fn: Logger function for output (matches Console.print signature)
         task_output: Control task subprocess output (all, out, err, on-err, none)
-        process_runner_factory: Factory function for creating ProcessRunner instances
-        @athena: 21b65db48bca
+        @athena: d09e6a537c99
         """
         self.recipe = recipe
         self.state = state_manager
         self.logger = logger
         self.task_output = task_output
-        self.process_runner_factory = process_runner_factory
         self.docker_manager = docker_module.DockerManager(recipe.project_root)
 
     @staticmethod
@@ -108,7 +105,7 @@ class Executor:
 
         Returns:
         True if task has at least one regular (non-exported) argument, False otherwise
-        @athena: a4c7816bfe61
+        @athena: c529cda63cce
         """
         if not task.args:
             return False
@@ -140,7 +137,7 @@ class Executor:
 
         Returns:
         Dictionary containing only regular (non-exported) arguments
-        @athena: 974e5e32bbd7
+        @athena: 1ae863406335
         """
         if not task.args or not task_args:
             return {}
@@ -177,7 +174,7 @@ class Executor:
 
         Raises:
         ExecutionError: If any built-in variable fails to resolve
-        @athena: 3b4c0ec70ad7
+        @athena: a0c1316fd713
         """
         import os
 
@@ -231,7 +228,7 @@ class Executor:
 
         Raises:
         ExecutionError: If any built-in variable fails to resolve
-        @athena: bb8c385cb0a5
+        @athena: 7f6203e8d617
         """
         # Get early builtin vars (those that don't depend on working_dir)
         builtin_vars = self._collect_early_builtin_variables(task, timestamp)
@@ -360,6 +357,7 @@ class Executor:
         self,
         task: Task,
         args_dict: dict[str, Any],
+        process_runner: ProcessRunner,
         force: bool = False,
     ) -> TaskStatus:
         """
@@ -378,11 +376,12 @@ class Executor:
         Args:
         task: Task to check
         args_dict: Arguments for this task execution
+        process_runner: ProcessRunner instance for subprocess execution
         force: If True, ignore freshness and force execution
 
         Returns:
         TaskStatus indicating whether task will run and why
-        @athena: 7252f5db8a4d
+        @athena: 03922de1bd23
         """
         # If force flag is set, always run
         if force:
@@ -423,8 +422,9 @@ class Executor:
                 reason="never_run",
             )
 
-        # Check if environment definition has changed
-        env_changed = self._check_environment_changed(task, cached_state, effective_env)
+        env_changed = self._check_environment_changed(
+            task, cached_state, effective_env, process_runner
+        )
         if env_changed:
             return TaskStatus(
                 task_name=task.name,
@@ -466,6 +466,7 @@ class Executor:
     def execute_task(
         self,
         task_name: str,
+        process_runner_factory: Callable[[], ProcessRunner],
         args_dict: dict[str, Any] | None = None,
         force: bool = False,
         only: bool = False,
@@ -475,6 +476,7 @@ class Executor:
 
         Args:
         task_name: Name of task to execute
+        process_runner_factory: Factory function for creating ProcessRunner instances
         args_dict: Arguments to pass to the task
         force: If True, ignore freshness and re-run all tasks
         only: If True, run only the specified task without dependencies (implies force=True)
@@ -484,7 +486,7 @@ class Executor:
 
         Raises:
         ExecutionError: If task execution fails
-        @athena: 1c293ee6a6fa
+        @athena: 4773fc590d9a
         """
         if args_dict is None:
             args_dict = {}
@@ -517,8 +519,12 @@ class Executor:
             # Convert None to {} for internal use (None is used to distinguish simple deps in graph)
             args_dict_for_execution = task_args if task_args is not None else {}
 
+            process_runner = process_runner_factory()
+
             # Check if task needs to run (based on CURRENT filesystem state)
-            status = self.check_task_status(task, args_dict_for_execution, force=force)
+            status = self.check_task_status(
+                task, args_dict_for_execution, process_runner, force=force
+            )
 
             # Use a key that includes args for status tracking
             # Only include regular (non-exported) args in status key for parameterized dependencies
@@ -554,21 +560,24 @@ class Executor:
                         f"Warning: Re-running task '{name}' because declared outputs are missing",
                     )
 
-                self._run_task(task, args_dict_for_execution)
+                self._run_task(task, args_dict_for_execution, process_runner)
 
         return statuses
 
-    def _run_task(self, task: Task, args_dict: dict[str, Any]) -> None:
+    def _run_task(
+        self, task: Task, args_dict: dict[str, Any], process_runner: ProcessRunner
+    ) -> None:
         """
         Execute a single task.
 
         Args:
         task: Task to execute
         args_dict: Arguments to substitute in command
+        process_runner: ProcessRunner instance for subprocess execution
 
         Raises:
         ExecutionError: If task execution fails
-        @athena: 4b49652a7afd
+        @athena: b5abffeef10a
         """
         # Capture timestamp at task start for consistency (in UTC)
         task_start_time = datetime.now(timezone.utc)
@@ -628,18 +637,29 @@ class Executor:
         # Execute command
         self.logger.log(LogLevel.INFO, f"Running: {task.name}")
 
-        # Get process runner instance for this task execution
-        process_runner = self.process_runner_factory()
-
         # Route to Docker execution or regular execution
         if env and env.dockerfile:
             # Docker execution path
-            self._run_task_in_docker(task, env, cmd, working_dir, process_runner, exported_env_vars, self.task_output)
+            self._run_task_in_docker(
+                task,
+                env,
+                cmd,
+                working_dir,
+                process_runner,
+                exported_env_vars,
+                self.task_output,
+            )
         else:
             # Regular execution path - use unified script-based execution
             shell, preamble = self._resolve_environment(task)
             self._run_command_as_script(
-                cmd, working_dir, task.name, shell, preamble, process_runner, exported_env_vars
+                cmd,
+                working_dir,
+                task.name,
+                shell,
+                preamble,
+                process_runner,
+                exported_env_vars,
             )
 
         # Update state
@@ -674,7 +694,7 @@ class Executor:
         Raises:
         ExecutionError: If command execution fails
         @athena: TBD
-        @athena: 96e85dc15b5c
+        @athena: 228cc00e7665
         """
         # Prepare environment with exported args
         env = self._prepare_env_with_exports(exported_env_vars)
@@ -738,7 +758,9 @@ class Executor:
 
                 # If streams support fileno, pass target streams directly (most efficient)
                 # Otherwise capture and manually write (CliRunner compatibility)
-                if not should_suppress and not (supports_fileno(sys.stdout) and supports_fileno(sys.stderr)):
+                if not should_suppress and not (
+                    supports_fileno(sys.stdout) and supports_fileno(sys.stderr)
+                ):
                     # CliRunner path: capture and write manually
                     result = process_runner.run(
                         [script_path],
@@ -788,7 +810,7 @@ class Executor:
 
         Raises:
         ValueError: If builtin variable or environment variable is not defined
-        @athena: 21e2ccd27dbb
+        @athena: eba6e3d62062
         """
         from dataclasses import replace
 
@@ -877,7 +899,7 @@ class Executor:
 
         Raises:
         ExecutionError: If Docker execution fails
-        @athena: fe972e4c97a3
+        @athena: 61725a57e304
         """
         # Get builtin variables for substitution in environment fields
         task_start_time = datetime.now(timezone.utc)
@@ -934,7 +956,7 @@ class Executor:
 
         Raises:
         ExecutionError: If {{ tt.working_dir }} placeholder is found
-        @athena: 617a0c609f4d
+        @athena: 82822f02716a
         """
         import re
 
@@ -1043,7 +1065,11 @@ class Executor:
 
     # TODO: Understand why task isn't used
     def _check_environment_changed(
-        self, task: Task, cached_state: TaskState, env_name: str
+        self,
+        task: Task,
+        cached_state: TaskState,
+        env_name: str,
+        process_runner: ProcessRunner,
     ) -> bool:
         """
         Check if environment definition has changed since last run.
@@ -1055,10 +1081,11 @@ class Executor:
         task: Task to check
         cached_state: Cached state from previous run
         env_name: Effective environment name (from _get_effective_env_name)
+        process_runner: ProcessRunner instance for subprocess execution
 
         Returns:
         True if environment definition changed, False otherwise
-        @athena: 052561b75455
+        @athena: e206e104150a
         """
         # If using platform default (no environment), no definition to track
         if not env_name:
@@ -1089,13 +1116,19 @@ class Executor:
 
         # For Docker environments, also check if image ID changed
         if env.dockerfile:
-            return self._check_docker_image_changed(env, cached_state, env_name)
+            return self._check_docker_image_changed(
+                env, cached_state, env_name, process_runner
+            )
 
         # Shell environment with unchanged hash
         return False
 
     def _check_docker_image_changed(
-        self, env: Environment, cached_state: TaskState, env_name: str
+        self,
+        env: Environment,
+        cached_state: TaskState,
+        env_name: str,
+        process_runner: ProcessRunner,
     ) -> bool:
         """
         Check if Docker image ID has changed.
@@ -1107,14 +1140,17 @@ class Executor:
         env: Docker environment definition
         cached_state: Cached state from previous run
         env_name: Environment name
+        process_runner: ProcessRunner instance for subprocess execution
 
         Returns:
         True if image ID changed, False otherwise
-        @athena: 0443710cf356
+        @athena: bc954288e4ad
         """
         # Build/ensure image is built and get its ID
         try:
-            image_tag, current_image_id = self.docker_manager.ensure_image_built(env)
+            image_tag, current_image_id = self.docker_manager.ensure_image_built(
+                env, process_runner
+            )
         except Exception:
             # If we can't build, treat as changed (will fail later with better error)
             return True
@@ -1309,7 +1345,7 @@ class Executor:
     def _update_state(self, task: Task, args_dict: dict[str, Any]) -> None:
         """
         Update state after task execution.
-        @athena: 1fcfdfcb9be9
+        @athena: f4d3efdaac7c
         """
         cache_key = self._cache_key(task, args_dict)
         input_state = self._input_files_to_modified_times(task)
@@ -1327,6 +1363,9 @@ class Executor:
         self.state.save()
 
     def _cache_key(self, task: Task, args_dict: dict[str, Any]) -> str:
+        """
+        @athena: d20ce4090741
+        """
         effective_env = self._get_effective_env_name(task)
         task_hash = hash_task(
             task.cmd,
@@ -1340,6 +1379,9 @@ class Executor:
         return make_cache_key(task_hash, args_hash)
 
     def _input_files_to_modified_times(self, task: Task) -> dict[str, float]:
+        """
+        @athena: 7e5ba779a41f
+        """
         input_files = self._expand_globs(self._get_all_inputs(task), task.working_dir)
 
         input_state = {}
@@ -1357,6 +1399,9 @@ class Executor:
     def _docker_inputs_to_modified_times(
         self, env_name: str, env: Environment
     ) -> dict[str, float]:
+        """
+        @athena: bfe53b0d56cd
+        """
         input_state = dict()
         # Record Dockerfile mtime
         dockerfile_path = self.recipe.project_root / env.dockerfile

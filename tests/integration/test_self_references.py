@@ -17,7 +17,7 @@ from tasktree.cli import app
 def strip_ansi_codes(text: str) -> str:
     """
     Remove ANSI escape sequences from text.
-    @athena: 90023a269128
+    @athena: 853120f3304f
     """
     ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
     return ansi_escape.sub("", text)
@@ -323,7 +323,7 @@ tasks:
 class TestSelfReferenceValidation(unittest.TestCase):
     """
     Test validation and error handling for self-references.
-    @athena: f86c53a9b77c
+    @athena: a589ed8bae09
     """
 
     def setUp(self):
@@ -375,7 +375,7 @@ tasks:
     def test_error_on_missing_output_name(self):
         """
         Test that referencing non-existent output raises error.
-        @athena: 8dafbf752dd4
+        @athena: 898f6c19c090
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -416,7 +416,7 @@ tasks:
     def test_error_on_anonymous_input_reference(self):
         """
         Test that trying to reference anonymous input fails with clear message.
-        @athena: f8a74d3ef088
+        @athena: df19b4853df0
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -452,7 +452,7 @@ tasks:
     def test_error_on_anonymous_output_reference(self):
         """
         Test that trying to reference anonymous output fails with clear message.
-        @athena: 063c82fa9e68
+        @athena: 1b58a8ef4fa2
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -590,7 +590,7 @@ tasks:
 class TestSelfReferencesWithVariables(unittest.TestCase):
     """
     Test interaction between self-references and variable substitution.
-    @athena: 6981258eb27b
+    @athena: 0716b87da065
     """
 
     def setUp(self):
@@ -648,7 +648,7 @@ tasks:
     def test_self_reference_with_var_in_output_path(self):
         """
         Test that variables in output paths are resolved before self-references.
-        @athena: 359e4e67c8da
+        @athena: a7924d68668b
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -692,7 +692,7 @@ tasks:
     def test_multiple_vars_in_paths(self):
         """
         Test multiple variables in same input/output path.
-        @athena: 34afbcd98aa3
+        @athena: d839bbadd348
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)

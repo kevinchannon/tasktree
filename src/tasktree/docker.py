@@ -36,7 +36,7 @@ class DockerError(Exception):
 class DockerManager:
     """
     Manages Docker image building and container execution.
-    @athena: 1a8a919eb05d
+    @athena: f8f5c2693d84
     """
 
     def __init__(self, project_root: Path):
@@ -71,12 +71,15 @@ class DockerManager:
         # Check if os.getuid() and os.getgid() are available (Linux/macOS)
         return hasattr(os, "getuid") and hasattr(os, "getgid")
 
-    def ensure_image_built(self, env: Environment) -> tuple[str, str]:
+    def ensure_image_built(
+        self, env: Environment, process_runner: ProcessRunner
+    ) -> tuple[str, str]:
         """
         Build Docker image if not already built this invocation.
 
         Args:
         env: Environment definition with dockerfile and context
+        process_runner: ProcessRunner instance for subprocess execution
 
         Returns:
         Tuple of (image_tag, image_id)
@@ -85,7 +88,7 @@ class DockerManager:
 
         Raises:
         DockerError: If docker command not available or build fails
-        @athena: 9b3c11c29fbb
+        @athena: 42b53d2685e0
         """
         # Check if already built this invocation
         if env.name in self._built_images:
@@ -120,7 +123,7 @@ class DockerManager:
 
             docker_build_cmd.append(str(context_path))
 
-            subprocess.run(
+            process_runner.run(
                 docker_build_cmd,
                 check=True,
                 capture_output=False,  # Show build output to user
@@ -165,10 +168,10 @@ class DockerManager:
 
         Raises:
         DockerError: If docker run fails
-        @athena: f24fc9c27f81
+        @athena: ef024ea2c182
         """
         # Ensure image is built (returns tag and ID)
-        image_tag, image_id = self.ensure_image_built(env)
+        image_tag, image_id = self.ensure_image_built(env, process_runner)
 
         # Build docker run command
         docker_cmd = ["docker", "run", "--rm"]
@@ -364,7 +367,7 @@ def parse_dockerignore(dockerignore_path: Path) -> PathSpec | None:
 
     Returns:
     PathSpec object for matching, or None if file doesn't exist or pathspec not available
-    @athena: 62bc07a3c6d0
+    @athena: 13fca9ee5a73
     """
     if pathspec is None:
         # pathspec library not available - can't parse .dockerignore

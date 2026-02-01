@@ -16,13 +16,13 @@ from tasktree.state import StateManager, TaskState
 
 class TestTaskStatus(unittest.TestCase):
     """
-    @athena: 3042cefdbba4
+    @athena: 29bc4b565149
     """
 
     def test_check_never_run(self):
         """
         Test status for task that has never run.
-        @athena: 442a5215f152
+        @athena: db5a0f68dacc
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -36,16 +36,18 @@ class TestTaskStatus(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
 
-            status = executor.check_task_status(tasks["build"], {}, False)
+            status = executor.check_task_status(
+                tasks["build"], {}, make_process_runner(), False
+            )
             self.assertTrue(status.will_run)
             self.assertEqual(status.reason, "never_run")
 
     def test_check_no_outputs(self):
         """
         Test status for task with no inputs and no outputs (always runs).
-        @athena: 61274fd5e6fd
+        @athena: fdaca0ac4e9f
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -57,16 +59,19 @@ class TestTaskStatus(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
+            process_runner = make_process_runner()
 
-            status = executor.check_task_status(tasks["test"], {}, False)
+            status = executor.check_task_status(
+                tasks["test"], {}, process_runner, False
+            )
             self.assertTrue(status.will_run)
             self.assertEqual(status.reason, "no_outputs")
 
     def test_check_fresh(self):
         """
         Test status for task that is fresh.
-        @athena: e02f287e5128
+        @athena: 167b3e9937e4
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -110,24 +115,23 @@ class TestTaskStatus(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
 
-            status = executor.check_task_status(task, {})
+            status = executor.check_task_status(task, {}, make_process_runner())
             self.assertFalse(status.will_run)
             self.assertEqual(status.reason, "fresh")
 
 
 class TestExecutor(unittest.TestCase):
     """
-    @athena: 048894f2713e
+    @athena: 2b01be6f3e51
     """
 
-    @patch("subprocess.run")
     @patch("os.chmod")
-    def test_execute_simple_task(self, mock_chmod, mock_run):
+    def test_execute_simple_task(self, _chmod_fake):
         """
         Test executing a simple task.
-        @athena: 6c68df426cc6
+        @athena: 6ba5a319dd19
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -139,24 +143,25 @@ class TestExecutor(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
 
-            mock_run.return_value = MagicMock(returncode=0)
+            process_runner_spy = MagicMock(spec=ProcessRunner)
+            fake_proc_runner_factory = MagicMock()
+            fake_proc_runner_factory.return_value = process_runner_spy
 
-            executor.execute_task("build")
+            executor.execute_task("build", fake_proc_runner_factory)
 
             # Verify subprocess was called with a script path
-            mock_run.assert_called_once()
-            call_args = mock_run.call_args
+            process_runner_spy.run.assert_called_once()
+            call_args = process_runner_spy.run.call_args
             # Command should be passed as [script_path]
             script_path = call_args[0][0][0]
             self.assertTrue(script_path.endswith(".sh") or script_path.endswith(".bat"))
 
-    @patch("subprocess.run")
-    def test_execute_with_dependencies(self, mock_run):
+    def test_execute_with_dependencies(self):
         """
         Test executing task with dependencies.
-        @athena: 1deabb08cdfa
+        @athena: bd3de7c1bb8c
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -171,21 +176,22 @@ class TestExecutor(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
 
-            mock_run.return_value = MagicMock(returncode=0)
+            process_runner_spy = MagicMock(spec=ProcessRunner)
+            fake_proc_runner_factory = MagicMock()
+            fake_proc_runner_factory.return_value = process_runner_spy
 
-            executor.execute_task("build")
+            executor.execute_task("build", fake_proc_runner_factory)
 
             # Verify both tasks were executed
-            self.assertEqual(mock_run.call_count, 2)
+            self.assertEqual(process_runner_spy.run.call_count, 2)
 
-    @patch("subprocess.run")
     @patch("os.chmod")
-    def test_execute_with_args(self, mock_chmod, mock_run):
+    def test_execute_with_args(self, _fake_chmod):
         """
         Test executing task with arguments.
-        @athena: 51d697100f5a
+        @athena: a4ec6b06333f
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -203,24 +209,27 @@ class TestExecutor(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
 
-            mock_run.return_value = MagicMock(returncode=0)
+            process_runner_spy = MagicMock(spec=ProcessRunner)
+            fake_proc_runner_factory = MagicMock()
+            fake_proc_runner_factory.return_value = process_runner_spy
 
-            executor.execute_task("deploy", {"environment": "production"})
+            executor.execute_task(
+                "deploy", fake_proc_runner_factory, {"environment": "production"}
+            )
 
             # Verify command had arguments substituted and passed as script
-            call_args = mock_run.call_args
+            call_args = process_runner_spy.run.call_args
             script_path = call_args[0][0][0]
             self.assertTrue(script_path.endswith(".sh") or script_path.endswith(".bat"))
 
-    @patch("subprocess.run")
     @patch("os.chmod")
     @patch("os.unlink")
-    def test_run_command_as_script_single_line(self, mock_unlink, mock_chmod, mock_run):
+    def test_run_command_as_script_single_line(self, mock_unlink, mock_chmod):
         """
         Test _run_command_as_script with single-line command.
-        @athena: b08cbc7783d9
+        @athena: 791553a2ae01
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -232,12 +241,9 @@ class TestExecutor(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
 
-            mock_run.return_value = MagicMock(returncode=0)
-
-            # Create process runner for test
-            process_runner = make_process_runner()
+            process_runner_spy = MagicMock(spec=ProcessRunner)
 
             # Call the unified method directly
             executor._run_command_as_script(
@@ -246,12 +252,12 @@ class TestExecutor(unittest.TestCase):
                 task_name="test",
                 shell="bash",
                 preamble="",
-                process_runner=process_runner,
+                process_runner=process_runner_spy,
             )
 
             # Verify subprocess.run was called with a script path
-            mock_run.assert_called_once()
-            call_args = mock_run.call_args
+            process_runner_spy.run.assert_called_once()
+            call_args = process_runner_spy.run.call_args
             script_path = call_args[0][0][0]
             self.assertTrue(script_path.endswith(".sh"))
 
@@ -261,15 +267,12 @@ class TestExecutor(unittest.TestCase):
             # Verify cleanup (unlink) was called
             mock_unlink.assert_called_once()
 
-    @patch("subprocess.run")
     @patch("os.chmod")
     @patch("os.unlink")
-    def test_run_command_as_script_with_preamble(
-        self, mock_unlink, mock_chmod, mock_run
-    ):
+    def test_run_command_as_script_with_preamble(self, unlink_spy, chmod_spy):
         """
         Test _run_command_as_script with preamble.
-        @athena: 0d623d315756
+        @athena: fcb783aa3c67
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -281,12 +284,8 @@ class TestExecutor(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
-
-            mock_run.return_value = MagicMock(returncode=0)
-
-            # Create process runner for test
-            process_runner = make_process_runner()
+            executor = Executor(recipe, state_manager, logger_stub)
+            process_runner_spy = MagicMock(spec=ProcessRunner)
 
             # Call with preamble
             executor._run_command_as_script(
@@ -295,25 +294,19 @@ class TestExecutor(unittest.TestCase):
                 task_name="test",
                 shell="bash",
                 preamble="set -e\n",
-                process_runner=process_runner,
+                process_runner=process_runner_spy,
             )
 
-            # Verify subprocess.run was called
-            mock_run.assert_called_once()
+            process_runner_spy.run.assert_called_once()
+            chmod_spy.assert_called_once()
+            unlink_spy.assert_called_once()
 
-            # Verify chmod was called
-            mock_chmod.assert_called_once()
-
-            # Verify cleanup
-            mock_unlink.assert_called_once()
-
-    @patch("subprocess.run")
     @patch("os.chmod")
     @patch("os.unlink")
-    def test_run_command_as_script_multiline(self, mock_unlink, mock_chmod, mock_run):
+    def test_run_command_as_script_multiline(self, unlink_spy, chmod_spy):
         """
         Test _run_command_as_script with multi-line command.
-        @athena: 1b973f429ae7
+        @athena: c7500eea58e2
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -325,31 +318,22 @@ class TestExecutor(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
 
-            mock_run.return_value = MagicMock(returncode=0)
+            process_runner_spy = MagicMock(spec=ProcessRunner)
 
-            # Create process runner for test
-            process_runner = make_process_runner()
-
-            # Call with multi-line command
             executor._run_command_as_script(
                 cmd="echo hello\necho world",
                 working_dir=project_root,
                 task_name="test",
                 shell="bash",
                 preamble="",
-                process_runner=process_runner,
+                process_runner=process_runner_spy,
             )
 
-            # Verify subprocess.run was called
-            mock_run.assert_called_once()
-
-            # Verify chmod was called
-            mock_chmod.assert_called_once()
-
-            # Verify cleanup
-            mock_unlink.assert_called_once()
+            process_runner_spy.run.assert_called_once()
+            chmod_spy.assert_called_once()
+            unlink_spy.assert_called_once()
 
     def test_run_command_as_script_comprehensive_validation(self):
         """
@@ -359,8 +343,8 @@ class TestExecutor(unittest.TestCase):
         1. Script is created with correct name/suffix
         2. Script is made executable with chmod
         3. Script content has correct ordering (shebang -> preamble -> command)
-        4. subprocess.run is called AFTER all script setup completes
-        @athena: bd7375ce474d
+        4. ProcessRunner is called AFTER all script setup completes
+        @athena: 4eec41b394ec
         """
 
         import platform
@@ -379,7 +363,7 @@ class TestExecutor(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             # Track all operations in order
             call_order = []
@@ -515,13 +499,13 @@ class TestExecutor(unittest.TestCase):
 
 class TestMissingOutputs(unittest.TestCase):
     """
-    @athena: 94dc69acf126
+    @athena: 6f72f170894d
     """
 
     def test_fresh_task_with_all_outputs_present(self):
         """
         Test that fresh task with all outputs present should skip.
-        @athena: 401d95b3c44f
+        @athena: 529abcc7d9dd
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -557,16 +541,17 @@ class TestMissingOutputs(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
+            process_runner = make_process_runner()
 
-            status = executor.check_task_status(task, {})
+            status = executor.check_task_status(task, {}, process_runner)
             self.assertFalse(status.will_run)
             self.assertEqual(status.reason, "fresh")
 
     def test_fresh_task_with_missing_output(self):
         """
         Test that fresh task with missing output should run with outputs_missing reason.
-        @athena: 3ef83cd3acb8
+        @athena: 1061f2d5c1ac
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -600,9 +585,10 @@ class TestMissingOutputs(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
+            process_runner = make_process_runner()
 
-            status = executor.check_task_status(task, {})
+            status = executor.check_task_status(task, {}, process_runner)
             self.assertTrue(status.will_run)
             self.assertEqual(status.reason, "outputs_missing")
             self.assertEqual(status.changed_files, ["output.txt"])
@@ -610,7 +596,7 @@ class TestMissingOutputs(unittest.TestCase):
     def test_fresh_task_with_partial_outputs(self):
         """
         Test that task with some outputs present but not all should run.
-        @athena: 6217f859b234
+        @athena: a04a60bd9058
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -645,9 +631,10 @@ class TestMissingOutputs(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
+            process_runner = make_process_runner()
 
-            status = executor.check_task_status(task, {})
+            status = executor.check_task_status(task, {}, process_runner)
             self.assertTrue(status.will_run)
             self.assertEqual(status.reason, "outputs_missing")
             self.assertIn("output2.txt", status.changed_files)
@@ -655,7 +642,7 @@ class TestMissingOutputs(unittest.TestCase):
     def test_task_with_no_state_should_not_warn_about_outputs(self):
         """
         Test that first run (no state) uses never_run reason, not outputs_missing.
-        @athena: 5c8a63d5d9db
+        @athena: 3612805f025c
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -674,16 +661,17 @@ class TestMissingOutputs(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
+            process_runner = make_process_runner()
 
-            status = executor.check_task_status(task, {})
+            status = executor.check_task_status(task, {}, process_runner)
             self.assertTrue(status.will_run)
             self.assertEqual(status.reason, "never_run")  # Not outputs_missing
 
     def test_task_with_no_outputs_unaffected(self):
         """
         Test that tasks with no outputs declared are unaffected.
-        @athena: 782e6a7191c1
+        @athena: 027e040b2197
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -698,16 +686,17 @@ class TestMissingOutputs(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
+            process_runner = make_process_runner()
 
-            status = executor.check_task_status(task, {})
+            status = executor.check_task_status(task, {}, process_runner)
             self.assertTrue(status.will_run)
             self.assertEqual(status.reason, "no_outputs")  # Always runs
 
     def test_output_glob_pattern_with_working_dir(self):
         """
         Test that output patterns resolve correctly with working_dir.
-        @athena: 9c15753c5915
+        @athena: fcc6b56d0c6e
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -746,16 +735,17 @@ class TestMissingOutputs(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
+            process_runner = make_process_runner()
 
-            status = executor.check_task_status(task, {})
+            status = executor.check_task_status(task, {}, process_runner)
             self.assertFalse(status.will_run)
             self.assertEqual(status.reason, "fresh")
 
     def test_output_glob_pattern_no_matches(self):
         """
         Test that glob pattern with zero matches triggers re-run.
-        @athena: e01cba21a778
+        @athena: 58a7173dda57
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -789,9 +779,10 @@ class TestMissingOutputs(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
+            process_runner = make_process_runner()
 
-            status = executor.check_task_status(task, {})
+            status = executor.check_task_status(task, {}, process_runner)
             self.assertTrue(status.will_run)
             self.assertEqual(status.reason, "outputs_missing")
 
@@ -799,13 +790,13 @@ class TestMissingOutputs(unittest.TestCase):
 class TestExecutorErrors(unittest.TestCase):
     """
     Tests for executor error conditions.
-    @athena: b2f15c55b066
+    @athena: bf8665e80bc1
     """
 
     def test_execute_subprocess_failure(self):
         """
         Test ExecutionError raised when subprocess fails.
-        @athena: ba9aa0ed5f95
+        @athena: cb9a84ded9db
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -823,16 +814,16 @@ tasks:
 
             recipe = parse_recipe(recipe_path)
             state_manager = StateManager(project_root)
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             with self.assertRaises(ExecutionError) as cm:
-                executor.execute_task("fail", {})
+                executor.execute_task("fail", make_process_runner, {})
             self.assertIn("exit code", str(cm.exception).lower())
 
     def test_execute_working_dir_not_found(self):
         """
         Test error when working directory doesn't exist.
-        @athena: f38eafecd3a0
+        @athena: b4f1caa74569
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -851,15 +842,15 @@ tasks:
 
             recipe = parse_recipe(recipe_path)
             state_manager = StateManager(project_root)
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             with self.assertRaises((ExecutionError, FileNotFoundError, OSError)):
-                executor.execute_task("test", {})
+                executor.execute_task("test", make_process_runner, {})
 
     def test_execute_command_not_found(self):
         """
         Test error when command doesn't exist.
-        @athena: c07df55f1b3f
+        @athena: 3e875ac776cd
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -877,15 +868,15 @@ tasks:
 
             recipe = parse_recipe(recipe_path)
             state_manager = StateManager(project_root)
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             with self.assertRaises(ExecutionError):
-                executor.execute_task("test", {})
+                executor.execute_task("test", make_process_runner, {})
 
     def test_execute_permission_denied(self):
         """
         Test error when command not executable.
-        @athena: bd873c327af3
+        @athena: 8eea756b0384
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -909,15 +900,15 @@ tasks:
 
             recipe = parse_recipe(recipe_path)
             state_manager = StateManager(project_root)
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             with self.assertRaises((ExecutionError, PermissionError, OSError)):
-                executor.execute_task("test", {})
+                executor.execute_task("test", make_process_runner, {})
 
     def test_builtin_working_dir_in_working_dir_raises_error(self):
         """
         Test that using {{ tt.working_dir }} in working_dir raises clear error.
-        @athena: 8ef45062b0a7
+        @athena: 45c005938b3b
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -936,10 +927,10 @@ tasks:
 
             recipe = parse_recipe(recipe_path)
             state_manager = StateManager(project_root)
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             with self.assertRaises(ExecutionError) as cm:
-                executor.execute_task("test", {})
+                executor.execute_task("test", make_process_runner, {})
 
             error_msg = str(cm.exception)
             self.assertIn("Cannot use {{ tt.working_dir }}", error_msg)
@@ -948,7 +939,7 @@ tasks:
     def test_other_builtin_vars_in_working_dir_allowed(self):
         """
         Test that non-circular builtin vars like {{ tt.task_name }} work in working_dir.
-        @athena: fef78b324ff7
+        @athena: 5784b8718ffb
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -972,22 +963,22 @@ tasks:
 
             recipe = parse_recipe(recipe_path)
             state_manager = StateManager(project_root)
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             # Should not raise - tt.task_name is allowed in working_dir
-            executor.execute_task("test-task", {})
+            executor.execute_task("test-task", make_process_runner, {})
 
 
 class TestExecutorPrivateMethods(unittest.TestCase):
     """
     Tests for executor private methods.
-    @athena: eb2d4e3a6176
+    @athena: 123409a3a7f2
     """
 
     def test_substitute_args_single(self):
         """
         Test substituting single argument.
-        @athena: af49a9f9df9c
+        @athena: 9b1dfb1be1a3
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -999,7 +990,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             result = executor._substitute_args(
                 "echo {{ arg.environment }}", {"environment": "production"}
@@ -1009,7 +1000,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
     def test_substitute_args_multiple(self):
         """
         Test substituting multiple arguments.
-        @athena: 82c86230f01b
+        @athena: a81621d02422
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -1025,7 +1016,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             result = executor._substitute_args(
                 "deploy {{ arg.app }} to {{ arg.region }}",
@@ -1036,7 +1027,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
     def test_substitute_args_missing_placeholder(self):
         """
         Test raises error when arg not provided.
-        @athena: 5cfbd5e8b848
+        @athena: fe8094a00805
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -1052,7 +1043,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             # Missing argument should raise ValueError
             with self.assertRaises(ValueError) as cm:
@@ -1066,7 +1057,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
     def test_check_inputs_changed_mtime(self):
         """
         Test detects changed file by mtime.
-        @athena: d4a66a0298ad
+        @athena: ad1eef94f9a4
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -1093,7 +1084,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             # Check if inputs changed
             changed = executor._check_inputs_changed(task, cached_state, ["input.txt"])
@@ -1104,7 +1095,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
     def test_check_outputs_missing(self):
         """
         Test detects missing output files.
-        @athena: 993525e7038a
+        @athena: 68398c9cfcd9
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -1122,7 +1113,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             # Check for missing outputs
             missing = executor._check_outputs_missing(task)
@@ -1133,7 +1124,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
     def test_expand_globs_multiple_patterns(self):
         """
         Test expanding multiple glob patterns.
-        @athena: 9b42d786c35a
+        @athena: 27094d19d541
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -1151,7 +1142,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             # Expand multiple patterns
             result = executor._expand_globs(["*.txt", "*.py"], ".")
@@ -1163,15 +1154,14 @@ class TestExecutorPrivateMethods(unittest.TestCase):
 class TestOnlyMode(unittest.TestCase):
     """
     Test the --only mode that skips dependencies.
-    @athena: 68c6410591ab
+    @athena: 9b470eafd594
     """
 
-    @patch("subprocess.run")
     @patch("os.chmod")
-    def test_only_mode_skips_dependencies(self, mock_chmod, mock_run):
+    def test_only_mode_skips_dependencies(self, _fake_chmod):
         """
         Test that only=True executes only the target task, not dependencies.
-        @athena: 8b8cb598d197
+        @athena: 88af1cf22c38
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -1186,16 +1176,20 @@ class TestOnlyMode(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
+            process_runner_spy = MagicMock(spec=ProcessRunner)
 
-            mock_run.return_value = MagicMock(returncode=0)
+            fake_proc_runner_factory = MagicMock()
+            fake_proc_runner_factory.return_value = process_runner_spy
 
             # Execute with only=True
-            statuses = executor.execute_task("build", only=True)
+            statuses = executor.execute_task(
+                "build", fake_proc_runner_factory, only=True
+            )
 
             # Verify only build was executed, not lint
-            self.assertEqual(mock_run.call_count, 1)
-            call_args = mock_run.call_args
+            self.assertEqual(process_runner_spy.run.call_count, 1)
+            call_args = process_runner_spy.run.call_args
             script_path = call_args[0][0][0]
             self.assertTrue(script_path.endswith(".sh") or script_path.endswith(".bat"))
 
@@ -1204,12 +1198,11 @@ class TestOnlyMode(unittest.TestCase):
             self.assertIn("build", statuses)
             self.assertNotIn("lint", statuses)
 
-    @patch("subprocess.run")
     @patch("os.chmod")
-    def test_only_mode_with_multiple_dependencies(self, mock_chmod, mock_run):
+    def test_only_mode_with_multiple_dependencies(self, _fake_chmod):
         """
         Test that only=True skips all dependencies in a chain.
-        @athena: 0d66c025a5c7
+        @athena: c6ba6d4a8fb8
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -1225,16 +1218,20 @@ class TestOnlyMode(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
 
-            mock_run.return_value = MagicMock(returncode=0)
+            process_runner_spy = MagicMock(spec=ProcessRunner)
+            fake_proc_runner_factory = MagicMock()
+            fake_proc_runner_factory.return_value = process_runner_spy
 
             # Execute test with only=True
-            statuses = executor.execute_task("test", only=True)
+            statuses = executor.execute_task(
+                "test", fake_proc_runner_factory, only=True
+            )
 
             # Verify only test was executed
-            self.assertEqual(mock_run.call_count, 1)
-            call_args = mock_run.call_args
+            self.assertEqual(process_runner_spy.run.call_count, 1)
+            call_args = process_runner_spy.run.call_args
             script_path = call_args[0][0][0]
             self.assertTrue(script_path.endswith(".sh") or script_path.endswith(".bat"))
 
@@ -1244,11 +1241,10 @@ class TestOnlyMode(unittest.TestCase):
             self.assertNotIn("build", statuses)
             self.assertNotIn("lint", statuses)
 
-    @patch("subprocess.run")
-    def test_only_mode_forces_execution(self, mock_run):
+    def test_only_mode_forces_execution(self):
         """
         Test that only=True forces execution (ignores freshness).
-        @athena: e731a461bdff
+        @athena: 87fd4889aa19
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -1284,15 +1280,19 @@ class TestOnlyMode(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
 
-            mock_run.return_value = MagicMock(returncode=0)
+            process_runner_spy = MagicMock(spec=ProcessRunner)
+            fake_proc_runner_factory = MagicMock()
+            fake_proc_runner_factory.return_value = process_runner_spy
 
             # Execute with only=True
-            statuses = executor.execute_task("build", only=True)
+            statuses = executor.execute_task(
+                "build", fake_proc_runner_factory, only=True
+            )
 
             # Verify task was executed despite being fresh (only implies force)
-            self.assertEqual(mock_run.call_count, 1)
+            self.assertEqual(process_runner_spy.run.call_count, 1)
             self.assertTrue(statuses["build"].will_run)
             self.assertEqual(statuses["build"].reason, "forced")
 
@@ -1300,13 +1300,13 @@ class TestOnlyMode(unittest.TestCase):
 class TestMultilineExecution(unittest.TestCase):
     """
     Test multi-line command execution via temp files.
-    @athena: 779d9b0938e5
+    @athena: f5503e728b34
     """
 
     def test_multiline_command_content(self):
         """
         Test multi-line command content is written to temp file.
-        @athena: 86b1e417b4c3
+        @athena: 939862eef5d8
         """
 
         import platform
@@ -1330,10 +1330,10 @@ echo "line3" >> output.txt"""
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             # Let the command actually run (no mocking)
-            executor.execute_task("build")
+            executor.execute_task("build", make_process_runner)
 
             # Verify output file was created with all three lines
             output_file = project_root / "output.txt"
@@ -1347,13 +1347,13 @@ echo "line3" >> output.txt"""
 class TestEnvironmentResolution(unittest.TestCase):
     """
     Test environment resolution and usage.
-    @athena: 535d58d2a7ae
+    @athena: 43e99504aef1
     """
 
     def test_get_effective_env_with_global_override(self):
         """
         Test that global_env_override takes precedence.
-        @athena: 0a0b4871c035
+        @athena: f0071f4d55ba
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -1378,7 +1378,7 @@ class TestEnvironmentResolution(unittest.TestCase):
                 default_env="dev",
                 global_env_override="prod",  # Global override
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             # Global override should win
             env_name = executor._get_effective_env_name(tasks["build"])
@@ -1387,7 +1387,7 @@ class TestEnvironmentResolution(unittest.TestCase):
     def test_get_effective_env_with_task_env(self):
         """
         Test that task.env is used when no global override.
-        @athena: 87c60056c58d
+        @athena: 50c636d4ee16
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -1409,7 +1409,7 @@ class TestEnvironmentResolution(unittest.TestCase):
                 environments=envs,
                 default_env="prod",
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             # Task env should win over default_env
             env_name = executor._get_effective_env_name(tasks["build"])
@@ -1418,7 +1418,7 @@ class TestEnvironmentResolution(unittest.TestCase):
     def test_get_effective_env_with_default_env(self):
         """
         Test that default_env is used when task has no explicit env.
-        @athena: 4e169f47c686
+        @athena: 6372bb43f96b
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -1437,7 +1437,7 @@ class TestEnvironmentResolution(unittest.TestCase):
                 environments=envs,
                 default_env="prod",
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             # Default env should be used
             env_name = executor._get_effective_env_name(tasks["build"])
@@ -1446,7 +1446,7 @@ class TestEnvironmentResolution(unittest.TestCase):
     def test_get_effective_env_platform_default(self):
         """
         Test that empty string is returned for platform default.
-        @athena: 8e6f858e061c
+        @athena: 19260cca1cf9
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -1459,7 +1459,7 @@ class TestEnvironmentResolution(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             # No envs defined, should return empty string
             env_name = executor._get_effective_env_name(tasks["build"])
@@ -1468,7 +1468,7 @@ class TestEnvironmentResolution(unittest.TestCase):
     def test_resolve_environment_with_custom_env(self):
         """
         Test resolving environment with custom shell and preamble.
-        @athena: 38be6dfc26c8
+        @athena: ad7409ace0a8
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -1490,18 +1490,17 @@ class TestEnvironmentResolution(unittest.TestCase):
                 recipe_path=project_root / "tasktree.yaml",
                 environments=envs,
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             shell, preamble = executor._resolve_environment(tasks["build"])
             self.assertEqual(shell, "zsh")
             self.assertEqual(preamble, "set -e\n")
 
-    @patch("subprocess.run")
     @patch("os.chmod")
-    def test_task_execution_uses_custom_shell(self, mock_chmod, mock_run):
+    def test_task_execution_uses_custom_shell(self, _fake_chmod):
         """
         Test that custom shell from environment is used for execution.
-        @athena: 2e5ff72c2968
+        @athena: af5465f2617e
         """
 
         import platform
@@ -1509,7 +1508,7 @@ class TestEnvironmentResolution(unittest.TestCase):
         captured_script_content = []
 
         def capture_script_content(*args, **kwargs):
-            # Read the script before subprocess.run returns
+            # Read the script before process runner returns
             script_path = args[0][0]
             with open(script_path, "r") as f:
                 captured_script_content.append(f.read())
@@ -1530,10 +1529,15 @@ class TestEnvironmentResolution(unittest.TestCase):
                 recipe_path=project_root / "tasktree.yaml",
                 environments=envs,
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
 
-            mock_run.side_effect = capture_script_content
-            executor.execute_task("build")
+            process_runner_spy = MagicMock(spec=ProcessRunner)
+            process_runner_spy.run.side_effect = capture_script_content
+
+            fake_proc_runner_factory = MagicMock()
+            fake_proc_runner_factory.return_value = process_runner_spy
+
+            executor.execute_task("build", fake_proc_runner_factory)
 
             # Verify script execution was used and contains fish shell
             self.assertEqual(len(captured_script_content), 1)
@@ -1561,12 +1565,11 @@ class TestEnvironmentResolution(unittest.TestCase):
         self.assertNotEqual(hash2, hash3)
         self.assertNotEqual(hash1, hash3)
 
-    @patch("subprocess.run")
     @patch("os.chmod")
-    def test_run_task_substitutes_environment_variables(self, mock_chmod, mock_run):
+    def test_run_task_substitutes_environment_variables(self, _fake_chmod):
         """
         Test that _run_task substitutes environment variables.
-        @athena: c58b5584299e
+        @athena: 6ff1df5d470b
         """
 
         os.environ["TEST_ENV_VAR"] = "test_value"
@@ -1597,10 +1600,12 @@ class TestEnvironmentResolution(unittest.TestCase):
                     project_root=project_root,
                     recipe_path=project_root / "tasktree.yaml",
                 )
-                executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+                executor = Executor(recipe, state_manager, logger_stub)
 
-                mock_run.side_effect = capture_script_content
-                executor._run_task(tasks["test"], {})
+                process_runner_spy = MagicMock(spec=ProcessRunner)
+                process_runner_spy.run.side_effect = capture_script_content
+
+                executor._run_task(tasks["test"], {}, process_runner_spy)
 
                 # Verify command has env var substituted in the script
                 self.assertEqual(len(captured_script_content), 1)
@@ -1610,11 +1615,10 @@ class TestEnvironmentResolution(unittest.TestCase):
         finally:
             del os.environ["TEST_ENV_VAR"]
 
-    @patch("subprocess.run")
-    def test_run_task_env_substitution_in_working_dir(self, mock_run):
+    def test_run_task_env_substitution_in_working_dir(self):
         """
         Test environment variables work in working_dir.
-        @athena: a2d488c3e905
+        @athena: 918844bd22d1
         """
 
         os.environ["SUBDIR"] = "mydir"
@@ -1638,13 +1642,13 @@ class TestEnvironmentResolution(unittest.TestCase):
                     project_root=project_root,
                     recipe_path=project_root / "tasktree.yaml",
                 )
-                executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+                executor = Executor(recipe, state_manager, logger_stub)
 
-                mock_run.return_value = MagicMock(returncode=0)
-                executor._run_task(tasks["test"], {})
+                process_runner_spy = MagicMock(spec=ProcessRunner)
+                executor._run_task(tasks["test"], {}, process_runner_spy)
 
                 # Verify working_dir was substituted
-                called_cwd = mock_run.call_args[1]["cwd"]
+                called_cwd = process_runner_spy.run.call_args[1]["cwd"]
                 self.assertEqual(called_cwd, project_root / "mydir")
         finally:
             del os.environ["SUBDIR"]
@@ -1652,7 +1656,7 @@ class TestEnvironmentResolution(unittest.TestCase):
     def test_run_task_undefined_env_var_raises(self):
         """
         Test undefined environment variable raises clear error.
-        @athena: 4d17d3e6e7e9
+        @athena: 164a338d8a37
         """
 
         # Ensure var is not set
@@ -1675,10 +1679,10 @@ class TestEnvironmentResolution(unittest.TestCase):
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
             )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
 
             with self.assertRaises(ValueError) as cm:
-                executor._run_task(tasks["test"], {})
+                executor._run_task(tasks["test"], {}, make_process_runner())
 
             self.assertIn("UNDEFINED_TEST_VAR", str(cm.exception))
             self.assertIn("not set", str(cm.exception))
@@ -1687,11 +1691,13 @@ class TestEnvironmentResolution(unittest.TestCase):
 class TestTaskOutputParameter(unittest.TestCase):
     """
     Test task_output parameter handling in Executor.
+    @athena: c15f20ce7913
     """
 
     def test_executor_stores_task_output_parameter(self):
         """
         Test that Executor.__init__() stores task_output parameter correctly.
+        @athena: 2fd609c98e4e
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -1704,12 +1710,18 @@ class TestTaskOutputParameter(unittest.TestCase):
             )
 
             # Test with explicit task_output value
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner, task_output="all")
+            executor = Executor(
+                recipe,
+                state_manager,
+                logger_stub,
+                task_output="all",
+            )
             self.assertEqual(executor.task_output, "all")
 
     def test_executor_task_output_defaults_to_all(self):
         """
         Test that Executor.__init__() defaults task_output to "all".
+        @athena: cbedcfbb20f4
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -1722,12 +1734,13 @@ class TestTaskOutputParameter(unittest.TestCase):
             )
 
             # Test default value
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor = Executor(recipe, state_manager, logger_stub)
             self.assertEqual(executor.task_output, "all")
 
     def test_run_command_as_script_accesses_task_output_via_self(self):
         """
         Test that _run_command_as_script() can access task_output via self.
+        @athena: 362bec700c36
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -1739,61 +1752,43 @@ class TestTaskOutputParameter(unittest.TestCase):
                 recipe_path=project_root / "tasktree.yaml",
             )
 
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner, task_output="all")
-
-            # Create process runner for test
-            process_runner = make_process_runner()
-
-            # Mock subprocess.run to verify it's called
-            with patch("subprocess.run") as mock_run:
-                mock_run.return_value = MagicMock(returncode=0)
-
-                # Call _run_command_as_script - should not raise even without task_output parameter
-                executor._run_command_as_script(
-                    cmd="echo test",
-                    working_dir=project_root,
-                    task_name="test",
-                    shell="bash",
-                    preamble="",
-                    process_runner=process_runner,
-                )
-
-                # Verify subprocess.run was called (method executed successfully)
-                mock_run.assert_called_once()
-
-
-class TestExecutorProcessRunnerFactory(unittest.TestCase):
-    """Tests for Executor's process_runner_factory parameter."""
-
-    def test_executor_accepts_process_runner_factory(self):
-        """Executor can be initialized with a process_runner_factory parameter."""
-        with TemporaryDirectory() as tmpdir:
-            project_root = Path(tmpdir)
-            state_manager = StateManager(project_root)
-            recipe = Recipe(
-                tasks={},
-                project_root=project_root,
-                recipe_path=project_root / "tasktree.yaml",
-            )
-
-            mock_factory = MagicMock()
             executor = Executor(
                 recipe,
                 state_manager,
                 logger_stub,
-                mock_factory
+                task_output="all",
             )
 
-            self.assertEqual(executor.process_runner_factory, mock_factory)
+            process_runner_spy = MagicMock(spec=ProcessRunner)
+            process_runner_spy.run.return_value = MagicMock(returncode=0)
 
-    @patch('tasktree.executor.subprocess.run')
-    def test_executor_uses_factory_in_run_task(self, mock_subprocess_run):
-        """Executor calls process_runner_factory in _run_task."""
+            executor._run_command_as_script(
+                cmd="echo test",
+                working_dir=project_root,
+                task_name="test",
+                shell="bash",
+                preamble="",
+                process_runner=process_runner_spy,
+            )
+
+            process_runner_spy.run.assert_called_once()
+
+
+class TestExecutorProcessRunner(unittest.TestCase):
+    """
+    Tests for Executor's process_runner_factory parameter.
+    @athena: 1c0756739b33
+    """
+
+    def test_executor_uses_process_runner_in_run_task(self):
+        """
+        Executor calls process_runner_factory in _run_task.
+        @athena: e8b033b6f187
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
 
-            # Create a simple task
             task = Task(name="test", cmd="echo test")
             recipe = Recipe(
                 tasks={"test": task},
@@ -1801,22 +1796,14 @@ class TestExecutorProcessRunnerFactory(unittest.TestCase):
                 recipe_path=project_root / "tasktree.yaml",
             )
 
-            # Create mock process runner
-            mock_runner = MagicMock(spec=ProcessRunner)
-            mock_factory = MagicMock(return_value=mock_runner)
+            process_runner_spy = MagicMock(spec=ProcessRunner)
+            process_runner_spy.run.return_value = MagicMock(returncode=0)
 
-            executor = Executor(
-                recipe,
-                state_manager,
-                logger_stub,
-                mock_factory
-            )
+            executor = Executor(recipe, state_manager, logger_stub)
+            executor._run_task(task, {}, process_runner_spy)
 
-            # Execute the task
-            executor._run_task(task, {})
+            process_runner_spy.run.assert_called_once()
 
-            # Verify factory was called
-            mock_factory.assert_called_once()
 
 if __name__ == "__main__":
     unittest.main()

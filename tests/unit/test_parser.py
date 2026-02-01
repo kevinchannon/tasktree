@@ -610,7 +610,7 @@ tasks:
 class TestParseImports(unittest.TestCase):
     """
     Test parsing of recipe imports with various edge cases.
-    @athena: 319e48cf208f
+    @athena: 328cc18fe00e
     """
 
     def test_multiple_imports(self):
@@ -1220,7 +1220,7 @@ imports:
         This test verifies that when deploy.yaml imports base.yaml locally and references
         a task from that import with parameters, the dependency is correctly rewritten with
         both namespace prefixes.
-        @athena: bug-fix-test
+        @athena: d550915fe1e7
         """
         with TemporaryDirectory() as tmpdir:
             # Create base file with a task that has args
@@ -1408,7 +1408,7 @@ tasks:
 class TestParserErrors(unittest.TestCase):
     """
     Tests for parser error conditions.
-    @athena: e165b0c2f080
+    @athena: 6b1488d5b7b5
     """
 
     def test_parse_invalid_yaml_syntax(self):
@@ -1469,6 +1469,7 @@ tasks:
         """
         Test ValueError when task name contains dots.
         @athena: TBD
+        @athena: 4f058f68b017
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
@@ -2288,7 +2289,7 @@ tasks:
 class TestFileReadVariables(unittest.TestCase):
     """
     Test parsing of variables section with file read support.
-    @athena: 402549e8335a
+    @athena: 18ada17d7eda
     """
 
     def test_file_read_basic(self):
@@ -2500,7 +2501,7 @@ tasks:
     def test_file_read_tilde_expansion(self):
         """
         Test tilde expands to home directory.
-        @athena: 70378a8685ee
+        @athena: ee8907d771cf
         """
 
         home = Path.home()
@@ -2554,7 +2555,7 @@ tasks:
     def test_file_read_invalid_utf8(self):
         """
         Test error for binary file.
-        @athena: 15d54f6c6cb1
+        @athena: 7c721c0fca7f
         """
         with TemporaryDirectory() as tmpdir:
             # Create binary file
@@ -2687,7 +2688,7 @@ tasks:
 class TestEvalVariables(unittest.TestCase):
     """
     Tests for { eval: command } variable references.
-    @athena: f3969144409f
+    @athena: 1e7a5fee9b76
     """
 
     def test_eval_basic_command(self):
@@ -2733,7 +2734,7 @@ tasks:
     def test_eval_preserves_internal_newlines(self):
         """
         Test that internal newlines are preserved.
-        @athena: d4c3c941e6c6
+        @athena: ce733f22f3ac
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
@@ -2995,7 +2996,7 @@ tasks:
     def test_eval_with_pipes_and_redirection(self):
         """
         Test that commands with pipes work correctly.
-        @athena: 7b5b16b6cdce
+        @athena: b1b4f29f5bd0
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
@@ -3057,7 +3058,7 @@ tasks:
 class TestArgMinMax(unittest.TestCase):
     """
     Tests for min/max range constraints on arguments.
-    @athena: 20b694272427
+    @athena: 00e6107e0108
     """
 
     def test_parse_int_with_min_and_max(self):
@@ -3125,7 +3126,7 @@ class TestArgMinMax(unittest.TestCase):
     def test_min_max_only_on_numeric_types_int(self):
         """
         Test that min/max on string type raises error.
-        @athena: 32c207456f3b
+        @athena: ecd8cac84bc5
         """
         with self.assertRaises(ValueError) as cm:
             parse_arg_spec({"name": {"type": "str", "min": 1, "max": 10}})
@@ -3137,7 +3138,7 @@ class TestArgMinMax(unittest.TestCase):
     def test_min_max_only_on_numeric_types_bool(self):
         """
         Test that min/max on bool type raises error.
-        @athena: a3933b099ff3
+        @athena: b3bdbb98d641
         """
         with self.assertRaises(ValueError) as cm:
             parse_arg_spec({"flag": {"type": "bool", "min": 0, "max": 1}})
@@ -3149,7 +3150,7 @@ class TestArgMinMax(unittest.TestCase):
     def test_min_max_only_on_numeric_types_path(self):
         """
         Test that min/max on path type raises error.
-        @athena: 7af90499f011
+        @athena: 7b8bc70405e4
         """
         with self.assertRaises(ValueError) as cm:
             parse_arg_spec({"file": {"type": "path", "min": 1}})
@@ -3554,7 +3555,7 @@ class TestArgTypeInference(unittest.TestCase):
 class TestNamedOutputs(unittest.TestCase):
     """
     Tests for named output functionality.
-    @athena: 0fc04ffa643f
+    @athena: d7dc697f1aed
     """
 
     def test_parse_named_output(self):
@@ -3739,7 +3740,7 @@ tasks:
     def test_named_output_valid_identifiers(self):
         """
         Test various valid identifier names.
-        @athena: b5ac7215644e
+        @athena: 5697516bc4bd
         """
         valid_names = [
             "output",
@@ -3787,7 +3788,7 @@ tasks:
 class TestNamedInputs(unittest.TestCase):
     """
     Tests for named input functionality.
-    @athena: 63af170071dd
+    @athena: 834e5cba3933
     """
 
     def test_parse_named_input(self):
@@ -3971,7 +3972,7 @@ tasks:
     def test_named_input_valid_identifiers(self):
         """
         Test various valid identifier names.
-        @athena: 978d1cf60aeb
+        @athena: fdb812b9a617
         """
         valid_names = [
             "input",

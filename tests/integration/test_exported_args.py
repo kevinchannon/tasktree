@@ -16,13 +16,13 @@ from tasktree.state import StateManager
 class TestExportedArgs(unittest.TestCase):
     """
     Test exported arguments feature end-to-end.
-    @athena: f7ac00f3c588
+    @athena: b9a6feeb3796
     """
 
     def test_exported_args_in_environment(self):
         """
         Test that exported args are set as environment variables.
-        @athena: 2ef81b4f3584
+        @athena: 7452bcb0da29
         """
 
         is_windows = platform.system() == "Windows"
@@ -45,11 +45,11 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state, logger_stub, make_process_runner)
+            executor = Executor(recipe, state, logger_stub)
 
             # Execute with exported args
             args_dict = {"server": "prod-server", "user": "admin"}
-            statuses = executor.execute_task("test", args_dict)
+            statuses = executor.execute_task("test", make_process_runner, args_dict)
 
             # Should execute successfully (no exception = success)
             self.assertIn("test", statuses)
@@ -57,7 +57,7 @@ tasks:
     def test_exported_args_with_defaults(self):
         """
         Test that exported args with defaults work correctly.
-        @athena: ebabe2e217fe
+        @athena: d60a6a296f21
         """
 
         is_windows = platform.system() == "Windows"
@@ -80,11 +80,11 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state, logger_stub, make_process_runner)
+            executor = Executor(recipe, state, logger_stub)
 
             # Execute with only server arg (port uses default)
             args_dict = {"server": "prod-server", "port": "8080"}
-            statuses = executor.execute_task("test", args_dict)
+            statuses = executor.execute_task("test", make_process_runner, args_dict)
 
             self.assertIn("test", statuses)
 
@@ -95,7 +95,7 @@ tasks:
         This is a regression test for the bug where exported args with defaults
         would not be set as environment variables if the value wasn't provided
         by the user (relying on CLI to apply the default).
-        @athena: 07337bef6600
+        @athena: 9abbc843c8a5
         """
 
         is_windows = platform.system() == "Windows"
@@ -133,15 +133,15 @@ tasks:
             # Execute with args_dict from CLI
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state, logger_stub, make_process_runner)
-            statuses = executor.execute_task("test", args_dict)
+            executor = Executor(recipe, state, logger_stub)
+            statuses = executor.execute_task("test", make_process_runner, args_dict)
 
             self.assertIn("test", statuses)
 
     def test_exported_args_not_substitutable(self):
         """
         Test that exported args cannot be used in template substitution.
-        @athena: 9701acf22146
+        @athena: 44813147cd69
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -156,12 +156,12 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state, logger_stub, make_process_runner)
+            executor = Executor(recipe, state, logger_stub)
 
             # Should raise error when trying to use exported arg in template
             args_dict = {"server": "prod-server"}
             with self.assertRaises(ValueError) as cm:
-                executor.execute_task("test", args_dict)
+                executor.execute_task("test", make_process_runner, args_dict)
 
             self.assertIn("server", str(cm.exception))
             self.assertIn("exported", str(cm.exception))
@@ -170,7 +170,7 @@ tasks:
     def test_mixed_exported_and_regular_args(self):
         """
         Test mixing exported and regular arguments.
-        @athena: 00f7d2c0de2a
+        @athena: 461ab9c604cf
         """
 
         is_windows = platform.system() == "Windows"
@@ -194,17 +194,17 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state, logger_stub, make_process_runner)
+            executor = Executor(recipe, state, logger_stub)
 
             args_dict = {"server": "prod-server", "port": 9000}
-            statuses = executor.execute_task("deploy", args_dict)
+            statuses = executor.execute_task("deploy", make_process_runner, args_dict)
 
             self.assertIn("deploy", statuses)
 
     def test_case_preserved_in_env_vars(self):
         """
         Test that environment variable names preserve case exactly.
-        @athena: 7cba2f4ed379
+        @athena: 1bf4ca57ced7
         """
 
         is_windows = platform.system() == "Windows"
@@ -226,17 +226,17 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state, logger_stub, make_process_runner)
+            executor = Executor(recipe, state, logger_stub)
 
             args_dict = {"Server": "UPPERCASE", "server": "lowercase"}
-            statuses = executor.execute_task("test", args_dict)
+            statuses = executor.execute_task("test", make_process_runner, args_dict)
 
             self.assertIn("test", statuses)
 
     def test_values_with_spaces(self):
         """
         Test that exported args with spaces are preserved correctly.
-        @athena: 1d049782a034
+        @athena: e8719b3c4f91
         """
 
         is_windows = platform.system() == "Windows"
@@ -257,10 +257,10 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state, logger_stub, make_process_runner)
+            executor = Executor(recipe, state, logger_stub)
 
             args_dict = {"message": "hello world with spaces"}
-            statuses = executor.execute_task("test", args_dict)
+            statuses = executor.execute_task("test", make_process_runner, args_dict)
 
             self.assertIn("test", statuses)
 
@@ -296,7 +296,7 @@ tasks:
     def test_multiline_command_with_exported_args(self):
         """
         Test exported args work with multi-line commands.
-        @athena: c123ecb595df
+        @athena: 23b572ee8ebe
         """
 
         is_windows = platform.system() == "Windows"
@@ -325,17 +325,17 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state, logger_stub, make_process_runner)
+            executor = Executor(recipe, state, logger_stub)
 
             args_dict = {"app": "myapp", "server": "prod-server"}
-            statuses = executor.execute_task("deploy", args_dict)
+            statuses = executor.execute_task("deploy", make_process_runner, args_dict)
 
             self.assertIn("deploy", statuses)
 
     def test_exported_args_override_existing_env_vars(self):
         """
         Test that exported args override existing environment variables.
-        @athena: 62dfa7caf6fd
+        @athena: e1c032593cd6
         """
 
         is_windows = platform.system() == "Windows"
@@ -361,11 +361,11 @@ tasks:
                 recipe = parse_recipe(recipe_path)
                 state = StateManager(recipe.project_root)
                 state.load()
-                executor = Executor(recipe, state, logger_stub, make_process_runner)
+                executor = Executor(recipe, state, logger_stub)
 
                 # Exported arg should override the env var
                 args_dict = {"MY_VAR": "overridden"}
-                statuses = executor.execute_task("test", args_dict)
+                statuses = executor.execute_task("test", make_process_runner, args_dict)
 
                 self.assertIn("test", statuses)
         finally:
@@ -378,7 +378,7 @@ tasks:
     def test_protected_env_var_override_fails(self):
         """
         Test that attempting to override protected environment variables fails.
-        @athena: f6b76cb0d6ec
+        @athena: 6a83998c89bb
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -393,12 +393,12 @@ tasks:
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
             state.load()
-            executor = Executor(recipe, state, logger_stub, make_process_runner)
+            executor = Executor(recipe, state, logger_stub)
 
             # Should raise ValueError when trying to override PATH
             args_dict = {"PATH": "/malicious/path"}
             with self.assertRaises(ValueError) as cm:
-                executor.execute_task("test", args_dict)
+                executor.execute_task("test", make_process_runner, args_dict)
 
             self.assertIn("protected", str(cm.exception).lower())
             self.assertIn("PATH", str(cm.exception))

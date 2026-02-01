@@ -13,11 +13,13 @@ from tasktree.cli import app
 class TestTaskOutputOption(unittest.TestCase):
     """
     Test the --task-output/-O option for controlling task subprocess output.
+    @athena: 734c86c82841
     """
 
     def setUp(self):
         """
         Set up test fixtures.
+        @athena: 563ac9b21ae9
         """
         self.runner = CliRunner()
         self.env = {"NO_COLOR": "1"}  # Disable color output for consistent assertions
@@ -25,6 +27,7 @@ class TestTaskOutputOption(unittest.TestCase):
     def test_task_output_all_is_default(self):
         """
         Test that --task-output=all is the default and passes through output.
+        @athena: 76e91efa2bd1
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -62,6 +65,7 @@ tasks:
     def test_task_output_short_flag_works(self):
         """
         Test -O short flag works as alias for --task-output.
+        @athena: 441adfee697b
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -90,6 +94,7 @@ tasks:
     def test_task_output_case_insensitive(self):
         """
         Test that --task-output accepts case-insensitive values.
+        @athena: 65d072f2e598
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)

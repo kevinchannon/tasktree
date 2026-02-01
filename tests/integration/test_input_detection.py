@@ -15,7 +15,7 @@ from tasktree.cli import app
 def strip_ansi_codes(text: str) -> str:
     """
     Remove ANSI escape sequences from text.
-    @athena: 90023a269128
+    @athena: 853120f3304f
     """
     ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
     return ansi_escape.sub("", text)
@@ -24,7 +24,7 @@ def strip_ansi_codes(text: str) -> str:
 class TestInputDetection(unittest.TestCase):
     """
     Test that input file changes are detected correctly.
-    @athena: 858cae5e8db4
+    @athena: 260902ab8664
     """
 
     def setUp(self):
@@ -145,7 +145,7 @@ tasks:
     def test_input_modified_file_triggers_rerun_with_glob(self):
         """
         Test modifying one of multiple glob-matched files triggers rerun.
-        @athena: 8037debd491c
+        @athena: 6ece6b978798
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)

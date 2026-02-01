@@ -69,7 +69,7 @@ class Environment:
 class Task:
     """
     Represents a task definition.
-    @athena: f516b5ae61c5
+    @athena: e2ea62ad15ba
     """
 
     name: str
@@ -119,7 +119,7 @@ class Task:
     def __post_init__(self):
         """
         Ensure lists are always lists and build input/output maps and indexed lists.
-        @athena: a48b1eba81cd
+        @athena: 5c750d8b1ef7
         """
         if isinstance(self.deps, str):
             self.deps = [self.deps]
@@ -313,7 +313,7 @@ class ArgSpec:
 class Recipe:
     """
     Represents a parsed recipe file with all tasks.
-    @athena: 47f568c77013
+    @athena: 5d1881f292cc
     """
 
     tasks: dict[str, Task]
@@ -394,7 +394,7 @@ class Recipe:
         >>> recipe = parse_recipe(path)  # Variables not yet evaluated
         >>> recipe.evaluate_variables("build")  # Evaluate only reachable variables
         >>> # Now recipe.evaluated_variables contains only vars used by "build" task
-        @athena: d8de7b5f42b6
+        @athena: 108eb8ae4de1
         """
         if self._variables_evaluated:
             return  # Already evaluated, skip (idempotent)
@@ -665,7 +665,7 @@ def _validate_variable_name(name: str) -> None:
 
     Raises:
     ValueError: If name is not a valid identifier
-    @athena: 61f92f7ad278
+    @athena: b768b37686da
     """
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", name):
         raise ValueError(
@@ -727,7 +727,7 @@ def _validate_env_variable_reference(
 
     Raises:
     ValueError: If reference is invalid
-    @athena: 9fc8b2333b54
+    @athena: 9738cec4b0b4
     """
     # Validate dict structure - allow 'env' and optionally 'default'
     valid_keys = {"env", "default"}
@@ -911,7 +911,7 @@ def _resolve_file_variable(var_name: str, filepath: str, resolved_path: Path) ->
 
     Raises:
     ValueError: If file doesn't exist, can't be read, or contains invalid UTF-8
-    @athena: cab84337f145
+    @athena: 211ae0e2493d
     """
     # Check file exists
     if not resolved_path.exists():
@@ -1036,7 +1036,7 @@ def _resolve_eval_variable(
 
     Raises:
     ValueError: If command fails or cannot be executed
-    @athena: 647d3a310c77
+    @athena: 0f912a7346fd
     """
     # Determine shell to use
     shell = None
@@ -1131,7 +1131,7 @@ def _resolve_variable_value(
 
     Raises:
     ValueError: If circular reference detected or validation fails
-    @athena: da94de106756
+    @athena: 2d87857c4e95
     """
     # Check for circular reference
     if name in resolution_stack:
@@ -1336,7 +1336,7 @@ def _expand_variable_dependencies(
     ... }
     >>> _expand_variable_dependencies({"a"}, raw_vars)
     {"a", "b", "c"}
-    @athena: 98e583b402aa
+    @athena: c7d55d26a3c2
     """
     expanded = set(variable_names)
     to_process = list(variable_names)
@@ -1470,7 +1470,7 @@ def _parse_file_with_env(
     Returns:
     Tuple of (tasks, environments, default_env_name, raw_variables, YAML_data)
     Note: Variables are NOT evaluated here - they're stored as raw specs for lazy evaluation
-    @athena: b2dced506787
+    @athena: 8b00183e612d
     """
     # Parse tasks normally
     tasks = _parse_file(file_path, namespace, project_root, import_stack)
@@ -1675,7 +1675,7 @@ def collect_reachable_variables(
     >>> task = Task("build", cmd="echo {{ var.version }}")
     >>> collect_reachable_variables({"build": task}, {"build"})
     {"version"}
-    @athena: e22e54537f8d
+    @athena: 84edaecf913a
     """
     import re
 
@@ -1824,7 +1824,7 @@ def parse_recipe(
     CircularImportError: If circular imports are detected
     yaml.YAMLError: If YAML is invalid
     ValueError: If recipe structure is invalid
-    @athena: 27326e37d5f3
+    @athena: c79c0f326180
     """
     if not recipe_path.exists():
         raise FileNotFoundError(f"Recipe file not found: {recipe_path}")
@@ -1883,7 +1883,7 @@ def _parse_file(
     CircularImportError: If a circular import is detected
     FileNotFoundError: If an imported file doesn't exist
     ValueError: If task structure is invalid
-    @athena: 8a903d791c2f
+    @athena: 225864160e55
     """
     # Initialize import stack if not provided
     if import_stack is None:
@@ -2090,7 +2090,7 @@ def _check_case_sensitive_arg_collisions(args: list[str], task_name: str) -> Non
     Args:
     args: List of argument specifications
     task_name: Name of the task (for warning message)
-    @athena: a3f0f3b184a8
+    @athena: 11ec810aa07b
     """
     import sys
 
@@ -2156,7 +2156,7 @@ def parse_arg_spec(arg_spec: str | dict) -> ArgSpec:
 
     Raises:
     ValueError: If argument specification is invalid
-    @athena: 2a4c7e804622
+    @athena: ef9805c194d7
     """
     # Handle dictionary format: { argname: { type: ..., default: ... } }
     if isinstance(arg_spec, dict):
@@ -2232,7 +2232,7 @@ def _parse_arg_dict(arg_name: str, config: dict, is_exported: bool) -> ArgSpec:
 
     Raises:
     ValueError: If dictionary format is invalid
-    @athena: 5b6b93a3612a
+    @athena: a6020b5b771c
     """
     # Validate dictionary keys
     valid_keys = {"type", "default", "min", "max", "choices"}

@@ -307,13 +307,13 @@ class TestSubstituteArguments(unittest.TestCase):
 class TestSubstituteEnvironment(unittest.TestCase):
     """
     Test substitute_environment function.
-    @athena: 494710dca5fa
+    @athena: 8b6b7f441d81
     """
 
     def test_substitute_single_env_var(self):
         """
         Test basic {{ env.VAR }} substitution.
-        @athena: 0e7dc1c6c162
+        @athena: 14c224625dc5
         """
         os.environ["TEST_VAR"] = "test_value"
         try:
@@ -325,7 +325,7 @@ class TestSubstituteEnvironment(unittest.TestCase):
     def test_substitute_multiple_env_vars(self):
         """
         Test multiple different env vars in same string.
-        @athena: 21d70f35934b
+        @athena: 893b52157e30
         """
         os.environ["VAR1"] = "value1"
         os.environ["VAR2"] = "value2"
@@ -340,7 +340,7 @@ class TestSubstituteEnvironment(unittest.TestCase):
     def test_substitute_same_env_var_multiple_times(self):
         """
         Test same env var appears multiple times.
-        @athena: 94eae079b944
+        @athena: 53d21a278e2a
         """
         os.environ["USER"] = "testuser"
         try:
@@ -362,7 +362,7 @@ class TestSubstituteEnvironment(unittest.TestCase):
     def test_substitute_ignores_var_prefix(self):
         """
         Test {{ var.name }} is not substituted.
-        @athena: d73f10a596c8
+        @athena: e663d9b809b3
         """
         os.environ["FOO"] = "env_foo"
         try:
@@ -375,7 +375,7 @@ class TestSubstituteEnvironment(unittest.TestCase):
     def test_substitute_ignores_arg_prefix(self):
         """
         Test {{ arg.name }} is not substituted.
-        @athena: 7109ca0a3082
+        @athena: 8f722ed8bf4c
         """
         os.environ["FOO"] = "env_foo"
         try:
@@ -388,7 +388,7 @@ class TestSubstituteEnvironment(unittest.TestCase):
     def test_substitute_undefined_env_var_raises(self):
         """
         Test error for undefined environment variable.
-        @athena: 1a1f5f35641b
+        @athena: a31ae899f042
         """
         # Make sure var is not set
         if "DEFINITELY_NOT_SET_VAR" in os.environ:
@@ -402,7 +402,7 @@ class TestSubstituteEnvironment(unittest.TestCase):
     def test_substitute_with_whitespace_variations(self):
         """
         Test whitespace handling in placeholders.
-        @athena: c8222bbc681d
+        @athena: 465a44e5e078
         """
         os.environ["TEST_VAR"] = "value"
         try:
@@ -419,7 +419,7 @@ class TestSubstituteEnvironment(unittest.TestCase):
     def test_substitute_empty_string_value(self):
         """
         Test env var with empty string value.
-        @athena: 13bffb4a715f
+        @athena: 58efa8a86b72
         """
         os.environ["EMPTY_VAR"] = ""
         try:
@@ -431,7 +431,7 @@ class TestSubstituteEnvironment(unittest.TestCase):
     def test_substitute_in_complex_command(self):
         """
         Test substitution in realistic command string.
-        @athena: 2c53bc66e77c
+        @athena: 923ce7df0885
         """
         os.environ["DEPLOY_USER"] = "admin"
         os.environ["DEPLOY_HOST"] = "prod.example.com"
@@ -449,7 +449,7 @@ class TestSubstituteEnvironment(unittest.TestCase):
 class TestSubstituteBuiltinVariables(unittest.TestCase):
     """
     Test substitute_builtin_variables function.
-    @athena: c1aede7ac4fd
+    @athena: 1c9cfba3ca00
     """
 
     def test_substitute_single_builtin_var(self):
@@ -592,7 +592,7 @@ class TestSubstituteBuiltinVariables(unittest.TestCase):
     def test_substitute_in_realistic_command(self):
         """
         Test substitution in realistic command string.
-        @athena: bd8b12c340aa
+        @athena: aafc0df7159f
         """
         builtin_vars = {
             "project_root": "/home/user/project",
@@ -608,7 +608,7 @@ class TestSubstituteBuiltinVariables(unittest.TestCase):
 class TestSubstituteAll(unittest.TestCase):
     """
     Test substitute_all function.
-    @athena: 51e8df71e244
+    @athena: 3bba88c9beb9
     """
 
     def test_substitute_both_var_and_arg(self):
@@ -657,7 +657,7 @@ class TestSubstituteAll(unittest.TestCase):
     def test_substitute_all_three_types(self):
         """
         Test variables, arguments, and environment all work together.
-        @athena: cbaba5e97f35
+        @athena: 4c994f354858
         """
         os.environ["ENV_VAR"] = "from_env"
         try:
@@ -672,7 +672,7 @@ class TestSubstituteAll(unittest.TestCase):
     def test_substitute_order_var_then_arg_then_env(self):
         """
         Test substitution happens in correct order.
-        @athena: ac8023cd9cec
+        @athena: 45df2446bc4e
         """
         os.environ["PORT"] = "9000"
         try:
@@ -689,7 +689,7 @@ class TestSubstituteAll(unittest.TestCase):
 class TestDepOutputPattern(unittest.TestCase):
     """
     Test the regex pattern for matching dependency output references.
-    @athena: f27e4a11a000
+    @athena: 3b6aba512b3d
     """
 
     def test_pattern_matches_basic_syntax(self):
@@ -756,7 +756,7 @@ class TestDepOutputPattern(unittest.TestCase):
     def test_pattern_finds_multiple_references(self):
         """
         Test pattern finds all references in text.
-        @athena: 3662fe0ee5f4
+        @athena: ddeb3a2f8d5d
         """
         text = (
             "Deploy {{ dep.build.outputs.bundle }} and {{ dep.compile.outputs.binary }}"
@@ -772,7 +772,7 @@ class TestDepOutputPattern(unittest.TestCase):
 class TestSubstituteDependencyOutputs(unittest.TestCase):
     """
     Test dependency output substitution function.
-    @athena: bdc8a08d358f
+    @athena: d765e0973a6f
     """
 
     def test_substitute_basic_output(self):
@@ -795,7 +795,7 @@ class TestSubstituteDependencyOutputs(unittest.TestCase):
     def test_substitute_multiple_outputs(self):
         """
         Test multiple output references in same text.
-        @athena: 82a21e199daa
+        @athena: 6953ac13543b
         """
         build_task = Task(name="build", cmd="build.sh")
         build_task.outputs = [
@@ -863,7 +863,7 @@ class TestSubstituteDependencyOutputs(unittest.TestCase):
     def test_error_on_task_not_in_deps(self):
         """
         Test error when task not listed as dependency.
-        @athena: cee9c6b38fa1
+        @athena: fa1665a8d367
         """
         build_task = Task(name="build", cmd="build.sh")
         build_task.outputs = [{"bundle": "dist/app.js"}]

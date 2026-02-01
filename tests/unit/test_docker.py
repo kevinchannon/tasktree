@@ -289,7 +289,7 @@ class TestResolveContainerWorkingDir(unittest.TestCase):
 class TestDockerManager(unittest.TestCase):
     """
     Test DockerManager class.
-    @athena: aaeffe586f1b
+    @athena: f5ee6f7c456b
     """
 
     def setUp(self):
@@ -304,7 +304,7 @@ class TestDockerManager(unittest.TestCase):
     def test_ensure_image_built_caching(self, mock_run):
         """
         Test that images are cached per invocation.
-        @athena: e02d8a260122
+        @athena: ec5dd97bc4a8
         """
         env = Environment(
             name="builder",
@@ -326,14 +326,14 @@ class TestDockerManager(unittest.TestCase):
         mock_run.side_effect = mock_run_side_effect
 
         # First call should check docker, build, and inspect
-        tag1, image_id1 = self.manager.ensure_image_built(env)
+        tag1, image_id1 = self.manager.ensure_image_built(env, make_process_runner())
         self.assertEqual(tag1, "tt-env-builder")
         self.assertEqual(image_id1, "sha256:abc123def456")
         # Should have called docker --version, docker build, and docker inspect
         self.assertEqual(mock_run.call_count, 3)
 
         # Second call should use cache (no additional docker build)
-        tag2, image_id2 = self.manager.ensure_image_built(env)
+        tag2, image_id2 = self.manager.ensure_image_built(env, make_process_runner())
         self.assertEqual(tag2, "tt-env-builder")
         self.assertEqual(image_id2, "sha256:abc123def456")
         self.assertEqual(mock_run.call_count, 3)  # No additional calls
@@ -342,7 +342,7 @@ class TestDockerManager(unittest.TestCase):
     def test_build_command_structure(self, mock_run):
         """
         Test that docker build command is structured correctly.
-        @athena: 39d801beba77
+        @athena: 21151cc7a8dd
         """
         env = Environment(
             name="builder",
@@ -360,8 +360,7 @@ class TestDockerManager(unittest.TestCase):
             return None
 
         mock_run.side_effect = mock_run_side_effect
-
-        self.manager.ensure_image_built(env)
+        self.manager.ensure_image_built(env, make_process_runner())
 
         # Check that docker build was called with correct args (2nd call, after docker --version)
         build_call_args = mock_run.call_args_list[1][0][0]
@@ -375,7 +374,7 @@ class TestDockerManager(unittest.TestCase):
     def test_build_command_with_build_args(self, mock_run):
         """
         Test that docker build command includes --build-arg flags.
-        @athena: 52ab7507bef3
+        @athena: 581199f6c680
         """
         env = Environment(
             name="builder",
@@ -395,7 +394,7 @@ class TestDockerManager(unittest.TestCase):
 
         mock_run.side_effect = mock_run_side_effect
 
-        self.manager.ensure_image_built(env)
+        self.manager.ensure_image_built(env, make_process_runner())
 
         # Check that docker build was called with build args (2nd call, after docker --version)
         build_call_args = mock_run.call_args_list[1][0][0]
@@ -426,7 +425,7 @@ class TestDockerManager(unittest.TestCase):
     def test_build_command_with_empty_build_args(self, mock_run):
         """
         Test that docker build command works with empty build args dict.
-        @athena: ab6aed370b6d
+        @athena: 28b44704ab1c
         """
         env = Environment(
             name="builder",
@@ -446,7 +445,7 @@ class TestDockerManager(unittest.TestCase):
 
         mock_run.side_effect = mock_run_side_effect
 
-        self.manager.ensure_image_built(env)
+        self.manager.ensure_image_built(env, make_process_runner())
 
         # Check that docker build was called (2nd call, after docker --version)
         build_call_args = mock_run.call_args_list[1][0][0]
@@ -462,7 +461,7 @@ class TestDockerManager(unittest.TestCase):
     def test_build_command_with_special_characters_in_args(self, mock_run):
         """
         Test that build args with special characters are handled correctly.
-        @athena: e7b4f0147089
+        @athena: ce755595bb2a
         """
         env = Environment(
             name="builder",
@@ -487,7 +486,7 @@ class TestDockerManager(unittest.TestCase):
 
         mock_run.side_effect = mock_run_side_effect
 
-        self.manager.ensure_image_built(env)
+        self.manager.ensure_image_built(env, make_process_runner())
 
         # Check that docker build was called (2nd call, after docker --version)
         build_call_args = mock_run.call_args_list[1][0][0]
@@ -580,7 +579,7 @@ class TestDockerManager(unittest.TestCase):
     ):
         """
         Test that --user flag is added by default on Linux.
-        @athena: d054aa129d81
+        @athena: 703f41bc981f
         """
         mock_platform.return_value = "Linux"
         mock_getuid.return_value = 1000
@@ -626,7 +625,7 @@ class TestDockerManager(unittest.TestCase):
     def test_run_in_container_skips_user_flag_on_windows(self, mock_platform, mock_run):
         """
         Test that --user flag is NOT added on Windows.
-        @athena: 9895a4a884d6
+        @athena: 9da700a3222e
         """
         mock_platform.return_value = "Windows"
 
@@ -672,7 +671,7 @@ class TestDockerManager(unittest.TestCase):
     ):
         """
         Test that run_as_root=True prevents --user flag from being added.
-        @athena: 47ae8b1d0bdc
+        @athena: bae8a549c901
         """
         mock_platform.return_value = "Linux"
         mock_getuid.return_value = 1000
@@ -717,7 +716,7 @@ class TestDockerManager(unittest.TestCase):
     def test_run_in_container_includes_extra_args(self, mock_platform, mock_run):
         """
         Test that extra_args are properly included in docker run command.
-        @athena: 7fcf0e6f7cfd
+        @athena: 2f519b4e5577
         """
         mock_platform.return_value = "Windows"  # Skip user flag for simplicity
 
@@ -774,7 +773,7 @@ class TestDockerManager(unittest.TestCase):
     def test_run_in_container_with_empty_extra_args(self, mock_platform, mock_run):
         """
         Test that empty extra_args list works correctly.
-        @athena: 3a4ef02a0dfc
+        @athena: 5592b6f4dfeb
         """
         mock_platform.return_value = "Windows"
 
@@ -819,7 +818,7 @@ class TestDockerManager(unittest.TestCase):
     def test_run_in_container_with_shell_args(self, mock_platform, mock_run):
         """
         Test that shell args list works correctly.
-        @athena: ed24f4a0da40
+        @athena: 1d645d21622c
         """
         mock_platform.return_value = "Windows"
 
@@ -869,7 +868,7 @@ class TestDockerManager(unittest.TestCase):
 
         Note: Variable substitution happens in the executor before calling docker manager.
         This test verifies that the docker manager correctly handles already-substituted paths.
-        @athena: dd5188cdc5b3
+        @athena: 16ce782b87a4
         """
         mock_platform.return_value = "Linux"
 
