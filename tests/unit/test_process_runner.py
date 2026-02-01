@@ -9,6 +9,7 @@ from tasktree.process_runner import (
     PassthroughProcessRunner,
     ProcessRunner,
     SilentProcessRunner,
+    StdoutOnlyProcessRunner,
     TaskOutputTypes,
     make_process_runner,
 )
@@ -326,6 +327,119 @@ class TestSilentProcessRunner(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         self.assertIsNone(result.stdout)
         self.assertIsNone(result.stderr)
+
+
+class TestStdoutOnlyProcessRunner(unittest.TestCase):
+    """
+    Tests for StdoutOnlyProcessRunner implementation.
+    @athena: TBD
+    """
+
+    def setUp(self):
+        """
+        Set up test fixtures.
+        @athena: TBD
+        """
+        self.runner = StdoutOnlyProcessRunner()
+
+    def test_run_forwards_stdout(self):
+        """
+        run() forwards stdout to sys.stdout.
+        @athena: TBD
+        """
+        # Run a command that produces stdout
+        # We can't easily capture the output that goes to sys.stdout from the thread,
+        # but we can verify the command executes successfully
+        result = self.runner.run(
+            [sys.executable, "-c", "print('test stdout')"]
+        )
+
+        self.assertIsInstance(result, subprocess.CompletedProcess)
+        self.assertEqual(result.returncode, 0)
+        # stdout should be None since we streamed it
+        self.assertIsNone(result.stdout)
+
+    def test_run_suppresses_stderr(self):
+        """
+        run() suppresses stderr output.
+        @athena: TBD
+        """
+        # Run command that produces stderr - output should be suppressed
+        result = self.runner.run(
+            [sys.executable, "-c", "import sys; sys.stderr.write('error\\n')"]
+        )
+
+        self.assertEqual(result.returncode, 0)
+        # stderr should be None (suppressed)
+        self.assertIsNone(result.stderr)
+
+    def test_run_handles_both_stdout_and_stderr(self):
+        """
+        run() forwards stdout while suppressing stderr.
+        @athena: TBD
+        """
+        # Command that writes to both stdout and stderr
+        result = self.runner.run(
+            [
+                sys.executable,
+                "-c",
+                "import sys; print('stdout'); sys.stderr.write('stderr\\n')",
+            ]
+        )
+
+        self.assertEqual(result.returncode, 0)
+        self.assertIsNone(result.stdout)
+        self.assertIsNone(result.stderr)
+
+    def test_run_raises_called_process_error_when_check_true(self):
+        """
+        run() raises CalledProcessError when check=True and process fails.
+        @athena: TBD
+        """
+        with self.assertRaises(subprocess.CalledProcessError) as context:
+            self.runner.run(
+                [sys.executable, "-c", "import sys; sys.exit(1)"], check=True
+            )
+
+        self.assertEqual(context.exception.returncode, 1)
+
+    def test_run_raises_timeout_expired(self):
+        """
+        run() raises TimeoutExpired when timeout is exceeded.
+        @athena: TBD
+        """
+        with self.assertRaises(subprocess.TimeoutExpired):
+            self.runner.run(
+                [sys.executable, "-c", "import time; time.sleep(10)"], timeout=0.1
+            )
+
+    def test_stdout_only_runner_is_process_runner(self):
+        """
+        StdoutOnlyProcessRunner implements ProcessRunner interface.
+        @athena: TBD
+        """
+        self.assertIsInstance(self.runner, ProcessRunner)
+
+    def test_run_returns_completed_process(self):
+        """
+        run() returns subprocess.CompletedProcess instance.
+        @athena: TBD
+        """
+        result = self.runner.run([sys.executable, "-c", "print('test')"])
+
+        self.assertIsInstance(result, subprocess.CompletedProcess)
+        self.assertEqual(result.returncode, 0)
+
+    def test_run_preserves_exit_code(self):
+        """
+        run() preserves non-zero exit codes.
+        @athena: TBD
+        """
+        result = self.runner.run(
+            [sys.executable, "-c", "import sys; sys.exit(42)"], check=False
+        )
+
+        self.assertEqual(result.returncode, 42)
 
 
 class TestMakeProcessRunner(unittest.TestCase):

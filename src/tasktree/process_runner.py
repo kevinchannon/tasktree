@@ -5,14 +5,17 @@ better testability and dependency injection.
 """
 
 import subprocess
+import sys
 from abc import ABC, abstractmethod
 from enum import Enum
+from threading import Thread
 from typing import Any
 
 __all__ = [
     "ProcessRunner",
     "PassthroughProcessRunner",
     "SilentProcessRunner",
+    "StdoutOnlyProcessRunner",
     "TaskOutputTypes",
     "make_process_runner",
 ]
@@ -26,6 +29,7 @@ class TaskOutputTypes(Enum):
 
     ALL = "all"
     NONE = "none"
+    OUT = "out"
 
 
 class ProcessRunner(ABC):
@@ -112,6 +116,96 @@ class SilentProcessRunner(ProcessRunner):
         return subprocess.run(*args, **kwargs)
 
 
+class StdoutOnlyProcessRunner(ProcessRunner):
+    """
+    Process runner that streams stdout while suppressing stderr.
+
+    This implementation uses threading to asynchronously stream stdout from the
+    subprocess while discarding stderr output.
+    @athena: TBD
+    """
+
+    @staticmethod
+    def _stream_output(pipe: Any, target: Any) -> None:
+        """
+        Stream output from a pipe to a target stream.
+
+        Args:
+            pipe: Input pipe to read from
+            target: Output stream to write to
+        @athena: TBD
+        """
+        if pipe:
+            for line in pipe:
+                target.write(line)
+                target.flush()
+
+    def run(self, *args: Any, **kwargs: Any) -> subprocess.CompletedProcess[Any]:
+        """
+        Run a subprocess command with stdout streamed and stderr suppressed.
+
+        This implementation uses subprocess.Popen with threading to stream stdout
+        in real-time while discarding stderr. The interface remains synchronous
+        from the caller's perspective.
+
+        Args:
+            *args: Positional arguments passed to subprocess.Popen
+            **kwargs: Keyword arguments passed to subprocess.Popen
+
+        Returns:
+            subprocess.CompletedProcess: The completed process result
+
+        Raises:
+            subprocess.CalledProcessError: If check=True and process exits non-zero
+            subprocess.TimeoutExpired: If timeout is exceeded
+        @athena: TBD
+        """
+        # Extract parameters that need special handling
+        check = kwargs.pop("check", False)
+        timeout = kwargs.pop("timeout", None)
+
+        # Force stdout/stderr handling
+        kwargs["stdout"] = subprocess.PIPE
+        kwargs["stderr"] = subprocess.DEVNULL
+        kwargs["text"] = True
+        kwargs["bufsize"] = 1
+
+        # Start the process
+        process = subprocess.Popen(*args, **kwargs)
+
+        # Start thread to stream stdout
+        thread = Thread(
+            target=StdoutOnlyProcessRunner._stream_output,
+            args=(process.stdout, sys.stdout),
+        )
+        thread.start()
+
+        # Wait for thread to complete
+        thread.join()
+
+        # Wait for process to complete
+        try:
+            returncode = process.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
+            raise
+
+        # Check return code if requested
+        if check and returncode != 0:
+            raise subprocess.CalledProcessError(
+                returncode, args[0] if args else kwargs.get("args", [])
+            )
+
+        # Return a CompletedProcess object for interface compatibility
+        return subprocess.CompletedProcess(
+            args=args[0] if args else kwargs.get("args", []),
+            returncode=returncode,
+            stdout=None,  # We streamed it, so don't capture it
+            stderr=None,
+        )
+
+
 def make_process_runner(output_type: TaskOutputTypes) -> ProcessRunner:
     """
     Factory function for creating ProcessRunner instances.
@@ -131,5 +225,7 @@ def make_process_runner(output_type: TaskOutputTypes) -> ProcessRunner:
             return PassthroughProcessRunner()
         case TaskOutputTypes.NONE:
             return SilentProcessRunner()
+        case TaskOutputTypes.OUT:
+            return StdoutOnlyProcessRunner()
         case _:
             raise ValueError(f"Invalid TaskOutputTypes: {output_type}")
