@@ -63,6 +63,7 @@ def run_tasktree_cli(
         capture_output=True,
         text=True,
         env=exec_env,
+        timeout=30,
     )
     return result
 

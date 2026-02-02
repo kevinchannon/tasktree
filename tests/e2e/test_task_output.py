@@ -361,3 +361,166 @@ tasks:
             self.assertIn("This is stderr", result.stderr)
             self.assertNotIn("This is stdout", result.stdout)
             self.assertNotIn("This is stdout", result.stderr)
+
+    def test_task_output_on_err_suppresses_stderr_on_success(self):
+        """
+        Test that --task-output=on-err suppresses stderr when task succeeds.
+        @athena: TBD
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create recipe with successful task that outputs to stderr
+            (project_root / "tasktree.yaml").write_text("""
+tasks:
+  successful-task:
+    outputs: [done.txt]
+    cmd: |
+      echo "This is stdout"
+      echo "This is stderr" >&2
+      echo "done" > done.txt
+""")
+
+            # Execute with --task-output=on-err
+            result = run_tasktree_cli(
+                ["--task-output=on-err", "successful-task"], cwd=project_root
+            )
+
+            # Assert success
+            self.assertEqual(
+                result.returncode,
+                0,
+                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
+            )
+
+            # Verify stderr is suppressed (task succeeded)
+            self.assertNotIn("This is stderr", result.stdout)
+            self.assertNotIn("This is stderr", result.stderr)
+
+            # Verify output file was created
+            output_file = project_root / "done.txt"
+            self.assertTrue(output_file.exists(), "Output file not created")
+
+    def test_task_output_on_err_shows_stderr_on_failure(self):
+        """
+        Test that --task-output=on-err shows buffered stderr when task fails.
+        @athena: TBD
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create recipe with failing task that outputs to stderr
+            (project_root / "tasktree.yaml").write_text("""
+tasks:
+  failing-task:
+    cmd: |
+      echo "This is stdout"
+      echo "This is stderr" >&2
+      exit 1
+""")
+
+            # Execute with --task-output=on-err
+            result = run_tasktree_cli(
+                ["--task-output=on-err", "failing-task"], cwd=project_root
+            )
+
+            # Assert failure
+            self.assertNotEqual(
+                result.returncode,
+                0,
+                "Expected task to fail but it succeeded",
+            )
+
+            # Verify stderr appears in output (task failed)
+            self.assertIn("This is stderr", result.stderr)
+
+    def test_task_output_on_err_handles_failure_with_no_stderr(self):
+        """
+        Test that --task-output=on-err handles failures gracefully even with no stderr.
+        @athena: TBD
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create recipe with failing task that has no stderr output
+            (project_root / "tasktree.yaml").write_text("""
+tasks:
+  silent-failure:
+    cmd: |
+      echo "This is stdout"
+      exit 1
+""")
+
+            # Execute with --task-output=on-err
+            result = run_tasktree_cli(
+                ["--task-output=on-err", "silent-failure"], cwd=project_root
+            )
+
+            # Assert failure
+            self.assertNotEqual(
+                result.returncode,
+                0,
+                "Expected task to fail but it succeeded",
+            )
+
+            # Should not crash - just no stderr to show
+            # The task error message from tasktree itself will appear
+
+    def test_task_output_on_err_case_insensitive(self):
+        """
+        Test that --task-output accepts ON-ERR in various cases.
+        @athena: TBD
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create recipe with simple task
+            (project_root / "tasktree.yaml").write_text("""
+tasks:
+  simple:
+    outputs: [done.txt]
+    cmd: |
+      echo "stderr message" >&2
+      echo "done" > done.txt
+""")
+
+            # Test uppercase
+            result = run_tasktree_cli(["--task-output=ON-ERR", "simple"], cwd=project_root)
+            self.assertEqual(result.returncode, 0, "Uppercase ON-ERR should be accepted")
+
+            # Test mixed case
+            result = run_tasktree_cli(["--task-output=On-Err", "simple"], cwd=project_root)
+            self.assertEqual(result.returncode, 0, "Mixed case On-Err should be accepted")
+
+    def test_task_output_on_err_with_short_flag(self):
+        """
+        Test that -O on-err works as short form of --task-output=on-err.
+        @athena: TBD
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create recipe with successful task
+            (project_root / "tasktree.yaml").write_text("""
+tasks:
+  successful-task:
+    outputs: [done.txt]
+    cmd: |
+      echo "This is stdout"
+      echo "This is stderr" >&2
+      echo "done" > done.txt
+""")
+
+            # Execute with -O on-err
+            result = run_tasktree_cli(["-O", "on-err", "successful-task"], cwd=project_root)
+
+            # Assert success
+            self.assertEqual(
+                result.returncode,
+                0,
+                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
+            )
+
+            # Verify stderr is suppressed (task succeeded)
+            self.assertNotIn("This is stderr", result.stdout)
+            self.assertNotIn("This is stderr", result.stderr)
