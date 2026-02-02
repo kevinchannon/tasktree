@@ -354,6 +354,8 @@ class StderrOnlyOnFailureProcessRunner(ProcessRunner):
         check = kwargs.pop("check", False)
         timeout = kwargs.pop("timeout", None)
         kwargs.pop("capture_output", None)  # Remove if present
+        kwargs.pop("stdout", None)  # Remove if present
+        kwargs.pop("stderr", None)  # Remove if present
 
         result = subprocess.run(
             *args,
