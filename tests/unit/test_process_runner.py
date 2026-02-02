@@ -9,6 +9,7 @@ from tasktree.process_runner import (
     PassthroughProcessRunner,
     ProcessRunner,
     SilentProcessRunner,
+    StderrOnlyProcessRunner,
     StdoutOnlyProcessRunner,
     TaskOutputTypes,
     make_process_runner,
@@ -465,6 +466,142 @@ class TestStdoutOnlyProcessRunner(unittest.TestCase):
             self.fail("_stream_output should handle exceptions gracefully")
 
 
+class TestStderrOnlyProcessRunner(unittest.TestCase):
+    """
+    Tests for StderrOnlyProcessRunner implementation.
+    @athena: TBD
+    """
+
+    def setUp(self):
+        """
+        Set up test fixtures.
+        @athena: TBD
+        """
+        self.runner = StderrOnlyProcessRunner()
+
+    def test_run_forwards_stderr(self):
+        """
+        run() forwards stderr to sys.stderr.
+        @athena: TBD
+        """
+        # Run a command that produces stderr
+        # We can't easily capture the output that goes to sys.stderr from the thread,
+        # but we can verify the command executes successfully
+        result = self.runner.run(
+            [sys.executable, "-c", "import sys; sys.stderr.write('test stderr\\n')"]
+        )
+
+        self.assertIsInstance(result, subprocess.CompletedProcess)
+        self.assertEqual(result.returncode, 0)
+        # stderr should be None since we streamed it
+        self.assertIsNone(result.stderr)
+
+    def test_run_suppresses_stdout(self):
+        """
+        run() suppresses stdout output.
+        @athena: TBD
+        """
+        # Run command that produces stdout - output should be suppressed
+        result = self.runner.run(
+            [sys.executable, "-c", "print('test output')"]
+        )
+
+        self.assertEqual(result.returncode, 0)
+        # stdout should be None (suppressed)
+        self.assertIsNone(result.stdout)
+
+    def test_run_handles_both_stdout_and_stderr(self):
+        """
+        run() forwards stderr while suppressing stdout.
+        @athena: TBD
+        """
+        # Command that writes to both stdout and stderr
+        result = self.runner.run(
+            [
+                sys.executable,
+                "-c",
+                "import sys; print('stdout'); sys.stderr.write('stderr\\n')",
+            ]
+        )
+
+        self.assertEqual(result.returncode, 0)
+        self.assertIsNone(result.stdout)
+        self.assertIsNone(result.stderr)
+
+    def test_run_raises_called_process_error_when_check_true(self):
+        """
+        run() raises CalledProcessError when check=True and process fails.
+        @athena: TBD
+        """
+        with self.assertRaises(subprocess.CalledProcessError) as context:
+            self.runner.run(
+                [sys.executable, "-c", "import sys; sys.exit(1)"], check=True
+            )
+
+        self.assertEqual(context.exception.returncode, 1)
+
+    def test_run_raises_timeout_expired(self):
+        """
+        run() raises TimeoutExpired when timeout is exceeded.
+        @athena: TBD
+        """
+        with self.assertRaises(subprocess.TimeoutExpired):
+            self.runner.run(
+                [sys.executable, "-c", "import time; time.sleep(10)"], timeout=0.1
+            )
+
+    def test_stderr_only_runner_is_process_runner(self):
+        """
+        StderrOnlyProcessRunner implements ProcessRunner interface.
+        @athena: TBD
+        """
+        self.assertIsInstance(self.runner, ProcessRunner)
+
+    def test_run_returns_completed_process(self):
+        """
+        run() returns subprocess.CompletedProcess instance.
+        @athena: TBD
+        """
+        result = self.runner.run([sys.executable, "-c", "import sys; sys.stderr.write('test\\n')"])
+
+        self.assertIsInstance(result, subprocess.CompletedProcess)
+        self.assertEqual(result.returncode, 0)
+
+    def test_run_preserves_exit_code(self):
+        """
+        run() preserves non-zero exit codes.
+        @athena: TBD
+        """
+        result = self.runner.run(
+            [sys.executable, "-c", "import sys; sys.exit(42)"], check=False
+        )
+
+        self.assertEqual(result.returncode, 42)
+
+    def test_stream_output_handles_broken_pipe(self):
+        """
+        _stream_output handles exceptions gracefully (e.g., broken pipe).
+        @athena: TBD
+        """
+        from io import StringIO
+        from unittest.mock import Mock
+
+        # Create a mock pipe that raises an exception when read
+        mock_pipe = Mock()
+        mock_pipe.__iter__ = Mock(side_effect=OSError("Broken pipe"))
+
+        # Create a target that we can verify wasn't written to
+        target = StringIO()
+
+        # Call _stream_output - should not raise exception
+        try:
+            StderrOnlyProcessRunner._stream_output(mock_pipe, target)
+            # If we get here without exception, the test passes
+            self.assertTrue(True)
+        except OSError:
+            self.fail("_stream_output should handle exceptions gracefully")
+
+
 class TestMakeProcessRunner(unittest.TestCase):
     """
     Tests for make_process_runner factory function.
@@ -494,6 +631,14 @@ class TestMakeProcessRunner(unittest.TestCase):
         """
         runner = make_process_runner(TaskOutputTypes.OUT)
         self.assertIsInstance(runner, StdoutOnlyProcessRunner)
+
+    def test_make_process_runner_with_err_returns_stderr_only(self):
+        """
+        make_process_runner(TaskOutputTypes.ERR) returns StderrOnlyProcessRunner.
+        @athena: TBD
+        """
+        runner = make_process_runner(TaskOutputTypes.ERR)
+        self.assertIsInstance(runner, StderrOnlyProcessRunner)
 
     def test_make_process_runner_with_invalid_raises_error(self):
         """

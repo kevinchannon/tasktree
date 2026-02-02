@@ -16,6 +16,7 @@ __all__ = [
     "PassthroughProcessRunner",
     "SilentProcessRunner",
     "StdoutOnlyProcessRunner",
+    "StderrOnlyProcessRunner",
     "TaskOutputTypes",
     "make_process_runner",
 ]
@@ -30,6 +31,7 @@ class TaskOutputTypes(Enum):
     ALL = "all"
     NONE = "none"
     OUT = "out"
+    ERR = "err"
 
 
 class ProcessRunner(ABC):
@@ -229,6 +231,119 @@ class StdoutOnlyProcessRunner(ProcessRunner):
         )
 
 
+class StderrOnlyProcessRunner(ProcessRunner):
+    """
+    Process runner that streams stderr while suppressing stdout.
+
+    This implementation uses threading to asynchronously stream stderr from the
+    subprocess while discarding stdout output.
+    @athena: TBD
+    """
+
+    @staticmethod
+    def _stream_output(pipe: Any, target: Any) -> None:
+        """
+        Stream output from a pipe to a target stream.
+
+        Handles exceptions gracefully to avoid silent thread failures.
+        If the pipe is closed or an error occurs during reading/writing,
+        the function returns without raising an exception.
+
+        Args:
+            pipe: Input pipe to read from
+            target: Output stream to write to
+        @athena: TBD
+        """
+        if pipe:
+            try:
+                for line in pipe:
+                    target.write(line)
+                    target.flush()
+            except (OSError, ValueError):
+                # Pipe closed or other I/O error - this is expected when
+                # process is killed or stderr is closed
+                pass
+
+    def run(self, *args: Any, **kwargs: Any) -> subprocess.CompletedProcess[Any]:
+        """
+        Run a subprocess command with stderr streamed and stdout suppressed.
+
+        This implementation uses subprocess.Popen with threading to stream stderr
+        in real-time while discarding stdout. The interface remains synchronous
+        from the caller's perspective.
+
+        Buffering strategy: Uses line buffering (bufsize=1) to ensure output
+        appears promptly while maintaining reasonable performance.
+
+        Args:
+            *args: Positional arguments passed to subprocess.Popen
+            **kwargs: Keyword arguments passed to subprocess.Popen
+
+        Returns:
+            subprocess.CompletedProcess: The completed process result
+
+        Raises:
+            subprocess.CalledProcessError: If check=True and process exits non-zero
+            subprocess.TimeoutExpired: If timeout is exceeded
+        @athena: TBD
+        """
+        # Extract parameters that need special handling
+        check = kwargs.pop("check", False)
+        timeout = kwargs.pop("timeout", None)
+        # Remove capture_output if present - not supported by Popen
+        kwargs.pop("capture_output", None)
+
+        # Force stdout/stderr handling
+        kwargs["stdout"] = subprocess.DEVNULL
+        kwargs["stderr"] = subprocess.PIPE
+        kwargs["text"] = True
+        kwargs["bufsize"] = 1
+
+        # Start the process
+        process = subprocess.Popen(*args, **kwargs)
+
+        # Start thread to stream stderr with a descriptive name for debugging
+        thread = Thread(
+            target=StderrOnlyProcessRunner._stream_output,
+            args=(process.stderr, sys.stderr),
+            name="stderr-streamer",
+        )
+        thread.start()
+
+        # Wait for process to complete first, then join thread
+        try:
+            returncode = process.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
+            # Ensure thread cleanup even on timeout
+            if process.stderr:
+                process.stderr.close()
+            thread.join(timeout=1.0)
+            raise
+        finally:
+            # Ensure stderr pipe is closed
+            if process.stderr:
+                process.stderr.close()
+
+        # Wait for thread to finish streaming remaining output
+        thread.join(timeout=1.0)
+
+        # Check return code if requested
+        if check and returncode != 0:
+            raise subprocess.CalledProcessError(
+                returncode, args[0] if args else kwargs.get("args", [])
+            )
+
+        # Return a CompletedProcess object for interface compatibility
+        return subprocess.CompletedProcess(
+            args=args[0] if args else kwargs.get("args", []),
+            returncode=returncode,
+            stdout=None,
+            stderr=None,  # We streamed it, so don't capture it
+        )
+
+
 def make_process_runner(output_type: TaskOutputTypes) -> ProcessRunner:
     """
     Factory function for creating ProcessRunner instances.
@@ -250,5 +365,7 @@ def make_process_runner(output_type: TaskOutputTypes) -> ProcessRunner:
             return SilentProcessRunner()
         case TaskOutputTypes.OUT:
             return StdoutOnlyProcessRunner()
+        case TaskOutputTypes.ERR:
+            return StderrOnlyProcessRunner()
         case _:
             raise ValueError(f"Invalid TaskOutputTypes: {output_type}")
