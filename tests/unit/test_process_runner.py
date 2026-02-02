@@ -5,6 +5,7 @@ import subprocess
 import sys
 import unittest
 
+from helpers.logging import logger_stub
 from tasktree.process_runner import (
     PassthroughProcessRunner,
     ProcessRunner,
@@ -51,7 +52,7 @@ class TestPassthroughProcessRunner(unittest.TestCase):
         Set up test fixtures.
         @athena: 61cd9d62c968
         """
-        self.runner = PassthroughProcessRunner()
+        self.runner = PassthroughProcessRunner(logger_stub)
 
     def test_run_executes_command_and_returns_result(self):
         """
@@ -190,7 +191,7 @@ class TestSilentProcessRunner(unittest.TestCase):
         Set up test fixtures.
         @athena: TBD
         """
-        self.runner = SilentProcessRunner()
+        self.runner = SilentProcessRunner(logger_stub)
 
     def test_run_suppresses_stdout(self):
         """
@@ -367,7 +368,7 @@ class TestStdoutOnlyProcessRunner(unittest.TestCase):
         Set up test fixtures.
         @athena: TBD
         """
-        self.runner = StdoutOnlyProcessRunner()
+        self.runner = StdoutOnlyProcessRunner(logger_stub)
 
     def test_run_forwards_stdout(self):
         """
@@ -480,7 +481,7 @@ class TestStderrOnlyProcessRunner(unittest.TestCase):
         Set up test fixtures.
         @athena: TBD
         """
-        self.runner = StderrOnlyProcessRunner()
+        self.runner = StderrOnlyProcessRunner(logger_stub)
 
     def test_run_forwards_stderr(self):
         """
@@ -593,7 +594,7 @@ class TestMakeProcessRunner(unittest.TestCase):
         make_process_runner(TaskOutputTypes.ALL) returns PassthroughProcessRunner.
         @athena: TBD
         """
-        runner = make_process_runner(TaskOutputTypes.ALL)
+        runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
         self.assertIsInstance(runner, PassthroughProcessRunner)
 
     def test_make_process_runner_with_none_returns_silent(self):
@@ -601,7 +602,7 @@ class TestMakeProcessRunner(unittest.TestCase):
         make_process_runner(TaskOutputTypes.NONE) returns SilentProcessRunner.
         @athena: TBD
         """
-        runner = make_process_runner(TaskOutputTypes.NONE)
+        runner = make_process_runner(TaskOutputTypes.NONE, logger_stub)
         self.assertIsInstance(runner, SilentProcessRunner)
 
     def test_make_process_runner_with_out_returns_stdout_only(self):
@@ -609,7 +610,7 @@ class TestMakeProcessRunner(unittest.TestCase):
         make_process_runner(TaskOutputTypes.OUT) returns StdoutOnlyProcessRunner.
         @athena: TBD
         """
-        runner = make_process_runner(TaskOutputTypes.OUT)
+        runner = make_process_runner(TaskOutputTypes.OUT, logger_stub)
         self.assertIsInstance(runner, StdoutOnlyProcessRunner)
 
     def test_make_process_runner_with_err_returns_stderr_only(self):
@@ -617,7 +618,7 @@ class TestMakeProcessRunner(unittest.TestCase):
         make_process_runner(TaskOutputTypes.ERR) returns StderrOnlyProcessRunner.
         @athena: TBD
         """
-        runner = make_process_runner(TaskOutputTypes.ERR)
+        runner = make_process_runner(TaskOutputTypes.ERR, logger_stub)
         self.assertIsInstance(runner, StderrOnlyProcessRunner)
 
     def test_make_process_runner_with_invalid_raises_error(self):
@@ -630,7 +631,7 @@ class TestMakeProcessRunner(unittest.TestCase):
         with self.assertRaises(ValueError) as cm:
             # We can't create an invalid enum value directly, so we'll test
             # by creating a string that would fail enum validation
-            make_process_runner(invalid_value)  # type: ignore
+            make_process_runner(invalid_value, logger_stub)  # type: ignore
 
         self.assertIn("Invalid TaskOutputTypes", str(cm.exception))
 

@@ -20,7 +20,10 @@ __all__ = [
     "StderrOnlyProcessRunner",
     "TaskOutputTypes",
     "make_process_runner",
+    "stream_output"
 ]
+
+from tasktree.logging import Logger
 
 
 class TaskOutputTypes(Enum):
@@ -70,6 +73,9 @@ class PassthroughProcessRunner(ProcessRunner):
     @athena: 470e2ca46355
     """
 
+    def __init__(self, logger: Logger) -> None:
+        self.logger = logger
+
     def run(self, *args: Any, **kwargs: Any) -> subprocess.CompletedProcess[Any]:
         """
         Run a subprocess command via subprocess.run.
@@ -94,6 +100,9 @@ class SilentProcessRunner(ProcessRunner):
     Process runner that suppresses all subprocess output by redirecting to DEVNULL.
     @athena: TBD
     """
+
+    def __init__(self, logger: Logger) -> None:
+        self.logger = logger
 
     def run(self, *args: Any, **kwargs: Any) -> subprocess.CompletedProcess[Any]:
         """
@@ -143,7 +152,9 @@ def stream_output(pipe: Any, target: Any) -> None:
             pass
 
 
-def _start_thread_and_wait_to_complete(process: Popen[str], thread: Thread, process_allowed_runtime: float | None) -> int:
+def _start_thread_and_wait_to_complete(process: Popen[str], thread: Thread, process_allowed_runtime: float | None, logger: Logger) -> int:
+    join_timeout_secs = 1.0
+
     thread.start()
 
     try:
@@ -153,13 +164,15 @@ def _start_thread_and_wait_to_complete(process: Popen[str], thread: Thread, proc
         process.wait()
         if process.stdout:
             process.stdout.close()
-        thread.join(timeout=1.0)
+        thread.join(timeout=join_timeout_secs)
         raise
     finally:
         if process.stdout:
             process.stdout.close()
 
-    thread.join(timeout=1.0)
+    thread.join(timeout=join_timeout_secs)
+    if thread.is_alive():
+        logger.warn(f"Stream thread did not complete within timeout of {join_timeout_secs} seconds")
 
     return process_return_code
 
@@ -187,6 +200,9 @@ class StdoutOnlyProcessRunner(ProcessRunner):
     subprocess while discarding stderr output.
     @athena: TBD
     """
+
+    def __init__(self, logger: Logger) -> None:
+        self._logger = logger
 
     def run(self, *args: Any, **kwargs: Any) -> subprocess.CompletedProcess[Any]:
         """
@@ -233,7 +249,7 @@ class StdoutOnlyProcessRunner(ProcessRunner):
             name="stdout-streamer",
         )
 
-        process_return_code = _start_thread_and_wait_to_complete(process, thread, timeout)
+        process_return_code = _start_thread_and_wait_to_complete(process, thread, timeout, self._logger)
         return _check_result_if_necessary(check, process_return_code, *args, **kwargs)
 
 
@@ -245,6 +261,9 @@ class StderrOnlyProcessRunner(ProcessRunner):
     subprocess while discarding stdout output.
     @athena: TBD
     """
+
+    def __init__(self, logger: Logger) -> None:
+        self._logger = logger
 
     def run(self, *args: Any, **kwargs: Any) -> subprocess.CompletedProcess[Any]:
         """
@@ -291,11 +310,11 @@ class StderrOnlyProcessRunner(ProcessRunner):
             name="stderr-streamer",
         )
 
-        process_return_code = _start_thread_and_wait_to_complete(process, thread, timeout)
+        process_return_code = _start_thread_and_wait_to_complete(process, thread, timeout, self._logger)
         return _check_result_if_necessary(check, process_return_code, *args, **kwargs)
 
 
-def make_process_runner(output_type: TaskOutputTypes) -> ProcessRunner:
+def make_process_runner(output_type: TaskOutputTypes, logger: Logger) -> ProcessRunner:
     """
     Factory function for creating ProcessRunner instances.
 
@@ -311,12 +330,12 @@ def make_process_runner(output_type: TaskOutputTypes) -> ProcessRunner:
     """
     match output_type:
         case TaskOutputTypes.ALL:
-            return PassthroughProcessRunner()
+            return PassthroughProcessRunner(logger)
         case TaskOutputTypes.NONE:
-            return SilentProcessRunner()
+            return SilentProcessRunner(logger)
         case TaskOutputTypes.OUT:
-            return StdoutOnlyProcessRunner()
+            return StdoutOnlyProcessRunner(logger)
         case TaskOutputTypes.ERR:
-            return StderrOnlyProcessRunner()
+            return StderrOnlyProcessRunner(logger)
         case _:
             raise ValueError(f"Invalid TaskOutputTypes: {output_type}")
