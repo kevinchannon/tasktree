@@ -18,7 +18,7 @@ __all__ = [
     "SilentProcessRunner",
     "StdoutOnlyProcessRunner",
     "StderrOnlyProcessRunner",
-    "BufferedProcessRunner",
+    "StderrOnlyOnFailureProcessRunner",
     "TaskOutputTypes",
     "make_process_runner",
     "stream_output"
@@ -317,7 +317,7 @@ class StderrOnlyProcessRunner(ProcessRunner):
         return _check_result_if_necessary(check, process_return_code, *args, **kwargs)
 
 
-class BufferedProcessRunner(ProcessRunner):
+class StderrOnlyOnFailureProcessRunner(ProcessRunner):
     """
     Process runner that buffers stderr and only outputs it on failure.
 

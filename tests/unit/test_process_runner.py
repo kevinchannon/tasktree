@@ -4,10 +4,12 @@ import os
 import subprocess
 import sys
 import unittest
+from io import StringIO
+from unittest.mock import patch
 
 from helpers.logging import logger_stub
 from tasktree.process_runner import (
-    BufferedProcessRunner,
+    StderrOnlyOnFailureProcessRunner,
     PassthroughProcessRunner,
     ProcessRunner,
     SilentProcessRunner,
@@ -584,24 +586,20 @@ class TestStderrOnlyProcessRunner(unittest.TestCase):
         self.assertEqual(result.returncode, 42)
 
 
-class TestBufferedProcessRunner(unittest.TestCase):
+class TestStderrOnlyOnFailureProcessRunner(unittest.TestCase):
     """
-    Tests for BufferedProcessRunner implementation.
+    Tests for StderrOnlyOnFailureProcessRunner implementation.
     @athena: TBD
     """
 
     def setUp(self):
-        self.runner = BufferedProcessRunner(logger_stub)
+        self.runner = StderrOnlyOnFailureProcessRunner(logger_stub)
 
     def test_run_suppresses_stderr_on_success(self):
         """
-        BufferedProcessRunner buffers stderr but does not output it on success.
+        StderrOnlyOnFailureProcessRunner buffers stderr but does not output it on success.
         @athena: TBD
         """
-        # Use unittest.mock to capture sys.stderr writes
-        from unittest.mock import patch
-        from io import StringIO
-
         stderr_capture = StringIO()
 
         with patch("sys.stderr", stderr_capture):
@@ -616,12 +614,9 @@ class TestBufferedProcessRunner(unittest.TestCase):
 
     def test_run_outputs_buffered_stderr_on_failure(self):
         """
-        BufferedProcessRunner outputs buffered stderr when process fails.
+        StderrOnlyOnFailureProcessRunner outputs buffered stderr when process fails.
         @athena: TBD
         """
-        from unittest.mock import patch
-        from io import StringIO
-
         stderr_capture = StringIO()
 
         with patch("sys.stderr", stderr_capture):
@@ -636,12 +631,9 @@ class TestBufferedProcessRunner(unittest.TestCase):
 
     def test_run_handles_failure_with_no_stderr(self):
         """
-        BufferedProcessRunner handles process failure with no stderr output.
+        StderrOnlyOnFailureProcessRunner handles process failure with no stderr output.
         @athena: TBD
         """
-        from unittest.mock import patch
-        from io import StringIO
-
         stderr_capture = StringIO()
 
         with patch("sys.stderr", stderr_capture):
@@ -656,12 +648,9 @@ class TestBufferedProcessRunner(unittest.TestCase):
 
     def test_run_handles_success_with_no_output(self):
         """
-        BufferedProcessRunner handles successful process with no output.
+        StderrOnlyOnFailureProcessRunner handles successful process with no output.
         @athena: TBD
         """
-        from unittest.mock import patch
-        from io import StringIO
-
         stderr_capture = StringIO()
 
         with patch("sys.stderr", stderr_capture):
@@ -675,12 +664,9 @@ class TestBufferedProcessRunner(unittest.TestCase):
 
     def test_run_ignores_stdout_completely(self):
         """
-        BufferedProcessRunner sends stdout to DEVNULL.
+        StderrOnlyOnFailureProcessRunner sends stdout to DEVNULL.
         @athena: TBD
         """
-        from unittest.mock import patch
-        from io import StringIO
-
         stdout_capture = StringIO()
         stderr_capture = StringIO()
 
@@ -698,7 +684,7 @@ class TestBufferedProcessRunner(unittest.TestCase):
 
     def test_run_raises_called_process_error_when_check_true(self):
         """
-        BufferedProcessRunner raises CalledProcessError when check=True and process fails.
+        StderrOnlyOnFailureProcessRunner raises CalledProcessError when check=True and process fails.
         @athena: TBD
         """
         with self.assertRaises(subprocess.CalledProcessError) as cm:
@@ -711,7 +697,7 @@ class TestBufferedProcessRunner(unittest.TestCase):
 
     def test_run_raises_timeout_expired(self):
         """
-        BufferedProcessRunner raises TimeoutExpired when timeout is exceeded.
+        StderrOnlyOnFailureProcessRunner raises TimeoutExpired when timeout is exceeded.
         @athena: TBD
         """
         with self.assertRaises(subprocess.TimeoutExpired):
@@ -720,16 +706,16 @@ class TestBufferedProcessRunner(unittest.TestCase):
                 timeout=0.1
             )
 
-    def test_buffered_runner_is_process_runner(self):
+    def test_stderr_only_on_failure_runner_is_process_runner(self):
         """
-        BufferedProcessRunner is an instance of ProcessRunner.
+        StderrOnlyOnFailureProcessRunner is an instance of ProcessRunner.
         @athena: TBD
         """
         self.assertIsInstance(self.runner, ProcessRunner)
 
     def test_run_returns_completed_process(self):
         """
-        BufferedProcessRunner.run() returns CompletedProcess object.
+        StderrOnlyOnFailureProcessRunner.run() returns CompletedProcess object.
         @athena: TBD
         """
         result = self.runner.run(
@@ -741,7 +727,7 @@ class TestBufferedProcessRunner(unittest.TestCase):
 
     def test_run_preserves_exit_code(self):
         """
-        BufferedProcessRunner preserves the process exit code.
+        StderrOnlyOnFailureProcessRunner preserves the process exit code.
         @athena: TBD
         """
         result = self.runner.run(
@@ -752,12 +738,9 @@ class TestBufferedProcessRunner(unittest.TestCase):
 
     def test_run_handles_multiple_stderr_lines(self):
         """
-        BufferedProcessRunner correctly buffers and outputs multiple stderr lines.
+        StderrOnlyOnFailureProcessRunner correctly buffers and outputs multiple stderr lines.
         @athena: TBD
         """
-        from unittest.mock import patch
-        from io import StringIO
-
         stderr_capture = StringIO()
 
         with patch("sys.stderr", stderr_capture):
