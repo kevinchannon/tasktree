@@ -164,11 +164,13 @@ def _start_thread_and_wait_to_complete(process: Popen[str], stream: Any, thread:
         process.wait()
         if stream:
             stream.close()
+            stream = None
         thread.join(timeout=join_timeout_secs)
         raise
     finally:
         if stream:
             stream.close()
+            stream = None
 
     thread.join(timeout=join_timeout_secs)
     if thread.is_alive():
