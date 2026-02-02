@@ -18,6 +18,7 @@ __all__ = [
     "SilentProcessRunner",
     "StdoutOnlyProcessRunner",
     "StderrOnlyProcessRunner",
+    "StderrOnlyOnFailureProcessRunner",
     "TaskOutputTypes",
     "make_process_runner",
     "stream_output"
@@ -313,6 +314,85 @@ class StderrOnlyProcessRunner(ProcessRunner):
         )
 
         process_return_code = _start_thread_and_wait_to_complete(process, process.stderr, thread, timeout, self._logger)
+        return _check_result_if_necessary(check, process_return_code, *args, **kwargs)
+
+
+class StderrOnlyOnFailureProcessRunner(ProcessRunner):
+    """
+    Process runner that buffers stderr and only outputs it on failure.
+
+    This implementation ignores stdout completely (sends to DEVNULL) and uses
+    threading to collect stderr. The buffered stderr is only output if the
+    process exits with a non-zero code.
+    @athena: TBD
+    """
+
+    def __init__(self, logger: Logger) -> None:
+        self._logger = logger
+
+    def run(self, *args: Any, **kwargs: Any) -> subprocess.CompletedProcess[Any]:
+        """
+        Run a subprocess command, buffering stderr and outputting only on failure.
+
+        Stdout is completely ignored (sent to DEVNULL). Stderr is collected in a
+        buffer during execution. If the process exits with non-zero code, the
+        buffered stderr is written to sys.stderr before returning/raising.
+
+        Args:
+            *args: Positional arguments passed to subprocess.Popen
+            **kwargs: Keyword arguments passed to subprocess.Popen
+
+        Returns:
+            subprocess.CompletedProcess: The completed process result
+
+        Raises:
+            subprocess.CalledProcessError: If check=True and process exits non-zero
+            subprocess.TimeoutExpired: If timeout is exceeded
+        @athena: TBD
+        """
+        # Extract parameters that need special handling
+        check = kwargs.pop("check", False)
+        timeout = kwargs.pop("timeout", None)
+        # Remove capture_output if present - not supported by Popen
+        kwargs.pop("capture_output", None)
+
+        # Force stdout/stderr handling
+        kwargs["stdout"] = subprocess.DEVNULL  # Completely ignore stdout
+        kwargs["stderr"] = subprocess.PIPE     # Collect stderr
+        kwargs["text"] = True
+        kwargs["bufsize"] = 1
+
+        # Start the process
+        process = subprocess.Popen(*args, **kwargs)
+
+        # Buffer to collect stderr lines
+        stderr_buffer: list[str] = []
+
+        def collect_stderr(pipe: Any, buffer: list[str]) -> None:
+            """Collect stderr lines into buffer."""
+            if pipe:
+                try:
+                    for line in pipe:
+                        buffer.append(line)
+                except (OSError, ValueError):
+                    # Pipe closed or other I/O error
+                    pass
+
+        # Start thread to collect stderr
+        thread = Thread(
+            target=collect_stderr,
+            args=(process.stderr, stderr_buffer),
+            name="stderr-collector",
+        )
+
+        process_return_code = _start_thread_and_wait_to_complete(process, process.stderr, thread, timeout, self._logger)
+
+        # Only output stderr if process failed
+        if process_return_code != 0 and stderr_buffer:
+            for line in stderr_buffer:
+                sys.stderr.write(line)
+            sys.stderr.flush()
+
         return _check_result_if_necessary(check, process_return_code, *args, **kwargs)
 
 
