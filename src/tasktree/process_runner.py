@@ -152,7 +152,7 @@ def stream_output(pipe: Any, target: Any) -> None:
             pass
 
 
-def _start_thread_and_wait_to_complete(process: Popen[str], thread: Thread, process_allowed_runtime: float | None, logger: Logger) -> int:
+def _start_thread_and_wait_to_complete(process: Popen[str], stream: Any, thread: Thread, process_allowed_runtime: float | None, logger: Logger) -> int:
     join_timeout_secs = 1.0
 
     thread.start()
@@ -162,13 +162,13 @@ def _start_thread_and_wait_to_complete(process: Popen[str], thread: Thread, proc
     except subprocess.TimeoutExpired:
         process.kill()
         process.wait()
-        if process.stdout:
-            process.stdout.close()
+        if stream:
+            stream.close()
         thread.join(timeout=join_timeout_secs)
         raise
     finally:
-        if process.stdout:
-            process.stdout.close()
+        if stream:
+            stream.close()
 
     thread.join(timeout=join_timeout_secs)
     if thread.is_alive():
@@ -249,7 +249,7 @@ class StdoutOnlyProcessRunner(ProcessRunner):
             name="stdout-streamer",
         )
 
-        process_return_code = _start_thread_and_wait_to_complete(process, thread, timeout, self._logger)
+        process_return_code = _start_thread_and_wait_to_complete(process, process.stdout, thread, timeout, self._logger)
         return _check_result_if_necessary(check, process_return_code, *args, **kwargs)
 
 
@@ -310,7 +310,7 @@ class StderrOnlyProcessRunner(ProcessRunner):
             name="stderr-streamer",
         )
 
-        process_return_code = _start_thread_and_wait_to_complete(process, thread, timeout, self._logger)
+        process_return_code = _start_thread_and_wait_to_complete(process, process.stderr, thread, timeout, self._logger)
         return _check_result_if_necessary(check, process_return_code, *args, **kwargs)
 
 
