@@ -77,7 +77,7 @@ class Executor:
         recipe: Recipe,
         state_manager: StateManager,
         logger: Logger,
-        process_runner_factory: Callable[[TaskOutputTypes], ProcessRunner]
+        process_runner_factory: Callable[[TaskOutputTypes, Logger], ProcessRunner]
     ):
         """
         Initialize executor.
@@ -519,7 +519,7 @@ class Executor:
             # Convert None to {} for internal use (None is used to distinguish simple deps in graph)
             args_dict_for_execution = task_args if task_args is not None else {}
 
-            process_runner = self._process_runner_factory(task_output_type)
+            process_runner = self._process_runner_factory(task_output_type, self.logger)
 
             # Check if task needs to run (based on CURRENT filesystem state)
             status = self.check_task_status(

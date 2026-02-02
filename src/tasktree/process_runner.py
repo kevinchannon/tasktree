@@ -8,6 +8,7 @@ import subprocess
 import sys
 from abc import ABC, abstractmethod
 from enum import Enum
+from subprocess import Popen
 from threading import Thread
 from typing import Any
 
@@ -16,9 +17,13 @@ __all__ = [
     "PassthroughProcessRunner",
     "SilentProcessRunner",
     "StdoutOnlyProcessRunner",
+    "StderrOnlyProcessRunner",
     "TaskOutputTypes",
     "make_process_runner",
+    "stream_output"
 ]
+
+from tasktree.logging import Logger
 
 
 class TaskOutputTypes(Enum):
@@ -30,6 +35,7 @@ class TaskOutputTypes(Enum):
     ALL = "all"
     NONE = "none"
     OUT = "out"
+    ERR = "err"
 
 
 class ProcessRunner(ABC):
@@ -67,6 +73,9 @@ class PassthroughProcessRunner(ProcessRunner):
     @athena: 470e2ca46355
     """
 
+    def __init__(self, logger: Logger) -> None:
+        self._logger = logger
+
     def run(self, *args: Any, **kwargs: Any) -> subprocess.CompletedProcess[Any]:
         """
         Run a subprocess command via subprocess.run.
@@ -92,6 +101,9 @@ class SilentProcessRunner(ProcessRunner):
     @athena: TBD
     """
 
+    def __init__(self, logger: Logger) -> None:
+        self._logger = logger
+
     def run(self, *args: Any, **kwargs: Any) -> subprocess.CompletedProcess[Any]:
         """
         Run a subprocess command with stdout and stderr suppressed.
@@ -116,6 +128,72 @@ class SilentProcessRunner(ProcessRunner):
         return subprocess.run(*args, **kwargs)
 
 
+def stream_output(pipe: Any, target: Any) -> None:
+    """
+    Stream output from a pipe to a target stream.
+
+    Handles exceptions gracefully to avoid silent thread failures.
+    If the pipe is closed or an error occurs during reading/writing,
+    the function returns without raising an exception.
+
+    Args:
+        pipe: Input pipe to read from
+        target: Output stream to write to
+    @athena: TBD
+    """
+    if pipe:
+        try:
+            for line in pipe:
+                target.write(line)
+                target.flush()
+        except (OSError, ValueError):
+            # Pipe closed or other I/O error - this is expected when
+            # process is killed or stdout is closed
+            pass
+
+
+def _start_thread_and_wait_to_complete(process: Popen[str], stream: Any, thread: Thread, process_allowed_runtime: float | None, logger: Logger) -> int:
+    join_timeout_secs = 1.0
+
+    thread.start()
+
+    try:
+        process_return_code = process.wait(timeout=process_allowed_runtime)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()
+        if stream:
+            stream.close()
+            stream = None
+        thread.join(timeout=join_timeout_secs)
+        raise
+    finally:
+        if stream:
+            stream.close()
+            stream = None
+
+    thread.join(timeout=join_timeout_secs)
+    if thread.is_alive():
+        logger.warn(f"Stream thread did not complete within timeout of {join_timeout_secs} seconds")
+
+    return process_return_code
+
+
+def _check_result_if_necessary(raise_on_failure: bool, proc_ret_code: int, *args, **kwargs) -> subprocess.CompletedProcess[Any]:
+    if raise_on_failure and proc_ret_code != 0:
+        raise subprocess.CalledProcessError(
+            proc_ret_code, args[0] if args else kwargs.get("args", [])
+        )
+
+    # Return a CompletedProcess object for interface compatibility
+    return subprocess.CompletedProcess(
+        args=args[0] if args else kwargs.get("args", []),
+        returncode=proc_ret_code,
+        stdout=None,
+        stderr=None,  # We streamed it, so don't capture it
+    )
+
+
 class StdoutOnlyProcessRunner(ProcessRunner):
     """
     Process runner that streams stdout while suppressing stderr.
@@ -125,29 +203,8 @@ class StdoutOnlyProcessRunner(ProcessRunner):
     @athena: TBD
     """
 
-    @staticmethod
-    def _stream_output(pipe: Any, target: Any) -> None:
-        """
-        Stream output from a pipe to a target stream.
-
-        Handles exceptions gracefully to avoid silent thread failures.
-        If the pipe is closed or an error occurs during reading/writing,
-        the function returns without raising an exception.
-
-        Args:
-            pipe: Input pipe to read from
-            target: Output stream to write to
-        @athena: TBD
-        """
-        if pipe:
-            try:
-                for line in pipe:
-                    target.write(line)
-                    target.flush()
-            except (OSError, ValueError):
-                # Pipe closed or other I/O error - this is expected when
-                # process is killed or stdout is closed
-                pass
+    def __init__(self, logger: Logger) -> None:
+        self._logger = logger
 
     def run(self, *args: Any, **kwargs: Any) -> subprocess.CompletedProcess[Any]:
         """
@@ -189,47 +246,77 @@ class StdoutOnlyProcessRunner(ProcessRunner):
 
         # Start thread to stream stdout with a descriptive name for debugging
         thread = Thread(
-            target=StdoutOnlyProcessRunner._stream_output,
+            target=stream_output,
             args=(process.stdout, sys.stdout),
             name="stdout-streamer",
         )
-        thread.start()
 
-        # Wait for process to complete first, then join thread
-        try:
-            returncode = process.wait(timeout=timeout)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.wait()
-            # Ensure thread cleanup even on timeout
-            if process.stdout:
-                process.stdout.close()
-            thread.join(timeout=1.0)
-            raise
-        finally:
-            # Ensure stdout pipe is closed
-            if process.stdout:
-                process.stdout.close()
+        process_return_code = _start_thread_and_wait_to_complete(process, process.stdout, thread, timeout, self._logger)
+        return _check_result_if_necessary(check, process_return_code, *args, **kwargs)
 
-        # Wait for thread to finish streaming remaining output
-        thread.join(timeout=1.0)
 
-        # Check return code if requested
-        if check and returncode != 0:
-            raise subprocess.CalledProcessError(
-                returncode, args[0] if args else kwargs.get("args", [])
-            )
+class StderrOnlyProcessRunner(ProcessRunner):
+    """
+    Process runner that streams stderr while suppressing stdout.
 
-        # Return a CompletedProcess object for interface compatibility
-        return subprocess.CompletedProcess(
-            args=args[0] if args else kwargs.get("args", []),
-            returncode=returncode,
-            stdout=None,  # We streamed it, so don't capture it
-            stderr=None,
+    This implementation uses threading to asynchronously stream stderr from the
+    subprocess while discarding stdout output.
+    @athena: TBD
+    """
+
+    def __init__(self, logger: Logger) -> None:
+        self._logger = logger
+
+    def run(self, *args: Any, **kwargs: Any) -> subprocess.CompletedProcess[Any]:
+        """
+        Run a subprocess command with stderr streamed and stdout suppressed.
+
+        This implementation uses subprocess.Popen with threading to stream stderr
+        in real-time while discarding stdout. The interface remains synchronous
+        from the caller's perspective.
+
+        Buffering strategy: Uses line buffering (bufsize=1) to ensure output
+        appears promptly while maintaining reasonable performance.
+
+        Args:
+            *args: Positional arguments passed to subprocess.Popen
+            **kwargs: Keyword arguments passed to subprocess.Popen
+
+        Returns:
+            subprocess.CompletedProcess: The completed process result
+
+        Raises:
+            subprocess.CalledProcessError: If check=True and process exits non-zero
+            subprocess.TimeoutExpired: If timeout is exceeded
+        @athena: TBD
+        """
+        # Extract parameters that need special handling
+        check = kwargs.pop("check", False)
+        timeout = kwargs.pop("timeout", None)
+        # Remove capture_output if present - not supported by Popen
+        kwargs.pop("capture_output", None)
+
+        # Force stdout/stderr handling
+        kwargs["stdout"] = subprocess.DEVNULL
+        kwargs["stderr"] = subprocess.PIPE
+        kwargs["text"] = True
+        kwargs["bufsize"] = 1
+
+        # Start the process
+        process = subprocess.Popen(*args, **kwargs)
+
+        # Start thread to stream stderr with a descriptive name for debugging
+        thread = Thread(
+            target=stream_output,
+            args=(process.stderr, sys.stderr),
+            name="stderr-streamer",
         )
 
+        process_return_code = _start_thread_and_wait_to_complete(process, process.stderr, thread, timeout, self._logger)
+        return _check_result_if_necessary(check, process_return_code, *args, **kwargs)
 
-def make_process_runner(output_type: TaskOutputTypes) -> ProcessRunner:
+
+def make_process_runner(output_type: TaskOutputTypes, logger: Logger) -> ProcessRunner:
     """
     Factory function for creating ProcessRunner instances.
 
@@ -245,10 +332,12 @@ def make_process_runner(output_type: TaskOutputTypes) -> ProcessRunner:
     """
     match output_type:
         case TaskOutputTypes.ALL:
-            return PassthroughProcessRunner()
+            return PassthroughProcessRunner(logger)
         case TaskOutputTypes.NONE:
-            return SilentProcessRunner()
+            return SilentProcessRunner(logger)
         case TaskOutputTypes.OUT:
-            return StdoutOnlyProcessRunner()
+            return StdoutOnlyProcessRunner(logger)
+        case TaskOutputTypes.ERR:
+            return StderrOnlyProcessRunner(logger)
         case _:
             raise ValueError(f"Invalid TaskOutputTypes: {output_type}")
