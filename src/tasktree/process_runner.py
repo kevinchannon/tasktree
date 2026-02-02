@@ -37,6 +37,7 @@ class TaskOutputTypes(Enum):
     NONE = "none"
     OUT = "out"
     ERR = "err"
+    ON_ERR = "on-err"
 
 
 class ProcessRunner(ABC):
@@ -419,5 +420,7 @@ def make_process_runner(output_type: TaskOutputTypes, logger: Logger) -> Process
             return StdoutOnlyProcessRunner(logger)
         case TaskOutputTypes.ERR:
             return StderrOnlyProcessRunner(logger)
+        case TaskOutputTypes.ON_ERR:
+            return StderrOnlyOnFailureProcessRunner(logger)
         case _:
             raise ValueError(f"Invalid TaskOutputTypes: {output_type}")

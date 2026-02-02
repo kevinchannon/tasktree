@@ -794,6 +794,14 @@ class TestMakeProcessRunner(unittest.TestCase):
         runner = make_process_runner(TaskOutputTypes.ERR, logger_stub)
         self.assertIsInstance(runner, StderrOnlyProcessRunner)
 
+    def test_make_process_runner_with_on_err_returns_stderr_only_on_failure(self):
+        """
+        make_process_runner(TaskOutputTypes.ON_ERR) returns StderrOnlyOnFailureProcessRunner.
+        @athena: TBD
+        """
+        runner = make_process_runner(TaskOutputTypes.ON_ERR, logger_stub)
+        self.assertIsInstance(runner, StderrOnlyOnFailureProcessRunner)
+
     def test_make_process_runner_with_invalid_raises_error(self):
         """
         make_process_runner() raises ValueError for invalid TaskOutputTypes.
