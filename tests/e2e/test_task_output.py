@@ -154,3 +154,107 @@ tasks:
             self.assertIn("This is stdout", result.stdout)
             self.assertNotIn("This is stderr", result.stdout)
             self.assertNotIn("This is stderr", result.stderr)
+
+    def test_task_output_none_suppresses_all_output(self):
+        """
+        Test that --task-output=none suppresses both stdout and stderr.
+        @athena: TBD
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create recipe with task that outputs to both stdout and stderr
+            (project_root / "tasktree.yaml").write_text("""
+tasks:
+  mixed-output:
+    outputs: [done.txt]
+    cmd: |
+      echo "This is stdout"
+      echo "This is stderr" >&2
+      echo "done" > done.txt
+""")
+
+            # Execute with --task-output=none
+            result = run_tasktree_cli(
+                ["--task-output=none", "mixed-output"], cwd=project_root
+            )
+
+            # Assert success
+            self.assertEqual(
+                result.returncode,
+                0,
+                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
+            )
+
+            # Verify neither stdout nor stderr appear in output
+            self.assertNotIn("This is stdout", result.stdout)
+            self.assertNotIn("This is stderr", result.stdout)
+            self.assertNotIn("This is stderr", result.stderr)
+
+            # Verify output file was created (task still ran)
+            output_file = project_root / "done.txt"
+            self.assertTrue(output_file.exists(), "Output file not created")
+
+    def test_task_output_none_with_short_flag(self):
+        """
+        Test that -O none works as short form of --task-output=none.
+        @athena: TBD
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create recipe with task that outputs to both streams
+            (project_root / "tasktree.yaml").write_text("""
+tasks:
+  mixed-output:
+    outputs: [done.txt]
+    cmd: |
+      echo "This is stdout"
+      echo "This is stderr" >&2
+      echo "done" > done.txt
+""")
+
+            # Execute with -O none
+            result = run_tasktree_cli(["-O", "none", "mixed-output"], cwd=project_root)
+
+            # Assert success
+            self.assertEqual(
+                result.returncode,
+                0,
+                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
+            )
+
+            # Verify neither stdout nor stderr appear in output
+            self.assertNotIn("This is stdout", result.stdout)
+            self.assertNotIn("This is stderr", result.stdout)
+            self.assertNotIn("This is stderr", result.stderr)
+
+            # Verify output file was created (task still ran)
+            output_file = project_root / "done.txt"
+            self.assertTrue(output_file.exists(), "Output file not created")
+
+    def test_task_output_none_case_insensitive(self):
+        """
+        Test that --task-output accepts NONE in various cases (NONE, None, none).
+        @athena: TBD
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create recipe with simple task
+            (project_root / "tasktree.yaml").write_text("""
+tasks:
+  simple:
+    outputs: [done.txt]
+    cmd: |
+      echo "stdout message"
+      echo "done" > done.txt
+""")
+
+            # Test uppercase
+            result = run_tasktree_cli(["--task-output=NONE", "simple"], cwd=project_root)
+            self.assertEqual(result.returncode, 0, "Uppercase NONE should be accepted")
+
+            # Test mixed case
+            result = run_tasktree_cli(["--task-output=None", "simple"], cwd=project_root)
+            self.assertEqual(result.returncode, 0, "Mixed case None should be accepted")
