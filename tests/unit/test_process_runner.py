@@ -13,6 +13,7 @@ from tasktree.process_runner import (
     StdoutOnlyProcessRunner,
     TaskOutputTypes,
     make_process_runner,
+    stream_output
 )
 
 
@@ -330,6 +331,31 @@ class TestSilentProcessRunner(unittest.TestCase):
         self.assertIsNone(result.stderr)
 
 
+class TestStreamOutput(unittest.TestCase):
+    def test_stream_output_handles_broken_pipe(self):
+        """
+        stream_output handles exceptions gracefully (e.g., broken pipe).
+        @athena: TBD
+        """
+        from io import StringIO
+        from unittest.mock import Mock
+
+        # Create a mock pipe that raises an exception when read
+        mock_pipe = Mock()
+        mock_pipe.__iter__ = Mock(side_effect=OSError("Broken pipe"))
+
+        # Create a target that we can verify wasn't written to
+        target = StringIO()
+
+        # Call stream_output - should not raise exception
+        try:
+            stream_output(mock_pipe, target)
+            # If we get here without exception, the test passes
+            self.assertTrue(True)
+        except OSError:
+            self.fail("stream_output should handle exceptions gracefully")
+
+
 class TestStdoutOnlyProcessRunner(unittest.TestCase):
     """
     Tests for StdoutOnlyProcessRunner implementation.
@@ -441,29 +467,6 @@ class TestStdoutOnlyProcessRunner(unittest.TestCase):
         )
 
         self.assertEqual(result.returncode, 42)
-
-    def test_stream_output_handles_broken_pipe(self):
-        """
-        _stream_output handles exceptions gracefully (e.g., broken pipe).
-        @athena: TBD
-        """
-        from io import StringIO
-        from unittest.mock import Mock
-
-        # Create a mock pipe that raises an exception when read
-        mock_pipe = Mock()
-        mock_pipe.__iter__ = Mock(side_effect=OSError("Broken pipe"))
-
-        # Create a target that we can verify wasn't written to
-        target = StringIO()
-
-        # Call _stream_output - should not raise exception
-        try:
-            StdoutOnlyProcessRunner._stream_output(mock_pipe, target)
-            # If we get here without exception, the test passes
-            self.assertTrue(True)
-        except OSError:
-            self.fail("_stream_output should handle exceptions gracefully")
 
 
 class TestStderrOnlyProcessRunner(unittest.TestCase):
@@ -577,29 +580,6 @@ class TestStderrOnlyProcessRunner(unittest.TestCase):
         )
 
         self.assertEqual(result.returncode, 42)
-
-    def test_stream_output_handles_broken_pipe(self):
-        """
-        _stream_output handles exceptions gracefully (e.g., broken pipe).
-        @athena: TBD
-        """
-        from io import StringIO
-        from unittest.mock import Mock
-
-        # Create a mock pipe that raises an exception when read
-        mock_pipe = Mock()
-        mock_pipe.__iter__ = Mock(side_effect=OSError("Broken pipe"))
-
-        # Create a target that we can verify wasn't written to
-        target = StringIO()
-
-        # Call _stream_output - should not raise exception
-        try:
-            StderrOnlyProcessRunner._stream_output(mock_pipe, target)
-            # If we get here without exception, the test passes
-            self.assertTrue(True)
-        except OSError:
-            self.fail("_stream_output should handle exceptions gracefully")
 
 
 class TestMakeProcessRunner(unittest.TestCase):
