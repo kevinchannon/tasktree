@@ -7,6 +7,7 @@ import unittest
 
 from helpers.logging import logger_stub
 from tasktree.process_runner import (
+    BufferedProcessRunner,
     PassthroughProcessRunner,
     ProcessRunner,
     SilentProcessRunner,
@@ -581,6 +582,195 @@ class TestStderrOnlyProcessRunner(unittest.TestCase):
         )
 
         self.assertEqual(result.returncode, 42)
+
+
+class TestBufferedProcessRunner(unittest.TestCase):
+    """
+    Tests for BufferedProcessRunner implementation.
+    @athena: TBD
+    """
+
+    def setUp(self):
+        self.runner = BufferedProcessRunner(logger_stub)
+
+    def test_run_suppresses_stderr_on_success(self):
+        """
+        BufferedProcessRunner buffers stderr but does not output it on success.
+        @athena: TBD
+        """
+        # Use unittest.mock to capture sys.stderr writes
+        from unittest.mock import patch
+        from io import StringIO
+
+        stderr_capture = StringIO()
+
+        with patch("sys.stderr", stderr_capture):
+            result = self.runner.run(
+                [sys.executable, "-c", "import sys; sys.stderr.write('error message\\n'); sys.exit(0)"],
+                check=False
+            )
+
+        self.assertEqual(result.returncode, 0)
+        # Stderr should NOT be output since process succeeded
+        self.assertEqual(stderr_capture.getvalue(), "")
+
+    def test_run_outputs_buffered_stderr_on_failure(self):
+        """
+        BufferedProcessRunner outputs buffered stderr when process fails.
+        @athena: TBD
+        """
+        from unittest.mock import patch
+        from io import StringIO
+
+        stderr_capture = StringIO()
+
+        with patch("sys.stderr", stderr_capture):
+            result = self.runner.run(
+                [sys.executable, "-c", "import sys; sys.stderr.write('error message\\n'); sys.exit(1)"],
+                check=False
+            )
+
+        self.assertEqual(result.returncode, 1)
+        # Stderr SHOULD be output since process failed
+        self.assertIn("error message", stderr_capture.getvalue())
+
+    def test_run_handles_failure_with_no_stderr(self):
+        """
+        BufferedProcessRunner handles process failure with no stderr output.
+        @athena: TBD
+        """
+        from unittest.mock import patch
+        from io import StringIO
+
+        stderr_capture = StringIO()
+
+        with patch("sys.stderr", stderr_capture):
+            result = self.runner.run(
+                [sys.executable, "-c", "import sys; sys.exit(1)"],
+                check=False
+            )
+
+        self.assertEqual(result.returncode, 1)
+        # No stderr to output
+        self.assertEqual(stderr_capture.getvalue(), "")
+
+    def test_run_handles_success_with_no_output(self):
+        """
+        BufferedProcessRunner handles successful process with no output.
+        @athena: TBD
+        """
+        from unittest.mock import patch
+        from io import StringIO
+
+        stderr_capture = StringIO()
+
+        with patch("sys.stderr", stderr_capture):
+            result = self.runner.run(
+                [sys.executable, "-c", "import sys; sys.exit(0)"],
+                check=False
+            )
+
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(stderr_capture.getvalue(), "")
+
+    def test_run_ignores_stdout_completely(self):
+        """
+        BufferedProcessRunner sends stdout to DEVNULL.
+        @athena: TBD
+        """
+        from unittest.mock import patch
+        from io import StringIO
+
+        stdout_capture = StringIO()
+        stderr_capture = StringIO()
+
+        with patch("sys.stdout", stdout_capture), patch("sys.stderr", stderr_capture):
+            result = self.runner.run(
+                [sys.executable, "-c", "import sys; sys.stdout.write('stdout message\\n'); sys.stderr.write('stderr message\\n'); sys.exit(1)"],
+                check=False
+            )
+
+        self.assertEqual(result.returncode, 1)
+        # Stdout should be completely ignored
+        self.assertEqual(stdout_capture.getvalue(), "")
+        # Stderr should be output because process failed
+        self.assertIn("stderr message", stderr_capture.getvalue())
+
+    def test_run_raises_called_process_error_when_check_true(self):
+        """
+        BufferedProcessRunner raises CalledProcessError when check=True and process fails.
+        @athena: TBD
+        """
+        with self.assertRaises(subprocess.CalledProcessError) as cm:
+            self.runner.run(
+                [sys.executable, "-c", "import sys; sys.exit(1)"],
+                check=True
+            )
+
+        self.assertEqual(cm.exception.returncode, 1)
+
+    def test_run_raises_timeout_expired(self):
+        """
+        BufferedProcessRunner raises TimeoutExpired when timeout is exceeded.
+        @athena: TBD
+        """
+        with self.assertRaises(subprocess.TimeoutExpired):
+            self.runner.run(
+                [sys.executable, "-c", "import time; time.sleep(10)"],
+                timeout=0.1
+            )
+
+    def test_buffered_runner_is_process_runner(self):
+        """
+        BufferedProcessRunner is an instance of ProcessRunner.
+        @athena: TBD
+        """
+        self.assertIsInstance(self.runner, ProcessRunner)
+
+    def test_run_returns_completed_process(self):
+        """
+        BufferedProcessRunner.run() returns CompletedProcess object.
+        @athena: TBD
+        """
+        result = self.runner.run(
+            [sys.executable, "-c", "import sys; sys.exit(0)"], check=False
+        )
+
+        self.assertIsInstance(result, subprocess.CompletedProcess)
+        self.assertEqual(result.returncode, 0)
+
+    def test_run_preserves_exit_code(self):
+        """
+        BufferedProcessRunner preserves the process exit code.
+        @athena: TBD
+        """
+        result = self.runner.run(
+            [sys.executable, "-c", "import sys; sys.exit(42)"], check=False
+        )
+
+        self.assertEqual(result.returncode, 42)
+
+    def test_run_handles_multiple_stderr_lines(self):
+        """
+        BufferedProcessRunner correctly buffers and outputs multiple stderr lines.
+        @athena: TBD
+        """
+        from unittest.mock import patch
+        from io import StringIO
+
+        stderr_capture = StringIO()
+
+        with patch("sys.stderr", stderr_capture):
+            result = self.runner.run(
+                [sys.executable, "-c", "import sys; sys.stderr.write('line1\\n'); sys.stderr.write('line2\\n'); sys.stderr.write('line3\\n'); sys.exit(1)"],
+                check=False
+            )
+
+        self.assertEqual(result.returncode, 1)
+        stderr_output = stderr_capture.getvalue()
+        self.assertIn("line1", stderr_output)
+        self.assertIn("line2", stderr_output)
+        self.assertIn("line3", stderr_output)
 
 
 class TestMakeProcessRunner(unittest.TestCase):
