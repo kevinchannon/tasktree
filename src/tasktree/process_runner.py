@@ -74,7 +74,7 @@ class PassthroughProcessRunner(ProcessRunner):
     """
 
     def __init__(self, logger: Logger) -> None:
-        self.logger = logger
+        self._logger = logger
 
     def run(self, *args: Any, **kwargs: Any) -> subprocess.CompletedProcess[Any]:
         """
@@ -102,7 +102,7 @@ class SilentProcessRunner(ProcessRunner):
     """
 
     def __init__(self, logger: Logger) -> None:
-        self.logger = logger
+        self._logger = logger
 
     def run(self, *args: Any, **kwargs: Any) -> subprocess.CompletedProcess[Any]:
         """
