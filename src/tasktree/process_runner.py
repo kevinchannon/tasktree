@@ -251,6 +251,7 @@ class StdoutOnlyProcessRunner(ProcessRunner):
             target=stream_output,
             args=(process.stdout, sys.stdout),
             name="stdout-streamer",
+            daemon=True,
         )
 
         process_return_code = _start_thread_and_wait_to_complete(process, process.stdout, thread, timeout, self._logger)
@@ -312,6 +313,7 @@ class StderrOnlyProcessRunner(ProcessRunner):
             target=stream_output,
             args=(process.stderr, sys.stderr),
             name="stderr-streamer",
+            daemon=True,
         )
 
         process_return_code = _start_thread_and_wait_to_complete(process, process.stderr, thread, timeout, self._logger)
@@ -384,6 +386,7 @@ class StderrOnlyOnFailureProcessRunner(ProcessRunner):
             target=collect_stderr,
             args=(process.stderr, stderr_buffer),
             name="stderr-collector",
+            daemon=True,
         )
 
         process_return_code = _start_thread_and_wait_to_complete(process, process.stderr, thread, timeout, self._logger)
