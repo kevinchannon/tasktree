@@ -875,6 +875,16 @@ class Executor:
         else:
             substituted_args = env.args
 
+        # Substitute in extra_args (builtin vars first, then env vars)
+        substituted_extra_args = (
+            [
+                self._substitute_env(self._substitute_builtin(arg, builtin_vars))
+                for arg in env.extra_args
+            ]
+            if env.extra_args
+            else []
+        )
+
         # Create new environment with substituted values
         return replace(
             env,
@@ -883,6 +893,7 @@ class Executor:
             ports=substituted_ports,
             working_dir=substituted_working_dir,
             args=substituted_args,
+            extra_args=substituted_extra_args,
         )
 
     def _run_task_in_docker(

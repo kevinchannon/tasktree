@@ -1821,6 +1821,56 @@ class TestExecutorProcessRunner(unittest.TestCase):
 
             process_runner_spy.run.assert_called_once()
 
+    def test_substitute_environment_fields_includes_extra_args(self):
+        """
+        Test that _substitute_environment_fields substitutes variables in extra_args.
+        """
+        from tasktree.parser import Environment
+
+        os.environ["MEMORY_LIMIT"] = "1024m"
+        os.environ["CPU_LIMIT"] = "2"
+
+        try:
+            with TemporaryDirectory() as tmpdir:
+                project_root = Path(tmpdir)
+                state_manager = StateManager(project_root)
+
+                recipe = Recipe(
+                    tasks={},
+                    project_root=project_root,
+                    recipe_path=project_root / "tasktree.yaml",
+                )
+                executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+
+                # Create environment with variables in extra_args
+                env = Environment(
+                    name="test",
+                    dockerfile="Dockerfile",
+                    context=".",
+                    extra_args=[
+                        "--memory={{ env.MEMORY_LIMIT }}",
+                        "--cpus={{ env.CPU_LIMIT }}",
+                        "--network=host"
+                    ]
+                )
+
+                builtin_vars = {
+                    "project_root": str(project_root),
+                    "task_name": "test",
+                }
+
+                # Apply substitution
+                substituted_env = executor._substitute_environment_fields(env, builtin_vars)
+
+                # Verify substitution occurred
+                self.assertEqual(
+                    substituted_env.extra_args,
+                    ["--memory=1024m", "--cpus=2", "--network=host"]
+                )
+        finally:
+            del os.environ["MEMORY_LIMIT"]
+            del os.environ["CPU_LIMIT"]
+
 
 if __name__ == "__main__":
     unittest.main()
