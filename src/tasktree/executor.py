@@ -963,8 +963,11 @@ class Executor:
         env = self._substitute_builtin_in_environment(env, builtin_vars)
 
         # Resolve container working directory
+        # Treat "." as empty for Docker - it's the default but we want None
+        # when neither env nor task explicitly sets working_dir, so Docker uses Dockerfile WORKDIR
+        task_wd = "" if task.working_dir == "." else task.working_dir
         container_working_dir = docker_module.resolve_container_working_dir(
-            env.working_dir, task.working_dir
+            env.working_dir, task_wd
         )
 
         # Validate and merge exported args with env vars (exported args take precedence)
