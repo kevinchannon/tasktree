@@ -365,6 +365,12 @@
               "description": "If true, task is hidden from --list output but can still be run directly",
               "default": false
             },
+            "task_output": {
+              "type": "string",
+              "enum": ["all", "out", "err", "on-err", "none"],
+              "description": "Emit the specified output type(s) from the task. (all: everything, out: only stdout, err: only stderr: on-err: only stderr and only if the task fails, none: emit nothing). This setting can be over-ridden by specifying the command-line option",
+              "default": "all"
+            },
             "cmd": {
               "type": "string",
               "description": "Shell command to execute. Supports template substitution: {{ arg.name }} for arguments, {{ var.name }} for variables, {{ env.NAME }} for environment variables, {{ dep.task.outputs.name }} for dependency outputs, {{ self.inputs.name }} and {{ self.outputs.name }} for own inputs/outputs, {{ tt.* }} for built-in variables."
