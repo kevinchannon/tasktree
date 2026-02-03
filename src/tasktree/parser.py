@@ -16,6 +16,7 @@ from typing import Any, List
 import yaml
 
 from tasktree.types import get_click_type
+from tasktree.process_runner import TaskOutputTypes
 
 
 class CircularImportError(Exception):
@@ -91,6 +92,7 @@ class Task:
     source_file: str = ""  # Track which file defined this task
     env: str = ""  # Environment name to use for execution
     private: bool = False  # If True, task is hidden from --list output
+    task_output: TaskOutputTypes | None = None
 
     # Internal fields for efficient output lookup (built in __post_init__)
     _output_map: dict[str, str] = field(
@@ -2065,6 +2067,7 @@ def _parse_file(
             source_file=str(file_path),
             env=task_data.get("env", ""),
             private=task_data.get("private", False),
+            task_output=task_data.get("task_output", None)
         )
 
         # Check for case-sensitive argument collisions

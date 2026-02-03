@@ -5,7 +5,7 @@ import time
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, call
 
 from helpers.logging import logger_stub
 from tasktree.executor import Executor
@@ -1739,6 +1739,56 @@ class TestTaskOutputParameter(unittest.TestCase):
             )
 
             process_runner_spy.run.assert_called_once()
+
+    def test_task_specific_task_output_types_is_respected(self):
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+            tasks = {"test": Task(name="test", cmd="echo test", task_output=TaskOutputTypes.ERR)}
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+
+            process_runner_stub = MagicMock(spec=ProcessRunner)
+            process_runner_stub.run.return_value = MagicMock(returncode=0)
+            process_runner_factory_spy = MagicMock()
+            process_runner_factory_spy.side_effect = lambda _1, _2: process_runner_stub
+
+            Executor(
+                recipe,
+                state_manager,
+                logger_stub,
+                process_runner_factory_spy,
+            ).execute_task("test", None )
+
+            process_runner_factory_spy.assert_has_calls([call(TaskOutputTypes.ERR, logger_stub)])
+
+    def test_task_cli_task_output_types_overrides_specific_value_is_respected(self):
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+            tasks = {"test": Task(name="test", cmd="echo test", task_output=TaskOutputTypes.ERR)}
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+
+            process_runner_stub = MagicMock(spec=ProcessRunner)
+            process_runner_stub.run.return_value = MagicMock(returncode=0)
+            process_runner_factory_spy = MagicMock()
+            process_runner_factory_spy.side_effect = lambda _1, _2: process_runner_stub
+
+            Executor(
+                recipe,
+                state_manager,
+                logger_stub,
+                process_runner_factory_spy,
+            ).execute_task("test", TaskOutputTypes.ALL )
+
+            process_runner_factory_spy.assert_has_calls([call(TaskOutputTypes.ALL, logger_stub)])
 
 
 class TestExecutorProcessRunner(unittest.TestCase):
