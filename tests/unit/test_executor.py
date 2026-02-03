@@ -1823,7 +1823,7 @@ class TestExecutorProcessRunner(unittest.TestCase):
 
     def test_substitute_environment_fields_includes_extra_args(self):
         """
-        Test that _substitute_environment_fields substitutes variables in extra_args.
+        Test that _substitute_builtin_in_environment substitutes variables in extra_args.
         """
         from tasktree.parser import Environment
 
@@ -1860,7 +1860,7 @@ class TestExecutorProcessRunner(unittest.TestCase):
                 }
 
                 # Apply substitution
-                substituted_env = executor._substitute_environment_fields(env, builtin_vars)
+                substituted_env = executor._substitute_builtin_in_environment(env, builtin_vars)
 
                 # Verify substitution occurred
                 self.assertEqual(
@@ -1873,7 +1873,7 @@ class TestExecutorProcessRunner(unittest.TestCase):
 
     def test_substitute_environment_fields_includes_preamble_shell_dockerfile_context(self):
         """
-        Test that _substitute_environment_fields substitutes variables in preamble, shell, dockerfile, and context.
+        Test that _substitute_builtin_in_environment substitutes variables in preamble, shell, dockerfile, and context.
         """
         from tasktree.parser import Environment
 
@@ -1907,7 +1907,7 @@ class TestExecutorProcessRunner(unittest.TestCase):
                 }
 
                 # Apply substitution
-                substituted_env = executor._substitute_environment_fields(env, builtin_vars)
+                substituted_env = executor._substitute_builtin_in_environment(env, builtin_vars)
 
                 # Verify substitution occurred
                 self.assertEqual(
