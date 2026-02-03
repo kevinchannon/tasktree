@@ -345,12 +345,6 @@ def main(
     clean: Optional[bool] = typer.Option(
         None, "--clean", "-c", help="Remove state file (reset task cache)"
     ),
-    clean_state: Optional[bool] = typer.Option(
-        None, "--clean-state", "-C", help="Remove state file (reset task cache)"
-    ),
-    reset: Optional[bool] = typer.Option(
-        None, "--reset", "-r", help="Remove state file (reset task cache)"
-    ),
     force: Optional[bool] = typer.Option(
         None, "--force", "-f", help="Force re-run all tasks (ignore freshness)"
     ),
@@ -422,7 +416,7 @@ def main(
         _init_recipe(logger)
         raise typer.Exit()
 
-    if clean or clean_state or reset:
+    if clean:
         _clean_state(logger, tasks_file)
         raise typer.Exit()
 

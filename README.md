@@ -1640,8 +1640,6 @@ tt --init
 ```bash
 # Remove state file (reset task cache)
 tt --clean
-tt --clean-state
-tt --reset
 ```
 
 ### Common Workflows

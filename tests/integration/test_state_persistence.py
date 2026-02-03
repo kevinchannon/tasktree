@@ -142,9 +142,9 @@ tasks:
             finally:
                 os.chdir(original_cwd)
 
-    def test_clean_state_enables_fresh_run(self):
+    def test_clean_enables_fresh_run(self):
         """
-        Test --clean-state removes state and forces rebuild.
+        Test --clean removes state and forces rebuild.
         @athena: 352ed4145e55
         """
         with TemporaryDirectory() as tmpdir:
@@ -176,7 +176,7 @@ tasks:
                 self.assertEqual(result.exit_code, 0)
 
                 # Clean state
-                result = self.runner.invoke(app, ["--clean-state"], env=self.env)
+                result = self.runner.invoke(app, ["--clean"], env=self.env)
                 self.assertEqual(result.exit_code, 0)
                 self.assertIn("Removed", strip_ansi_codes(result.stdout))
 
