@@ -368,7 +368,7 @@ def main(
         "--log-level",
         "-L",
         click_type=click.Choice(
-            ["fatal", "error", "warn", "info", "debug", "trace"], case_sensitive=False
+            [l.name.lower() for l in LogLevel], case_sensitive=False
         ),
         help="""Control verbosity of tasktree's diagnostic messages""",
     ),
@@ -404,19 +404,7 @@ def main(
     @athena: 40e6fdbe6100
     """
 
-    # Parse log level from string to enum
-    # Click.Choice with case_sensitive=False normalizes input to lowercase
-    log_level_map = {
-        "fatal": LogLevel.FATAL,
-        "error": LogLevel.ERROR,
-        "warn": LogLevel.WARN,
-        "info": LogLevel.INFO,
-        "debug": LogLevel.DEBUG,
-        "trace": LogLevel.TRACE,
-    }
-
-    level = log_level_map[log_level.lower()]
-    logger = ConsoleLogger(console, level)
+    logger = ConsoleLogger(console, LogLevel(LogLevel[log_level.upper()]))
 
     if list_opt:
         _list_tasks(logger, tasks_file)
