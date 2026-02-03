@@ -1871,6 +1871,56 @@ class TestExecutorProcessRunner(unittest.TestCase):
             del os.environ["MEMORY_LIMIT"]
             del os.environ["CPU_LIMIT"]
 
+    def test_substitute_environment_fields_includes_preamble_shell_dockerfile_context(self):
+        """
+        Test that _substitute_environment_fields substitutes variables in preamble, shell, dockerfile, and context.
+        """
+        from tasktree.parser import Environment
+
+        os.environ["BUILD_DIR"] = "docker"
+        os.environ["CUSTOM_SHELL"] = "/bin/bash"
+
+        try:
+            with TemporaryDirectory() as tmpdir:
+                project_root = Path(tmpdir)
+                state_manager = StateManager(project_root)
+
+                recipe = Recipe(
+                    tasks={},
+                    project_root=project_root,
+                    recipe_path=project_root / "tasktree.yaml",
+                )
+                executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+
+                # Create environment with variables in preamble, shell, dockerfile, context
+                env = Environment(
+                    name="test",
+                    preamble="set -e\nexport BUILD_DIR={{ env.BUILD_DIR }}\n",
+                    shell="{{ env.CUSTOM_SHELL }}",
+                    dockerfile="{{ env.BUILD_DIR }}/Dockerfile",
+                    context="{{ tt.project_root }}/{{ env.BUILD_DIR }}",
+                )
+
+                builtin_vars = {
+                    "project_root": str(project_root),
+                    "task_name": "test",
+                }
+
+                # Apply substitution
+                substituted_env = executor._substitute_environment_fields(env, builtin_vars)
+
+                # Verify substitution occurred
+                self.assertEqual(
+                    substituted_env.preamble,
+                    "set -e\nexport BUILD_DIR=docker\n"
+                )
+                self.assertEqual(substituted_env.shell, "/bin/bash")
+                self.assertEqual(substituted_env.dockerfile, "docker/Dockerfile")
+                self.assertEqual(substituted_env.context, f"{project_root}/docker")
+        finally:
+            del os.environ["BUILD_DIR"]
+            del os.environ["CUSTOM_SHELL"]
+
 
 if __name__ == "__main__":
     unittest.main()

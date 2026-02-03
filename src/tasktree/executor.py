@@ -885,6 +885,34 @@ class Executor:
             else []
         )
 
+        # Substitute in preamble (builtin vars first, then env vars)
+        substituted_preamble = (
+            self._substitute_env(self._substitute_builtin(env.preamble, builtin_vars))
+            if env.preamble
+            else ""
+        )
+
+        # Substitute in shell (builtin vars first, then env vars)
+        substituted_shell = (
+            self._substitute_env(self._substitute_builtin(env.shell, builtin_vars))
+            if env.shell
+            else ""
+        )
+
+        # Substitute in dockerfile (builtin vars first, then env vars)
+        substituted_dockerfile = (
+            self._substitute_env(self._substitute_builtin(env.dockerfile, builtin_vars))
+            if env.dockerfile
+            else ""
+        )
+
+        # Substitute in context (builtin vars first, then env vars)
+        substituted_context = (
+            self._substitute_env(self._substitute_builtin(env.context, builtin_vars))
+            if env.context
+            else ""
+        )
+
         # Create new environment with substituted values
         return replace(
             env,
@@ -894,6 +922,10 @@ class Executor:
             working_dir=substituted_working_dir,
             args=substituted_args,
             extra_args=substituted_extra_args,
+            preamble=substituted_preamble,
+            shell=substituted_shell,
+            dockerfile=substituted_dockerfile,
+            context=substituted_context,
         )
 
     def _run_task_in_docker(
