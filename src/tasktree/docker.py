@@ -160,7 +160,7 @@ class DockerManager:
         env: Environment definition
         cmd: Command to execute
         working_dir: Host working directory (for resolving relative volume paths)
-        container_working_dir: Working directory inside container
+        container_working_dir: Working directory inside container, or None to use Dockerfile's WORKDIR
         process_runner: ProcessRunner instance to use for subprocess execution
 
         Returns:

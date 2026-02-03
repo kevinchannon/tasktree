@@ -185,6 +185,57 @@ tasks:
             )
             self.assertIn("container ran with limits", success_file.read_text())
 
+    def test_dockerfile_workdir_default(self):
+        """
+        Test that container uses Dockerfile WORKDIR when no working_dir specified.
+        @athena: e4f9a2b7c3d8
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create Dockerfile with non-root WORKDIR
+            (project_root / "Dockerfile").write_text(
+                "FROM alpine:latest\nWORKDIR /app\n"
+            )
+
+            # Create output directory
+            (project_root / "output").mkdir()
+
+            # Create recipe WITHOUT working_dir in env or task
+            (project_root / "tasktree.yaml").write_text("""
+environments:
+  alpine:
+    dockerfile: ./Dockerfile
+    context: .
+    volumes: ["./output:/output"]
+
+tasks:
+  check_pwd:
+    env: alpine
+    outputs: [output/pwd.txt]
+    cmd: pwd > /output/pwd.txt
+""")
+
+            # Execute
+            result = run_tasktree_cli(["check_pwd"], cwd=project_root)
+
+            # Assert success
+            self.assertEqual(
+                result.returncode,
+                0,
+                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
+            )
+
+            # Verify working directory matches Dockerfile WORKDIR
+            pwd_file = project_root / "output" / "pwd.txt"
+            self.assertTrue(
+                pwd_file.exists(), "Working directory check file not created"
+            )
+
+            # Should be /app (from Dockerfile WORKDIR)
+            pwd = pwd_file.read_text().strip()
+            self.assertEqual(pwd, "/app", f"Expected /app from Dockerfile WORKDIR, got: {pwd}")
+
 
 if __name__ == "__main__":
     unittest.main()
