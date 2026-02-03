@@ -159,3 +159,5 @@ requirements/*
 
 .athena-cache
 
+.claude/settings.local.json
+
