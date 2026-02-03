@@ -150,7 +150,7 @@ class DockerManager:
         env: Environment,
         cmd: str,
         working_dir: Path,
-        container_working_dir: str,
+        container_working_dir: str | None,
         process_runner: ProcessRunner,
     ) -> subprocess.CompletedProcess:
         """
