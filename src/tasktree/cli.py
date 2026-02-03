@@ -370,21 +370,20 @@ def main(
         click_type=click.Choice(
             ["fatal", "error", "warn", "info", "debug", "trace"], case_sensitive=False
         ),
-        help="""Control verbosity of tasktree's diagnostic messages.
-
-fatal: Only unrecoverable errors (malformed task files, missing dependencies)
-error: Fatal errors plus task execution failures
-warn: Errors plus warnings (deprecated features, configuration issues)
-info: Normal execution progress (default)
-debug: Variable values, resolved paths, environment details
-trace: Fine-grained execution tracing""",
+        help="""Control verbosity of tasktree's diagnostic messages""",
     ),
     task_output: str = typer.Option(
         "all",
         "--task-output",
         "-O",
         click_type=click.Choice([t.value for t in TaskOutputTypes], case_sensitive=False),
-        help="Control task subprocess output display (all: show both stdout and stderr, none: suppress all output, out: show only stdout)",
+        help="""Control task subprocess output display:
+        
+        - all: show both stdout and stderr output from tasks\n
+        - out: show only stdout from tasks\n
+        - err: show only stderr from tasks\n
+        - on-err: show stderr from tasks, but only if the task fails. (all stdout is suppressed)
+        - none: suppress all output)""",
     ),
     task_args: Optional[List[str]] = typer.Argument(
         None, help="Task name and arguments"
