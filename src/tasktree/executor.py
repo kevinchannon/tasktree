@@ -463,10 +463,18 @@ class Executor:
             last_run=datetime.fromtimestamp(cached_state.last_run),
         )
 
+    @staticmethod
+    def _get_task_output_type(user_inputted_value: TaskOutputTypes | None) -> TaskOutputTypes:
+        if user_inputted_value is None:
+            return TaskOutputTypes.ALL
+
+        return user_inputted_value
+
+
     def execute_task(
         self,
         task_name: str,
-        task_output_type: Any,
+        task_output_type: TaskOutputTypes | None,
         args_dict: dict[str, Any] | None = None,
         force: bool = False,
         only: bool = False,
@@ -519,7 +527,7 @@ class Executor:
             # Convert None to {} for internal use (None is used to distinguish simple deps in graph)
             args_dict_for_execution = task_args if task_args is not None else {}
 
-            process_runner = self._process_runner_factory(task_output_type, self.logger)
+            process_runner = self._process_runner_factory(self._get_task_output_type(task_output_type), self.logger)
 
             # Check if task needs to run (based on CURRENT filesystem state)
             status = self.check_task_status(

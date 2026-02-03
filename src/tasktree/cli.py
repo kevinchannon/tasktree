@@ -372,8 +372,8 @@ def main(
         ),
         help="""Control verbosity of tasktree's diagnostic messages""",
     ),
-    task_output: str = typer.Option(
-        "all",
+    task_output: Optional[str] = typer.Option(
+        None,
         "--task-output",
         "-O",
         click_type=click.Choice([t.value for t in TaskOutputTypes], case_sensitive=False),
@@ -534,7 +534,7 @@ def _execute_dynamic_task(
     only: bool = False,
     env: Optional[str] = None,
     tasks_file: Optional[str] = None,
-    task_output: str = "all",
+    task_output: str | None = None,
 ) -> None:
     """
     Execute a task with its dependencies and handle argument parsing.
@@ -630,7 +630,7 @@ def _execute_dynamic_task(
     try:
         executor.execute_task(
             task_name,
-            TaskOutputTypes(task_output.lower()),
+            TaskOutputTypes(task_output.lower()) if task_output is not None else None,
             args_dict,
             force=force,
             only=only,
