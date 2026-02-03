@@ -234,6 +234,7 @@ tasks:
     working_dir: subproject/               # Execution directory (default: project root)
     env: bash-strict                       # Execution environment (optional)
     private: false                         # Hide from --list output (default: false)
+    task_output: all                       # Control task output: all, out, err, on-err, none (default: all)
     args:                                   # Task parameters
       - param1                              # Simple argument
       - param2: { type: path, default: "." }  # With type and default
@@ -860,7 +861,8 @@ tasks:
     inputs: [src/app-{{ var.version }}.c]
     outputs: [build/app-{{ var.version }}.o]
     cmd: gcc src/app-{{ var.version }}.c -o build/app-{{ var.version }}.o
-
+```
+```yaml
 # With self-references - DRY
 tasks:
   build:
@@ -1602,6 +1604,14 @@ tt -o deploy
 # Override environment for all tasks
 tt --env python analyze
 tt -e powershell build
+
+# Control task subprocess output display
+tt --task-output all build     # Show both stdout and stderr (default)
+tt --task-output out test      # Show only stdout
+tt --task-output err deploy    # Show only stderr
+tt --task-output on-err ci     # Show stderr only if task fails
+tt --task-output none build    # Suppress all task output
+tt -O none build               # Short form
 ```
 
 ### Information Commands
@@ -1729,7 +1739,114 @@ tt build test
 
 Log levels are hierarchical - setting a higher verbosity level (e.g., DEBUG) includes all messages from lower levels (FATAL, ERROR, WARN, INFO).
 
-**Note:** The `--log-level` flag controls Task Tree's own diagnostic messages. It does not affect the output of task commands themselves - use the standard shell redirection or command-specific options for that.
+**Note:** The `--log-level` flag controls Task Tree's own diagnostic messages. It does not affect the output of task commands themselves - use `--task-output` to control task subprocess output (see below).
+
+### Task Output Control
+
+Task Tree provides fine-grained control over task subprocess output through the `--task-output` flag. This allows you to control whether tasks display their stdout, stderr, both, or neither, independent of Task Tree's own diagnostic logging.
+
+**Output Modes:**
+
+```bash
+# Show both stdout and stderr (default)
+tt --task-output all build
+tt -O all build
+tt build  # Same as above
+
+# Show only stdout, suppress stderr
+tt --task-output out build
+tt -O out test
+
+# Show only stderr, suppress stdout
+tt --task-output err build
+tt -O err deploy
+
+# Show stderr only if the task fails (stdout always suppressed)
+tt --task-output on-err build
+tt -O on-err ci
+
+# Suppress all task output
+tt --task-output none build
+tt -O none build
+```
+
+**Case Insensitive:**
+
+```bash
+tt --task-output ALL build    # Works
+tt --task-output Out test     # Works
+tt --task-output ON-ERR ci    # Works
+```
+
+**Common Use Cases:**
+
+**CI/CD Environments:**
+```bash
+# Suppress task output, show only tasktree diagnostics
+tt --log-level info --task-output none build test
+
+# Show errors only if they occur
+tt --log-level error --task-output on-err ci
+```
+
+**Debugging:**
+```bash
+# Show only stderr to focus on warnings/errors
+tt --task-output err build
+
+# Show everything for full visibility
+tt --log-level debug --task-output all build
+```
+
+**Clean Build Logs:**
+```bash
+# Suppress noisy build output, show only tasktree progress
+tt --task-output none build package deploy
+```
+
+**Task-Level Configuration:**
+
+Tasks can specify their own default output behavior in the recipe file:
+
+```yaml
+tasks:
+  # Noisy task - suppress output by default
+  install-deps:
+    task_output: none
+    cmd: npm install
+
+  # Let pytest manage its own output - it's already good at that
+  test:
+    cmd: pytest tests/
+
+  # Don't clutter CI logs with loads of output, unless something goes wrong
+  build:
+    task_output: on-err
+    cmd: cargo build --release
+```
+
+**Understanding Output Modes:**
+
+| Mode | Stdout | Stderr | Notes |
+|------|--------|--------|-------|
+| `all` | ✓ | ✓ | Default behavior, shows everything |
+| `out` | ✓ | ✗ | Good for capturing command results |
+| `err` | ✗ | ✓ | Focus on warnings and errors |
+| `on-err` | ✗ | ✓ (on failure) | Stderr buffered, shown only if task fails |
+| `none` | ✗ | ✗ | Silent execution, useful for noisy tasks |
+
+**Override Behavior:**
+
+- Command-line `--task-output` overrides task-level `task_output` settings for all tasks
+- Task-level `task_output` applies only if no command-line flag is provided
+- Default behavior is `all` if neither is specified
+
+**Important Notes:**
+
+- Task output control is independent of `--log-level` - you can suppress task output while still seeing tasktree diagnostics
+- The `on-err` mode buffers stderr in memory and only displays it if the task fails
+- Output suppression does not affect the task's execution - files are still created, commands still run
+- Task exit codes are always checked regardless of output mode
 
 ## Example: Full Build Pipeline
 
@@ -1742,6 +1859,7 @@ tasks:
   compile:
     desc: Build application binaries
     outputs: [target/release/app]
+    task_output: "on-err" # We only care about seeing this if it fails.
     cmd: cargo build --release
 
   test-unit:
