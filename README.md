@@ -368,6 +368,80 @@ You may need to set `run_as_root: true` when:
 - Installing packages during task execution
 - Software explicitly requires root privileges
 
+#### Working Directory Resolution
+
+When executing tasks in Docker containers, the working directory is determined by three factors (in order of precedence):
+
+1. **Task's `working_dir`** - If specified, overrides all other settings
+2. **Environment's `working_dir`** - If specified and task doesn't specify, uses environment's directory
+3. **Dockerfile's `WORKDIR`** - If neither task nor environment specify, Docker uses the Dockerfile's WORKDIR directive
+
+**Examples:**
+
+```yaml
+environments:
+  builder:
+    dockerfile: build.dockerfile
+    context: .
+    volumes:
+      - .:/workspace
+    working_dir: /workspace  # Sets default for all tasks using this environment
+
+tasks:
+  # Uses /workspace (from environment)
+  build:
+    env: builder
+    cmd: cargo build --release
+
+  # Uses /workspace/tests (combines environment + task)
+  test:
+    env: builder
+    working_dir: tests
+    cmd: cargo test
+
+  # Uses /workspace/docs (overrides environment)
+  docs:
+    env: builder
+    working_dir: /workspace/docs
+    cmd: make html
+```
+
+```yaml
+environments:
+  # No working_dir specified - relies on Dockerfile
+  builder:
+    dockerfile: Dockerfile  # Contains: WORKDIR /app
+    context: .
+    volumes:
+      - .:/code
+
+tasks:
+  # Uses /app (from Dockerfile's WORKDIR)
+  build:
+    env: builder
+    cmd: make build
+
+  # Uses /app/tests (Dockerfile WORKDIR + task working_dir)
+  test:
+    env: builder
+    working_dir: tests
+    cmd: pytest
+
+  # Uses /code (absolute path, overrides Dockerfile)
+  analyze:
+    env: builder
+    working_dir: /code
+    cmd: pylint src/
+```
+
+**Key Points:**
+
+- If both environment and task specify `working_dir`, they are **combined** (environment/task)
+- If neither specifies `working_dir`, Docker uses the Dockerfile's `WORKDIR` directive
+- Absolute paths (`/path`) override and are not combined
+- Relative paths are combined with the environment's `working_dir` (if set)
+- The `working_dir` setting determines where commands execute, not where volume mounts map files
+
 ### Parameterised Tasks
 
 Tasks can accept arguments with optional type annotations and defaults:
