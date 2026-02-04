@@ -234,7 +234,9 @@ tasks:
 
             # Should be /app (from Dockerfile WORKDIR)
             pwd = pwd_file.read_text().strip()
-            self.assertEqual(pwd, "/app", f"Expected /app from Dockerfile WORKDIR, got: {pwd}")
+            self.assertEqual(
+                pwd, "/app", f"Expected /app from Dockerfile WORKDIR, got: {pwd}"
+            )
 
 
 if __name__ == "__main__":

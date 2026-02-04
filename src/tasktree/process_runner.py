@@ -21,7 +21,7 @@ __all__ = [
     "StderrOnlyOnFailureProcessRunner",
     "TaskOutputTypes",
     "make_process_runner",
-    "stream_output"
+    "stream_output",
 ]
 
 from tasktree.logging import Logger
@@ -154,7 +154,13 @@ def stream_output(pipe: Any, target: Any) -> None:
             pass
 
 
-def _start_thread_and_wait_to_complete(process: Popen[str], stream: Any, thread: Thread, process_allowed_runtime: float | None, logger: Logger) -> int:
+def _start_thread_and_wait_to_complete(
+    process: Popen[str],
+    stream: Any,
+    thread: Thread,
+    process_allowed_runtime: float | None,
+    logger: Logger,
+) -> int:
     join_timeout_secs = 1.0
 
     thread.start()
@@ -176,12 +182,16 @@ def _start_thread_and_wait_to_complete(process: Popen[str], stream: Any, thread:
 
     thread.join(timeout=join_timeout_secs)
     if thread.is_alive():
-        logger.warn(f"Stream thread did not complete within timeout of {join_timeout_secs} seconds")
+        logger.warn(
+            f"Stream thread did not complete within timeout of {join_timeout_secs} seconds"
+        )
 
     return process_return_code
 
 
-def _check_result_if_necessary(raise_on_failure: bool, proc_ret_code: int, *args, **kwargs) -> subprocess.CompletedProcess[Any]:
+def _check_result_if_necessary(
+    raise_on_failure: bool, proc_ret_code: int, *args, **kwargs
+) -> subprocess.CompletedProcess[Any]:
     if raise_on_failure and proc_ret_code != 0:
         raise subprocess.CalledProcessError(
             proc_ret_code, args[0] if args else kwargs.get("args", [])
@@ -254,7 +264,9 @@ class StdoutOnlyProcessRunner(ProcessRunner):
             daemon=True,
         )
 
-        process_return_code = _start_thread_and_wait_to_complete(process, process.stdout, thread, timeout, self._logger)
+        process_return_code = _start_thread_and_wait_to_complete(
+            process, process.stdout, thread, timeout, self._logger
+        )
         return _check_result_if_necessary(check, process_return_code, *args, **kwargs)
 
 
@@ -316,7 +328,9 @@ class StderrOnlyProcessRunner(ProcessRunner):
             daemon=True,
         )
 
-        process_return_code = _start_thread_and_wait_to_complete(process, process.stderr, thread, timeout, self._logger)
+        process_return_code = _start_thread_and_wait_to_complete(
+            process, process.stderr, thread, timeout, self._logger
+        )
         return _check_result_if_necessary(check, process_return_code, *args, **kwargs)
 
 

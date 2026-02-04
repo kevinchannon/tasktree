@@ -39,7 +39,10 @@ class TestTaskStatus(unittest.TestCase):
             executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             status = executor.check_task_status(
-                tasks["build"], {}, make_process_runner(TaskOutputTypes.ALL, logger_stub), False
+                tasks["build"],
+                {},
+                make_process_runner(TaskOutputTypes.ALL, logger_stub),
+                False,
             )
             self.assertTrue(status.will_run)
             self.assertEqual(status.reason, "never_run")
@@ -1691,7 +1694,9 @@ class TestRunnerResolution(unittest.TestCase):
 
             with self.assertRaises(ValueError) as cm:
                 executor._run_task(
-                    tasks["test"], {}, make_process_runner(TaskOutputTypes.ALL, logger_stub)
+                    tasks["test"],
+                    {},
+                    make_process_runner(TaskOutputTypes.ALL, logger_stub),
                 )
 
             self.assertIn("UNDEFINED_TEST_VAR", str(cm.exception))
@@ -1744,7 +1749,11 @@ class TestTaskOutputParameter(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
-            tasks = {"test": Task(name="test", cmd="echo test", task_output=TaskOutputTypes.ERR)}
+            tasks = {
+                "test": Task(
+                    name="test", cmd="echo test", task_output=TaskOutputTypes.ERR
+                )
+            }
             recipe = Recipe(
                 tasks=tasks,
                 project_root=project_root,
@@ -1761,15 +1770,21 @@ class TestTaskOutputParameter(unittest.TestCase):
                 state_manager,
                 logger_stub,
                 process_runner_factory_spy,
-            ).execute_task("test", None )
+            ).execute_task("test", None)
 
-            process_runner_factory_spy.assert_has_calls([call(TaskOutputTypes.ERR, logger_stub)])
+            process_runner_factory_spy.assert_has_calls(
+                [call(TaskOutputTypes.ERR, logger_stub)]
+            )
 
     def test_task_cli_task_output_types_overrides_specific_value_is_respected(self):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
-            tasks = {"test": Task(name="test", cmd="echo test", task_output=TaskOutputTypes.ERR)}
+            tasks = {
+                "test": Task(
+                    name="test", cmd="echo test", task_output=TaskOutputTypes.ERR
+                )
+            }
             recipe = Recipe(
                 tasks=tasks,
                 project_root=project_root,
@@ -1786,9 +1801,11 @@ class TestTaskOutputParameter(unittest.TestCase):
                 state_manager,
                 logger_stub,
                 process_runner_factory_spy,
-            ).execute_task("test", TaskOutputTypes.ALL )
+            ).execute_task("test", TaskOutputTypes.ALL)
 
-            process_runner_factory_spy.assert_has_calls([call(TaskOutputTypes.ALL, logger_stub)])
+            process_runner_factory_spy.assert_has_calls(
+                [call(TaskOutputTypes.ALL, logger_stub)]
+            )
 
 
 class TestExecutorProcessRunner(unittest.TestCase):
@@ -1840,7 +1857,9 @@ class TestExecutorProcessRunner(unittest.TestCase):
                     project_root=project_root,
                     recipe_path=project_root / "tasktree.yaml",
                 )
-                executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+                executor = Executor(
+                    recipe, state_manager, logger_stub, make_process_runner
+                )
 
                 # Create runner with variables in extra_args
                 runner = Runner(
@@ -1850,8 +1869,8 @@ class TestExecutorProcessRunner(unittest.TestCase):
                     extra_args=[
                         "--memory={{ env.MEMORY_LIMIT }}",
                         "--cpus={{ env.CPU_LIMIT }}",
-                        "--network=host"
-                    ]
+                        "--network=host",
+                    ],
                 )
 
                 builtin_vars = {
@@ -1860,12 +1879,14 @@ class TestExecutorProcessRunner(unittest.TestCase):
                 }
 
                 # Apply substitution
-                substituted_runner = executor._substitute_builtin_in_runner(runner, builtin_vars)
+                substituted_runner = executor._substitute_builtin_in_runner(
+                    runner, builtin_vars
+                )
 
                 # Verify substitution occurred
                 self.assertEqual(
                     substituted_runner.extra_args,
-                    ["--memory=1024m", "--cpus=2", "--network=host"]
+                    ["--memory=1024m", "--cpus=2", "--network=host"],
                 )
         finally:
             del os.environ["MEMORY_LIMIT"]
@@ -1890,7 +1911,9 @@ class TestExecutorProcessRunner(unittest.TestCase):
                     project_root=project_root,
                     recipe_path=project_root / "tasktree.yaml",
                 )
-                executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+                executor = Executor(
+                    recipe, state_manager, logger_stub, make_process_runner
+                )
 
                 # Create runner with variables in preamble, shell, dockerfile, context
                 runner = Runner(
@@ -1907,12 +1930,13 @@ class TestExecutorProcessRunner(unittest.TestCase):
                 }
 
                 # Apply substitution
-                substituted_runner = executor._substitute_builtin_in_runner(runner, builtin_vars)
+                substituted_runner = executor._substitute_builtin_in_runner(
+                    runner, builtin_vars
+                )
 
                 # Verify substitution occurred
                 self.assertEqual(
-                    substituted_runner.preamble,
-                    "set -e\nexport BUILD_DIR=docker\n"
+                    substituted_runner.preamble, "set -e\nexport BUILD_DIR=docker\n"
                 )
                 self.assertEqual(substituted_runner.shell, "/bin/bash")
                 self.assertEqual(substituted_runner.dockerfile, "docker/Dockerfile")

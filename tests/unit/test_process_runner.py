@@ -17,7 +17,7 @@ from tasktree.process_runner import (
     StdoutOnlyProcessRunner,
     TaskOutputTypes,
     make_process_runner,
-    stream_output
+    stream_output,
 )
 
 
@@ -381,9 +381,7 @@ class TestStdoutOnlyProcessRunner(unittest.TestCase):
         # Run a command that produces stdout
         # We can't easily capture the output that goes to sys.stdout from the thread,
         # but we can verify the command executes successfully
-        result = self.runner.run(
-            [sys.executable, "-c", "print('test stdout')"]
-        )
+        result = self.runner.run([sys.executable, "-c", "print('test stdout')"])
 
         self.assertIsInstance(result, subprocess.CompletedProcess)
         self.assertEqual(result.returncode, 0)
@@ -509,9 +507,7 @@ class TestStderrOnlyProcessRunner(unittest.TestCase):
         @athena: TBD
         """
         # Run command that produces stdout - output should be suppressed
-        result = self.runner.run(
-            [sys.executable, "-c", "print('test output')"]
-        )
+        result = self.runner.run([sys.executable, "-c", "print('test output')"])
 
         self.assertEqual(result.returncode, 0)
         # stdout should be None (suppressed)
@@ -569,7 +565,9 @@ class TestStderrOnlyProcessRunner(unittest.TestCase):
         run() returns subprocess.CompletedProcess instance.
         @athena: TBD
         """
-        result = self.runner.run([sys.executable, "-c", "import sys; sys.stderr.write('test\\n')"])
+        result = self.runner.run(
+            [sys.executable, "-c", "import sys; sys.stderr.write('test\\n')"]
+        )
 
         self.assertIsInstance(result, subprocess.CompletedProcess)
         self.assertEqual(result.returncode, 0)
@@ -604,8 +602,12 @@ class TestStderrOnlyOnFailureProcessRunner(unittest.TestCase):
 
         with patch("sys.stderr", stderr_capture):
             result = self.runner.run(
-                [sys.executable, "-c", "import sys; sys.stderr.write('error message\\n'); sys.exit(0)"],
-                check=False
+                [
+                    sys.executable,
+                    "-c",
+                    "import sys; sys.stderr.write('error message\\n'); sys.exit(0)",
+                ],
+                check=False,
             )
 
         self.assertEqual(result.returncode, 0)
@@ -621,8 +623,12 @@ class TestStderrOnlyOnFailureProcessRunner(unittest.TestCase):
 
         with patch("sys.stderr", stderr_capture):
             result = self.runner.run(
-                [sys.executable, "-c", "import sys; sys.stderr.write('error message\\n'); sys.exit(1)"],
-                check=False
+                [
+                    sys.executable,
+                    "-c",
+                    "import sys; sys.stderr.write('error message\\n'); sys.exit(1)",
+                ],
+                check=False,
             )
 
         self.assertEqual(result.returncode, 1)
@@ -638,8 +644,7 @@ class TestStderrOnlyOnFailureProcessRunner(unittest.TestCase):
 
         with patch("sys.stderr", stderr_capture):
             result = self.runner.run(
-                [sys.executable, "-c", "import sys; sys.exit(1)"],
-                check=False
+                [sys.executable, "-c", "import sys; sys.exit(1)"], check=False
             )
 
         self.assertEqual(result.returncode, 1)
@@ -655,8 +660,7 @@ class TestStderrOnlyOnFailureProcessRunner(unittest.TestCase):
 
         with patch("sys.stderr", stderr_capture):
             result = self.runner.run(
-                [sys.executable, "-c", "import sys; sys.exit(0)"],
-                check=False
+                [sys.executable, "-c", "import sys; sys.exit(0)"], check=False
             )
 
         self.assertEqual(result.returncode, 0)
@@ -672,8 +676,12 @@ class TestStderrOnlyOnFailureProcessRunner(unittest.TestCase):
 
         with patch("sys.stdout", stdout_capture), patch("sys.stderr", stderr_capture):
             result = self.runner.run(
-                [sys.executable, "-c", "import sys; sys.stdout.write('stdout message\\n'); sys.stderr.write('stderr message\\n'); sys.exit(1)"],
-                check=False
+                [
+                    sys.executable,
+                    "-c",
+                    "import sys; sys.stdout.write('stdout message\\n'); sys.stderr.write('stderr message\\n'); sys.exit(1)",
+                ],
+                check=False,
             )
 
         self.assertEqual(result.returncode, 1)
@@ -689,8 +697,7 @@ class TestStderrOnlyOnFailureProcessRunner(unittest.TestCase):
         """
         with self.assertRaises(subprocess.CalledProcessError) as cm:
             self.runner.run(
-                [sys.executable, "-c", "import sys; sys.exit(1)"],
-                check=True
+                [sys.executable, "-c", "import sys; sys.exit(1)"], check=True
             )
 
         self.assertEqual(cm.exception.returncode, 1)
@@ -702,8 +709,7 @@ class TestStderrOnlyOnFailureProcessRunner(unittest.TestCase):
         """
         with self.assertRaises(subprocess.TimeoutExpired):
             self.runner.run(
-                [sys.executable, "-c", "import time; time.sleep(10)"],
-                timeout=0.1
+                [sys.executable, "-c", "import time; time.sleep(10)"], timeout=0.1
             )
 
     def test_stderr_only_on_failure_runner_is_process_runner(self):
@@ -745,8 +751,12 @@ class TestStderrOnlyOnFailureProcessRunner(unittest.TestCase):
 
         with patch("sys.stderr", stderr_capture):
             result = self.runner.run(
-                [sys.executable, "-c", "import sys; sys.stderr.write('line1\\n'); sys.stderr.write('line2\\n'); sys.stderr.write('line3\\n'); sys.exit(1)"],
-                check=False
+                [
+                    sys.executable,
+                    "-c",
+                    "import sys; sys.stderr.write('line1\\n'); sys.stderr.write('line2\\n'); sys.stderr.write('line3\\n'); sys.exit(1)",
+                ],
+                check=False,
             )
 
         self.assertEqual(result.returncode, 1)

@@ -189,7 +189,10 @@ class TestCheckRunnerChanged(unittest.TestCase):
         cached_state = TaskState(last_run=123.0, input_state={})
 
         result = self.executor._check_runner_changed(
-            task, cached_state, "", make_process_runner(TaskOutputTypes.ALL, logger_stub)
+            task,
+            cached_state,
+            "",
+            make_process_runner(TaskOutputTypes.ALL, logger_stub),
         )
 
         self.assertFalse(result)
@@ -204,7 +207,10 @@ class TestCheckRunnerChanged(unittest.TestCase):
         cached_state = TaskState(last_run=123.0, input_state={})
 
         result = self.executor._check_runner_changed(
-            task, cached_state, "test", make_process_runner(TaskOutputTypes.ALL, logger_stub)
+            task,
+            cached_state,
+            "test",
+            make_process_runner(TaskOutputTypes.ALL, logger_stub),
         )
 
         self.assertTrue(result)
@@ -223,7 +229,10 @@ class TestCheckRunnerChanged(unittest.TestCase):
         )
 
         result = self.executor._check_runner_changed(
-            task, cached_state, "test", make_process_runner(TaskOutputTypes.ALL, logger_stub)
+            task,
+            cached_state,
+            "test",
+            make_process_runner(TaskOutputTypes.ALL, logger_stub),
         )
 
         self.assertFalse(result)
@@ -244,12 +253,13 @@ class TestCheckRunnerChanged(unittest.TestCase):
 
         # Recipe now has modified runner
         # (self.runner has same shell, but let's modify the recipe)
-        self.recipe.runners["test"] = Runner(
-            name="test", shell="/bin/zsh", args=["-c"]
-        )
+        self.recipe.runners["test"] = Runner(name="test", shell="/bin/zsh", args=["-c"])
 
         result = self.executor._check_runner_changed(
-            task, cached_state, "test", make_process_runner(TaskOutputTypes.ALL, logger_stub)
+            task,
+            cached_state,
+            "test",
+            make_process_runner(TaskOutputTypes.ALL, logger_stub),
         )
 
         self.assertTrue(result)
@@ -269,7 +279,10 @@ class TestCheckRunnerChanged(unittest.TestCase):
         self.recipe.runners = {}
 
         result = self.executor._check_runner_changed(
-            task, cached_state, "test", make_process_runner(TaskOutputTypes.ALL, logger_stub)
+            task,
+            cached_state,
+            "test",
+            make_process_runner(TaskOutputTypes.ALL, logger_stub),
         )
 
         self.assertTrue(result)
@@ -331,7 +344,10 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         )
 
         result = self.executor._check_docker_image_changed(
-            self.runner, cached_state, "builder", make_process_runner(TaskOutputTypes.ALL, logger_stub)
+            self.runner,
+            cached_state,
+            "builder",
+            make_process_runner(TaskOutputTypes.ALL, logger_stub),
         )
 
         self.assertTrue(result)
@@ -359,7 +375,10 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         )
 
         result = self.executor._check_docker_image_changed(
-            self.runner, cached_state, "builder", make_process_runner(TaskOutputTypes.ALL, logger_stub)
+            self.runner,
+            cached_state,
+            "builder",
+            make_process_runner(TaskOutputTypes.ALL, logger_stub),
         )
 
         self.assertFalse(result)
@@ -388,7 +407,10 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         )
 
         result = self.executor._check_docker_image_changed(
-            self.runner, cached_state, "builder", make_process_runner(TaskOutputTypes.ALL, logger_stub)
+            self.runner,
+            cached_state,
+            "builder",
+            make_process_runner(TaskOutputTypes.ALL, logger_stub),
         )
 
         self.assertTrue(result)
@@ -423,7 +445,10 @@ class TestCheckDockerImageChanged(unittest.TestCase):
 
         # Should return False (both YAML and image ID unchanged)
         result = self.executor._check_runner_changed(
-            task, cached_state, "builder", make_process_runner(TaskOutputTypes.ALL, logger_stub)
+            task,
+            cached_state,
+            "builder",
+            make_process_runner(TaskOutputTypes.ALL, logger_stub),
         )
         self.assertFalse(result)
 
@@ -456,7 +481,10 @@ class TestCheckDockerImageChanged(unittest.TestCase):
 
         # Should return True (YAML changed)
         result = self.executor._check_runner_changed(
-            task, cached_state, "builder", make_process_runner(TaskOutputTypes.ALL, logger_stub)
+            task,
+            cached_state,
+            "builder",
+            make_process_runner(TaskOutputTypes.ALL, logger_stub),
         )
         self.assertTrue(result)
 

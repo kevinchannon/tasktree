@@ -1457,9 +1457,7 @@ def _parse_file_with_env(
     namespace: str | None,
     project_root: Path,
     import_stack: list[Path] | None = None,
-) -> tuple[
-    dict[str, Task], dict[str, Runner], str, dict[str, Any], dict[str, Any]
-]:
+) -> tuple[dict[str, Task], dict[str, Runner], str, dict[str, Any], dict[str, Any]]:
     """
     Parse file and extract tasks, runners, and variables.
 
@@ -1510,9 +1508,7 @@ def _parse_file_with_env(
                         continue  # Skip the default key itself
 
                     if not isinstance(env_config, dict):
-                        raise ValueError(
-                            f"Runner '{env_name}' must be a dictionary"
-                        )
+                        raise ValueError(f"Runner '{env_name}' must be a dictionary")
 
                     # Parse common runner configuration
                     shell = env_config.get("shell", "")
@@ -2067,7 +2063,7 @@ def _parse_file(
             source_file=str(file_path),
             run_in=task_data.get("run_in", ""),
             private=task_data.get("private", False),
-            task_output=task_data.get("task_output", None)
+            task_output=task_data.get("task_output", None),
         )
 
         # Check for case-sensitive argument collisions

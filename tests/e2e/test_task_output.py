@@ -252,11 +252,15 @@ tasks:
 """)
 
             # Test uppercase
-            result = run_tasktree_cli(["--task-output=NONE", "simple"], cwd=project_root)
+            result = run_tasktree_cli(
+                ["--task-output=NONE", "simple"], cwd=project_root
+            )
             self.assertEqual(result.returncode, 0, "Uppercase NONE should be accepted")
 
             # Test mixed case
-            result = run_tasktree_cli(["--task-output=None", "simple"], cwd=project_root)
+            result = run_tasktree_cli(
+                ["--task-output=None", "simple"], cwd=project_root
+            )
             self.assertEqual(result.returncode, 0, "Mixed case None should be accepted")
 
     def test_task_output_err_shows_only_stderr(self):
@@ -485,12 +489,20 @@ tasks:
 """)
 
             # Test uppercase
-            result = run_tasktree_cli(["--task-output=ON-ERR", "simple"], cwd=project_root)
-            self.assertEqual(result.returncode, 0, "Uppercase ON-ERR should be accepted")
+            result = run_tasktree_cli(
+                ["--task-output=ON-ERR", "simple"], cwd=project_root
+            )
+            self.assertEqual(
+                result.returncode, 0, "Uppercase ON-ERR should be accepted"
+            )
 
             # Test mixed case
-            result = run_tasktree_cli(["--task-output=On-Err", "simple"], cwd=project_root)
-            self.assertEqual(result.returncode, 0, "Mixed case On-Err should be accepted")
+            result = run_tasktree_cli(
+                ["--task-output=On-Err", "simple"], cwd=project_root
+            )
+            self.assertEqual(
+                result.returncode, 0, "Mixed case On-Err should be accepted"
+            )
 
     def test_task_output_on_err_with_short_flag(self):
         """
@@ -512,7 +524,9 @@ tasks:
 """)
 
             # Execute with -O on-err
-            result = run_tasktree_cli(["-O", "on-err", "successful-task"], cwd=project_root)
+            result = run_tasktree_cli(
+                ["-O", "on-err", "successful-task"], cwd=project_root
+            )
 
             # Assert success
             self.assertEqual(

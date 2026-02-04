@@ -370,7 +370,9 @@ def main(
         None,
         "--task-output",
         "-O",
-        click_type=click.Choice([t.value for t in TaskOutputTypes], case_sensitive=False),
+        click_type=click.Choice(
+            [t.value for t in TaskOutputTypes], case_sensitive=False
+        ),
         help="""Control task subprocess output display:
         
         - all: show both stdout and stderr output from tasks\n

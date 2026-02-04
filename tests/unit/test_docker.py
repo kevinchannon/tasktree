@@ -365,7 +365,9 @@ class TestDockerManager(unittest.TestCase):
             return None
 
         mock_run.side_effect = mock_run_side_effect
-        self.manager.ensure_image_built(env, make_process_runner(TaskOutputTypes.ALL, logger_stub))
+        self.manager.ensure_image_built(
+            env, make_process_runner(TaskOutputTypes.ALL, logger_stub)
+        )
 
         # Check that docker build was called with correct args (2nd call, after docker --version)
         build_call_args = mock_run.call_args_list[1][0][0]
@@ -399,7 +401,9 @@ class TestDockerManager(unittest.TestCase):
 
         mock_run.side_effect = mock_run_side_effect
 
-        self.manager.ensure_image_built(env, make_process_runner(TaskOutputTypes.ALL, logger_stub))
+        self.manager.ensure_image_built(
+            env, make_process_runner(TaskOutputTypes.ALL, logger_stub)
+        )
 
         # Check that docker build was called with build args (2nd call, after docker --version)
         build_call_args = mock_run.call_args_list[1][0][0]
@@ -450,7 +454,9 @@ class TestDockerManager(unittest.TestCase):
 
         mock_run.side_effect = mock_run_side_effect
 
-        self.manager.ensure_image_built(env, make_process_runner(TaskOutputTypes.ALL, logger_stub))
+        self.manager.ensure_image_built(
+            env, make_process_runner(TaskOutputTypes.ALL, logger_stub)
+        )
 
         # Check that docker build was called (2nd call, after docker --version)
         build_call_args = mock_run.call_args_list[1][0][0]
@@ -491,7 +497,9 @@ class TestDockerManager(unittest.TestCase):
 
         mock_run.side_effect = mock_run_side_effect
 
-        self.manager.ensure_image_built(env, make_process_runner(TaskOutputTypes.ALL, logger_stub))
+        self.manager.ensure_image_built(
+            env, make_process_runner(TaskOutputTypes.ALL, logger_stub)
+        )
 
         # Check that docker build was called (2nd call, after docker --version)
         build_call_args = mock_run.call_args_list[1][0][0]

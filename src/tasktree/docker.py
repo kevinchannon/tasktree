@@ -327,7 +327,9 @@ def is_docker_runner(env: Runner) -> bool:
     return bool(env.dockerfile)
 
 
-def resolve_container_working_dir(env_working_dir: str, task_working_dir: str) -> str | None:
+def resolve_container_working_dir(
+    env_working_dir: str, task_working_dir: str
+) -> str | None:
     """
     Resolve working directory inside container.
 
