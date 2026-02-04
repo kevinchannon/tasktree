@@ -322,8 +322,8 @@ class Recipe:
     project_root: Path
     recipe_path: Path  # Path to the recipe file
     runners: dict[str, Runner] = field(default_factory=dict)
-    default_env: str = ""  # Name of default runner
-    global_env_override: str = ""  # Global runner override (set via CLI --run-in)
+    default_runner: str = ""  # Name of default runner
+    global_runner_override: str = ""  # Global runner override (set via CLI --run-in)
     variables: dict[str, str] = field(
         default_factory=dict
     )  # Global variables (resolved at parse time) - DEPRECATED, use evaluated_variables
@@ -1031,7 +1031,7 @@ def _resolve_eval_variable(
     var_name: Name of the variable being defined
     command: Command to execute
     recipe_file_path: Path to recipe file (for working directory)
-    recipe_data: Parsed YAML data (for accessing default_env)
+    recipe_data: Parsed YAML data (for accessing default_runner)
 
     Returns:
     Command stdout as string (with trailing newline stripped)
@@ -1044,13 +1044,13 @@ def _resolve_eval_variable(
     shell = None
     shell_args = []
 
-    # Check if recipe has default_env specified
+    # Check if recipe has default_runner specified
     if recipe_data and "runners" in recipe_data:
         env_data = recipe_data["runners"]
         if isinstance(env_data, dict):
-            default_env_name = env_data.get("default", "")
-            if default_env_name and default_env_name in env_data:
-                env_config = env_data[default_env_name]
+            default_runner_name = env_data.get("default", "")
+            if default_runner_name and default_runner_name in env_data:
+                env_config = env_data[default_runner_name]
                 if isinstance(env_config, dict):
                     shell = env_config.get("shell", "")
                     shell_args = env_config.get("args", [])
@@ -1126,7 +1126,7 @@ def _resolve_variable_value(
     resolved: Dictionary of already-resolved variables
     resolution_stack: Stack of variables currently being resolved (for circular detection)
     file_path: Path to recipe file (for resolving relative file paths in { read: ... })
-    recipe_data: Parsed YAML data (for accessing default_env in { eval: ... })
+    recipe_data: Parsed YAML data (for accessing default_runner in { eval: ... })
 
     Returns:
     Resolved string value
@@ -1470,7 +1470,7 @@ def _parse_file_with_env(
     import_stack: Stack of files being imported (for circular detection)
 
     Returns:
-    Tuple of (tasks, runners, default_env_name, raw_variables, YAML_data)
+    Tuple of (tasks, runners, default_runner_name, raw_variables, YAML_data)
     Note: Variables are NOT evaluated here - they're stored as raw specs for lazy evaluation
     @athena: 8b00183e612d
     """
@@ -1479,7 +1479,7 @@ def _parse_file_with_env(
 
     # Load YAML again to extract runners and variables (only from root file)
     runners: dict[str, Runner] = {}
-    default_env = ""
+    default_runner = ""
     raw_variables: dict[str, Any] = {}
     yaml_data: dict[str, Any] = {}
 
@@ -1502,7 +1502,7 @@ def _parse_file_with_env(
             env_data = data["runners"]
             if isinstance(env_data, dict):
                 # Extract default environment name
-                default_env = env_data.get("default", "")
+                default_runner = env_data.get("default", "")
 
                 # Parse each runner definition
                 for env_name, env_config in env_data.items():
@@ -1591,7 +1591,7 @@ def _parse_file_with_env(
                         run_as_root=run_as_root,
                     )
 
-    return tasks, runners, default_env, raw_variables, yaml_data
+    return tasks, runners, default_runner, raw_variables, yaml_data
 
 
 def collect_reachable_tasks(tasks: dict[str, Task], root_task: str) -> set[str]:
@@ -1837,7 +1837,7 @@ def parse_recipe(
 
     # Parse main file - it will recursively handle all imports
     # Variables are NOT evaluated here (lazy evaluation)
-    tasks, environments, default_env, raw_variables, yaml_data = _parse_file_with_env(
+    tasks, runners, default_runner, raw_variables, yaml_data = _parse_file_with_env(
         recipe_path, namespace=None, project_root=project_root
     )
 
@@ -1846,8 +1846,8 @@ def parse_recipe(
         tasks=tasks,
         project_root=project_root,
         recipe_path=recipe_path,
-        environments=environments,
-        default_env=default_env,
+        runners=runners,
+        default_runner=default_runner,
         variables={},  # Empty initially (deprecated field)
         raw_variables=raw_variables,
         evaluated_variables={},  # Empty initially

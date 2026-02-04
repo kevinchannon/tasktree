@@ -282,9 +282,9 @@ class Executor:
         else:
             return "bash", ["-c"]
 
-    def _get_effective_env_name(self, task: Task) -> str:
+    def _get_effective_runner_name(self, task: Task) -> str:
         """
-        Get the effective environment name for a task.
+        Get the effective runner name for a task.
 
         Resolution order:
         1. Recipe's global_env_override (from CLI --env)
@@ -300,16 +300,16 @@ class Executor:
         @athena: e5bface8a3a2
         """
         # Check for global override first
-        if self.recipe.global_env_override:
-            return self.recipe.global_env_override
+        if self.recipe.global_runner_override:
+            return self.recipe.global_runner_override
 
         # Use task's runner
         if task.run_in:
             return task.run_in
 
         # Use recipe default
-        if self.recipe.default_env:
-            return self.recipe.default_env
+        if self.recipe.default_runner:
+            return self.recipe.default_runner
 
         # Platform default (no env name)
         return ""
@@ -332,15 +332,15 @@ class Executor:
         @athena: 15cad76d7c80
         """
         # Check for global override first
-        env_name = self.recipe.global_env_override
+        env_name = self.recipe.global_runner_override
 
         # If no global override, use task's runner
         if not env_name:
             env_name = task.run_in
 
         # If no explicit runner, try recipe default
-        if not env_name and self.recipe.default_env:
-            env_name = self.recipe.default_env
+        if not env_name and self.recipe.default_runner:
+            env_name = self.recipe.default_runner
 
         # If we have a runner name, look it up
         if env_name:
@@ -392,7 +392,7 @@ class Executor:
             )
 
         # Compute hashes (include effective environment and dependencies)
-        effective_env = self._get_effective_env_name(task)
+        effective_env = self._get_effective_runner_name(task)
         task_hash = hash_task(
             task.cmd,
             task.outputs,
@@ -422,7 +422,7 @@ class Executor:
                 reason="never_run",
             )
 
-        env_changed = self._check_environment_changed(
+        env_changed = self._check_runner_changed(
             task, cached_state, effective_env, process_runner
         )
         if env_changed:
@@ -640,7 +640,7 @@ class Executor:
         cmd = self._substitute_env(cmd)
 
         # Check if task uses Docker environment
-        env_name = self._get_effective_env_name(task)
+        env_name = self._get_effective_runner_name(task)
         env = None
         if env_name:
             env = self.recipe.get_runner(env_name)
@@ -1119,7 +1119,7 @@ class Executor:
         return all_inputs
 
     # TODO: Understand why task isn't used
-    def _check_environment_changed(
+    def _check_runner_changed(
         self,
         task: Task,
         cached_state: TaskState,
@@ -1135,7 +1135,7 @@ class Executor:
         Args:
         task: Task to check
         cached_state: Cached state from previous run
-        env_name: Effective environment name (from _get_effective_env_name)
+        env_name: Effective runner name (from _get_effective_runner_name)
         process_runner: ProcessRunner instance for subprocess execution
 
         Returns:
@@ -1247,7 +1247,7 @@ class Executor:
         input_files = self._expand_globs(all_inputs, task.working_dir)
 
         # Check if task uses Docker environment
-        env_name = self._get_effective_env_name(task)
+        env_name = self._get_effective_runner_name(task)
         docker_env = None
         if env_name:
             docker_env = self.recipe.get_runner(env_name)
@@ -1405,7 +1405,7 @@ class Executor:
         cache_key = self._cache_key(task, args_dict)
         input_state = self._input_files_to_modified_times(task)
 
-        env_name = self._get_effective_env_name(task)
+        env_name = self._get_effective_runner_name(task)
         if env_name:
             env = self.recipe.get_runner(env_name)
             if env:
@@ -1421,7 +1421,7 @@ class Executor:
         """
         @athena: d20ce4090741
         """
-        effective_env = self._get_effective_env_name(task)
+        effective_env = self._get_effective_runner_name(task)
         task_hash = hash_task(
             task.cmd,
             task.outputs,

@@ -567,7 +567,7 @@ def _execute_dynamic_task(
             for env_name in sorted(recipe.runners.keys()):
                 logger.info(f"  - {env_name}")
             raise typer.Exit(1)
-        recipe.global_env_override = env
+        recipe.global_runner_override = env
 
     task = recipe.get_task(task_name)
     if task is None:

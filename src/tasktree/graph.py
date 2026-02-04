@@ -565,7 +565,7 @@ def get_implicit_inputs(recipe: Recipe, task: Task) -> list[str]:
             implicit_inputs.extend(dep_task.inputs)
 
     # Add Docker-specific implicit inputs if task uses Docker runner
-    env_name = task.run_in or recipe.default_env
+    env_name = task.run_in or recipe.default_runner
     if env_name:
         env = recipe.get_runner(env_name)
         if env and env.dockerfile:

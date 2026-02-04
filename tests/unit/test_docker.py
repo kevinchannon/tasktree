@@ -307,7 +307,7 @@ class TestDockerManager(unittest.TestCase):
         Test that images are cached per invocation.
         @athena: ec5dd97bc4a8
         """
-        env = Environment(
+        env = Runner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
@@ -349,7 +349,7 @@ class TestDockerManager(unittest.TestCase):
         Test that docker build command is structured correctly.
         @athena: 21151cc7a8dd
         """
-        env = Environment(
+        env = Runner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
@@ -381,7 +381,7 @@ class TestDockerManager(unittest.TestCase):
         Test that docker build command includes --build-arg flags.
         @athena: 581199f6c680
         """
-        env = Environment(
+        env = Runner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
@@ -432,7 +432,7 @@ class TestDockerManager(unittest.TestCase):
         Test that docker build command works with empty build args dict.
         @athena: 28b44704ab1c
         """
-        env = Environment(
+        env = Runner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
@@ -468,7 +468,7 @@ class TestDockerManager(unittest.TestCase):
         Test that build args with special characters are handled correctly.
         @athena: ce755595bb2a
         """
-        env = Environment(
+        env = Runner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
@@ -590,7 +590,7 @@ class TestDockerManager(unittest.TestCase):
         mock_getuid.return_value = 1000
         mock_getgid.return_value = 1000
 
-        env = Environment(
+        env = Runner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
@@ -634,7 +634,7 @@ class TestDockerManager(unittest.TestCase):
         """
         mock_platform.return_value = "Windows"
 
-        env = Environment(
+        env = Runner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
@@ -682,7 +682,7 @@ class TestDockerManager(unittest.TestCase):
         mock_getuid.return_value = 1000
         mock_getgid.return_value = 1000
 
-        env = Environment(
+        env = Runner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
@@ -725,7 +725,7 @@ class TestDockerManager(unittest.TestCase):
         """
         mock_platform.return_value = "Windows"  # Skip user flag for simplicity
 
-        env = Environment(
+        env = Runner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
@@ -782,7 +782,7 @@ class TestDockerManager(unittest.TestCase):
         """
         mock_platform.return_value = "Windows"
 
-        env = Environment(
+        env = Runner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
@@ -827,7 +827,7 @@ class TestDockerManager(unittest.TestCase):
         """
         mock_platform.return_value = "Windows"
 
-        env = Environment(
+        env = Runner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
@@ -878,7 +878,7 @@ class TestDockerManager(unittest.TestCase):
         mock_platform.return_value = "Linux"
 
         # Environment with already-substituted path (as would come from executor)
-        env = Environment(
+        env = Runner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
