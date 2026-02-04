@@ -11,10 +11,12 @@ import re
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, List
+from typing import Any, List, Optional
 
+import typer
 import yaml
 
+from tasktree.logging import Logger
 from tasktree.types import get_click_type
 from tasktree.process_runner import TaskOutputTypes
 
@@ -2686,3 +2688,138 @@ def _parse_named_dependency_args(
             )
 
     return DependencyInvocation(task_name=task_name, args=normalized_args)
+
+
+def get_recipe(
+    logger: Logger, recipe_file: Optional[str] = None, root_task: Optional[str] = None
+) -> Optional[Recipe]:
+    """
+    Get parsed recipe or None if not found.
+
+    Args:
+    logger_fn: Logger function for output
+    recipe_file: Optional path to recipe file. If not provided, searches for recipe file.
+    root_task: Optional root task for lazy variable evaluation. If provided, only variables
+    reachable from this task will be evaluated (performance optimization).
+    @athena: ded906495d18
+    """
+    if recipe_file:
+        recipe_path = Path(recipe_file)
+        if not recipe_path.exists():
+            logger.error(f"[red]Recipe file not found: {recipe_file}[/red]")
+            raise typer.Exit(1)
+        # When explicitly specified, project root is current working directory
+        project_root = Path.cwd()
+    else:
+        try:
+            recipe_path = find_recipe_file()
+            if recipe_path is None:
+                return None
+        except ValueError as e:
+            # Multiple recipe files found
+            logger.error(f"[red]{e}[/red]")
+            raise typer.Exit(1)
+        # When auto-discovered, project root is recipe file's parent
+        project_root = None
+
+    try:
+        return parse_recipe(recipe_path, project_root, root_task)
+    except Exception as e:
+        logger.error(f"[red]Error parsing recipe: {e}[/red]")
+        raise typer.Exit(1)
+
+
+def parse_task_args(
+    logger: Logger, arg_specs: list[str], arg_values: list[str]
+) -> dict[str, Any]:
+    """
+    Parse and validate task arguments from command line values.
+
+    Args:
+    logger: Logger interface for output
+    arg_specs: Task argument specifications with types and defaults
+    arg_values: Raw argument values from command line (positional or named)
+
+    Returns:
+    Dictionary mapping argument names to typed, validated values
+
+    Raises:
+    typer.Exit: If arguments are invalid, missing, or unknown
+
+    @athena: d9a7ea55c3d6
+    """
+    if not arg_specs:
+        if arg_values:
+            logger.error("[red]Task does not accept arguments[/red]")
+            raise typer.Exit(1)
+        return {}
+
+    parsed_specs = []
+    for spec in arg_specs:
+        parsed = parse_arg_spec(spec)
+        parsed_specs.append(parsed)
+
+    args_dict = {}
+    positional_index = 0
+
+    for i, value_str in enumerate(arg_values):
+        # Check if it's a named argument (name=value)
+        if "=" in value_str:
+            arg_name, arg_value = value_str.split("=", 1)
+            # Find the spec for this argument
+            spec = next((s for s in parsed_specs if s.name == arg_name), None)
+            if spec is None:
+                logger.error(f"[red]Unknown argument: {arg_name}[/red]")
+                raise typer.Exit(1)
+        else:
+            # Positional argument
+            if positional_index >= len(parsed_specs):
+                logger.error("[red]Too many arguments[/red]")
+                raise typer.Exit(1)
+            spec = parsed_specs[positional_index]
+            arg_value = value_str
+            positional_index += 1
+
+        # Convert value to appropriate type (exported args are always strings)
+        try:
+            click_type = get_click_type(
+                spec.arg_type, min_val=spec.min_val, max_val=spec.max_val
+            )
+            converted_value = click_type.convert(arg_value, None, None)
+
+            # Validate choices after type conversion
+            if spec.choices is not None and converted_value not in spec.choices:
+                logger.error(
+                    f"[red]Invalid value for {spec.name}: {converted_value!r}[/red]",
+                )
+                logger.info(
+                    f"Valid choices: {', '.join(repr(c) for c in spec.choices)}",
+                )
+                raise typer.Exit(1)
+
+            args_dict[spec.name] = converted_value
+        except typer.Exit:
+            raise  # Re-raise typer.Exit without wrapping
+        except Exception as e:
+            logger.error(f"[red]Invalid value for {spec.name}: {e}[/red]")
+            raise typer.Exit(1)
+
+    # Fill in defaults for missing arguments
+    for spec in parsed_specs:
+        if spec.name not in args_dict:
+            if spec.default is not None:
+                try:
+                    click_type = get_click_type(
+                        spec.arg_type, min_val=spec.min_val, max_val=spec.max_val
+                    )
+                    args_dict[spec.name] = click_type.convert(spec.default, None, None)
+                except Exception as e:
+                    logger.error(
+                        f"[red]Invalid default value for {spec.name}: {e}[/red]",
+                    )
+                    raise typer.Exit(1)
+            else:
+                logger.error(f"[red]Missing required argument: {spec.name}[/red]")
+                raise typer.Exit(1)
+
+    return args_dict

@@ -1,11 +1,11 @@
 """Unit tests for --list output formatting."""
 
 import unittest
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
 from rich.table import Table
 
-from tasktree.cli import _format_task_arguments, _list_tasks
+from tasktree.cli_commands.list_tasks import list_tasks, _format_task_arguments
 from tasktree.parser import Recipe, Task
 from tasktree.console_logger import ConsoleLogger
 
@@ -237,7 +237,7 @@ class TestFormatTaskArguments(unittest.TestCase):
 
 class TestListFormatting(unittest.TestCase):
     """
-    Tests for _list_tasks() output formatting.
+    Tests for list_tasks() output formatting.
     @athena: b2b2c8a1fbd0
     """
 
@@ -269,7 +269,7 @@ class TestListFormatting(unittest.TestCase):
         recipe.get_task.side_effect = lambda name: tasks_dict.get(name)
         return recipe
 
-    @patch("tasktree.cli._get_recipe")
+    @patch("tasktree.cli_commands.list_tasks.get_recipe")
     def test_list_uses_borderless_table_format(self, mock_get_recipe):
         """
         Test list uses borderless table format.
@@ -280,7 +280,7 @@ class TestListFormatting(unittest.TestCase):
 
         console_spy = MagicMock()
         console_spy.print = MagicMock()
-        _list_tasks(ConsoleLogger(console_spy))
+        list_tasks(ConsoleLogger(console_spy))
 
         # Verify logger_fn was called
         console_spy.print.assert_called_once()
@@ -292,7 +292,7 @@ class TestListFormatting(unittest.TestCase):
         self.assertFalse(table.show_header)
         self.assertIsNone(table.box)
 
-    @patch("tasktree.cli._get_recipe")
+    @patch("tasktree.cli_commands.list_tasks.get_recipe")
     def test_list_applies_correct_column_padding(self, mock_get_recipe):
         """
         Test list applies correct column padding.
@@ -303,14 +303,14 @@ class TestListFormatting(unittest.TestCase):
 
         console_spy = MagicMock()
         console_spy.print = MagicMock()
-        _list_tasks(ConsoleLogger(console_spy))
+        list_tasks(ConsoleLogger(console_spy))
 
         table = console_spy.print.call_args[0][0]
         # Rich Table padding can be a tuple of (top, right, bottom, left) or (vertical, horizontal)
         # Check that horizontal padding is 2
         self.assertIn(table.padding, [(0, 2), (0, 2, 0, 2)])
 
-    @patch("tasktree.cli._get_recipe")
+    @patch("tasktree.cli_commands.list_tasks.get_recipe")
     def test_list_calculates_command_column_width_from_longest_task_name(
         self, mock_get_recipe
     ):
@@ -329,13 +329,13 @@ class TestListFormatting(unittest.TestCase):
 
         console_spy = MagicMock()
         console_spy.print = MagicMock()
-        _list_tasks(ConsoleLogger(console_spy))
+        list_tasks(ConsoleLogger(console_spy))
 
         table = console_spy.print.call_args[0][0]
         # Command column should have width equal to longest name
         self.assertEqual(table.columns[0].width, len("very-long-task-name"))
 
-    @patch("tasktree.cli._get_recipe")
+    @patch("tasktree.cli_commands.list_tasks.get_recipe")
     def test_list_command_column_never_wraps(self, mock_get_recipe):
         """
         Test list command column never wraps.
@@ -346,13 +346,13 @@ class TestListFormatting(unittest.TestCase):
 
         console_spy = MagicMock()
         console_spy.print = MagicMock()
-        _list_tasks(ConsoleLogger(console_spy))
+        list_tasks(ConsoleLogger(console_spy))
 
         table = console_spy.print.call_args[0][0]
         # Command column should have no_wrap=True
         self.assertTrue(table.columns[0].no_wrap)
 
-    @patch("tasktree.cli._get_recipe")
+    @patch("tasktree.cli_commands.list_tasks.get_recipe")
     def test_list_shows_namespaced_tasks(self, mock_get_recipe):
         """
         Test list shows namespaced tasks.
@@ -366,13 +366,13 @@ class TestListFormatting(unittest.TestCase):
 
         console_spy = MagicMock()
         console_spy.print = MagicMock()
-        _list_tasks(ConsoleLogger(console_spy))
+        list_tasks(ConsoleLogger(console_spy))
 
         table = console_spy.print.call_args[0][0]
         # Table should have 2 rows (one for each task)
         self.assertEqual(len(table.rows), 2)
 
-    @patch("tasktree.cli._get_recipe")
+    @patch("tasktree.cli_commands.list_tasks.get_recipe")
     def test_list_formats_tasks_from_multiple_namespaces(self, mock_get_recipe):
         """
         Test list formats tasks from multiple namespaces.
@@ -388,12 +388,12 @@ class TestListFormatting(unittest.TestCase):
 
         console_spy = MagicMock()
         console_spy.print = MagicMock()
-        _list_tasks(ConsoleLogger(console_spy))
+        list_tasks(ConsoleLogger(console_spy))
 
         table = console_spy.print.call_args[0][0]
         self.assertEqual(len(table.rows), 4)
 
-    @patch("tasktree.cli._get_recipe")
+    @patch("tasktree.cli_commands.list_tasks.get_recipe")
     def test_list_handles_empty_task_list(self, mock_get_recipe):
         """
         Test list handles empty task list.
@@ -404,14 +404,14 @@ class TestListFormatting(unittest.TestCase):
 
         console_spy = MagicMock()
         console_spy.print = MagicMock()
-        _list_tasks(ConsoleLogger(console_spy))
+        list_tasks(ConsoleLogger(console_spy))
 
         # Should still print a table (just empty)
         console_spy.print.assert_called_once()
         table = console_spy.print.call_args[0][0]
         self.assertEqual(len(table.rows), 0)
 
-    @patch("tasktree.cli._get_recipe")
+    @patch("tasktree.cli_commands.list_tasks.get_recipe")
     def test_list_handles_tasks_with_long_descriptions(self, mock_get_recipe):
         """
         Test list handles tasks with long descriptions.
@@ -426,12 +426,12 @@ class TestListFormatting(unittest.TestCase):
 
         console_spy = MagicMock()
         console_spy.print = MagicMock()
-        _list_tasks(ConsoleLogger(console_spy))
+        list_tasks(ConsoleLogger(console_spy))
 
         # Should not raise any errors
         console_spy.print.assert_called_once()
 
-    @patch("tasktree.cli._get_recipe")
+    @patch("tasktree.cli_commands.list_tasks.get_recipe")
     def test_list_applies_bold_style_to_task_names(self, mock_get_recipe):
         """
         Test list applies bold style to task names.
@@ -442,14 +442,14 @@ class TestListFormatting(unittest.TestCase):
 
         console_spy = MagicMock()
         console_spy.print = MagicMock()
-        _list_tasks(ConsoleLogger(console_spy))
+        list_tasks(ConsoleLogger(console_spy))
 
         table = console_spy.print.call_args[0][0]
         # Command column should have bold cyan style
         self.assertIn("bold", table.columns[0].style)
         self.assertIn("cyan", table.columns[0].style)
 
-    @patch("tasktree.cli._get_recipe")
+    @patch("tasktree.cli_commands.list_tasks.get_recipe")
     def test_list_separates_columns_visually(self, mock_get_recipe):
         """
         Test list separates columns visually.
@@ -460,14 +460,14 @@ class TestListFormatting(unittest.TestCase):
 
         console_spy = MagicMock()
         console_spy.print = MagicMock()
-        _list_tasks(ConsoleLogger(console_spy))
+        list_tasks(ConsoleLogger(console_spy))
 
         table = console_spy.print.call_args[0][0]
         # Padding should provide visual separation
         # Rich Table padding can be a tuple of (top, right, bottom, left) or (vertical, horizontal)
         self.assertIn(table.padding, [(0, 2), (0, 2, 0, 2)])
 
-    @patch("tasktree.cli._get_recipe")
+    @patch("tasktree.cli_commands.list_tasks.get_recipe")
     def test_list_excludes_private_tasks(self, mock_get_recipe):
         """
         Test that private tasks are excluded from list output.
@@ -485,13 +485,13 @@ class TestListFormatting(unittest.TestCase):
 
         console_spy = MagicMock()
         console_spy.print = MagicMock()
-        _list_tasks(ConsoleLogger(console_spy))
+        list_tasks(ConsoleLogger(console_spy))
 
         table = console_spy.print.call_args[0][0]
         # Should only have 1 row (the public task)
         self.assertEqual(len(table.rows), 1)
 
-    @patch("tasktree.cli._get_recipe")
+    @patch("tasktree.cli_commands.list_tasks.get_recipe")
     def test_list_includes_tasks_without_private_field(self, mock_get_recipe):
         """
         Test that tasks without private field (default False) are included.
@@ -504,13 +504,13 @@ class TestListFormatting(unittest.TestCase):
 
         console_spy = MagicMock()
         console_spy.print = MagicMock()
-        _list_tasks(ConsoleLogger(console_spy))
+        list_tasks(ConsoleLogger(console_spy))
 
         table = console_spy.print.call_args[0][0]
         # Should have 1 row
         self.assertEqual(len(table.rows), 1)
 
-    @patch("tasktree.cli._get_recipe")
+    @patch("tasktree.cli_commands.list_tasks.get_recipe")
     def test_list_with_mixed_private_and_public_tasks(self, mock_get_recipe):
         """
         Test list with mixed private and public tasks.
@@ -532,13 +532,13 @@ class TestListFormatting(unittest.TestCase):
 
         console_spy = MagicMock()
         console_spy.print = MagicMock()
-        _list_tasks(ConsoleLogger(console_spy))
+        list_tasks(ConsoleLogger(console_spy))
 
         table = console_spy.print.call_args[0][0]
         # Should only have 2 rows (public1 and public2)
         self.assertEqual(len(table.rows), 2)
 
-    @patch("tasktree.cli._get_recipe")
+    @patch("tasktree.cli_commands.list_tasks.get_recipe")
     def test_list_with_only_private_tasks(self, mock_get_recipe):
         """
         Test list with only private tasks shows empty table.
@@ -556,7 +556,7 @@ class TestListFormatting(unittest.TestCase):
 
         console_spy = MagicMock()
         console_spy.print = MagicMock()
-        _list_tasks(ConsoleLogger(console_spy))
+        list_tasks(ConsoleLogger(console_spy))
 
         table = console_spy.print.call_args[0][0]
         # Should have 0 rows

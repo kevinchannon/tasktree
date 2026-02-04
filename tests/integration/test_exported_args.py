@@ -8,7 +8,7 @@ from tempfile import TemporaryDirectory
 
 from helpers.logging import logger_stub
 from tasktree.executor import Executor
-from tasktree.parser import parse_recipe
+from tasktree.parser import parse_recipe, parse_task_args
 from tasktree.process_runner import TaskOutputTypes, make_process_runner
 from tasktree.state import StateManager
 
@@ -116,14 +116,13 @@ tasks:
 """)
 
             # Use CLI to parse and execute (simulating real usage)
-            from tasktree.cli import _parse_task_args
 
             recipe = parse_recipe(recipe_path)
             task = recipe.get_task("test")
 
             # Parse args with CLI (which applies defaults)
             # Only provide server, not port (port should use default)
-            args_dict = _parse_task_args(logger_stub, task.args, ["prod-server"])
+            args_dict = parse_task_args(logger_stub, task.args, ["prod-server"])
 
             # Verify CLI applied the default
             # Exported args are always strings (environment variables)
