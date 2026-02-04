@@ -1152,7 +1152,7 @@ class Executor:
         @athena: e206e104150a
         """
         # If using platform default (no environment), no definition to track
-        if not env_name:
+        if not env_name or env_name == "__platform_default__":
             return False
 
         # Get environment definition
