@@ -37,8 +37,10 @@ def find_project_config(start_dir: Path) -> Optional[Path]:
         # Return None to indicate config not found
         return None
 
-    # Walk up the directory tree
-    while True:
+    # Walk up the directory tree with a safety limit
+    # Maximum depth of 100 prevents infinite loops in edge cases
+    max_depth = 100
+    for _ in range(max_depth):
         try:
             config_path = current / ".tasktree-config.yml"
             if config_path.exists():
