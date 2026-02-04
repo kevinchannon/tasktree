@@ -613,7 +613,7 @@ def _execute_dynamic_task(
             task.outputs,
             task.working_dir,
             task.args,
-            executor._get_effective_env_name(task),
+            executor._get_effective_runner_name(task),
             task.deps,
         )
 
