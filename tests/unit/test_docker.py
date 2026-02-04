@@ -271,11 +271,11 @@ class TestResolveContainerWorkingDir(unittest.TestCase):
 
     def test_neither_specified(self):
         """
-        Test with neither specified.
+        Test with neither specified - should return None to use Dockerfile WORKDIR.
         @athena: 3f333b5c4c62
         """
         result = resolve_container_working_dir("", "")
-        self.assertEqual(result, "/")
+        self.assertIsNone(result)
 
     def test_path_normalization(self):
         """

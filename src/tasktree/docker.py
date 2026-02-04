@@ -150,7 +150,7 @@ class DockerManager:
         env: Environment,
         cmd: str,
         working_dir: Path,
-        container_working_dir: str,
+        container_working_dir: str | None,
         process_runner: ProcessRunner,
     ) -> subprocess.CompletedProcess:
         """
@@ -160,7 +160,7 @@ class DockerManager:
         env: Environment definition
         cmd: Command to execute
         working_dir: Host working directory (for resolving relative volume paths)
-        container_working_dir: Working directory inside container
+        container_working_dir: Working directory inside container, or None to use Dockerfile's WORKDIR
         process_runner: ProcessRunner instance to use for subprocess execution
 
         Returns:
@@ -327,25 +327,25 @@ def is_docker_environment(env: Environment) -> bool:
     return bool(env.dockerfile)
 
 
-def resolve_container_working_dir(env_working_dir: str, task_working_dir: str) -> str:
+def resolve_container_working_dir(env_working_dir: str, task_working_dir: str) -> str | None:
     """
     Resolve working directory inside container.
 
     Combines environment's working_dir with task's working_dir:
     - If task specifies working_dir: container_dir = env_working_dir / task_working_dir
     - If task doesn't specify: container_dir = env_working_dir
-    - If neither specify: container_dir = "/" (Docker default)
+    - If neither specify: container_dir = None (use Dockerfile's WORKDIR)
 
     Args:
     env_working_dir: Working directory from environment definition
     task_working_dir: Working directory from task definition
 
     Returns:
-    Resolved working directory path
+    Resolved working directory path, or None if neither specified
     @athena: bb13d00dd07d
     """
     if not env_working_dir and not task_working_dir:
-        return "/"
+        return None
 
     if not task_working_dir:
         return env_working_dir
