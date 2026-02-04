@@ -354,8 +354,8 @@ def main(
         "-o",
         help="Run only the specified task, skip dependencies (implies --force)",
     ),
-    env: Optional[str] = typer.Option(
-        None, "--env", "-e", help="Override environment for all tasks"
+    runner: Optional[str] = typer.Option(
+        None, "--runner", "-r", help="Override runner for all tasks"
     ),
     log_level: str = typer.Option(
         "info",
@@ -428,7 +428,7 @@ def main(
             task_args,
             force=force_execution,
             only=only or False,
-            env=env,
+            runner=runner,
             tasks_file=tasks_file,
             task_output=task_output,
         )
@@ -526,7 +526,7 @@ def _execute_dynamic_task(
     args: list[str],
     force: bool = False,
     only: bool = False,
-    env: Optional[str] = None,
+    runner: Optional[str] = None,
     tasks_file: Optional[str] = None,
     task_output: str | None = None,
 ) -> None:
@@ -538,7 +538,7 @@ def _execute_dynamic_task(
     args: Task name followed by optional task arguments
     force: Force re-execution even if task is up-to-date
     only: Execute only the specified task, skip dependencies
-    env: Override environment for task execution
+    runner: Override runner for task execution
     tasks_file: Path to recipe file (optional)
     task_output: Control task subprocess output (all, out, err, on-err, none)
 
@@ -559,15 +559,15 @@ def _execute_dynamic_task(
         raise typer.Exit(1)
 
     # Apply global runner override if provided
-    if env:
+    if runner:
         # Validate that the runner exists
-        if not recipe.get_runner(env):
-            logger.error(f"[red]Runner not found: {env}[/red]")
+        if not recipe.get_runner(runner):
+            logger.error(f"[red]Runner not found: {runner}[/red]")
             logger.info("\nAvailable runners:")
             for env_name in sorted(recipe.runners.keys()):
                 logger.info(f"  - {env_name}")
             raise typer.Exit(1)
-        recipe.global_runner_override = env
+        recipe.global_runner_override = runner
 
     task = recipe.get_task(task_name)
     if task is None:
