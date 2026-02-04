@@ -292,7 +292,7 @@ class TestFindProjectConfig(unittest.TestCase):
         @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
-            tmppath = Path(tmpdir)
+            tmppath = Path(tmpdir).resolve()
             config_path = tmppath / ".tasktree-config.yml"
             config_path.write_text("# test config")
 
@@ -306,7 +306,7 @@ class TestFindProjectConfig(unittest.TestCase):
         @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
-            tmppath = Path(tmpdir)
+            tmppath = Path(tmpdir).resolve()
             config_path = tmppath / ".tasktree-config.yml"
             config_path.write_text("# test config")
 
@@ -324,7 +324,7 @@ class TestFindProjectConfig(unittest.TestCase):
         @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
-            tmppath = Path(tmpdir)
+            tmppath = Path(tmpdir).resolve()
             config_path = tmppath / ".tasktree-config.yml"
             config_path.write_text("# test config")
 
@@ -342,7 +342,7 @@ class TestFindProjectConfig(unittest.TestCase):
         @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
-            tmppath = Path(tmpdir)
+            tmppath = Path(tmpdir).resolve()
             # Don't create any config file
 
             result = find_project_config(tmppath)
@@ -354,7 +354,7 @@ class TestFindProjectConfig(unittest.TestCase):
         @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
-            tmppath = Path(tmpdir)
+            tmppath = Path(tmpdir).resolve()
 
             # Create config at root level
             root_config = tmppath / ".tasktree-config.yml"
@@ -377,7 +377,7 @@ class TestFindProjectConfig(unittest.TestCase):
         @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
-            tmppath = Path(tmpdir)
+            tmppath = Path(tmpdir).resolve()
 
             # Create a deep directory structure
             deep_path = tmppath / "a" / "b" / "c" / "d" / "e"
@@ -398,7 +398,7 @@ class TestFindProjectConfig(unittest.TestCase):
         @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
-            tmppath = Path(tmpdir)
+            tmppath = Path(tmpdir).resolve()
             nonexistent = tmppath / "does-not-exist"
 
             result = find_project_config(nonexistent)
@@ -410,7 +410,7 @@ class TestFindProjectConfig(unittest.TestCase):
         @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
-            tmppath = Path(tmpdir)
+            tmppath = Path(tmpdir).resolve()
 
             # Create a config file in the directory
             config_path = tmppath / ".tasktree-config.yml"
@@ -437,7 +437,7 @@ class TestFindProjectConfig(unittest.TestCase):
             self.skipTest("Symlink test skipped on Windows")
 
         with TemporaryDirectory() as tmpdir:
-            tmppath = Path(tmpdir)
+            tmppath = Path(tmpdir).resolve()
 
             # Create a real directory with config
             real_dir = tmppath / "real"
