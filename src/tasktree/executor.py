@@ -295,13 +295,13 @@ class Executor:
         1. Recipe's global_env_override (from CLI --env)
         2. Task's explicit env field
         3. Recipe's default_env
-        4. Empty string (for platform default)
+        4. Session default runner name (from get_session_default_runner)
 
         Args:
         task: Task to get environment name for
 
         Returns:
-        Runner name (empty string if using platform default)
+        Runner name (session default runner name if no other override)
         @athena: e5bface8a3a2
         """
         # Check for global override first
@@ -316,8 +316,8 @@ class Executor:
         if self.recipe.default_runner:
             return self.recipe.default_runner
 
-        # Platform default (no env name)
-        return ""
+        # Return session default runner name
+        return self.get_session_default_runner().name
 
     def _resolve_runner(self, task: Task) -> tuple[str, str]:
         """
