@@ -1502,6 +1502,53 @@ class TestRunnerResolution(unittest.TestCase):
             self.assertEqual(shell, "zsh")
             self.assertEqual(preamble, "set -e\n")
 
+    @patch("platform.system")
+    def test_resolve_runner_falls_back_to_platform_default(self, mock_system):
+        """
+        Test that _resolve_runner falls back to platform defaults when no runner is defined.
+        @athena: to-be-generated
+        """
+        # Test Unix/Linux platform
+        mock_system.return_value = "Linux"
+
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+
+            # No runners defined, task has no run_in
+            tasks = {"build": Task(name="build", cmd="echo hello")}
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+                runners={},  # No runners
+            )
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+
+            shell, preamble = executor._resolve_runner(tasks["build"])
+            self.assertEqual(shell, "bash")
+            self.assertEqual(preamble, "")
+
+        # Test Windows platform
+        mock_system.return_value = "Windows"
+
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+
+            tasks = {"build": Task(name="build", cmd="echo hello")}
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+                runners={},
+            )
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+
+            shell, preamble = executor._resolve_runner(tasks["build"])
+            self.assertEqual(shell, "cmd")
+            self.assertEqual(preamble, "")
+
     @patch("os.chmod")
     def test_task_execution_uses_custom_shell(self, _fake_chmod):
         """
