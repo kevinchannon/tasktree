@@ -1347,15 +1347,15 @@ echo "line3" >> output.txt"""
             self.assertIn("line3", content)
 
 
-class TestEnvironmentResolution(unittest.TestCase):
+class TestRunnerResolution(unittest.TestCase):
     """
-    Test environment resolution and usage.
+    Test runner resolution and usage.
     @athena: 43e99504aef1
     """
 
-    def test_get_effective_env_with_global_override(self):
+    def test_get_effective_runner_with_global_override(self):
         """
-        Test that global_env_override takes precedence.
+        Test that global_runner_override takes precedence.
         @athena: f0071f4d55ba
         """
 
@@ -1363,33 +1363,33 @@ class TestEnvironmentResolution(unittest.TestCase):
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
 
-            # Create environments
-            from tasktree.parser import Environment
+            # Create runners
+            from tasktree.parser import Runner
 
-            envs = {
-                "prod": Environment(name="prod", shell="sh", args=["-c"]),
-                "dev": Environment(name="dev", shell="bash", args=["-c"]),
+            runners = {
+                "prod": Runner(name="prod", shell="sh", args=["-c"]),
+                "dev": Runner(name="dev", shell="bash", args=["-c"]),
             }
 
-            # Create task with explicit env and recipe with default_env
-            tasks = {"build": Task(name="build", cmd="echo hello", env="dev")}
+            # Create task with explicit run_in and recipe with default_runner
+            tasks = {"build": Task(name="build", cmd="echo hello", run_in="dev")}
             recipe = Recipe(
                 tasks=tasks,
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
-                environments=envs,
-                default_env="dev",
-                global_env_override="prod",  # Global override
+                runners=runners,
+                default_runner="dev",
+                global_runner_override="prod",  # Global override
             )
             executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             # Global override should win
-            env_name = executor._get_effective_env_name(tasks["build"])
-            self.assertEqual(env_name, "prod")
+            runner_name = executor._get_effective_runner_name(tasks["build"])
+            self.assertEqual(runner_name, "prod")
 
-    def test_get_effective_env_with_task_env(self):
+    def test_get_effective_runner_with_task_runner(self):
         """
-        Test that task.env is used when no global override.
+        Test that task.run_in is used when no global override.
         @athena: 50c636d4ee16
         """
 
@@ -1397,30 +1397,30 @@ class TestEnvironmentResolution(unittest.TestCase):
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
 
-            from tasktree.parser import Environment
+            from tasktree.parser import Runner
 
-            envs = {
-                "prod": Environment(name="prod", shell="sh", args=["-c"]),
-                "dev": Environment(name="dev", shell="bash", args=["-c"]),
+            runners = {
+                "prod": Runner(name="prod", shell="sh", args=["-c"]),
+                "dev": Runner(name="dev", shell="bash", args=["-c"]),
             }
 
-            tasks = {"build": Task(name="build", cmd="echo hello", env="dev")}
+            tasks = {"build": Task(name="build", cmd="echo hello", run_in="dev")}
             recipe = Recipe(
                 tasks=tasks,
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
-                environments=envs,
-                default_env="prod",
+                runners=runners,
+                default_runner="prod",
             )
             executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
-            # Task env should win over default_env
-            env_name = executor._get_effective_env_name(tasks["build"])
-            self.assertEqual(env_name, "dev")
+            # Task runner should win over default_runner
+            runner_name = executor._get_effective_runner_name(tasks["build"])
+            self.assertEqual(runner_name, "dev")
 
-    def test_get_effective_env_with_default_env(self):
+    def test_get_effective_runner_with_default_runner(self):
         """
-        Test that default_env is used when task has no explicit env.
+        Test that default_runner is used when task has no explicit run_in.
         @athena: 6372bb43f96b
         """
 
@@ -1428,25 +1428,25 @@ class TestEnvironmentResolution(unittest.TestCase):
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
 
-            from tasktree.parser import Environment
+            from tasktree.parser import Runner
 
-            envs = {"prod": Environment(name="prod", shell="sh", args=["-c"])}
+            runners = {"prod": Runner(name="prod", shell="sh", args=["-c"])}
 
-            tasks = {"build": Task(name="build", cmd="echo hello")}  # No env
+            tasks = {"build": Task(name="build", cmd="echo hello")}  # No run_in
             recipe = Recipe(
                 tasks=tasks,
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
-                environments=envs,
-                default_env="prod",
+                runners=runners,
+                default_runner="prod",
             )
             executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
-            # Default env should be used
-            env_name = executor._get_effective_env_name(tasks["build"])
-            self.assertEqual(env_name, "prod")
+            # Default runner should be used
+            runner_name = executor._get_effective_runner_name(tasks["build"])
+            self.assertEqual(runner_name, "prod")
 
-    def test_get_effective_env_platform_default(self):
+    def test_get_effective_runner_platform_default(self):
         """
         Test that empty string is returned for platform default.
         @athena: 19260cca1cf9
@@ -1464,13 +1464,13 @@ class TestEnvironmentResolution(unittest.TestCase):
             )
             executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
-            # No envs defined, should return empty string
-            env_name = executor._get_effective_env_name(tasks["build"])
-            self.assertEqual(env_name, "")
+            # No runners defined, should return empty string
+            runner_name = executor._get_effective_runner_name(tasks["build"])
+            self.assertEqual(runner_name, "")
 
-    def test_resolve_environment_with_custom_env(self):
+    def test_resolve_runner_with_custom_runner(self):
         """
-        Test resolving environment with custom shell and preamble.
+        Test resolving runner with custom shell and preamble.
         @athena: ad7409ace0a8
         """
 
@@ -1478,31 +1478,31 @@ class TestEnvironmentResolution(unittest.TestCase):
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
 
-            from tasktree.parser import Environment
+            from tasktree.parser import Runner
 
-            envs = {
-                "zsh_env": Environment(
-                    name="zsh_env", shell="zsh", args=["-c"], preamble="set -e\n"
+            runners = {
+                "zsh_runner": Runner(
+                    name="zsh_runner", shell="zsh", args=["-c"], preamble="set -e\n"
                 )
             }
 
-            tasks = {"build": Task(name="build", cmd="echo hello", env="zsh_env")}
+            tasks = {"build": Task(name="build", cmd="echo hello", run_in="zsh_runner")}
             recipe = Recipe(
                 tasks=tasks,
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
-                environments=envs,
+                runners=runners,
             )
             executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
-            shell, preamble = executor._resolve_environment(tasks["build"])
+            shell, preamble = executor._resolve_runner(tasks["build"])
             self.assertEqual(shell, "zsh")
             self.assertEqual(preamble, "set -e\n")
 
     @patch("os.chmod")
     def test_task_execution_uses_custom_shell(self, _fake_chmod):
         """
-        Test that custom shell from environment is used for execution.
+        Test that custom shell from runner is used for execution.
         @athena: af5465f2617e
         """
 
@@ -1521,16 +1521,16 @@ class TestEnvironmentResolution(unittest.TestCase):
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
 
-            from tasktree.parser import Environment
+            from tasktree.parser import Runner
 
-            envs = {"fish": Environment(name="fish", shell="fish", args=["-c"])}
+            runners = {"fish": Runner(name="fish", shell="fish", args=["-c"])}
 
-            tasks = {"build": Task(name="build", cmd="echo hello", env="fish")}
+            tasks = {"build": Task(name="build", cmd="echo hello", run_in="fish")}
             recipe = Recipe(
                 tasks=tasks,
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
-                environments=envs,
+                runners=runners,
             )
 
             process_runner_spy = MagicMock(spec=ProcessRunner)
@@ -1551,15 +1551,15 @@ class TestEnvironmentResolution(unittest.TestCase):
             if not platform.system() == "Windows":
                 self.assertIn("fish", script_content)
 
-    def test_hash_changes_with_environment(self):
+    def test_hash_changes_with_runner(self):
         """
-        Test that task hash changes when environment changes.
+        Test that task hash changes when runner changes.
         @athena: b54e9f49a005
         """
 
         from tasktree.hasher import hash_task
 
-        # Same task, different environments
+        # Same task, different runners
         hash1 = hash_task("echo hello", [], ".", [], "prod")
         hash2 = hash_task("echo hello", [], ".", [], "dev")
         hash3 = hash_task("echo hello", [], ".", [], "")
@@ -1821,11 +1821,11 @@ class TestExecutorProcessRunner(unittest.TestCase):
 
             process_runner_spy.run.assert_called_once()
 
-    def test_substitute_environment_fields_includes_extra_args(self):
+    def test_substitute_runner_fields_includes_extra_args(self):
         """
-        Test that _substitute_builtin_in_environment substitutes variables in extra_args.
+        Test that _substitute_builtin_in_runner substitutes variables in extra_args.
         """
-        from tasktree.parser import Environment
+        from tasktree.parser import Runner
 
         os.environ["MEMORY_LIMIT"] = "1024m"
         os.environ["CPU_LIMIT"] = "2"
@@ -1842,8 +1842,8 @@ class TestExecutorProcessRunner(unittest.TestCase):
                 )
                 executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
-                # Create environment with variables in extra_args
-                env = Environment(
+                # Create runner with variables in extra_args
+                runner = Runner(
                     name="test",
                     dockerfile="Dockerfile",
                     context=".",
@@ -1860,22 +1860,22 @@ class TestExecutorProcessRunner(unittest.TestCase):
                 }
 
                 # Apply substitution
-                substituted_env = executor._substitute_builtin_in_environment(env, builtin_vars)
+                substituted_runner = executor._substitute_builtin_in_runner(runner, builtin_vars)
 
                 # Verify substitution occurred
                 self.assertEqual(
-                    substituted_env.extra_args,
+                    substituted_runner.extra_args,
                     ["--memory=1024m", "--cpus=2", "--network=host"]
                 )
         finally:
             del os.environ["MEMORY_LIMIT"]
             del os.environ["CPU_LIMIT"]
 
-    def test_substitute_environment_fields_includes_preamble_shell_dockerfile_context(self):
+    def test_substitute_runner_fields_includes_preamble_shell_dockerfile_context(self):
         """
-        Test that _substitute_builtin_in_environment substitutes variables in preamble, shell, dockerfile, and context.
+        Test that _substitute_builtin_in_runner substitutes variables in preamble, shell, dockerfile, and context.
         """
-        from tasktree.parser import Environment
+        from tasktree.parser import Runner
 
         os.environ["BUILD_DIR"] = "docker"
         os.environ["CUSTOM_SHELL"] = "/bin/bash"
@@ -1892,8 +1892,8 @@ class TestExecutorProcessRunner(unittest.TestCase):
                 )
                 executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
-                # Create environment with variables in preamble, shell, dockerfile, context
-                env = Environment(
+                # Create runner with variables in preamble, shell, dockerfile, context
+                runner = Runner(
                     name="test",
                     preamble="set -e\nexport BUILD_DIR={{ env.BUILD_DIR }}\n",
                     shell="{{ env.CUSTOM_SHELL }}",
@@ -1907,16 +1907,16 @@ class TestExecutorProcessRunner(unittest.TestCase):
                 }
 
                 # Apply substitution
-                substituted_env = executor._substitute_builtin_in_environment(env, builtin_vars)
+                substituted_runner = executor._substitute_builtin_in_runner(runner, builtin_vars)
 
                 # Verify substitution occurred
                 self.assertEqual(
-                    substituted_env.preamble,
+                    substituted_runner.preamble,
                     "set -e\nexport BUILD_DIR=docker\n"
                 )
-                self.assertEqual(substituted_env.shell, "/bin/bash")
-                self.assertEqual(substituted_env.dockerfile, "docker/Dockerfile")
-                self.assertEqual(substituted_env.context, f"{project_root}/docker")
+                self.assertEqual(substituted_runner.shell, "/bin/bash")
+                self.assertEqual(substituted_runner.dockerfile, "docker/Dockerfile")
+                self.assertEqual(substituted_runner.context, f"{project_root}/docker")
         finally:
             del os.environ["BUILD_DIR"]
             del os.environ["CUSTOM_SHELL"]

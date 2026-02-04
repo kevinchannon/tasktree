@@ -1709,7 +1709,7 @@ class TestEnvironmentParsing(unittest.TestCase):
             recipe_path = project_root / "tasktree.yaml"
 
             recipe_path.write_text("""
-environments:
+runners:
   default: bash-strict
   bash-strict:
     shell: bash
@@ -1729,22 +1729,22 @@ tasks:
             recipe = parse_recipe(recipe_path)
 
             # Check environments were parsed
-            self.assertEqual(len(recipe.environments), 2)
-            self.assertIn("bash-strict", recipe.environments)
-            self.assertIn("python", recipe.environments)
+            self.assertEqual(len(recipe.runners), 2)
+            self.assertIn("bash-strict", recipe.runners)
+            self.assertIn("python", recipe.runners)
 
             # Check default environment
-            self.assertEqual(recipe.default_env, "bash-strict")
+            self.assertEqual(recipe.default_runner, "bash-strict")
 
             # Check bash-strict environment
-            bash_env = recipe.environments["bash-strict"]
+            bash_env = recipe.runners["bash-strict"]
             self.assertEqual(bash_env.name, "bash-strict")
             self.assertEqual(bash_env.shell, "bash")
             self.assertEqual(bash_env.args, ["-c"])
             self.assertIn("set -euo pipefail", bash_env.preamble)
 
             # Check python environment
-            py_env = recipe.environments["python"]
+            py_env = recipe.runners["python"]
             self.assertEqual(py_env.name, "python")
             self.assertEqual(py_env.shell, "python")
             self.assertEqual(py_env.args, ["-c"])
@@ -1767,8 +1767,8 @@ tasks:
             recipe = parse_recipe(recipe_path)
 
             # Should have no environments
-            self.assertEqual(len(recipe.environments), 0)
-            self.assertEqual(recipe.default_env, "")
+            self.assertEqual(len(recipe.runners), 0)
+            self.assertEqual(recipe.default_runner, "")
 
     def test_environment_missing_shell(self):
         """
@@ -1780,7 +1780,7 @@ tasks:
             recipe_path = project_root / "tasktree.yaml"
 
             recipe_path.write_text("""
-environments:
+runners:
   bad-env:
     args: ['-c']
 
@@ -1904,7 +1904,7 @@ imports:
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
             recipe_path.write_text("""
-environments:
+runners:
   bash-strict:
     shell: /bin/bash
     args: ['-e', '-u']
@@ -1913,7 +1913,7 @@ environments:
             recipe = parse_recipe(recipe_path)
 
             self.assertEqual(len(recipe.tasks), 0)
-            self.assertIn("bash-strict", recipe.environments)
+            self.assertIn("bash-strict", recipe.runners)
 
     def test_task_named_tasks_is_allowed(self):
         """
@@ -2966,7 +2966,7 @@ tasks:
             self.assertIn("Invalid eval reference", error_msg)
             self.assertIn("must be a non-empty string", error_msg)
 
-    def test_eval_uses_default_env(self):
+    def test_eval_uses_default_runner(self):
         """
         Test that eval uses default environment if specified.
         @athena: 4121942be054
@@ -2976,7 +2976,7 @@ tasks:
             # This tests that the environment resolution works
             # We use a simple command that works in both bash and cmd
             recipe_path.write_text("""
-environments:
+runners:
   default: bash-env
   bash-env:
     shell: bash

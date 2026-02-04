@@ -11,7 +11,7 @@ Task Tree (tt) is a task automation tool that combines simple command execution 
 - **Automatic input inheritance**: Tasks automatically inherit inputs from dependencies
 - **Parameterized tasks**: Tasks can accept typed arguments with defaults and constraints (int, float, bool, str, path, datetime, hostname, email, IP addresses)
 - **File imports**: Task definitions can be split across multiple files and namespaced
-- **Environment definitions**: Named execution environments (shell with custom configuration, or Docker containers with full image building support)
+- **Runner definitions**: Named execution runners (shell with custom configuration, or Docker containers with full image building support)
 - **Template substitution**: Rich variable system with access to arguments, environment variables, built-in variables, dependency outputs, and task inputs/outputs
 - **Docker support**: Full Docker integration with volume mounts, port mappings, build arguments, and user mapping
 - **Named inputs/outputs**: Reference specific inputs and outputs by name for better clarity and DRY principles
@@ -53,14 +53,14 @@ Your sponsor is not made of money! Try to minimise token useage, so that we can 
 
 ### Core Components
 
-- **`src/tasktree/parser.py`** (2,415 lines): YAML recipe parsing, task and environment definitions, circular import detection, schema validation
+- **`src/tasktree/parser.py`** (2,415 lines): YAML recipe parsing, task and runner definitions, circular import detection, schema validation
 - **`src/tasktree/executor.py`** (1,200 lines): Task execution logic, incremental execution engine, state tracking, built-in variables, subprocess management
 - **`src/tasktree/cli.py`** (591 lines): Typer-based CLI with commands: `--list`, `--show`, `--tree`, `--force`, `--only`, `--dry-run`, `--verbose`
 - **`src/tasktree/graph.py`** (545 lines): Dependency resolution using graphlib.TopologicalSorter, parameterized dependencies, cycle detection
 - **`src/tasktree/docker.py`** (446 lines): Docker image building and container execution, user mapping, volume mounts, build args
 - **`src/tasktree/substitution.py`** (374 lines): Template variable substitution engine supporting multiple prefixes (var, arg, env, tt, dep, self)
 - **`src/tasktree/types.py`** (139 lines): Custom Click parameter types for argument validation (hostname, email, IP, IPv4, IPv6, datetime)
-- **`src/tasktree/hasher.py`** (161 lines): Task hashing for incremental execution, cache key generation, environment definition hashing
+- **`src/tasktree/hasher.py`** (161 lines): Task hashing for incremental execution, cache key generation, runner definition hashing
 - **`src/tasktree/state.py`** (119 lines): State file management (.tasktree-state), task execution state tracking
 
 ### Key Dependencies
@@ -112,7 +112,7 @@ This project uses `uv` for dependency management (indicated by `uv.lock` file). 
 The application uses a `.tasktree-state` file at the project root to track:
 - When tasks last ran
 - Timestamps of input files at execution time
-- Task hashes based on command, outputs, working directory, arguments, and environment definitions
+- Task hashes based on command, outputs, working directory, arguments, and runner definitions
 - Cached results for incremental execution
 
 ## Testing Approach
@@ -138,7 +138,7 @@ tasks:
       - pattern1  # Anonymous glob patterns
       - name: path-or-pattern  # Named outputs for reference
     working_dir: execution-directory
-    env: environment-name  # Reference to environment definition
+    run_in: runner-name  # Reference to runner definition
     args:
       - name: arg-name
         type: str|int|float|bool|path|datetime|hostname|email|ip|ipv4|ipv6
@@ -150,14 +150,14 @@ tasks:
     cmd: shell-command  # Can use {{ var.name }}, {{ arg.name }}, {{ env.NAME }}, {{ tt.* }}, {{ dep.task.outputs.name }}, {{ self.inputs.name }}
     private: true  # Hide from --list but still executable
 
-environments:
-  env-name:
-    default: true  # Make this the default environment
-    shell: /bin/bash  # Shell environment
+runners:
+  runner-name:
+    default: true  # Make this the default runner
+    shell: /bin/bash  # Shell runner
     preamble: |  # Optional preamble prepended to all commands
       set -euo pipefail
     # OR
-    dockerfile: path/to/Dockerfile  # Docker environment
+    dockerfile: path/to/Dockerfile  # Docker runner
     context: build-context-dir
     image: optional-image-name
     volumes:

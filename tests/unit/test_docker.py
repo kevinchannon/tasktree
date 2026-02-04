@@ -9,11 +9,11 @@ from tasktree.docker import (
     DockerManager,
     check_unpinned_images,
     extract_from_images,
-    is_docker_environment,
+    is_docker_runner,
     parse_base_image_digests,
     resolve_container_working_dir,
 )
-from tasktree.parser import Environment
+from tasktree.parser import Runner
 from tasktree.process_runner import TaskOutputTypes, make_process_runner
 
 
@@ -167,75 +167,75 @@ FROM debian:slim@sha256:def456
         self.assertEqual(digests, ["sha256:abc123", "sha256:def456"])
 
 
-class TestIsDockerEnvironment(unittest.TestCase):
+class TestIsDockerRunner(unittest.TestCase):
     """
     Test Docker environment detection.
     @athena: 7e9d896c1a55
     """
 
-    def test_docker_environment(self):
+    def test_docker_runner(self):
         """
-        Test environment with dockerfile.
+        Test runner with dockerfile.
         @athena: a88fcecf498e
         """
-        env = Environment(
+        runner = Runner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
         )
-        self.assertTrue(is_docker_environment(env))
+        self.assertTrue(is_docker_runner(runner))
 
-    def test_shell_environment(self):
+    def test_shell_runner(self):
         """
-        Test environment without dockerfile.
+        Test runner without dockerfile.
         @athena: ecde4c39cb67
         """
-        env = Environment(
+        runner = Runner(
             name="bash",
             shell="bash",
             args=["-c"],
         )
-        self.assertFalse(is_docker_environment(env))
+        self.assertFalse(is_docker_runner(runner))
 
-    def test_shell_environment_with_list_args(self):
+    def test_shell_runner_with_list_args(self):
         """
-        Test that shell environments still work with list args (backward compatibility).
+        Test that shell runners still work with list args (backward compatibility).
         @athena: c03e04ec3817
         """
-        # Shell environments should use list args for shell arguments
-        env = Environment(
+        # Shell runners should use list args for shell arguments
+        runner = Runner(
             name="bash",
             shell="bash",
             args=["-c", "-e"],  # List of shell arguments
         )
 
-        # Verify it's recognized as a shell environment (not Docker)
-        self.assertFalse(is_docker_environment(env))
+        # Verify it's recognized as a shell runner (not Docker)
+        self.assertFalse(is_docker_runner(runner))
 
         # Verify args are stored as a list
-        self.assertIsInstance(env.args, list)
-        self.assertEqual(env.args, ["-c", "-e"])
+        self.assertIsInstance(runner.args, list)
+        self.assertEqual(runner.args, ["-c", "-e"])
 
-    def test_docker_environment_with_dict_args(self):
+    def test_docker_runner_with_dict_args(self):
         """
-        Test that Docker environments use dict args for build arguments.
+        Test that Docker runners use dict args for build arguments.
         @athena: 1cf37d1c8e86
         """
-        # Docker environments should use dict args for build arguments
-        env = Environment(
+        # Docker runners should use dict args for build arguments
+        runner = Runner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
             args={"BUILD_VERSION": "1.0.0", "BUILD_DATE": "2024-01-01"},
         )
 
-        # Verify it's recognized as a Docker environment
-        self.assertTrue(is_docker_environment(env))
+        # Verify it's recognized as a Docker runner
+        self.assertTrue(is_docker_runner(runner))
 
         # Verify args are stored as a dict
-        self.assertIsInstance(env.args, dict)
+        self.assertIsInstance(runner.args, dict)
         self.assertEqual(
-            env.args, {"BUILD_VERSION": "1.0.0", "BUILD_DATE": "2024-01-01"}
+            runner.args, {"BUILD_VERSION": "1.0.0", "BUILD_DATE": "2024-01-01"}
         )
 
 
@@ -307,7 +307,7 @@ class TestDockerManager(unittest.TestCase):
         Test that images are cached per invocation.
         @athena: ec5dd97bc4a8
         """
-        env = Environment(
+        env = Runner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
@@ -349,7 +349,7 @@ class TestDockerManager(unittest.TestCase):
         Test that docker build command is structured correctly.
         @athena: 21151cc7a8dd
         """
-        env = Environment(
+        env = Runner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
@@ -381,7 +381,7 @@ class TestDockerManager(unittest.TestCase):
         Test that docker build command includes --build-arg flags.
         @athena: 581199f6c680
         """
-        env = Environment(
+        env = Runner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
@@ -432,7 +432,7 @@ class TestDockerManager(unittest.TestCase):
         Test that docker build command works with empty build args dict.
         @athena: 28b44704ab1c
         """
-        env = Environment(
+        env = Runner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
@@ -468,7 +468,7 @@ class TestDockerManager(unittest.TestCase):
         Test that build args with special characters are handled correctly.
         @athena: ce755595bb2a
         """
-        env = Environment(
+        env = Runner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
@@ -590,7 +590,7 @@ class TestDockerManager(unittest.TestCase):
         mock_getuid.return_value = 1000
         mock_getgid.return_value = 1000
 
-        env = Environment(
+        env = Runner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
@@ -634,7 +634,7 @@ class TestDockerManager(unittest.TestCase):
         """
         mock_platform.return_value = "Windows"
 
-        env = Environment(
+        env = Runner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
@@ -682,7 +682,7 @@ class TestDockerManager(unittest.TestCase):
         mock_getuid.return_value = 1000
         mock_getgid.return_value = 1000
 
-        env = Environment(
+        env = Runner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
@@ -725,7 +725,7 @@ class TestDockerManager(unittest.TestCase):
         """
         mock_platform.return_value = "Windows"  # Skip user flag for simplicity
 
-        env = Environment(
+        env = Runner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
@@ -782,7 +782,7 @@ class TestDockerManager(unittest.TestCase):
         """
         mock_platform.return_value = "Windows"
 
-        env = Environment(
+        env = Runner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
@@ -827,7 +827,7 @@ class TestDockerManager(unittest.TestCase):
         """
         mock_platform.return_value = "Windows"
 
-        env = Environment(
+        env = Runner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
@@ -878,7 +878,7 @@ class TestDockerManager(unittest.TestCase):
         mock_platform.return_value = "Linux"
 
         # Environment with already-substituted path (as would come from executor)
-        env = Environment(
+        env = Runner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",

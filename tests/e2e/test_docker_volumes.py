@@ -43,7 +43,7 @@ class TestDockerVolumes(unittest.TestCase):
 
             # Create recipe with relative volume mount
             (project_root / "tasktree.yaml").write_text("""
-environments:
+runners:
   alpine:
     dockerfile: ./Dockerfile
     context: .
@@ -51,7 +51,7 @@ environments:
 
 tasks:
   write:
-    env: alpine
+    run_in: alpine
     outputs: [src/from_container.txt]
     cmd: echo "created in container" > /workspace/src/from_container.txt
 """)
@@ -88,7 +88,7 @@ tasks:
 
             # Create recipe with absolute volume mount
             (project_root / "tasktree.yaml").write_text(f"""
-environments:
+runners:
   alpine:
     dockerfile: ./Dockerfile
     context: .
@@ -96,7 +96,7 @@ environments:
 
 tasks:
   absolute:
-    env: alpine
+    run_in: alpine
     outputs: [data/absolute.txt]
     cmd: echo "absolute path mount" > /app/data/absolute.txt
 """)
@@ -140,7 +140,7 @@ tasks:
 
             # Create recipe with multiple volume mounts
             (project_root / "tasktree.yaml").write_text("""
-environments:
+runners:
   alpine:
     dockerfile: ./Dockerfile
     context: .
@@ -150,7 +150,7 @@ environments:
 
 tasks:
   process:
-    env: alpine
+    run_in: alpine
     outputs: [output/processed.txt]
     cmd: |
       cat /workspace/input/source.txt > /workspace/output/processed.txt
@@ -198,7 +198,7 @@ tasks:
 
             # Create recipe
             (project_root / "tasktree.yaml").write_text("""
-environments:
+runners:
   alpine:
     dockerfile: ./Dockerfile
     context: .
@@ -206,7 +206,7 @@ environments:
 
 tasks:
   readwrite:
-    env: alpine
+    run_in: alpine
     outputs: [data/result.txt]
     cmd: |
       # Read existing file

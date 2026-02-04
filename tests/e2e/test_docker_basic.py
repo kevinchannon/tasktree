@@ -43,7 +43,7 @@ class TestDockerBasic(unittest.TestCase):
 
             # Create recipe
             (project_root / "tasktree.yaml").write_text("""
-environments:
+runners:
   alpine:
     dockerfile: ./Dockerfile
     context: .
@@ -51,7 +51,7 @@ environments:
 
 tasks:
   hello:
-    env: alpine
+    run_in: alpine
     outputs: [data/output.txt]
     cmd: echo "hello from docker" > /workspace/data/output.txt
 """)
@@ -89,7 +89,7 @@ tasks:
 
             # Create recipe
             (project_root / "tasktree.yaml").write_text("""
-environments:
+runners:
   alpine:
     dockerfile: ./Dockerfile
     context: .
@@ -97,7 +97,7 @@ environments:
 
 tasks:
   generate:
-    env: alpine
+    run_in: alpine
     outputs: [src/generated.txt]
     cmd: |
       echo "line 1" > /workspace/src/generated.txt
@@ -141,7 +141,7 @@ tasks:
 
             # Create recipe with multi-line command
             (project_root / "tasktree.yaml").write_text("""
-environments:
+runners:
   alpine:
     dockerfile: ./Dockerfile
     context: .
@@ -149,7 +149,7 @@ environments:
 
 tasks:
   multi:
-    env: alpine
+    run_in: alpine
     outputs: [output/result.txt]
     cmd: |
       # This is a multi-line command

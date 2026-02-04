@@ -20,7 +20,7 @@ except ImportError:
     pathspec = None  # type: ignore
 
 if TYPE_CHECKING:
-    from tasktree.parser import Environment
+    from tasktree.parser import Runner
     from tasktree.process_runner import ProcessRunner
 
 
@@ -72,13 +72,13 @@ class DockerManager:
         return hasattr(os, "getuid") and hasattr(os, "getgid")
 
     def ensure_image_built(
-        self, env: Environment, process_runner: ProcessRunner
+        self, env: Runner, process_runner: ProcessRunner
     ) -> tuple[str, str]:
         """
         Build Docker image if not already built this invocation.
 
         Args:
-        env: Environment definition with dockerfile and context
+        env: Runner definition with dockerfile and context
         process_runner: ProcessRunner instance for subprocess execution
 
         Returns:
@@ -157,7 +157,7 @@ class DockerManager:
         Execute command inside Docker container.
 
         Args:
-        env: Environment definition
+        env: Runner definition
         cmd: Command to execute
         working_dir: Host working directory (for resolving relative volume paths)
         container_working_dir: Working directory inside container, or None to use Dockerfile's WORKDIR
@@ -313,15 +313,15 @@ class DockerManager:
             raise DockerError(f"Failed to inspect image {image_tag}: {e.stderr}")
 
 
-def is_docker_environment(env: Environment) -> bool:
+def is_docker_runner(env: Runner) -> bool:
     """
-    Check if environment is Docker-based.
+    Check if runner is Docker-based.
 
     Args:
-    env: Environment to check
+    env: Runner to check
 
     Returns:
-    True if environment has a dockerfile field, False otherwise
+    True if runner has a dockerfile field, False otherwise
     @athena: 1ffd255a4e90
     """
     return bool(env.dockerfile)

@@ -192,12 +192,12 @@ tt test           # Run tests (builds first if needed)
 
 Task Tree only runs tasks when necessary. A task executes if:
 
-- Its definition (command, outputs, working directory, environment) has changed
+- Its definition (command, outputs, working directory, runner) has changed
 - Any input files have changed since the last run
 - Any dependencies have re-run
 - It has never been executed before
 - It has no inputs or outputs (always runs)
-- The execution environment has changed (CLI override or environment config change)
+- The execution runner has changed (CLI override or runner config change)
 
 ### Automatic Input Inheritance
 
@@ -232,7 +232,7 @@ tasks:
     inputs: [src/**/*.go]                  # Explicit input files (glob patterns)
     outputs: [dist/binary]                 # Output files (glob patterns)
     working_dir: subproject/               # Execution directory (default: project root)
-    env: bash-strict                       # Execution environment (optional)
+    run_in: bash-strict                    # Execution runner (optional)
     private: false                         # Hide from --list output (default: false)
     task_output: all                       # Control task output: all, out, err, on-err, none (default: all)
     args:                                   # Task parameters
@@ -275,12 +275,12 @@ tasks:
       -L lib -lm
 ```
 
-### Execution Environments
+### Execution Runners
 
-Configure custom shell environments for task execution. Use the `preamble` field to add initialization code to all commands:
+Configure custom shell runners for task execution. Use the `preamble` field to add initialization code to all commands:
 
 ```yaml
-environments:
+runners:
   default: bash-strict
 
   bash-strict:
@@ -298,38 +298,38 @@ environments:
 
 tasks:
   build:
-    # Uses 'default' environment (bash-strict)
+    # Uses 'default' runner (bash-strict)
     cmd: cargo build --release
 
   analyze:
-    env: python
+    run_in: python
     cmd: |
       import sys
       print(f"Analyzing with Python {sys.version}")
       # ... analysis code ...
 
   windows-task:
-    env: powershell
+    run_in: powershell
     cmd: |
       Compress-Archive -Path dist/* -DestinationPath package.zip
 ```
 
-**Environment resolution priority:**
-1. CLI override: `tt --env python build`
-2. Task's `env` field
-3. Recipe's `default` environment
+**Runner resolution priority:**
+1. CLI override: `tt --runner python build`
+2. Task's `run_in` field
+3. Recipe's `default` runner
 4. Platform default (bash on Unix, cmd on Windows)
 
-**Platform defaults** when no environments are configured:
+**Platform defaults** when no runners are configured:
 - **Unix/macOS**: bash
 - **Windows**: cmd
 
-### Docker Environments
+### Docker Runners
 
 Execute tasks inside Docker containers for reproducible builds and isolated execution:
 
 ```yaml
-environments:
+runners:
   builder:
     dockerfile: build.dockerfile
     context: .
@@ -339,7 +339,7 @@ environments:
 
 tasks:
   build:
-    env: builder
+    run_in: builder
     cmd: cargo build --release
 ```
 
@@ -350,7 +350,7 @@ By default, tasks run inside Docker containers execute as your current host user
 To run as root inside the container (e.g., for package installation or privileged operations), set `run_as_root: true`:
 
 ```yaml
-environments:
+runners:
   privileged:
     dockerfile: admin.dockerfile
     context: .
@@ -373,41 +373,41 @@ You may need to set `run_as_root: true` when:
 When executing tasks in Docker containers, the working directory is determined by three factors (in order of precedence):
 
 1. **Task's `working_dir`** - If specified, overrides all other settings
-2. **Environment's `working_dir`** - If specified and task doesn't specify, uses environment's directory
-3. **Dockerfile's `WORKDIR`** - If neither task nor environment specify, Docker uses the Dockerfile's WORKDIR directive
+2. **Runner's `working_dir`** - If specified and task doesn't specify, uses runner's directory
+3. **Dockerfile's `WORKDIR`** - If neither task nor runner specify, Docker uses the Dockerfile's WORKDIR directive
 
 **Examples:**
 
 ```yaml
-environments:
+runners:
   builder:
     dockerfile: build.dockerfile
     context: .
     volumes:
       - .:/workspace
-    working_dir: /workspace  # Sets default for all tasks using this environment
+    working_dir: /workspace  # Sets default for all tasks using this runner
 
 tasks:
-  # Uses /workspace (from environment)
+  # Uses /workspace (from runner)
   build:
-    env: builder
+    run_in: builder
     cmd: cargo build --release
 
-  # Uses /workspace/tests (combines environment + task)
+  # Uses /workspace/tests (combines runner + task)
   test:
-    env: builder
+    run_in: builder
     working_dir: tests
     cmd: cargo test
 
-  # Uses /workspace/docs (overrides environment)
+  # Uses /workspace/docs (overrides runner)
   docs:
-    env: builder
+    run_in: builder
     working_dir: /workspace/docs
     cmd: make html
 ```
 
 ```yaml
-environments:
+runners:
   # No working_dir specified - relies on Dockerfile
   builder:
     dockerfile: Dockerfile  # Contains: WORKDIR /app
@@ -418,28 +418,28 @@ environments:
 tasks:
   # Uses /app (from Dockerfile's WORKDIR)
   build:
-    env: builder
+    run_in: builder
     cmd: make build
 
   # Uses /app/tests (Dockerfile WORKDIR + task working_dir)
   test:
-    env: builder
+    run_in: builder
     working_dir: tests
     cmd: pytest
 
   # Uses /code (absolute path, overrides Dockerfile)
   analyze:
-    env: builder
+    run_in: builder
     working_dir: /code
     cmd: pylint src/
 ```
 
 **Key Points:**
 
-- If both environment and task specify `working_dir`, they are **combined** (environment/task)
+- If both runner and task specify `working_dir`, they are **combined** (runner/task)
 - If neither specifies `working_dir`, Docker uses the Dockerfile's `WORKDIR` directive
 - Absolute paths (`/path`) override and are not combined
-- Relative paths are combined with the environment's `working_dir` (if set)
+- Relative paths are combined with the runner's `working_dir` (if set)
 - The `working_dir` setting determines where commands execute, not where volume mounts map files
 
 ### Parameterised Tasks
@@ -585,10 +585,10 @@ tt deploy prod-server  # user defaults to "admin"
 - Commands that spawn multiple subshells (exported vars available in all)
 - Integration with tools that expect environment variables
 
-**Example with Docker environments:**
+**Example with Docker runners:**
 
 ```yaml
-environments:
+runners:
   docker-build:
     dockerfile: Dockerfile
     context: .
@@ -597,14 +597,14 @@ environments:
 
 tasks:
   build:
-    env: docker-build
+    run_in: docker-build
     args: [$BUILD_TAG, $REGISTRY]
     cmd: |
       docker build -t $REGISTRY/app:$BUILD_TAG .
       docker push $REGISTRY/app:$BUILD_TAG
 ```
 
-Exported arguments are passed through to Docker containers as environment variables, overriding any Docker environment configuration.
+Exported arguments are passed through to Docker containers as environment variables, overriding any Docker runner configuration.
 
 #### Troubleshooting Exported Arguments
 
@@ -1603,13 +1603,13 @@ Each task is identified by a hash of its definition. The hash includes:
 - Output patterns
 - Working directory
 - Argument definitions
-- Execution environment
+- Execution runner
 
 State tracks:
 - When the task last ran
 - Timestamps of input files at that time
 
-Tasks are re-run when their definition changes, inputs are newer than the last run, or the environment changes.
+Tasks are re-run when their definition changes, inputs are newer than the last run, or the runner changes.
 
 ### What's Not In The Hash
 
@@ -1675,9 +1675,9 @@ tt -f build
 tt --only deploy
 tt -o deploy
 
-# Override environment for all tasks
-tt --env python analyze
-tt -e powershell build
+# Override runner for all tasks
+tt --runner python analyze
+tt -r powershell build
 
 # Control task subprocess output display
 tt --task-output all build     # Show both stdout and stderr (default)
@@ -1725,8 +1725,8 @@ tt --force build
 # Run a task without rebuilding dependencies
 tt --only test
 
-# Test with a different shell/environment
-tt --env python test
+# Test with a different shell/runner
+tt --runner python test
 
 # Force rebuild and deploy
 tt --force deploy production

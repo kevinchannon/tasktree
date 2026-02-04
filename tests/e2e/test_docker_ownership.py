@@ -46,7 +46,7 @@ class TestDockerOwnership(unittest.TestCase):
 
             # Create recipe (default run_as_root: false)
             (project_root / "tasktree.yaml").write_text("""
-environments:
+runners:
   alpine:
     dockerfile: ./Dockerfile
     context: .
@@ -54,7 +54,7 @@ environments:
 
 tasks:
   create_file:
-    env: alpine
+    run_in: alpine
     outputs: [data/owned.txt]
     cmd: echo "created by host user" > /workspace/data/owned.txt
 """)
@@ -111,7 +111,7 @@ tasks:
 
             # Create recipe with run_as_root: true
             (project_root / "tasktree.yaml").write_text("""
-environments:
+runners:
   alpine:
     dockerfile: ./Dockerfile
     context: .
@@ -120,7 +120,7 @@ environments:
 
 tasks:
   create_as_root:
-    env: alpine
+    run_in: alpine
     outputs: [data/root_owned.txt]
     cmd: echo "created by root" > /workspace/data/root_owned.txt
 """)

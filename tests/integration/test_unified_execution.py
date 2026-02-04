@@ -124,10 +124,10 @@ tasks:
                 # Create output file path
                 output_file = project_root / "output.txt"
 
-                # Create recipe with environment that has preamble
+                # Create recipe with runner that has preamble
                 recipe_file = project_root / "tasktree.yaml"
                 recipe_file.write_text(f"""
-environments:
+runners:
   strict:
     shell: bash
     preamble: |
@@ -136,7 +136,7 @@ environments:
 
 tasks:
   test-preamble:
-    env: strict
+    run_in: strict
     cmd: echo "$TEST_VAR" > {output_file}
 """)
 
@@ -172,10 +172,10 @@ tasks:
                 # Create output file path
                 output_file = project_root / "output.txt"
 
-                # Create recipe with environment that has preamble
+                # Create recipe with runner that has preamble
                 recipe_file = project_root / "tasktree.yaml"
                 recipe_file.write_text(f"""
-environments:
+runners:
   strict:
     shell: bash
     preamble: |
@@ -184,7 +184,7 @@ environments:
 
 tasks:
   test-multi-preamble:
-    env: strict
+    run_in: strict
     cmd: |
       echo "Start" > {output_file}
       echo "$MY_VAR" >> {output_file}

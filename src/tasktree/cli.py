@@ -558,16 +558,16 @@ def _execute_dynamic_task(
         )
         raise typer.Exit(1)
 
-    # Apply global environment override if provided
+    # Apply global runner override if provided
     if env:
-        # Validate that the environment exists
-        if not recipe.get_environment(env):
-            logger.error(f"[red]Environment not found: {env}[/red]")
-            logger.info("\nAvailable environments:")
-            for env_name in sorted(recipe.environments.keys()):
+        # Validate that the runner exists
+        if not recipe.get_runner(env):
+            logger.error(f"[red]Runner not found: {env}[/red]")
+            logger.info("\nAvailable runners:")
+            for env_name in sorted(recipe.runners.keys()):
                 logger.info(f"  - {env_name}")
             raise typer.Exit(1)
-        recipe.global_env_override = env
+        recipe.global_runner_override = env
 
     task = recipe.get_task(task_name)
     if task is None:
@@ -613,7 +613,7 @@ def _execute_dynamic_task(
             task.outputs,
             task.working_dir,
             task.args,
-            executor._get_effective_env_name(task),
+            executor._get_effective_runner_name(task),
             task.deps,
         )
 

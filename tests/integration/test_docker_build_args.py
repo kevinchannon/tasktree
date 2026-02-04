@@ -47,10 +47,10 @@ RUN echo "Build version: $BUILD_VERSION" > /build-info.txt && \\
 CMD ["cat", "/build-info.txt"]
 """)
 
-            # Create recipe with Docker environment and build args
+            # Create recipe with Docker runner and build args
             recipe_file = project_root / "tasktree.yaml"
             recipe_file.write_text("""
-environments:
+runners:
   default: builder
   builder:
     dockerfile: ./Dockerfile
@@ -62,7 +62,7 @@ environments:
 
 tasks:
   build:
-    env: builder
+    run_in: builder
     cmd: echo "Build args test"
 """)
 
