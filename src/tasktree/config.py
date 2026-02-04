@@ -13,6 +13,42 @@ import yaml
 from tasktree.parser import Runner
 
 
+def find_project_config(start_dir: Path) -> Optional[Path]:
+    """
+    Walk up the directory tree from start_dir to find .tasktree-config.yml.
+
+    Args:
+        start_dir: Directory to start searching from
+
+    Returns:
+        Path to .tasktree-config.yml if found, None otherwise
+
+    Example:
+        >>> config_path = find_project_config(Path.cwd())
+        >>> if config_path:
+        ...     runner = parse_config_file(config_path)
+
+    @athena: to-be-generated
+    """
+    current = start_dir.resolve()
+
+    # Walk up the directory tree
+    while True:
+        config_path = current / ".tasktree-config.yml"
+        if config_path.exists():
+            return config_path
+
+        # Check if we've reached a filesystem boundary
+        parent = current.parent
+        if parent == current:
+            # We've reached the root
+            break
+
+        current = parent
+
+    return None
+
+
 class ConfigError(Exception):
     """
     Raised when a configuration file is invalid.

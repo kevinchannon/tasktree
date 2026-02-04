@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from tasktree.config import ConfigError, parse_config_file
+from tasktree.config import ConfigError, find_project_config, parse_config_file
 from tasktree.parser import Runner
 
 
@@ -278,6 +278,119 @@ class TestParseConfigFile(unittest.TestCase):
             self.assertEqual(result.context, ".")
             self.assertEqual(result.volumes, [])
             self.assertEqual(result.ports, [])
+
+
+class TestFindProjectConfig(unittest.TestCase):
+    """
+    Tests for find_project_config function.
+    @athena: to-be-generated
+    """
+
+    def test_find_config_in_current_directory(self):
+        """
+        Test that find_project_config finds config in the current directory.
+        @athena: to-be-generated
+        """
+        with TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            config_path = tmppath / ".tasktree-config.yml"
+            config_path.write_text("# test config")
+
+            result = find_project_config(tmppath)
+            self.assertIsNotNone(result)
+            self.assertEqual(result, config_path)
+
+    def test_find_config_in_parent_directory(self):
+        """
+        Test that find_project_config finds config in parent directory.
+        @athena: to-be-generated
+        """
+        with TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            config_path = tmppath / ".tasktree-config.yml"
+            config_path.write_text("# test config")
+
+            # Start from a subdirectory
+            subdir = tmppath / "subdir"
+            subdir.mkdir()
+
+            result = find_project_config(subdir)
+            self.assertIsNotNone(result)
+            self.assertEqual(result, config_path)
+
+    def test_find_config_in_grandparent_directory(self):
+        """
+        Test that find_project_config finds config in grandparent directory.
+        @athena: to-be-generated
+        """
+        with TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            config_path = tmppath / ".tasktree-config.yml"
+            config_path.write_text("# test config")
+
+            # Start from a nested subdirectory
+            nested = tmppath / "level1" / "level2"
+            nested.mkdir(parents=True)
+
+            result = find_project_config(nested)
+            self.assertIsNotNone(result)
+            self.assertEqual(result, config_path)
+
+    def test_find_config_returns_none_when_not_found(self):
+        """
+        Test that find_project_config returns None when no config is found.
+        @athena: to-be-generated
+        """
+        with TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            # Don't create any config file
+
+            result = find_project_config(tmppath)
+            self.assertIsNone(result)
+
+    def test_find_config_stops_at_first_match(self):
+        """
+        Test that find_project_config returns the first config found (closest to start_dir).
+        @athena: to-be-generated
+        """
+        with TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+
+            # Create config at root level
+            root_config = tmppath / ".tasktree-config.yml"
+            root_config.write_text("# root config")
+
+            # Create config in subdirectory
+            subdir = tmppath / "subdir"
+            subdir.mkdir()
+            subdir_config = subdir / ".tasktree-config.yml"
+            subdir_config.write_text("# subdir config")
+
+            # Start from subdirectory - should find the closer one
+            result = find_project_config(subdir)
+            self.assertIsNotNone(result)
+            self.assertEqual(result, subdir_config)
+
+    def test_find_config_with_nested_directories(self):
+        """
+        Test that find_project_config works with deeply nested directory structures.
+        @athena: to-be-generated
+        """
+        with TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+
+            # Create a deep directory structure
+            deep_path = tmppath / "a" / "b" / "c" / "d" / "e"
+            deep_path.mkdir(parents=True)
+
+            # Create config at intermediate level
+            config_path = tmppath / "a" / "b" / ".tasktree-config.yml"
+            config_path.write_text("# config at level b")
+
+            # Start from deep directory
+            result = find_project_config(deep_path)
+            self.assertIsNotNone(result)
+            self.assertEqual(result, config_path)
 
 
 if __name__ == "__main__":
