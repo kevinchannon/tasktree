@@ -2042,5 +2042,26 @@ class TestGetSessionDefaultRunner(unittest.TestCase):
         self.assertEqual(runner.preamble, "")
 
 
+class TestPlatformdirs(unittest.TestCase):
+    """
+    Test that platformdirs dependency is available.
+    @athena: to-be-generated
+    """
+
+    def test_platformdirs_import(self):
+        """
+        Test that platformdirs can be imported successfully.
+        @athena: to-be-generated
+        """
+        try:
+            import platformdirs
+
+            # Verify basic functions exist
+            self.assertTrue(callable(platformdirs.user_config_dir))
+            self.assertTrue(callable(platformdirs.site_config_dir))
+        except ImportError as e:
+            self.fail(f"platformdirs import failed: {e}")
+
+
 if __name__ == "__main__":
     unittest.main()
