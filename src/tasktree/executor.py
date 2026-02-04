@@ -282,6 +282,26 @@ class Executor:
         else:
             return "bash", ["-c"]
 
+    @staticmethod
+    def get_session_default_runner() -> Runner:
+        """
+        Get the session default runner based on platform defaults.
+
+        This function returns the hard-coded platform-specific default runner.
+        In future phases, it will be extended to check configuration files
+        at multiple levels (machine, user, project) before falling back to
+        the platform default.
+
+        Returns:
+            Runner: Platform-specific default runner configuration
+        @athena: to-be-generated
+        """
+        is_windows = platform.system() == "Windows"
+        if is_windows:
+            return Runner(name="__platform_default__", shell="cmd", args=["/c"])
+        else:
+            return Runner(name="__platform_default__", shell="bash", args=["-c"])
+
     def _get_effective_runner_name(self, task: Task) -> str:
         """
         Get the effective runner name for a task.
