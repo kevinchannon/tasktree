@@ -1946,5 +1946,54 @@ class TestExecutorProcessRunner(unittest.TestCase):
             del os.environ["CUSTOM_SHELL"]
 
 
+class TestGetSessionDefaultRunner(unittest.TestCase):
+    """
+    Tests for get_session_default_runner() function.
+    @athena: to-be-generated
+    """
+
+    @patch("platform.system")
+    def test_returns_bash_on_unix(self, mock_system):
+        """
+        Test that get_session_default_runner returns bash runner on Unix platforms.
+        @athena: to-be-generated
+        """
+        mock_system.return_value = "Linux"
+        runner = Executor.get_session_default_runner()
+
+        self.assertEqual(runner.name, "__platform_default__")
+        self.assertEqual(runner.shell, "bash")
+        self.assertEqual(runner.args, ["-c"])
+        self.assertEqual(runner.preamble, "")
+
+    @patch("platform.system")
+    def test_returns_bash_on_macos(self, mock_system):
+        """
+        Test that get_session_default_runner returns bash runner on macOS.
+        @athena: to-be-generated
+        """
+        mock_system.return_value = "Darwin"
+        runner = Executor.get_session_default_runner()
+
+        self.assertEqual(runner.name, "__platform_default__")
+        self.assertEqual(runner.shell, "bash")
+        self.assertEqual(runner.args, ["-c"])
+        self.assertEqual(runner.preamble, "")
+
+    @patch("platform.system")
+    def test_returns_cmd_on_windows(self, mock_system):
+        """
+        Test that get_session_default_runner returns cmd runner on Windows.
+        @athena: to-be-generated
+        """
+        mock_system.return_value = "Windows"
+        runner = Executor.get_session_default_runner()
+
+        self.assertEqual(runner.name, "__platform_default__")
+        self.assertEqual(runner.shell, "cmd")
+        self.assertEqual(runner.args, ["/c"])
+        self.assertEqual(runner.preamble, "")
+
+
 if __name__ == "__main__":
     unittest.main()
