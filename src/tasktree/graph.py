@@ -564,10 +564,10 @@ def get_implicit_inputs(recipe: Recipe, task: Task) -> list[str]:
         elif dep_task.inputs:
             implicit_inputs.extend(dep_task.inputs)
 
-    # Add Docker-specific implicit inputs if task uses Docker environment
-    env_name = task.env or recipe.default_env
+    # Add Docker-specific implicit inputs if task uses Docker runner
+    env_name = task.run_in or recipe.default_env
     if env_name:
-        env = recipe.get_environment(env_name)
+        env = recipe.get_runner(env_name)
         if env and env.dockerfile:
             # Add Dockerfile as input
             implicit_inputs.append(env.dockerfile)

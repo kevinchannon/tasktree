@@ -1,7 +1,7 @@
 """Task and argument hashing for incremental execution.
 
 Provides functions to compute deterministic hashes of task definitions,
-arguments, and environment configurations. These hashes are used to detect
+arguments, and runner configurations. These hashes are used to detect
 changes that require task re-execution in the incremental build system.
 """
 
@@ -109,7 +109,7 @@ def hash_task(
     outputs: Task outputs (strings or named dicts)
     working_dir: Working directory
     args: Task argument specifications
-    env: Environment name
+    env: Runner name
     deps: Dependency specifications (optional, for dependency hash)
 
     Returns:
@@ -164,15 +164,15 @@ def hash_args(args_dict: dict[str, Any]) -> str:
     return hashlib.sha256(serialized.encode()).hexdigest()[:8]
 
 
-def hash_environment_definition(env) -> str:
+def hash_runner_definition(env) -> str:
     """
-    Hash environment definition fields that affect task execution.
+    Hash runner definition fields that affect task execution.
 
     Args:
-    env: Environment to hash
+    env: Runner to hash
 
     Returns:
-    16-character hash of environment definition
+    16-character hash of runner definition
     @athena: a54f6c171ba9
     """
     # Import inside function to avoid circular dependency

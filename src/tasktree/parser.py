@@ -29,13 +29,13 @@ class CircularImportError(Exception):
 
 
 @dataclass
-class Environment:
+class Runner:
     """
-    Represents an execution environment configuration.
+    Represents an execution runner configuration.
 
-    Can be either a shell environment or a Docker environment:
-    - Shell environment: has 'shell' field, executes directly on host
-    - Docker environment: has 'dockerfile' field, executes in container
+    Can be either a shell runner or a Docker runner:
+    - Shell runner: has 'shell' field, executes directly on host
+    - Docker runner: has 'dockerfile' field, executes in container
     @athena: cfe3f8754968
     """
 
@@ -90,7 +90,7 @@ class Task:
         default_factory=list
     )  # Can be strings or dicts (each dict has single key: arg name)
     source_file: str = ""  # Track which file defined this task
-    env: str = ""  # Environment name to use for execution
+    run_in: str = ""  # Runner name to use for execution
     private: bool = False  # If True, task is hidden from --list output
     task_output: TaskOutputTypes | None = None
 
@@ -321,9 +321,9 @@ class Recipe:
     tasks: dict[str, Task]
     project_root: Path
     recipe_path: Path  # Path to the recipe file
-    environments: dict[str, Environment] = field(default_factory=dict)
-    default_env: str = ""  # Name of default environment
-    global_env_override: str = ""  # Global environment override (set via CLI --env)
+    runners: dict[str, Runner] = field(default_factory=dict)
+    default_env: str = ""  # Name of default runner
+    global_env_override: str = ""  # Global runner override (set via CLI --run-in)
     variables: dict[str, str] = field(
         default_factory=dict
     )  # Global variables (resolved at parse time) - DEPRECATED, use evaluated_variables
@@ -358,18 +358,18 @@ class Recipe:
         """
         return list(self.tasks.keys())
 
-    def get_environment(self, name: str) -> Environment | None:
+    def get_runner(self, name: str) -> Runner | None:
         """
-        Get environment by name.
+        Get runner by name.
 
         Args:
-        name: Environment name
+        name: Runner name
 
         Returns:
-        Environment if found, None otherwise
+        Runner if found, None otherwise
         @athena: 098227ca38a2
         """
-        return self.environments.get(name)
+        return self.runners.get(name)
 
     def evaluate_variables(self, root_task: str | None = None) -> None:
         """
@@ -409,7 +409,7 @@ class Recipe:
             try:
                 reachable_tasks = collect_reachable_tasks(self.tasks, root_task)
                 variables_to_eval = collect_reachable_variables(
-                    self.tasks, self.environments, reachable_tasks
+                    self.tasks, self.runners, reachable_tasks
                 )
             except ValueError:
                 # Root task not found - fall back to eager evaluation
@@ -533,8 +533,8 @@ class Recipe:
                     resolved_args.append(arg)
             task.args = resolved_args
 
-        # Substitute evaluated variables into all environments
-        for env in self.environments.values():
+        # Substitute evaluated variables into all runners
+        for env in self.runners.values():
             if env.preamble:
                 env.preamble = substitute_variables(
                     env.preamble, self.evaluated_variables
@@ -1045,8 +1045,8 @@ def _resolve_eval_variable(
     shell_args = []
 
     # Check if recipe has default_env specified
-    if recipe_data and "environments" in recipe_data:
-        env_data = recipe_data["environments"]
+    if recipe_data and "runners" in recipe_data:
+        env_data = recipe_data["runners"]
         if isinstance(env_data, dict):
             default_env_name = env_data.get("default", "")
             if default_env_name and default_env_name in env_data:
@@ -1458,10 +1458,10 @@ def _parse_file_with_env(
     project_root: Path,
     import_stack: list[Path] | None = None,
 ) -> tuple[
-    dict[str, Task], dict[str, Environment], str, dict[str, Any], dict[str, Any]
+    dict[str, Task], dict[str, Runner], str, dict[str, Any], dict[str, Any]
 ]:
     """
-    Parse file and extract tasks, environments, and variables.
+    Parse file and extract tasks, runners, and variables.
 
     Args:
     file_path: Path to YAML file
@@ -1470,20 +1470,20 @@ def _parse_file_with_env(
     import_stack: Stack of files being imported (for circular detection)
 
     Returns:
-    Tuple of (tasks, environments, default_env_name, raw_variables, YAML_data)
+    Tuple of (tasks, runners, default_env_name, raw_variables, YAML_data)
     Note: Variables are NOT evaluated here - they're stored as raw specs for lazy evaluation
     @athena: 8b00183e612d
     """
     # Parse tasks normally
     tasks = _parse_file(file_path, namespace, project_root, import_stack)
 
-    # Load YAML again to extract environments and variables (only from root file)
-    environments: dict[str, Environment] = {}
+    # Load YAML again to extract runners and variables (only from root file)
+    runners: dict[str, Runner] = {}
     default_env = ""
     raw_variables: dict[str, Any] = {}
     yaml_data: dict[str, Any] = {}
 
-    # Only parse environments and variables from the root file (namespace is None)
+    # Only parse runners and variables from the root file (namespace is None)
     if namespace is None:
         with open(file_path, "r") as f:
             data = yaml.safe_load(f)
@@ -1495,26 +1495,26 @@ def _parse_file_with_env(
             raw_variables = data["variables"]
 
         # SKIP variable substitution here - defer to lazy evaluation phase
-        # Tasks and environments will contain {{ var.* }} placeholders until evaluation
+        # Tasks and runners will contain {{ var.* }} placeholders until evaluation
         # This allows us to only evaluate variables that are actually reachable from the target task
 
-        if data and "environments" in data:
-            env_data = data["environments"]
+        if data and "runners" in data:
+            env_data = data["runners"]
             if isinstance(env_data, dict):
                 # Extract default environment name
                 default_env = env_data.get("default", "")
 
-                # Parse each environment definition
+                # Parse each runner definition
                 for env_name, env_config in env_data.items():
                     if env_name == "default":
                         continue  # Skip the default key itself
 
                     if not isinstance(env_config, dict):
                         raise ValueError(
-                            f"Environment '{env_name}' must be a dictionary"
+                            f"Runner '{env_name}' must be a dictionary"
                         )
 
-                    # Parse common environment configuration
+                    # Parse common runner configuration
                     shell = env_config.get("shell", "")
                     args = env_config.get("args", [])
                     preamble = env_config.get("preamble", "")
@@ -1532,20 +1532,20 @@ def _parse_file_with_env(
                     extra_args = env_config.get("extra_args", [])
                     run_as_root = env_config.get("run_as_root", False)
 
-                    # SKIP variable substitution in environment fields - defer to lazy evaluation
-                    # Environment fields may contain {{ var.* }} placeholders
+                    # SKIP variable substitution in runner fields - defer to lazy evaluation
+                    # Runner fields may contain {{ var.* }} placeholders
 
-                    # Validate environment type
+                    # Validate runner type
                     if not shell and not dockerfile:
                         raise ValueError(
-                            f"Environment '{env_name}' must specify either 'shell' "
-                            f"(for shell environments) or 'dockerfile' (for Docker environments)"
+                            f"Runner '{env_name}' must specify either 'shell' "
+                            f"(for shell runners) or 'dockerfile' (for Docker runners)"
                         )
 
-                    # Validate Docker environment requirements
+                    # Validate Docker runner requirements
                     if dockerfile and not context:
                         raise ValueError(
-                            f"Docker environment '{env_name}' must specify 'context' "
+                            f"Docker runner '{env_name}' must specify 'context' "
                             f"when 'dockerfile' is specified"
                         )
 
@@ -1554,7 +1554,7 @@ def _parse_file_with_env(
                         dockerfile_path = project_root / dockerfile
                         if not dockerfile_path.exists():
                             raise ValueError(
-                                f"Environment '{env_name}': Dockerfile not found at {dockerfile_path}"
+                                f"Runner '{env_name}': Dockerfile not found at {dockerfile_path}"
                             )
 
                     # Validate that context directory exists if specified
@@ -1562,21 +1562,21 @@ def _parse_file_with_env(
                         context_path = project_root / context
                         if not context_path.exists():
                             raise ValueError(
-                                f"Environment '{env_name}': context directory not found at {context_path}"
+                                f"Runner '{env_name}': context directory not found at {context_path}"
                             )
                         if not context_path.is_dir():
                             raise ValueError(
-                                f"Environment '{env_name}': context must be a directory, got {context_path}"
+                                f"Runner '{env_name}': context must be a directory, got {context_path}"
                             )
 
-                    # Validate environment name (must be valid Docker tag)
+                    # Validate runner name (must be valid Docker tag)
                     if not env_name.replace("-", "").replace("_", "").isalnum():
                         raise ValueError(
-                            f"Environment name '{env_name}' must be alphanumeric "
+                            f"Runner name '{env_name}' must be alphanumeric "
                             f"(with optional hyphens and underscores)"
                         )
 
-                    environments[env_name] = Environment(
+                    runners[env_name] = Runner(
                         name=env_name,
                         shell=shell,
                         args=args,
@@ -1591,7 +1591,7 @@ def _parse_file_with_env(
                         run_as_root=run_as_root,
                     )
 
-    return tasks, environments, default_env, raw_variables, yaml_data
+    return tasks, runners, default_env, raw_variables, yaml_data
 
 
 def collect_reachable_tasks(tasks: dict[str, Task], root_task: str) -> set[str]:
@@ -1656,18 +1656,18 @@ def collect_reachable_tasks(tasks: dict[str, Task], root_task: str) -> set[str]:
 
 def collect_reachable_variables(
     tasks: dict[str, Task],
-    environments: dict[str, Environment],
+    runners: dict[str, Runner],
     reachable_task_names: set[str],
 ) -> set[str]:
     """
     Extract variable names used by reachable tasks.
 
-    Searches for {{ var.* }} placeholders in task and environment definitions to determine
+    Searches for {{ var.* }} placeholders in task and runner definitions to determine
     which variables are actually needed for execution.
 
     Args:
     tasks: Dictionary mapping task names to Task objects
-    environments: Dictionary mapping environment names to Environment objects
+    runners: Dictionary mapping runner names to Runner objects
     reachable_task_names: Set of task names that will be executed
 
     Returns:
@@ -1761,9 +1761,9 @@ def collect_reachable_variables(
                                     for match in var_pattern.finditer(val):
                                         variables.add(match.group(1))
 
-        if task.env:
-            if task.env in environments:
-                env = environments[task.env]
+        if task.run_in:
+            if task.run_in in runners:
+                env = runners[task.run_in]
 
                 if env.dockerfile and env.dockerfile != "":
                     for match in var_pattern.finditer(env.dockerfile):
@@ -1947,8 +1947,8 @@ def _parse_file(
 
             tasks.update(nested_tasks)
 
-    # Validate top-level keys (only imports, environments, tasks, and variables are allowed)
-    valid_top_level_keys = {"imports", "environments", "tasks", "variables"}
+    # Validate top-level keys (only imports, runners, tasks, and variables are allowed)
+    valid_top_level_keys = {"imports", "runners", "tasks", "variables"}
 
     # Check if tasks key is missing when there appear to be task definitions at root
     # Do this BEFORE checking for unknown keys, to provide better error message
@@ -2065,7 +2065,7 @@ def _parse_file(
             working_dir=working_dir,
             args=task_data.get("args", []),
             source_file=str(file_path),
-            env=task_data.get("env", ""),
+            run_in=task_data.get("run_in", ""),
             private=task_data.get("private", False),
             task_output=task_data.get("task_output", None)
         )

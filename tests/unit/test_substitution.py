@@ -304,15 +304,15 @@ class TestSubstituteArguments(unittest.TestCase):
             substitute_arguments("{{ arg.server }}", args, exported_args)
 
 
-class TestSubstituteEnvironment(unittest.TestCase):
+class TestSubstituteEnvironmentVariable(unittest.TestCase):
     """
-    Test substitute_environment function.
+    Test substitute_environment function for environment variables.
     @athena: 8b6b7f441d81
     """
 
     def test_substitute_single_env_var(self):
         """
-        Test basic {{ env.VAR }} substitution.
+        Test basic {{ env.VAR }} substitution for environment variables.
         @athena: 14c224625dc5
         """
         os.environ["TEST_VAR"] = "test_value"
@@ -324,7 +324,7 @@ class TestSubstituteEnvironment(unittest.TestCase):
 
     def test_substitute_multiple_env_vars(self):
         """
-        Test multiple different env vars in same string.
+        Test multiple different environment variables in same string.
         @athena: 893b52157e30
         """
         os.environ["VAR1"] = "value1"
@@ -339,7 +339,7 @@ class TestSubstituteEnvironment(unittest.TestCase):
 
     def test_substitute_same_env_var_multiple_times(self):
         """
-        Test same env var appears multiple times.
+        Test same environment variable appears multiple times.
         @athena: 53d21a278e2a
         """
         os.environ["USER"] = "testuser"

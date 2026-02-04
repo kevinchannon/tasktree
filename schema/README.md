@@ -62,14 +62,14 @@ check-jsonschema --schemafile schema/tasktree-schema.json tasktree.yaml
 
 The schema validates:
 
-- **Top-level structure**: Only `imports`, `environments`, `variables`, and `tasks` are allowed at root
+- **Top-level structure**: Only `imports`, `runners`, `variables`, and `tasks` are allowed at root
 - **Required fields**: Tasks must have a `cmd` field
 - **Field types**: Ensures strings, arrays, and objects are used correctly
 - **Naming patterns**: Task names and namespaces must match `^[a-zA-Z][a-zA-Z0-9_-]*$`
 - **Named inputs/outputs**: Supports both anonymous (strings) and named (objects) format
 - **Self-references**: Named inputs/outputs can be referenced with `{{ self.inputs.name }}` and `{{ self.outputs.name }}`
 - **Dependency outputs**: Named outputs can be referenced with `{{ dep.task.outputs.name }}`
-- **Environment requirements**: Environments must specify a `shell` (or `dockerfile` for Docker environments)
+- **Runner requirements**: Runners must specify a `shell` (or `dockerfile` for Docker runners)
 
 ## Example
 
@@ -78,7 +78,7 @@ imports:
   - file: common/base.yaml
     as: base
 
-environments:
+runners:
   default: bash-strict
   bash-strict:
     shell: /bin/bash

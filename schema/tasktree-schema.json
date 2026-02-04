@@ -25,13 +25,13 @@
         "additionalProperties": false
       }
     },
-    "environments": {
-      "description": "Shell execution environment configurations",
+    "runners": {
+      "description": "Shell execution runner configurations",
       "type": "object",
       "properties": {
         "default": {
           "type": "string",
-          "description": "Name of the default environment to use"
+          "description": "Name of the default runner to use"
         }
       },
       "patternProperties": {
@@ -40,10 +40,10 @@
           "properties": {
             "shell": {
               "type": "string",
-              "description": "Path to the shell executable (e.g., /bin/bash, python3, pwsh). Required for shell environments, optional for Docker environments (defaults to 'sh' inside container)."
+              "description": "Path to the shell executable (e.g., /bin/bash, python3, pwsh). Required for shell runners, optional for Docker runners (defaults to 'sh' inside container)."
             },
             "args": {
-              "description": "Arguments to pass to the shell (for shell environments) or Docker build arguments (for Docker environments)",
+              "description": "Arguments to pass to the shell (for shell runners) or Docker build arguments (for Docker runners)",
               "oneOf": [
                 {
                   "type": "array",
@@ -100,7 +100,7 @@
             },
             "working_dir": {
               "type": "string",
-              "description": "Working directory inside the container (for Docker environments) or on the host (for shell environments)"
+              "description": "Working directory inside the container (for Docker runners) or on the host (for shell runners)"
             },
             "extra_args": {
               "description": "Additional arguments to pass to docker run",
@@ -356,9 +356,9 @@
                 ]
               }
             },
-            "env": {
+            "run_in": {
               "type": "string",
-              "description": "Environment to use for this task (overrides default)"
+              "description": "Runner to use for this task (overrides default)"
             },
             "private": {
               "type": "boolean",
@@ -387,7 +387,7 @@
   "anyOf": [
     { "required": ["tasks"] },
     { "required": ["imports"] },
-    { "required": ["environments"] },
+    { "required": ["runners"] },
     { "required": ["variables"] }
   ]
 }

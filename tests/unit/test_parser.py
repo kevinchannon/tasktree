@@ -1709,7 +1709,7 @@ class TestEnvironmentParsing(unittest.TestCase):
             recipe_path = project_root / "tasktree.yaml"
 
             recipe_path.write_text("""
-environments:
+runners:
   default: bash-strict
   bash-strict:
     shell: bash
@@ -1734,7 +1734,7 @@ tasks:
             self.assertIn("python", recipe.environments)
 
             # Check default environment
-            self.assertEqual(recipe.default_env, "bash-strict")
+            self.assertEqual(recipe.default_runner, "bash-strict")
 
             # Check bash-strict environment
             bash_env = recipe.environments["bash-strict"]
@@ -1768,7 +1768,7 @@ tasks:
 
             # Should have no environments
             self.assertEqual(len(recipe.environments), 0)
-            self.assertEqual(recipe.default_env, "")
+            self.assertEqual(recipe.default_runner, "")
 
     def test_environment_missing_shell(self):
         """
@@ -1780,7 +1780,7 @@ tasks:
             recipe_path = project_root / "tasktree.yaml"
 
             recipe_path.write_text("""
-environments:
+runners:
   bad-env:
     args: ['-c']
 
@@ -1904,7 +1904,7 @@ imports:
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
             recipe_path.write_text("""
-environments:
+runners:
   bash-strict:
     shell: /bin/bash
     args: ['-e', '-u']
@@ -2966,7 +2966,7 @@ tasks:
             self.assertIn("Invalid eval reference", error_msg)
             self.assertIn("must be a non-empty string", error_msg)
 
-    def test_eval_uses_default_env(self):
+    def test_eval_uses_default_runner(self):
         """
         Test that eval uses default environment if specified.
         @athena: 4121942be054
@@ -2976,7 +2976,7 @@ tasks:
             # This tests that the environment resolution works
             # We use a simple command that works in both bash and cmd
             recipe_path.write_text("""
-environments:
+runners:
   default: bash-env
   bash-env:
     shell: bash

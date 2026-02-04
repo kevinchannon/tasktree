@@ -309,9 +309,9 @@ tasks:
         # Verify working_dir reflects the actual resolved path
         self.assertEqual(lines["wd"], str(task_dir.resolve()))
 
-    def test_builtin_vars_in_environment_volumes(self):
+    def test_builtin_vars_in_runner_volumes(self):
         """
-        Test that builtin variables are substituted in environment volume mounts.
+        Test that builtin variables are substituted in runner volume mounts.
         @athena: 8147ff7024a4
         """
 
@@ -321,8 +321,8 @@ tasks:
         # output_file = Path(self.test_dir) / "docker_test.txt"
 
         recipe_content = """
-environments:
-  test-env:
+runners:
+  test-runner:
     dockerfile: docker/Dockerfile
     context: .
     volumes:
@@ -334,7 +334,7 @@ environments:
 
 tasks:
   docker-test:
-    env: test-env
+    run_in: test-runner
     cmd: echo "Testing builtin vars in docker"
 """
         self.recipe_file.write_text(recipe_content)
@@ -439,9 +439,9 @@ tasks:
             "TASK_NAME_VAR should contain the task name",
         )
 
-    def test_env_vars_in_environment_fields(self):
+    def test_env_vars_in_runner_fields(self):
         """
-        Test that {{ env.* }} variables are substituted in environment fields.
+        Test that {{ env.* }} variables are substituted in runner fields.
         @athena: b22c32541ba0
         """
 
@@ -453,8 +453,8 @@ tasks:
 
         try:
             recipe_content = """
-environments:
-  test-env:
+runners:
+  test-runner:
     dockerfile: docker/Dockerfile
     context: .
     volumes:
@@ -464,7 +464,7 @@ environments:
 
 tasks:
   docker-test:
-    env: test-env
+    run_in: test-runner
     cmd: echo "Testing env vars in docker"
 """
             self.recipe_file.write_text(recipe_content)
@@ -555,9 +555,9 @@ tasks:
             os.environ.pop("TEST_MOUNT_PATH", None)
             os.environ.pop("TEST_ENV_VALUE", None)
 
-    def test_var_vars_in_environment_fields(self):
+    def test_var_vars_in_runner_fields(self):
         """
-        Test that {{ var.* }} variables are substituted in environment fields.
+        Test that {{ var.* }} variables are substituted in runner fields.
         @athena: 6f133a9ba7f8
         """
 
@@ -568,8 +568,8 @@ variables:
   mount_path: /var/data
   env_value: config-value
 
-environments:
-  test-env:
+runners:
+  test-runner:
     dockerfile: docker/Dockerfile
     context: .
     volumes:
@@ -579,7 +579,7 @@ environments:
 
 tasks:
   docker-test:
-    env: test-env
+    run_in: test-runner
     cmd: echo "Testing var substitution in docker"
 """
         self.recipe_file.write_text(recipe_content)

@@ -1,4 +1,4 @@
-"""E2E tests for Docker environment configuration."""
+"""E2E tests for Docker runner configuration."""
 
 import unittest
 from pathlib import Path
@@ -7,9 +7,9 @@ from tempfile import TemporaryDirectory
 from . import is_docker_available, run_tasktree_cli
 
 
-class TestDockerEnvironment(unittest.TestCase):
+class TestDockerRunner(unittest.TestCase):
     """
-    Test Docker environment variable and configuration features.
+    Test Docker runner variable and configuration features.
     @athena: c7c662b4eea1
     """
 
@@ -43,7 +43,7 @@ class TestDockerEnvironment(unittest.TestCase):
 
             # Create recipe with environment variables
             (project_root / "tasktree.yaml").write_text("""
-environments:
+runners:
   alpine:
     dockerfile: ./Dockerfile
     context: .
@@ -55,7 +55,7 @@ environments:
 
 tasks:
   check_env:
-    env: alpine
+    run_in: alpine
     outputs: [output/env.txt]
     cmd: |
       echo "BUILD_ENV=$BUILD_ENV" > /workspace/output/env.txt
@@ -98,9 +98,9 @@ tasks:
             # Create output directory
             (project_root / "output").mkdir()
 
-            # Create recipe with working_dir in environment only
+            # Create recipe with working_dir in runner only
             (project_root / "tasktree.yaml").write_text("""
-environments:
+runners:
   alpine:
     dockerfile: ./Dockerfile
     context: .
@@ -109,7 +109,7 @@ environments:
 
 tasks:
   check_pwd:
-    env: alpine
+    run_in: alpine
     outputs: [output/pwd.txt]
     cmd: pwd > /workspace/output/pwd.txt
 """)
@@ -130,7 +130,7 @@ tasks:
                 pwd_file.exists(), "Working directory check file not created"
             )
 
-            # Should be /app (env working_dir)
+            # Should be /app (runner working_dir)
             pwd = pwd_file.read_text().strip()
             self.assertEqual(pwd, "/app", f"Unexpected working directory: {pwd}")
 
@@ -152,7 +152,7 @@ tasks:
 
             # Create recipe with extra docker args
             (project_root / "tasktree.yaml").write_text("""
-environments:
+runners:
   alpine:
     dockerfile: ./Dockerfile
     context: .
@@ -163,7 +163,7 @@ environments:
 
 tasks:
   limited:
-    env: alpine
+    run_in: alpine
     outputs: [output/success.txt]
     cmd: echo "container ran with limits" > /workspace/output/success.txt
 """)
@@ -201,9 +201,9 @@ tasks:
             # Create output directory
             (project_root / "output").mkdir()
 
-            # Create recipe WITHOUT working_dir in env or task
+            # Create recipe WITHOUT working_dir in runner or task
             (project_root / "tasktree.yaml").write_text("""
-environments:
+runners:
   alpine:
     dockerfile: ./Dockerfile
     context: .
@@ -211,7 +211,7 @@ environments:
 
 tasks:
   check_pwd:
-    env: alpine
+    run_in: alpine
     outputs: [output/pwd.txt]
     cmd: pwd > /output/pwd.txt
 """)

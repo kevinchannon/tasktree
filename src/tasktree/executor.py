@@ -24,10 +24,10 @@ from tasktree.graph import (
 )
 from tasktree.hasher import hash_args, hash_task, make_cache_key
 from tasktree.logging import Logger, LogLevel
-from tasktree.parser import Recipe, Task, Environment
+from tasktree.parser import Recipe, Task, Runner
 from tasktree.process_runner import ProcessRunner, TaskOutputTypes
 from tasktree.state import StateManager, TaskState
-from tasktree.hasher import hash_environment_definition
+from tasktree.hasher import hash_runner_definition
 
 
 @dataclass
@@ -296,16 +296,16 @@ class Executor:
         task: Task to get environment name for
 
         Returns:
-        Environment name (empty string if using platform default)
+        Runner name (empty string if using platform default)
         @athena: e5bface8a3a2
         """
         # Check for global override first
         if self.recipe.global_env_override:
             return self.recipe.global_env_override
 
-        # Use task's env
-        if task.env:
-            return task.env
+        # Use task's runner
+        if task.run_in:
+            return task.run_in
 
         # Use recipe default
         if self.recipe.default_env:
@@ -334,20 +334,20 @@ class Executor:
         # Check for global override first
         env_name = self.recipe.global_env_override
 
-        # If no global override, use task's env
+        # If no global override, use task's runner
         if not env_name:
-            env_name = task.env
+            env_name = task.run_in
 
-        # If no explicit env, try recipe default
+        # If no explicit runner, try recipe default
         if not env_name and self.recipe.default_env:
             env_name = self.recipe.default_env
 
-        # If we have an env name, look it up
+        # If we have a runner name, look it up
         if env_name:
-            env = self.recipe.get_environment(env_name)
+            env = self.recipe.get_runner(env_name)
             if env:
                 return env.shell, env.preamble
-            # If env not found, fall through to platform default
+            # If runner not found, fall through to platform default
 
         # Use platform default
         shell, _ = self._get_platform_default_environment()
@@ -366,7 +366,7 @@ class Executor:
         A task executes if ANY of these conditions are met:
         1. Force flag is set (--force)
         2. Task definition hash differs from cached state
-        3. Environment definition has changed
+        3. Runner definition has changed
         4. Any explicit inputs have newer mtime than last_run
         5. Any implicit inputs (from deps) have changed
         6. No cached state exists for this task+args combination
@@ -643,7 +643,7 @@ class Executor:
         env_name = self._get_effective_env_name(task)
         env = None
         if env_name:
-            env = self.recipe.get_environment(env_name)
+            env = self.recipe.get_runner(env_name)
 
         # Execute command
         self.logger.log(LogLevel.INFO, f"Running: {task.name}")
@@ -805,18 +805,18 @@ class Executor:
             except OSError:
                 pass  # Ignore cleanup errors
 
-    def _substitute_builtin_in_environment(
-        self, env: Environment, builtin_vars: dict[str, str]
-    ) -> Environment:
+    def _substitute_builtin_in_runner(
+        self, env: Runner, builtin_vars: dict[str, str]
+    ) -> Runner:
         """
-        Substitute builtin and environment variables in environment fields.
+        Substitute builtin and environment variables in runner fields.
 
         Args:
-        env: Environment to process
+        env: Runner to process
         builtin_vars: Built-in variable values
 
         Returns:
-        New Environment with builtin and environment variables substituted
+        New Runner with builtin and environment variables substituted
 
         Raises:
         ValueError: If builtin variable or environment variable is not defined
@@ -960,7 +960,7 @@ class Executor:
         )
 
         # Substitute builtin variables in environment fields (volumes, env_vars, etc.)
-        env = self._substitute_builtin_in_environment(env, builtin_vars)
+        env = self._substitute_builtin_in_runner(env, builtin_vars)
 
         # Resolve container working directory
         # Treat "." as empty for Docker - it's the default but we want None
@@ -1147,15 +1147,15 @@ class Executor:
             return False
 
         # Get environment definition
-        env = self.recipe.get_environment(env_name)
+        env = self.recipe.get_runner(env_name)
         if env is None:
-            # Environment was deleted - treat as changed
+            # Runner was deleted - treat as changed
             return True
 
         # Compute current environment hash (YAML definition)
-        from tasktree.hasher import hash_environment_definition
+        from tasktree.hasher import hash_runner_definition
 
-        current_env_hash = hash_environment_definition(env)
+        current_env_hash = hash_runner_definition(env)
 
         # Get cached environment hash
         marker_key = f"_env_hash_{env_name}"
@@ -1180,7 +1180,7 @@ class Executor:
 
     def _check_docker_image_changed(
         self,
-        env: Environment,
+        env: Runner,
         cached_state: TaskState,
         env_name: str,
         process_runner: ProcessRunner,
@@ -1192,9 +1192,9 @@ class Executor:
         This detects changes from unpinned base images, network-dependent builds, etc.
 
         Args:
-        env: Docker environment definition
+        env: Docker runner definition
         cached_state: Cached state from previous run
-        env_name: Environment name
+        env_name: Runner name
         process_runner: ProcessRunner instance for subprocess execution
 
         Returns:
@@ -1250,7 +1250,7 @@ class Executor:
         env_name = self._get_effective_env_name(task)
         docker_env = None
         if env_name:
-            docker_env = self.recipe.get_environment(env_name)
+            docker_env = self.recipe.get_runner(env_name)
             if docker_env and not docker_env.dockerfile:
                 docker_env = None  # Not a Docker environment
 
@@ -1407,9 +1407,9 @@ class Executor:
 
         env_name = self._get_effective_env_name(task)
         if env_name:
-            env = self.recipe.get_environment(env_name)
+            env = self.recipe.get_runner(env_name)
             if env:
-                input_state[f"_env_hash_{env_name}"] = hash_environment_definition(env)
+                input_state[f"_env_hash_{env_name}"] = hash_runner_definition(env)
                 if env.dockerfile:
                     input_state |= self._docker_inputs_to_modified_times(env_name, env)
 
@@ -1452,7 +1452,7 @@ class Executor:
         return input_state
 
     def _docker_inputs_to_modified_times(
-        self, env_name: str, env: Environment
+        self, env_name: str, env: Runner
     ) -> dict[str, float]:
         """
         @athena: bfe53b0d56cd
