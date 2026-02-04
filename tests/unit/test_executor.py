@@ -99,7 +99,7 @@ class TestTaskStatus(unittest.TestCase):
                 outputs=["output.txt"],
             )
             task_hash = hash_task(
-                task.cmd, task.outputs, task.working_dir, task.args, "", task.deps
+                task.cmd, task.outputs, task.working_dir, task.args, "__platform_default__", task.deps
             )
             cache_key = make_cache_key(task_hash)
 
@@ -535,7 +535,7 @@ class TestMissingOutputs(unittest.TestCase):
                 outputs=["output.txt"],
             )
             task_hash = hash_task(
-                task.cmd, task.outputs, task.working_dir, task.args, "", task.deps
+                task.cmd, task.outputs, task.working_dir, task.args, "__platform_default__", task.deps
             )
             cache_key = make_cache_key(task_hash)
 
@@ -579,7 +579,7 @@ class TestMissingOutputs(unittest.TestCase):
                 outputs=["output.txt"],
             )
             task_hash = hash_task(
-                task.cmd, task.outputs, task.working_dir, task.args, "", task.deps
+                task.cmd, task.outputs, task.working_dir, task.args, "__platform_default__", task.deps
             )
             cache_key = make_cache_key(task_hash)
 
@@ -626,7 +626,7 @@ class TestMissingOutputs(unittest.TestCase):
                 outputs=["output1.txt", "output2.txt"],
             )
             task_hash = hash_task(
-                task.cmd, task.outputs, task.working_dir, task.args, "", task.deps
+                task.cmd, task.outputs, task.working_dir, task.args, "__platform_default__", task.deps
             )
             cache_key = make_cache_key(task_hash)
 
@@ -730,7 +730,7 @@ class TestMissingOutputs(unittest.TestCase):
                 outputs=["output.txt"],
             )
             task_hash = hash_task(
-                task.cmd, task.outputs, task.working_dir, task.args, "", task.deps
+                task.cmd, task.outputs, task.working_dir, task.args, "__platform_default__", task.deps
             )
             cache_key = make_cache_key(task_hash)
 
@@ -774,7 +774,7 @@ class TestMissingOutputs(unittest.TestCase):
                 outputs=["dist/*.deb"],
             )
             task_hash = hash_task(
-                task.cmd, task.outputs, task.working_dir, task.args, "", task.deps
+                task.cmd, task.outputs, task.working_dir, task.args, "__platform_default__", task.deps
             )
             cache_key = make_cache_key(task_hash)
 
@@ -1271,7 +1271,7 @@ class TestOnlyMode(unittest.TestCase):
                 outputs=["output.txt"],
             )
             task_hash = hash_task(
-                task.cmd, task.outputs, task.working_dir, task.args, "", task.deps
+                task.cmd, task.outputs, task.working_dir, task.args, "__platform_default__", task.deps
             )
             cache_key = make_cache_key(task_hash)
 
@@ -1451,7 +1451,7 @@ class TestRunnerResolution(unittest.TestCase):
 
     def test_get_effective_runner_platform_default(self):
         """
-        Test that empty string is returned for platform default.
+        Test that session default runner name is returned for platform default.
         @athena: 19260cca1cf9
         """
 
@@ -1467,9 +1467,9 @@ class TestRunnerResolution(unittest.TestCase):
             )
             executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
-            # No runners defined, should return empty string
+            # No runners defined, should return session default runner name
             runner_name = executor._get_effective_runner_name(tasks["build"])
-            self.assertEqual(runner_name, "")
+            self.assertEqual(runner_name, "__platform_default__")
 
     def test_resolve_runner_with_custom_runner(self):
         """
