@@ -1,6 +1,7 @@
 """Tests for executor module."""
 
 import os
+import tempfile
 import time
 import unittest
 from pathlib import Path
@@ -2040,6 +2041,97 @@ class TestGetSessionDefaultRunner(unittest.TestCase):
         self.assertEqual(runner.shell, "cmd")
         self.assertEqual(runner.args, ["/c"])
         self.assertEqual(runner.preamble, "")
+
+    @patch("platform.system")
+    def test_returns_project_config_runner_when_found(self, mock_system):
+        """
+        Test that get_session_default_runner returns project config runner when available.
+        @athena: to-be-generated
+        """
+        mock_system.return_value = "Linux"
+
+        # Create a temporary directory with a project config file
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / ".tasktree-config.yml"
+            config_path.write_text(
+                """
+runners:
+  default:
+    shell: zsh
+    preamble: set -e
+"""
+            )
+
+            runner = Executor.get_session_default_runner(start_dir=Path(tmpdir))
+
+            self.assertEqual(runner.name, "default")
+            self.assertEqual(runner.shell, "zsh")
+            self.assertEqual(runner.preamble, "set -e")
+
+    @patch("platform.system")
+    def test_falls_back_to_platform_default_when_no_config(self, mock_system):
+        """
+        Test that get_session_default_runner falls back to platform default when no config.
+        @athena: to-be-generated
+        """
+        mock_system.return_value = "Linux"
+
+        # Create a temporary directory without a config file
+        with tempfile.TemporaryDirectory() as tmpdir:
+            runner = Executor.get_session_default_runner(start_dir=Path(tmpdir))
+
+            self.assertEqual(runner.name, "__platform_default__")
+            self.assertEqual(runner.shell, "bash")
+            self.assertEqual(runner.args, ["-c"])
+
+    @patch("platform.system")
+    def test_handles_config_parse_errors_gracefully(self, mock_system):
+        """
+        Test that get_session_default_runner falls back to platform default on parse errors.
+        @athena: to-be-generated
+        """
+        mock_system.return_value = "Linux"
+
+        # Create a temporary directory with an invalid config file
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / ".tasktree-config.yml"
+            config_path.write_text("invalid: yaml: content:")
+
+            runner = Executor.get_session_default_runner(start_dir=Path(tmpdir))
+
+            # Should fall back to platform default on parse error
+            self.assertEqual(runner.name, "__platform_default__")
+            self.assertEqual(runner.shell, "bash")
+            self.assertEqual(runner.args, ["-c"])
+
+    @patch("platform.system")
+    def test_searches_parent_directories_for_config(self, mock_system):
+        """
+        Test that get_session_default_runner searches parent directories for config.
+        @athena: to-be-generated
+        """
+        mock_system.return_value = "Linux"
+
+        # Create a nested directory structure with config in parent
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / ".tasktree-config.yml"
+            config_path.write_text(
+                """
+runners:
+  default:
+    shell: fish
+"""
+            )
+
+            # Create a subdirectory
+            subdir = Path(tmpdir) / "subdir" / "nested"
+            subdir.mkdir(parents=True)
+
+            runner = Executor.get_session_default_runner(start_dir=subdir)
+
+            # Should find config from parent directory
+            self.assertEqual(runner.name, "default")
+            self.assertEqual(runner.shell, "fish")
 
 
 class TestPlatformdirs(unittest.TestCase):

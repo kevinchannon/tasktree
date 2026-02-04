@@ -268,24 +268,51 @@ class Executor:
         return env
 
     @staticmethod
-    def get_session_default_runner() -> Runner:
+    def get_session_default_runner(start_dir: Path = None) -> Runner:
         """
-        Get the session default runner based on platform defaults.
+        Get the session default runner based on configuration hierarchy.
 
-        This function returns the hard-coded platform-specific default runner.
-        In future phases, it will be extended to check configuration files
-        at multiple levels (machine, user, project) before falling back to
-        the platform default.
+        Resolution order:
+        1. Platform default (baseline)
+        2. Machine-level config (TODO: Phase 4)
+        3. User-level config (TODO: Phase 3)
+        4. Project-level config (checked here)
+
+        Args:
+            start_dir: Directory to start searching for project config.
+                      Defaults to current working directory.
 
         Returns:
-            Runner: Platform-specific default runner configuration
+            Runner: Session default runner configuration
         @athena: to-be-generated
         """
+        # Import here to avoid circular dependency
+        from tasktree.config import find_project_config, parse_config_file
+
+        # Start with platform default
         is_windows = platform.system() == "Windows"
         if is_windows:
-            return Runner(name="__platform_default__", shell="cmd", args=["/c"])
+            platform_default = Runner(name="__platform_default__", shell="cmd", args=["/c"])
         else:
-            return Runner(name="__platform_default__", shell="bash", args=["-c"])
+            platform_default = Runner(name="__platform_default__", shell="bash", args=["-c"])
+
+        # Determine starting directory
+        if start_dir is None:
+            start_dir = Path.cwd()
+
+        # Check for project-level config
+        try:
+            project_config_path = find_project_config(start_dir)
+            if project_config_path:
+                project_runner = parse_config_file(project_config_path)
+                if project_runner:
+                    return project_runner
+        except Exception:
+            # If config parsing fails, fall back to platform default
+            # Errors will be caught and reported at task execution time
+            pass
+
+        return platform_default
 
     def _get_effective_runner_name(self, task: Task) -> str:
         """
