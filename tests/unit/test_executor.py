@@ -99,7 +99,7 @@ class TestTaskStatus(unittest.TestCase):
                 outputs=["output.txt"],
             )
             task_hash = hash_task(
-                task.cmd, task.outputs, task.working_dir, task.args, "", task.deps
+                task.cmd, task.outputs, task.working_dir, task.args, "__platform_default__", task.deps
             )
             cache_key = make_cache_key(task_hash)
 
@@ -535,7 +535,7 @@ class TestMissingOutputs(unittest.TestCase):
                 outputs=["output.txt"],
             )
             task_hash = hash_task(
-                task.cmd, task.outputs, task.working_dir, task.args, "", task.deps
+                task.cmd, task.outputs, task.working_dir, task.args, "__platform_default__", task.deps
             )
             cache_key = make_cache_key(task_hash)
 
@@ -579,7 +579,7 @@ class TestMissingOutputs(unittest.TestCase):
                 outputs=["output.txt"],
             )
             task_hash = hash_task(
-                task.cmd, task.outputs, task.working_dir, task.args, "", task.deps
+                task.cmd, task.outputs, task.working_dir, task.args, "__platform_default__", task.deps
             )
             cache_key = make_cache_key(task_hash)
 
@@ -626,7 +626,7 @@ class TestMissingOutputs(unittest.TestCase):
                 outputs=["output1.txt", "output2.txt"],
             )
             task_hash = hash_task(
-                task.cmd, task.outputs, task.working_dir, task.args, "", task.deps
+                task.cmd, task.outputs, task.working_dir, task.args, "__platform_default__", task.deps
             )
             cache_key = make_cache_key(task_hash)
 
@@ -730,7 +730,7 @@ class TestMissingOutputs(unittest.TestCase):
                 outputs=["output.txt"],
             )
             task_hash = hash_task(
-                task.cmd, task.outputs, task.working_dir, task.args, "", task.deps
+                task.cmd, task.outputs, task.working_dir, task.args, "__platform_default__", task.deps
             )
             cache_key = make_cache_key(task_hash)
 
@@ -774,7 +774,7 @@ class TestMissingOutputs(unittest.TestCase):
                 outputs=["dist/*.deb"],
             )
             task_hash = hash_task(
-                task.cmd, task.outputs, task.working_dir, task.args, "", task.deps
+                task.cmd, task.outputs, task.working_dir, task.args, "__platform_default__", task.deps
             )
             cache_key = make_cache_key(task_hash)
 
@@ -1271,7 +1271,7 @@ class TestOnlyMode(unittest.TestCase):
                 outputs=["output.txt"],
             )
             task_hash = hash_task(
-                task.cmd, task.outputs, task.working_dir, task.args, "", task.deps
+                task.cmd, task.outputs, task.working_dir, task.args, "__platform_default__", task.deps
             )
             cache_key = make_cache_key(task_hash)
 
