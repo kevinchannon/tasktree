@@ -1729,22 +1729,22 @@ tasks:
             recipe = parse_recipe(recipe_path)
 
             # Check environments were parsed
-            self.assertEqual(len(recipe.environments), 2)
-            self.assertIn("bash-strict", recipe.environments)
-            self.assertIn("python", recipe.environments)
+            self.assertEqual(len(recipe.runners), 2)
+            self.assertIn("bash-strict", recipe.runners)
+            self.assertIn("python", recipe.runners)
 
             # Check default environment
             self.assertEqual(recipe.default_runner, "bash-strict")
 
             # Check bash-strict environment
-            bash_env = recipe.environments["bash-strict"]
+            bash_env = recipe.runners["bash-strict"]
             self.assertEqual(bash_env.name, "bash-strict")
             self.assertEqual(bash_env.shell, "bash")
             self.assertEqual(bash_env.args, ["-c"])
             self.assertIn("set -euo pipefail", bash_env.preamble)
 
             # Check python environment
-            py_env = recipe.environments["python"]
+            py_env = recipe.runners["python"]
             self.assertEqual(py_env.name, "python")
             self.assertEqual(py_env.shell, "python")
             self.assertEqual(py_env.args, ["-c"])
@@ -1767,7 +1767,7 @@ tasks:
             recipe = parse_recipe(recipe_path)
 
             # Should have no environments
-            self.assertEqual(len(recipe.environments), 0)
+            self.assertEqual(len(recipe.runners), 0)
             self.assertEqual(recipe.default_runner, "")
 
     def test_environment_missing_shell(self):
@@ -1913,7 +1913,7 @@ runners:
             recipe = parse_recipe(recipe_path)
 
             self.assertEqual(len(recipe.tasks), 0)
-            self.assertIn("bash-strict", recipe.environments)
+            self.assertIn("bash-strict", recipe.runners)
 
     def test_task_named_tasks_is_allowed(self):
         """

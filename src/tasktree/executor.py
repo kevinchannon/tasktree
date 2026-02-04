@@ -314,9 +314,9 @@ class Executor:
         # Platform default (no env name)
         return ""
 
-    def _resolve_environment(self, task: Task) -> tuple[str, str]:
+    def _resolve_runner(self, task: Task) -> tuple[str, str]:
         """
-        Resolve which environment to use for a task.
+        Resolve which runner to use for a task.
 
         Resolution order:
         1. Recipe's global_env_override (from CLI --env)
@@ -661,7 +661,7 @@ class Executor:
             )
         else:
             # Regular execution path - use unified script-based execution
-            shell, preamble = self._resolve_environment(task)
+            shell, preamble = self._resolve_runner(task)
             self._run_command_as_script(
                 cmd,
                 working_dir,
@@ -1157,8 +1157,8 @@ class Executor:
 
         current_env_hash = hash_runner_definition(env)
 
-        # Get cached environment hash
-        marker_key = f"_env_hash_{env_name}"
+        # Get cached runner hash
+        marker_key = f"_runner_hash_{env_name}"
         cached_env_hash = cached_state.input_state.get(marker_key)
 
         # If no cached hash (old state file), treat as changed to establish baseline
@@ -1409,7 +1409,7 @@ class Executor:
         if env_name:
             env = self.recipe.get_runner(env_name)
             if env:
-                input_state[f"_env_hash_{env_name}"] = hash_runner_definition(env)
+                input_state[f"_runner_hash_{env_name}"] = hash_runner_definition(env)
                 if env.dockerfile:
                     input_state |= self._docker_inputs_to_modified_times(env_name, env)
 
