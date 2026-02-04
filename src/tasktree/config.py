@@ -30,16 +30,31 @@ def find_project_config(start_dir: Path) -> Optional[Path]:
 
     @athena: to-be-generated
     """
-    current = start_dir.resolve()
+    try:
+        current = start_dir.resolve()
+    except (OSError, RuntimeError) as e:
+        # resolve() can raise OSError on invalid paths or RuntimeError on symlink loops
+        # Return None to indicate config not found
+        return None
 
     # Walk up the directory tree
     while True:
-        config_path = current / ".tasktree-config.yml"
-        if config_path.exists():
-            return config_path
+        try:
+            config_path = current / ".tasktree-config.yml"
+            if config_path.exists():
+                return config_path
+        except (OSError, PermissionError):
+            # If we can't check existence (permission denied or other OS error),
+            # skip this directory and continue up the tree
+            pass
 
         # Check if we've reached a filesystem boundary
-        parent = current.parent
+        try:
+            parent = current.parent
+        except (OSError, RuntimeError):
+            # If we can't get the parent, stop here
+            break
+
         if parent == current:
             # We've reached the root
             break

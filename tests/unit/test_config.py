@@ -392,6 +392,76 @@ class TestFindProjectConfig(unittest.TestCase):
             self.assertIsNotNone(result)
             self.assertEqual(result, config_path)
 
+    def test_find_config_with_nonexistent_start_dir(self):
+        """
+        Test that find_project_config returns None for non-existent start directory.
+        @athena: to-be-generated
+        """
+        with TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            nonexistent = tmppath / "does-not-exist"
+
+            result = find_project_config(nonexistent)
+            self.assertIsNone(result)
+
+    def test_find_config_with_file_as_start_dir(self):
+        """
+        Test that find_project_config handles a file path as start_dir.
+        @athena: to-be-generated
+        """
+        with TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+
+            # Create a config file in the directory
+            config_path = tmppath / ".tasktree-config.yml"
+            config_path.write_text("# test config")
+
+            # Create a regular file
+            file_path = tmppath / "somefile.txt"
+            file_path.write_text("some content")
+
+            # Start from the file - should search from its parent and find the config
+            result = find_project_config(file_path)
+            self.assertIsNotNone(result)
+            self.assertEqual(result, config_path)
+
+    def test_find_config_with_symlinked_directory(self):
+        """
+        Test that find_project_config correctly handles symlinked directories.
+        @athena: to-be-generated
+        """
+        import sys
+
+        # Skip test on Windows where symlinks require special privileges
+        if sys.platform == "win32":
+            self.skipTest("Symlink test skipped on Windows")
+
+        with TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+
+            # Create a real directory with config
+            real_dir = tmppath / "real"
+            real_dir.mkdir()
+            config_path = real_dir / ".tasktree-config.yml"
+            config_path.write_text("# test config")
+
+            # Create a subdirectory in the real directory
+            subdir = real_dir / "subdir"
+            subdir.mkdir()
+
+            # Create a symlink to the subdirectory
+            symlink = tmppath / "link-to-subdir"
+            try:
+                symlink.symlink_to(subdir)
+            except OSError:
+                # If symlink creation fails (permissions, etc.), skip the test
+                self.skipTest("Unable to create symlink")
+
+            # Start from the symlink - should resolve it and find config in parent
+            result = find_project_config(symlink)
+            self.assertIsNotNone(result)
+            self.assertEqual(result, config_path)
+
 
 if __name__ == "__main__":
     unittest.main()
