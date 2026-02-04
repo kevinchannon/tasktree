@@ -268,21 +268,6 @@ class Executor:
         return env
 
     @staticmethod
-    def _get_platform_default_environment() -> tuple[str, list[str]]:
-        """
-        Get default shell and args for current platform.
-
-        Returns:
-        Tuple of (shell, args) for platform default
-        @athena: 8b7fa81073af
-        """
-        is_windows = platform.system() == "Windows"
-        if is_windows:
-            return "cmd", ["/c"]
-        else:
-            return "bash", ["-c"]
-
-    @staticmethod
     def get_session_default_runner() -> Runner:
         """
         Get the session default runner based on platform defaults.
