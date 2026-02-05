@@ -416,6 +416,52 @@ class TestParseConfigFile(unittest.TestCase):
             self.assertEqual(result.context, "./build")
             self.assertEqual(result.working_dir, "relative/path")
 
+    def test_accepts_project_root_parameter(self):
+        """
+        Test that parse_config_file accepts an optional project_root parameter.
+        @athena: to-be-generated
+        """
+        with TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.yml"
+            config_path.write_text(
+                """runners:
+  default:
+    shell: bash
+    preamble: set -e
+"""
+            )
+            # Should work with or without project_root parameter
+            result_without = parse_config_file(config_path)
+            result_with = parse_config_file(config_path, project_root=Path(tmpdir))
+
+            self.assertIsNotNone(result_without)
+            self.assertIsNotNone(result_with)
+            self.assertEqual(result_without.shell, "bash")
+            self.assertEqual(result_with.shell, "bash")
+            self.assertEqual(result_without.preamble, "set -e")
+            self.assertEqual(result_with.preamble, "set -e")
+
+    def test_project_root_parameter_with_relative_dockerfile(self):
+        """
+        Test that project_root parameter is accepted with relative dockerfile paths.
+        @athena: to-be-generated
+        """
+        with TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.yml"
+            project_root = Path(tmpdir)
+            config_path.write_text(
+                """runners:
+  default:
+    dockerfile: docker/Dockerfile
+    context: .
+"""
+            )
+            result = parse_config_file(config_path, project_root=project_root)
+            self.assertIsNotNone(result)
+            # Paths should be stored as-is (resolution happens at execution time)
+            self.assertEqual(result.dockerfile, "docker/Dockerfile")
+            self.assertEqual(result.context, ".")
+
 
 class TestFindProjectConfig(unittest.TestCase):
     """

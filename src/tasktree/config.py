@@ -126,7 +126,7 @@ class ConfigError(Exception):
     pass
 
 
-def parse_config_file(path: Path) -> Optional[Runner]:
+def parse_config_file(path: Path, project_root: Optional[Path] = None) -> Optional[Runner]:
     """
     Parse a tasktree configuration file and return the default runner if defined.
 
@@ -135,6 +135,9 @@ def parse_config_file(path: Path) -> Optional[Runner]:
 
     Args:
         path: Path to the configuration file
+        project_root: Optional project root path for resolving relative paths at execution time.
+                     If not provided, relative paths will be resolved at execution time when
+                     the project root is known.
 
     Returns:
         Runner object for the default runner, or None if no default is defined
@@ -145,9 +148,14 @@ def parse_config_file(path: Path) -> Optional[Runner]:
                      multiple runners, etc.)
 
     Example:
-        >>> runner = parse_config_file(Path(".tasktree-config.yml"))
+        >>> runner = parse_config_file(Path(".tasktree-config.yml"), Path.cwd())
         >>> if runner:
         ...     print(f"Using {runner.shell} shell")
+
+    Note:
+        Relative paths in runner definitions (e.g., dockerfile, context) are resolved
+        relative to project_root at execution time, not at parse time. This allows
+        configs to be portable across machines.
 
     @athena: to-be-generated
     """

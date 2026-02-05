@@ -269,7 +269,11 @@ class Executor:
         return env
 
     def _try_load_config(
-        self, config_path: Path, config_level: str, treat_permission_as_trace: bool = False
+        self,
+        config_path: Path,
+        config_level: str,
+        treat_permission_as_trace: bool = False,
+        project_root: Path | None = None,
     ) -> Runner | None:
         """
         Helper to load a config file with standardized error handling.
@@ -278,6 +282,7 @@ class Executor:
             config_path: Path to the config file
             config_level: Description of config level (e.g., "machine", "user", "project")
             treat_permission_as_trace: If True, PermissionError logs at trace level instead of warn
+            project_root: Optional project root for resolving relative paths in config
 
         Returns:
             Runner if config exists and is valid, None otherwise
@@ -287,7 +292,7 @@ class Executor:
 
         try:
             if config_path.exists():
-                runner = parse_config_file(config_path)
+                runner = parse_config_file(config_path, project_root=project_root)
                 if runner:
                     self.logger.debug(
                         f"Using runner from {config_level} config at '{config_path}' as session default runner"
@@ -339,17 +344,20 @@ class Executor:
 
         session_default = platform_default
 
+        # Get project root for path resolution
+        project_root = self.recipe.project_root
+
         # Check for machine-level config (higher precedence than platform default)
         machine_config_path = get_machine_config_path()
         machine_runner = self._try_load_config(
-            machine_config_path, "machine", treat_permission_as_trace=True
+            machine_config_path, "machine", treat_permission_as_trace=True, project_root=project_root
         )
         if machine_runner:
             session_default = machine_runner
 
         # Check for user-level config (higher precedence than machine config)
         user_config_path = get_user_config_path()
-        user_runner = self._try_load_config(user_config_path, "user")
+        user_runner = self._try_load_config(user_config_path, "user", project_root=project_root)
         if user_runner:
             session_default = user_runner
 
@@ -360,7 +368,9 @@ class Executor:
         # Check for project-level config (highest precedence)
         project_config_path = find_project_config(start_dir)
         if project_config_path:
-            project_runner = self._try_load_config(project_config_path, "project")
+            project_runner = self._try_load_config(
+                project_config_path, "project", project_root=project_root
+            )
             if project_runner:
                 session_default = project_runner
 
