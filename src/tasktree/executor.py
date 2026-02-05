@@ -16,13 +16,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from tasktree import docker as docker_module
-from tasktree.config import (
-    ConfigError,
-    find_project_config,
-    get_machine_config_path,
-    get_user_config_path,
-    parse_config_file,
-)
+from tasktree.config import ConfigError
 from tasktree.graph import (
     get_implicit_inputs,
     resolve_execution_order,
@@ -288,6 +282,9 @@ class Executor:
         Returns:
             Runner if config exists and is valid, None otherwise
         """
+        # Import here to avoid circular dependency
+        from tasktree.config import parse_config_file
+
         try:
             if config_path.exists():
                 runner = parse_config_file(config_path)
@@ -326,6 +323,13 @@ class Executor:
             Runner: Session default runner configuration
         @athena: to-be-generated
         """
+        # Import here to avoid circular dependency
+        from tasktree.config import (
+            find_project_config,
+            get_machine_config_path,
+            get_user_config_path,
+        )
+
         # Start with platform default
         is_windows = platform.system() == "Windows"
         if is_windows:
