@@ -26,7 +26,7 @@ class TestGetUserConfigPath(unittest.TestCase):
         Test that get_user_config_path uses platformdirs.user_config_dir.
         @athena: to-be-generated
         """
-        mock_user_config_dir.return_value = "/home/user/.config"
+        mock_user_config_dir.return_value = "/home/user/.config/tasktree"
         result = get_user_config_path()
         mock_user_config_dir.assert_called_once_with("tasktree")
         self.assertEqual(result, Path("/home/user/.config/tasktree/config.yml"))
@@ -37,7 +37,7 @@ class TestGetUserConfigPath(unittest.TestCase):
         Test that get_user_config_path returns correct path on Linux.
         @athena: to-be-generated
         """
-        mock_user_config_dir.return_value = "/home/testuser/.config"
+        mock_user_config_dir.return_value = "/home/testuser/.config/tasktree"
         result = get_user_config_path()
         self.assertEqual(result, Path("/home/testuser/.config/tasktree/config.yml"))
 
@@ -48,7 +48,7 @@ class TestGetUserConfigPath(unittest.TestCase):
         @athena: to-be-generated
         """
         mock_user_config_dir.return_value = (
-            "/Users/testuser/Library/Application Support"
+            "/Users/testuser/Library/Application Support/tasktree"
         )
         result = get_user_config_path()
         self.assertEqual(
@@ -62,7 +62,7 @@ class TestGetUserConfigPath(unittest.TestCase):
         Test that get_user_config_path returns correct path on Windows.
         @athena: to-be-generated
         """
-        mock_user_config_dir.return_value = r"C:\Users\testuser\AppData\Local"
+        mock_user_config_dir.return_value = r"C:\Users\testuser\AppData\Local\tasktree"
         result = get_user_config_path()
         # Use forward slashes in Path comparison for cross-platform compatibility
         expected = Path("C:/Users/testuser/AppData/Local/tasktree/config.yml")
