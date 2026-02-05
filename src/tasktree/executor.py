@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from tasktree import docker as docker_module
+from tasktree.config import ConfigError
 from tasktree.graph import (
     get_implicit_inputs,
     resolve_execution_order,
@@ -267,25 +268,54 @@ class Executor:
             env.update(exported_env_vars)
         return env
 
-    @staticmethod
-    def get_session_default_runner() -> Runner:
+    def get_session_default_runner(self, start_dir: Path = None) -> Runner:
         """
-        Get the session default runner based on platform defaults.
+        Get the session default runner based on configuration hierarchy.
 
-        This function returns the hard-coded platform-specific default runner.
-        In future phases, it will be extended to check configuration files
-        at multiple levels (machine, user, project) before falling back to
-        the platform default.
+        Search (i.e. precedence) order (first encountered wins):
+        1. Project-level config (checked here)
+        2. User-level config (TODO: Phase 3)
+        3. Machine-level config (TODO: Phase 4)
+        4. Platform default (baseline)
+
+        Args:
+            start_dir: Directory to start searching for project config.
+                      Defaults to current working directory.
 
         Returns:
-            Runner: Platform-specific default runner configuration
+            Runner: Session default runner configuration
         @athena: to-be-generated
         """
+        # Import here to avoid circular dependency
+        from tasktree.config import find_project_config, parse_config_file
+
+        # Start with platform default
         is_windows = platform.system() == "Windows"
         if is_windows:
-            return Runner(name="__platform_default__", shell="cmd", args=["/c"])
+            platform_default = Runner(name="__platform_default__", shell="cmd", args=["/c"])
         else:
-            return Runner(name="__platform_default__", shell="bash", args=["-c"])
+            platform_default = Runner(name="__platform_default__", shell="bash", args=["-c"])
+
+        # Determine starting directory
+        if start_dir is None:
+            start_dir = Path.cwd()
+
+        # Check for project-level config
+        try:
+            project_config_path = find_project_config(start_dir)
+            if project_config_path:
+                project_runner = parse_config_file(project_config_path)
+                if project_runner:
+                    self.logger.debug(f"Using runner from project config at '{project_config_path}' as session default runner")
+                    return project_runner
+        except (ConfigError, OSError, IOError) as e:
+            # If config parsing fails, or we don't have permission to read the config, or something, fall back to
+            # platform default. Errors will be caught and reported at task execution time
+            self.logger.warn(f"Failed to load project config: {e}")
+            pass
+
+        self.logger.debug("Using platform default runner for session")
+        return platform_default
 
     def _get_effective_runner_name(self, task: Task) -> str:
         """
