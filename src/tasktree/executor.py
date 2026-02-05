@@ -287,7 +287,11 @@ class Executor:
         @athena: to-be-generated
         """
         # Import here to avoid circular dependency
-        from tasktree.config import find_project_config, parse_config_file
+        from tasktree.config import (
+            find_project_config,
+            get_user_config_path,
+            parse_config_file,
+        )
 
         # Start with platform default
         is_windows = platform.system() == "Windows"
@@ -296,26 +300,46 @@ class Executor:
         else:
             platform_default = Runner(name="__platform_default__", shell="bash", args=["-c"])
 
-        # Determine starting directory
+        session_default = platform_default
+
+        # Check for user-level config (higher precedence than platform default)
+        try:
+            user_config_path = get_user_config_path()
+            if user_config_path.exists():
+                user_runner = parse_config_file(user_config_path)
+                if user_runner:
+                    self.logger.debug(
+                        f"Using runner from user config at '{user_config_path}' as session default runner"
+                    )
+                    session_default = user_runner
+            else:
+                self.logger.trace(f"No user config found at '{user_config_path}'")
+        except (ConfigError, OSError, IOError) as e:
+            # If config parsing fails, fall back to current session default
+            self.logger.warn(f"Failed to load user config: {e}")
+
+        # Determine starting directory for project config
         if start_dir is None:
             start_dir = Path.cwd()
 
-        # Check for project-level config
+        # Check for project-level config (highest precedence)
         try:
             project_config_path = find_project_config(start_dir)
             if project_config_path:
                 project_runner = parse_config_file(project_config_path)
                 if project_runner:
-                    self.logger.debug(f"Using runner from project config at '{project_config_path}' as session default runner")
-                    return project_runner
+                    self.logger.debug(
+                        f"Using runner from project config at '{project_config_path}' as session default runner"
+                    )
+                    session_default = project_runner
         except (ConfigError, OSError, IOError) as e:
-            # If config parsing fails, or we don't have permission to read the config, or something, fall back to
-            # platform default. Errors will be caught and reported at task execution time
+            # If config parsing fails, fall back to current session default
             self.logger.warn(f"Failed to load project config: {e}")
-            pass
 
-        self.logger.debug("Using platform default runner for session")
-        return platform_default
+        if session_default == platform_default:
+            self.logger.debug("Using platform default runner for session")
+
+        return session_default
 
     def _get_effective_runner_name(self, task: Task) -> str:
         """

@@ -3,9 +3,70 @@
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
-from tasktree.config import ConfigError, find_project_config, parse_config_file
+from tasktree.config import (
+    ConfigError,
+    find_project_config,
+    get_user_config_path,
+    parse_config_file,
+)
 from tasktree.parser import Runner
+
+
+class TestGetUserConfigPath(unittest.TestCase):
+    """
+    Tests for get_user_config_path function.
+    @athena: to-be-generated
+    """
+
+    @patch("platformdirs.user_config_dir")
+    def test_returns_path_from_platformdirs(self, mock_user_config_dir):
+        """
+        Test that get_user_config_path uses platformdirs.user_config_dir.
+        @athena: to-be-generated
+        """
+        mock_user_config_dir.return_value = "/home/user/.config/tasktree"
+        result = get_user_config_path()
+        mock_user_config_dir.assert_called_once_with("tasktree")
+        self.assertEqual(result, Path("/home/user/.config/tasktree/config.yml"))
+
+    @patch("platformdirs.user_config_dir")
+    def test_returns_correct_path_on_linux(self, mock_user_config_dir):
+        """
+        Test that get_user_config_path returns correct path on Linux.
+        @athena: to-be-generated
+        """
+        mock_user_config_dir.return_value = "/home/testuser/.config/tasktree"
+        result = get_user_config_path()
+        self.assertEqual(result, Path("/home/testuser/.config/tasktree/config.yml"))
+
+    @patch("platformdirs.user_config_dir")
+    def test_returns_correct_path_on_macos(self, mock_user_config_dir):
+        """
+        Test that get_user_config_path returns correct path on macOS.
+        @athena: to-be-generated
+        """
+        mock_user_config_dir.return_value = (
+            "/Users/testuser/Library/Application Support/tasktree"
+        )
+        result = get_user_config_path()
+        self.assertEqual(
+            result,
+            Path("/Users/testuser/Library/Application Support/tasktree/config.yml"),
+        )
+
+    @patch("platformdirs.user_config_dir")
+    def test_returns_correct_path_on_windows(self, mock_user_config_dir):
+        """
+        Test that get_user_config_path returns correct path on Windows.
+        @athena: to-be-generated
+        """
+        # Use forward slashes for mock return value to avoid path separator issues
+        mock_user_config_dir.return_value = "C:/Users/testuser/AppData/Local/tasktree"
+        result = get_user_config_path()
+        expected = Path("C:/Users/testuser/AppData/Local/tasktree/config.yml")
+        self.assertEqual(result, expected)
 
 
 class TestParseConfigFile(unittest.TestCase):
@@ -278,6 +339,29 @@ class TestParseConfigFile(unittest.TestCase):
             self.assertEqual(result.context, ".")
             self.assertEqual(result.volumes, [])
             self.assertEqual(result.ports, [])
+
+    def test_relative_paths_stored_as_is(self):
+        """
+        Test that relative paths in config files are stored as-is without validation.
+        Path validation is deferred to execution time as per spec.
+        @athena: to-be-generated
+        """
+        with TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.yml"
+            config_path.write_text(
+                """runners:
+  default:
+    dockerfile: ../nonexistent/Dockerfile
+    context: ./build
+    working_dir: relative/path
+"""
+            )
+            result = parse_config_file(config_path)
+            self.assertIsNotNone(result)
+            # Verify relative paths are stored without validation
+            self.assertEqual(result.dockerfile, "../nonexistent/Dockerfile")
+            self.assertEqual(result.context, "./build")
+            self.assertEqual(result.working_dir, "relative/path")
 
 
 class TestFindProjectConfig(unittest.TestCase):

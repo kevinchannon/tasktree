@@ -8,9 +8,38 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
+import platformdirs
 import yaml
 
 from tasktree.parser import Runner
+
+__all__ = [
+    "get_user_config_path",
+    "find_project_config",
+    "parse_config_file",
+    "ConfigError",
+]
+
+
+def get_user_config_path() -> Path:
+    """
+    Get the path to the user-level configuration file.
+
+    Uses platformdirs to determine the appropriate user config directory
+    for the current platform, then appends 'tasktree/config.yml'.
+
+    Returns:
+        Path to the user config file (may not exist)
+
+    Example:
+        >>> user_config = get_user_config_path()
+        >>> if user_config.exists():
+        ...     runner = parse_config_file(user_config)
+
+    @athena: to-be-generated
+    """
+    config_dir: Path = Path(platformdirs.user_config_dir("tasktree"))
+    return config_dir / "config.yml"
 
 
 def find_project_config(start_dir: Path) -> Optional[Path]:
