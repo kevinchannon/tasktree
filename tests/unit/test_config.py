@@ -340,6 +340,29 @@ class TestParseConfigFile(unittest.TestCase):
             self.assertEqual(result.volumes, [])
             self.assertEqual(result.ports, [])
 
+    def test_relative_paths_stored_as_is(self):
+        """
+        Test that relative paths in config files are stored as-is without validation.
+        Path validation is deferred to execution time as per spec.
+        @athena: to-be-generated
+        """
+        with TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.yml"
+            config_path.write_text(
+                """runners:
+  default:
+    dockerfile: ../nonexistent/Dockerfile
+    context: ./build
+    working_dir: relative/path
+"""
+            )
+            result = parse_config_file(config_path)
+            self.assertIsNotNone(result)
+            # Verify relative paths are stored without validation
+            self.assertEqual(result.dockerfile, "../nonexistent/Dockerfile")
+            self.assertEqual(result.context, "./build")
+            self.assertEqual(result.working_dir, "relative/path")
+
 
 class TestFindProjectConfig(unittest.TestCase):
     """

@@ -312,10 +312,11 @@ class Executor:
                         f"Using runner from user config at '{user_config_path}' as session default runner"
                     )
                     session_default = user_runner
+            else:
+                self.logger.trace(f"No user config found at '{user_config_path}'")
         except (ConfigError, OSError, IOError) as e:
             # If config parsing fails, fall back to current session default
             self.logger.warn(f"Failed to load user config: {e}")
-            pass
 
         # Determine starting directory for project config
         if start_dir is None:
@@ -334,7 +335,6 @@ class Executor:
         except (ConfigError, OSError, IOError) as e:
             # If config parsing fails, fall back to current session default
             self.logger.warn(f"Failed to load project config: {e}")
-            pass
 
         if session_default == platform_default:
             self.logger.debug("Using platform default runner for session")

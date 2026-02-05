@@ -13,6 +13,13 @@ import yaml
 
 from tasktree.parser import Runner
 
+__all__ = [
+    "get_user_config_path",
+    "find_project_config",
+    "parse_config_file",
+    "ConfigError",
+]
+
 
 def get_user_config_path() -> Path:
     """
@@ -31,7 +38,7 @@ def get_user_config_path() -> Path:
 
     @athena: to-be-generated
     """
-    config_dir = Path(platformdirs.user_config_dir("tasktree"))
+    config_dir: Path = Path(platformdirs.user_config_dir("tasktree"))
     return config_dir / "config.yml"
 
 
