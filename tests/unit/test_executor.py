@@ -2498,7 +2498,7 @@ runners:
 
             # Mock exists() to return True, then parse_config_file to raise PermissionError
             with patch.object(Path, "exists", return_value=True), patch(
-                "tasktree.executor.parse_config_file",
+                "tasktree.config.parse_config_file",
                 side_effect=PermissionError("Permission denied"),
             ):
                 project_root = Path(tmpdir) / "project"
