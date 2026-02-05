@@ -416,6 +416,28 @@ class TestParseConfigFile(unittest.TestCase):
             self.assertEqual(result.context, "./build")
             self.assertEqual(result.working_dir, "relative/path")
 
+    def test_relative_paths_accepted_with_project_root(self):
+        """
+        Test that relative paths are accepted even when project_root is provided.
+        Path validation happens at execution time, not parse time.
+        @athena: to-be-generated
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            config_path = project_root / "config.yml"
+            config_path.write_text(
+                """runners:
+  default:
+    dockerfile: docker/Dockerfile
+    context: build
+"""
+            )
+            # Parse with project_root - should succeed even though paths don't exist
+            result = parse_config_file(config_path, project_root=project_root)
+            self.assertIsNotNone(result)
+            self.assertEqual(result.dockerfile, "docker/Dockerfile")
+            self.assertEqual(result.context, "build")
+
     def test_accepts_project_root_parameter(self):
         """
         Test that parse_config_file accepts an optional project_root parameter.

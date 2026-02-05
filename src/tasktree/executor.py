@@ -326,6 +326,13 @@ class Executor:
 
         Returns:
             Runner: Session default runner configuration
+
+        Note:
+            Relative paths in config files (e.g., dockerfile paths) are resolved
+            relative to project_root at task execution time. If a relative path
+            cannot be resolved (e.g., dockerfile doesn't exist), the error will
+            occur during task execution, not during config loading.
+
         @athena: to-be-generated
         """
         # Import here to avoid circular dependency

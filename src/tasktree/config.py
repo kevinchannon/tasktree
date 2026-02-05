@@ -157,6 +157,17 @@ def parse_config_file(path: Path, project_root: Optional[Path] = None) -> Option
         relative to project_root at execution time, not at parse time. This allows
         configs to be portable across machines.
 
+        Path Resolution:
+        - Relative paths (e.g., "docker/Dockerfile") are resolved relative to project_root
+        - Absolute paths are used as-is
+        - Resolution happens at task execution time in docker.py
+        - If a relative path cannot be resolved (e.g., dockerfile doesn't exist),
+          Docker will fail with an error indicating the file was not found
+
+        For user-level and machine-level configs with relative paths, ensure that
+        the relative paths are valid from the project root of projects where the
+        config will be used.
+
     @athena: to-be-generated
     """
     # Return None if file doesn't exist (not an error)
