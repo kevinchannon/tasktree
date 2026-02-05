@@ -273,7 +273,7 @@ class Executor:
         """
         Get the session default runner based on configuration hierarchy.
 
-        Search order (first encounred wins):
+        Search (i.e. precedence) order (first encountered wins):
         1. Project-level config (checked here)
         2. User-level config (TODO: Phase 3)
         3. Machine-level config (TODO: Phase 4)
