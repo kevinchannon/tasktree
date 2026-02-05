@@ -2492,19 +2492,15 @@ runners:
         mock_system.return_value = "Linux"
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            # Create machine config but simulate permission error
+            # Create machine config path (doesn't need to exist)
             machine_config_path = Path(tmpdir) / "machine-config.yml"
-            machine_config_path.write_text(
-                """
-runners:
-  default:
-    shell: fish
-"""
-            )
             mock_get_machine_config.return_value = machine_config_path
 
-            # Mock Path.exists to raise PermissionError
-            with patch.object(Path, "exists", side_effect=PermissionError("Permission denied")):
+            # Mock exists() to return True, then parse_config_file to raise PermissionError
+            with patch.object(Path, "exists", return_value=True), patch(
+                "tasktree.executor.parse_config_file",
+                side_effect=PermissionError("Permission denied"),
+            ):
                 project_root = Path(tmpdir) / "project"
                 project_root.mkdir(exist_ok=True)
 
@@ -2520,6 +2516,80 @@ runners:
                 # Should fall back to platform default
                 self.assertEqual(runner.name, "__platform_default__")
                 self.assertEqual(runner.shell, "bash")
+
+    @patch("platform.system")
+    @patch("tasktree.config.get_machine_config_path")
+    def test_handles_empty_machine_config_file(
+        self, mock_get_machine_config, mock_system
+    ):
+        """
+        Test that get_session_default_runner handles empty machine config files gracefully.
+        @athena: to-be-generated
+        """
+        mock_system.return_value = "Linux"
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create empty machine config
+            machine_config_path = Path(tmpdir) / "machine-config.yml"
+            machine_config_path.write_text("")  # Empty file
+            mock_get_machine_config.return_value = machine_config_path
+
+            project_root = Path(tmpdir) / "project"
+            project_root.mkdir()
+
+            state_manager = StateManager(project_root)
+            recipe = Recipe(
+                tasks={},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            runner = executor.get_session_default_runner(start_dir=project_root)
+
+            # Empty config should be treated as no config, fall back to platform default
+            self.assertEqual(runner.name, "__platform_default__")
+            self.assertEqual(runner.shell, "bash")
+
+    @patch("platform.system")
+    @patch("tasktree.config.get_machine_config_path")
+    def test_handles_malformed_yaml_in_machine_config(
+        self, mock_get_machine_config, mock_system
+    ):
+        """
+        Test that get_session_default_runner handles malformed YAML in machine config gracefully.
+        @athena: to-be-generated
+        """
+        mock_system.return_value = "Linux"
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create machine config with malformed YAML
+            machine_config_path = Path(tmpdir) / "machine-config.yml"
+            machine_config_path.write_text("invalid: yaml: content:")  # Malformed YAML
+            mock_get_machine_config.return_value = machine_config_path
+
+            project_root = Path(tmpdir) / "project"
+            project_root.mkdir()
+
+            state_manager = StateManager(project_root)
+            recipe = Recipe(
+                tasks={},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+
+            # Create a mock logger to capture log calls
+            mock_logger = MagicMock()
+            executor = Executor(recipe, state_manager, mock_logger, make_process_runner)
+            runner = executor.get_session_default_runner(start_dir=project_root)
+
+            # Malformed YAML should log warning and fall back to platform default
+            self.assertEqual(runner.name, "__platform_default__")
+            self.assertEqual(runner.shell, "bash")
+
+            # Verify warning was logged
+            mock_logger.warn.assert_called()
+            call_args = str(mock_logger.warn.call_args)
+            self.assertIn("Failed to load machine config", call_args)
 
     @patch("platform.system")
     def test_logs_warning_when_config_parse_fails(self, mock_system):
