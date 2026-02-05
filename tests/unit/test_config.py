@@ -8,6 +8,7 @@ from unittest.mock import patch
 from tasktree.config import (
     ConfigError,
     find_project_config,
+    get_machine_config_path,
     get_user_config_path,
     parse_config_file,
 )
@@ -66,6 +67,58 @@ class TestGetUserConfigPath(unittest.TestCase):
         mock_user_config_dir.return_value = "C:/Users/testuser/AppData/Local/tasktree"
         result = get_user_config_path()
         expected = Path("C:/Users/testuser/AppData/Local/tasktree/config.yml")
+        self.assertEqual(result, expected)
+
+
+class TestGetMachineConfigPath(unittest.TestCase):
+    """
+    Tests for get_machine_config_path function.
+    @athena: to-be-generated
+    """
+
+    @patch("platformdirs.site_config_dir")
+    def test_returns_path_from_platformdirs(self, mock_site_config_dir):
+        """
+        Test that get_machine_config_path uses platformdirs.site_config_dir.
+        @athena: to-be-generated
+        """
+        mock_site_config_dir.return_value = "/etc/tasktree"
+        result = get_machine_config_path()
+        mock_site_config_dir.assert_called_once_with("tasktree")
+        self.assertEqual(result, Path("/etc/tasktree/config.yml"))
+
+    @patch("platformdirs.site_config_dir")
+    def test_returns_correct_path_on_linux(self, mock_site_config_dir):
+        """
+        Test that get_machine_config_path returns correct path on Linux.
+        @athena: to-be-generated
+        """
+        mock_site_config_dir.return_value = "/etc/xdg/tasktree"
+        result = get_machine_config_path()
+        self.assertEqual(result, Path("/etc/xdg/tasktree/config.yml"))
+
+    @patch("platformdirs.site_config_dir")
+    def test_returns_correct_path_on_macos(self, mock_site_config_dir):
+        """
+        Test that get_machine_config_path returns correct path on macOS.
+        @athena: to-be-generated
+        """
+        mock_site_config_dir.return_value = "/Library/Application Support/tasktree"
+        result = get_machine_config_path()
+        self.assertEqual(
+            result, Path("/Library/Application Support/tasktree/config.yml")
+        )
+
+    @patch("platformdirs.site_config_dir")
+    def test_returns_correct_path_on_windows(self, mock_site_config_dir):
+        """
+        Test that get_machine_config_path returns correct path on Windows.
+        @athena: to-be-generated
+        """
+        # Use forward slashes for mock return value to avoid path separator issues
+        mock_site_config_dir.return_value = "C:/ProgramData/tasktree"
+        result = get_machine_config_path()
+        expected = Path("C:/ProgramData/tasktree/config.yml")
         self.assertEqual(result, expected)
 
 

@@ -268,14 +268,51 @@ class Executor:
             env.update(exported_env_vars)
         return env
 
+    def _try_load_config(
+        self, config_path: Path, config_level: str, treat_permission_as_trace: bool = False
+    ) -> Runner | None:
+        """
+        Helper to load a config file with standardized error handling.
+
+        Args:
+            config_path: Path to the config file
+            config_level: Description of config level (e.g., "machine", "user", "project")
+            treat_permission_as_trace: If True, PermissionError logs at trace level instead of warn
+
+        Returns:
+            Runner if config exists and is valid, None otherwise
+        """
+        # Import here to avoid circular dependency
+        from tasktree.config import parse_config_file
+
+        try:
+            if config_path.exists():
+                runner = parse_config_file(config_path)
+                if runner:
+                    self.logger.debug(
+                        f"Using runner from {config_level} config at '{config_path}' as session default runner"
+                    )
+                    return runner
+            else:
+                self.logger.trace(f"No {config_level} config found at '{config_path}'")
+        except (ConfigError, OSError, IOError) as e:
+            # PermissionError (subclass of OSError) may be expected for some configs
+            # (e.g., machine-level on Unix) - log at trace level if requested
+            # Other errors indicate real problems - log at warn level
+            if treat_permission_as_trace and isinstance(e, PermissionError):
+                self.logger.trace(f"Cannot read {config_level} config (permission denied): {e}")
+            else:
+                self.logger.warn(f"Failed to load {config_level} config: {e}")
+        return None
+
     def get_session_default_runner(self, start_dir: Path = None) -> Runner:
         """
         Get the session default runner based on configuration hierarchy.
 
         Search (i.e. precedence) order (first encountered wins):
         1. Project-level config (checked here)
-        2. User-level config (TODO: Phase 3)
-        3. Machine-level config (TODO: Phase 4)
+        2. User-level config (checked here)
+        3. Machine-level config (checked here)
         4. Platform default (baseline)
 
         Args:
@@ -289,8 +326,8 @@ class Executor:
         # Import here to avoid circular dependency
         from tasktree.config import (
             find_project_config,
+            get_machine_config_path,
             get_user_config_path,
-            parse_config_file,
         )
 
         # Start with platform default
@@ -302,39 +339,30 @@ class Executor:
 
         session_default = platform_default
 
-        # Check for user-level config (higher precedence than platform default)
-        try:
-            user_config_path = get_user_config_path()
-            if user_config_path.exists():
-                user_runner = parse_config_file(user_config_path)
-                if user_runner:
-                    self.logger.debug(
-                        f"Using runner from user config at '{user_config_path}' as session default runner"
-                    )
-                    session_default = user_runner
-            else:
-                self.logger.trace(f"No user config found at '{user_config_path}'")
-        except (ConfigError, OSError, IOError) as e:
-            # If config parsing fails, fall back to current session default
-            self.logger.warn(f"Failed to load user config: {e}")
+        # Check for machine-level config (higher precedence than platform default)
+        machine_config_path = get_machine_config_path()
+        machine_runner = self._try_load_config(
+            machine_config_path, "machine", treat_permission_as_trace=True
+        )
+        if machine_runner:
+            session_default = machine_runner
+
+        # Check for user-level config (higher precedence than machine config)
+        user_config_path = get_user_config_path()
+        user_runner = self._try_load_config(user_config_path, "user")
+        if user_runner:
+            session_default = user_runner
 
         # Determine starting directory for project config
         if start_dir is None:
             start_dir = Path.cwd()
 
         # Check for project-level config (highest precedence)
-        try:
-            project_config_path = find_project_config(start_dir)
-            if project_config_path:
-                project_runner = parse_config_file(project_config_path)
-                if project_runner:
-                    self.logger.debug(
-                        f"Using runner from project config at '{project_config_path}' as session default runner"
-                    )
-                    session_default = project_runner
-        except (ConfigError, OSError, IOError) as e:
-            # If config parsing fails, fall back to current session default
-            self.logger.warn(f"Failed to load project config: {e}")
+        project_config_path = find_project_config(start_dir)
+        if project_config_path:
+            project_runner = self._try_load_config(project_config_path, "project")
+            if project_runner:
+                session_default = project_runner
 
         if session_default == platform_default:
             self.logger.debug("Using platform default runner for session")
