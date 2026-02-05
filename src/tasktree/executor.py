@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from tasktree import docker as docker_module
+from tasktree.config import ConfigError
 from tasktree.graph import (
     get_implicit_inputs,
     resolve_execution_order,
@@ -307,9 +308,9 @@ class Executor:
                 project_runner = parse_config_file(project_config_path)
                 if project_runner:
                     return project_runner
-        except Exception:
-            # If config parsing fails, fall back to platform default
-            # Errors will be caught and reported at task execution time
+        except (ConfigError, OSError, IOError):
+            # If config parsing fails, or we don't have permission to read the config, or something, fall back to
+            # platform default. Errors will be caught and reported at task execution time
             pass
 
         return platform_default
