@@ -2350,6 +2350,178 @@ runners:
             self.assertEqual(runner.shell, "bash")
 
     @patch("platform.system")
+    @patch("tasktree.config.get_machine_config_path")
+    def test_returns_machine_config_runner_when_found(
+        self, mock_get_machine_config, mock_system
+    ):
+        """
+        Test that get_session_default_runner returns machine config runner when available.
+        @athena: to-be-generated
+        """
+        mock_system.return_value = "Linux"
+
+        # Create a temporary directory with a machine config file
+        with tempfile.TemporaryDirectory() as tmpdir:
+            machine_config_path = Path(tmpdir) / "machine-config.yml"
+            machine_config_path.write_text(
+                """
+runners:
+  default:
+    shell: fish
+    preamble: set -eu
+"""
+            )
+            mock_get_machine_config.return_value = machine_config_path
+
+            project_root = Path(tmpdir) / "project"
+            project_root.mkdir()
+            state_manager = StateManager(project_root)
+            recipe = Recipe(
+                tasks={},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            runner = executor.get_session_default_runner(start_dir=project_root)
+
+            self.assertEqual(runner.name, "default")
+            self.assertEqual(runner.shell, "fish")
+            self.assertEqual(runner.preamble, "set -eu")
+
+    @patch("platform.system")
+    @patch("tasktree.config.get_machine_config_path")
+    def test_machine_config_overrides_platform_default(
+        self, mock_get_machine_config, mock_system
+    ):
+        """
+        Test that machine config takes precedence over platform default.
+        @athena: to-be-generated
+        """
+        mock_system.return_value = "Linux"
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create machine config
+            machine_config_path = Path(tmpdir) / "machine-config.yml"
+            machine_config_path.write_text(
+                """
+runners:
+  default:
+    shell: fish
+"""
+            )
+            mock_get_machine_config.return_value = machine_config_path
+
+            # No user or project config
+            project_root = Path(tmpdir) / "project"
+            project_root.mkdir()
+
+            state_manager = StateManager(project_root)
+            recipe = Recipe(
+                tasks={},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            runner = executor.get_session_default_runner(start_dir=project_root)
+
+            # Machine config should win over platform default
+            self.assertEqual(runner.name, "default")
+            self.assertEqual(runner.shell, "fish")
+
+    @patch("platform.system")
+    @patch("tasktree.config.get_user_config_path")
+    @patch("tasktree.config.get_machine_config_path")
+    def test_user_config_overrides_machine_config(
+        self, mock_get_machine_config, mock_get_user_config, mock_system
+    ):
+        """
+        Test that user config takes precedence over machine config.
+        @athena: to-be-generated
+        """
+        mock_system.return_value = "Linux"
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create machine config
+            machine_config_path = Path(tmpdir) / "machine-config.yml"
+            machine_config_path.write_text(
+                """
+runners:
+  default:
+    shell: fish
+"""
+            )
+            mock_get_machine_config.return_value = machine_config_path
+
+            # Create user config
+            user_config_path = Path(tmpdir) / "user-config.yml"
+            user_config_path.write_text(
+                """
+runners:
+  default:
+    shell: zsh
+"""
+            )
+            mock_get_user_config.return_value = user_config_path
+
+            # No project config
+            project_root = Path(tmpdir) / "project"
+            project_root.mkdir()
+
+            state_manager = StateManager(project_root)
+            recipe = Recipe(
+                tasks={},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            runner = executor.get_session_default_runner(start_dir=project_root)
+
+            # User config should win
+            self.assertEqual(runner.name, "default")
+            self.assertEqual(runner.shell, "zsh")
+
+    @patch("platform.system")
+    @patch("tasktree.config.get_machine_config_path")
+    def test_handles_machine_config_permission_errors_gracefully(
+        self, mock_get_machine_config, mock_system
+    ):
+        """
+        Test that get_session_default_runner falls back when machine config has permission errors.
+        @athena: to-be-generated
+        """
+        mock_system.return_value = "Linux"
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create machine config but simulate permission error
+            machine_config_path = Path(tmpdir) / "machine-config.yml"
+            machine_config_path.write_text(
+                """
+runners:
+  default:
+    shell: fish
+"""
+            )
+            mock_get_machine_config.return_value = machine_config_path
+
+            # Mock Path.exists to raise PermissionError
+            with patch.object(Path, "exists", side_effect=PermissionError("Permission denied")):
+                project_root = Path(tmpdir) / "project"
+                project_root.mkdir(exist_ok=True)
+
+                state_manager = StateManager(project_root)
+                recipe = Recipe(
+                    tasks={},
+                    project_root=project_root,
+                    recipe_path=project_root / "tasktree.yaml",
+                )
+                executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+                runner = executor.get_session_default_runner(start_dir=project_root)
+
+                # Should fall back to platform default
+                self.assertEqual(runner.name, "__platform_default__")
+                self.assertEqual(runner.shell, "bash")
+
+    @patch("platform.system")
     def test_logs_warning_when_config_parse_fails(self, mock_system):
         """
         Test that get_session_default_runner logs a warning when config parsing fails.

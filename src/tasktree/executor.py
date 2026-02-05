@@ -274,8 +274,8 @@ class Executor:
 
         Search (i.e. precedence) order (first encountered wins):
         1. Project-level config (checked here)
-        2. User-level config (TODO: Phase 3)
-        3. Machine-level config (TODO: Phase 4)
+        2. User-level config (checked here)
+        3. Machine-level config (checked here)
         4. Platform default (baseline)
 
         Args:
@@ -289,6 +289,7 @@ class Executor:
         # Import here to avoid circular dependency
         from tasktree.config import (
             find_project_config,
+            get_machine_config_path,
             get_user_config_path,
             parse_config_file,
         )
@@ -302,7 +303,27 @@ class Executor:
 
         session_default = platform_default
 
-        # Check for user-level config (higher precedence than platform default)
+        # Check for machine-level config (higher precedence than platform default)
+        try:
+            machine_config_path = get_machine_config_path()
+            if machine_config_path.exists():
+                machine_runner = parse_config_file(machine_config_path)
+                if machine_runner:
+                    self.logger.debug(
+                        f"Using runner from machine config at '{machine_config_path}' as session default runner"
+                    )
+                    session_default = machine_runner
+            else:
+                self.logger.trace(f"No machine config found at '{machine_config_path}'")
+        except PermissionError as e:
+            # On Unix systems, site-level config may not be readable by all users
+            # Skip it gracefully and continue to next level in hierarchy
+            self.logger.trace(f"Cannot read machine config (permission denied): {e}")
+        except (ConfigError, OSError, IOError) as e:
+            # If config parsing fails, fall back to current session default
+            self.logger.warn(f"Failed to load machine config: {e}")
+
+        # Check for user-level config (higher precedence than machine config)
         try:
             user_config_path = get_user_config_path()
             if user_config_path.exists():
