@@ -39,7 +39,7 @@ def get_machine_config_path() -> Path:
 
     @athena: to-be-generated
     """
-    config_dir: Path = Path(platformdirs.site_config_dir("tasktree"))
+    config_dir = Path(platformdirs.site_config_dir("tasktree"))
     return config_dir / "config.yml"
 
 
