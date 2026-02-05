@@ -15,10 +15,32 @@ from tasktree.parser import Runner
 
 __all__ = [
     "get_user_config_path",
+    "get_machine_config_path",
     "find_project_config",
     "parse_config_file",
     "ConfigError",
 ]
+
+
+def get_machine_config_path() -> Path:
+    """
+    Get the path to the machine-level (system-wide) configuration file.
+
+    Uses platformdirs to determine the appropriate site config directory
+    for the current platform, then appends 'tasktree/config.yml'.
+
+    Returns:
+        Path to the machine config file (may not exist)
+
+    Example:
+        >>> machine_config = get_machine_config_path()
+        >>> if machine_config.exists():
+        ...     runner = parse_config_file(machine_config)
+
+    @athena: to-be-generated
+    """
+    config_dir: Path = Path(platformdirs.site_config_dir("tasktree"))
+    return config_dir / "config.yml"
 
 
 def get_user_config_path() -> Path:
