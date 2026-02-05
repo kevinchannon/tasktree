@@ -2007,12 +2007,22 @@ class TestGetSessionDefaultRunner(unittest.TestCase):
         @athena: to-be-generated
         """
         mock_system.return_value = "Linux"
-        runner = Executor.get_session_default_runner()
 
-        self.assertEqual(runner.name, "__platform_default__")
-        self.assertEqual(runner.shell, "bash")
-        self.assertEqual(runner.args, ["-c"])
-        self.assertEqual(runner.preamble, "")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+            recipe = Recipe(
+                tasks={},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            runner = executor.get_session_default_runner()
+
+            self.assertEqual(runner.name, "__platform_default__")
+            self.assertEqual(runner.shell, "bash")
+            self.assertEqual(runner.args, ["-c"])
+            self.assertEqual(runner.preamble, "")
 
     @patch("platform.system")
     def test_returns_bash_on_macos(self, mock_system):
@@ -2021,12 +2031,22 @@ class TestGetSessionDefaultRunner(unittest.TestCase):
         @athena: to-be-generated
         """
         mock_system.return_value = "Darwin"
-        runner = Executor.get_session_default_runner()
 
-        self.assertEqual(runner.name, "__platform_default__")
-        self.assertEqual(runner.shell, "bash")
-        self.assertEqual(runner.args, ["-c"])
-        self.assertEqual(runner.preamble, "")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+            recipe = Recipe(
+                tasks={},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            runner = executor.get_session_default_runner()
+
+            self.assertEqual(runner.name, "__platform_default__")
+            self.assertEqual(runner.shell, "bash")
+            self.assertEqual(runner.args, ["-c"])
+            self.assertEqual(runner.preamble, "")
 
     @patch("platform.system")
     def test_returns_cmd_on_windows(self, mock_system):
@@ -2035,12 +2055,22 @@ class TestGetSessionDefaultRunner(unittest.TestCase):
         @athena: to-be-generated
         """
         mock_system.return_value = "Windows"
-        runner = Executor.get_session_default_runner()
 
-        self.assertEqual(runner.name, "__platform_default__")
-        self.assertEqual(runner.shell, "cmd")
-        self.assertEqual(runner.args, ["/c"])
-        self.assertEqual(runner.preamble, "")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+            recipe = Recipe(
+                tasks={},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            runner = executor.get_session_default_runner()
+
+            self.assertEqual(runner.name, "__platform_default__")
+            self.assertEqual(runner.shell, "cmd")
+            self.assertEqual(runner.args, ["/c"])
+            self.assertEqual(runner.preamble, "")
 
     @patch("platform.system")
     def test_returns_project_config_runner_when_found(self, mock_system):
@@ -2052,7 +2082,8 @@ class TestGetSessionDefaultRunner(unittest.TestCase):
 
         # Create a temporary directory with a project config file
         with tempfile.TemporaryDirectory() as tmpdir:
-            config_path = Path(tmpdir) / ".tasktree-config.yml"
+            project_root = Path(tmpdir)
+            config_path = project_root / ".tasktree-config.yml"
             config_path.write_text(
                 """
 runners:
@@ -2062,7 +2093,14 @@ runners:
 """
             )
 
-            runner = Executor.get_session_default_runner(start_dir=Path(tmpdir))
+            state_manager = StateManager(project_root)
+            recipe = Recipe(
+                tasks={},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            runner = executor.get_session_default_runner(start_dir=project_root)
 
             self.assertEqual(runner.name, "default")
             self.assertEqual(runner.shell, "zsh")
@@ -2078,7 +2116,15 @@ runners:
 
         # Create a temporary directory without a config file
         with tempfile.TemporaryDirectory() as tmpdir:
-            runner = Executor.get_session_default_runner(start_dir=Path(tmpdir))
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+            recipe = Recipe(
+                tasks={},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            runner = executor.get_session_default_runner(start_dir=project_root)
 
             self.assertEqual(runner.name, "__platform_default__")
             self.assertEqual(runner.shell, "bash")
@@ -2094,10 +2140,18 @@ runners:
 
         # Create a temporary directory with an invalid config file
         with tempfile.TemporaryDirectory() as tmpdir:
-            config_path = Path(tmpdir) / ".tasktree-config.yml"
+            project_root = Path(tmpdir)
+            config_path = project_root / ".tasktree-config.yml"
             config_path.write_text("invalid: yaml: content:")
 
-            runner = Executor.get_session_default_runner(start_dir=Path(tmpdir))
+            state_manager = StateManager(project_root)
+            recipe = Recipe(
+                tasks={},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            runner = executor.get_session_default_runner(start_dir=project_root)
 
             # Should fall back to platform default on parse error
             self.assertEqual(runner.name, "__platform_default__")
@@ -2114,7 +2168,8 @@ runners:
 
         # Create a nested directory structure with config in parent
         with tempfile.TemporaryDirectory() as tmpdir:
-            config_path = Path(tmpdir) / ".tasktree-config.yml"
+            project_root = Path(tmpdir)
+            config_path = project_root / ".tasktree-config.yml"
             config_path.write_text(
                 """
 runners:
@@ -2124,14 +2179,55 @@ runners:
             )
 
             # Create a subdirectory
-            subdir = Path(tmpdir) / "subdir" / "nested"
+            subdir = project_root / "subdir" / "nested"
             subdir.mkdir(parents=True)
 
-            runner = Executor.get_session_default_runner(start_dir=subdir)
+            state_manager = StateManager(project_root)
+            recipe = Recipe(
+                tasks={},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            runner = executor.get_session_default_runner(start_dir=subdir)
 
             # Should find config from parent directory
             self.assertEqual(runner.name, "default")
             self.assertEqual(runner.shell, "fish")
+
+    @patch("platform.system")
+    def test_logs_warning_when_config_parse_fails(self, mock_system):
+        """
+        Test that get_session_default_runner logs a warning when config parsing fails.
+        @athena: to-be-generated
+        """
+        mock_system.return_value = "Linux"
+
+        # Create a temporary directory with an invalid config file
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            config_path = project_root / ".tasktree-config.yml"
+            config_path.write_text("invalid: yaml: content:")
+
+            state_manager = StateManager(project_root)
+            recipe = Recipe(
+                tasks={},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+
+            # Create a mock logger to capture log calls
+            mock_logger = MagicMock()
+            executor = Executor(recipe, state_manager, mock_logger, make_process_runner)
+            runner = executor.get_session_default_runner(start_dir=project_root)
+
+            # Should fall back to platform default
+            self.assertEqual(runner.name, "__platform_default__")
+
+            # Should have logged a warning
+            mock_logger.warn.assert_called_once()
+            call_args = mock_logger.warn.call_args[0][0]
+            self.assertIn("Failed to load project config", call_args)
 
 
 class TestPlatformdirs(unittest.TestCase):
