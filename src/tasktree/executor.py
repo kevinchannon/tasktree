@@ -268,8 +268,7 @@ class Executor:
             env.update(exported_env_vars)
         return env
 
-    @staticmethod
-    def get_session_default_runner(start_dir: Path = None) -> Runner:
+    def get_session_default_runner(self, start_dir: Path = None) -> Runner:
         """
         Get the session default runner based on configuration hierarchy.
 
@@ -307,12 +306,15 @@ class Executor:
             if project_config_path:
                 project_runner = parse_config_file(project_config_path)
                 if project_runner:
+                    self.logger.debug(f"Using runner from project config at '{project_config_path}' as session default runner")
                     return project_runner
-        except (ConfigError, OSError, IOError):
+        except (ConfigError, OSError, IOError) as e:
             # If config parsing fails, or we don't have permission to read the config, or something, fall back to
             # platform default. Errors will be caught and reported at task execution time
+            self.logger.warn(f"Failed to load project config: {e}")
             pass
 
+        self.logger.debug("Using platform default runner for session")
         return platform_default
 
     def _get_effective_runner_name(self, task: Task) -> str:
