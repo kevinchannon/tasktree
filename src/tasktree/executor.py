@@ -273,11 +273,11 @@ class Executor:
         """
         Get the session default runner based on configuration hierarchy.
 
-        Resolution order:
-        1. Platform default (baseline)
-        2. Machine-level config (TODO: Phase 4)
-        3. User-level config (TODO: Phase 3)
-        4. Project-level config (checked here)
+        Search order (first encounred wins):
+        1. Project-level config (checked here)
+        2. User-level config (TODO: Phase 3)
+        3. Machine-level config (TODO: Phase 4)
+        4. Platform default (baseline)
 
         Args:
             start_dir: Directory to start searching for project config.
