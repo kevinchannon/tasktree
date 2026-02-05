@@ -62,9 +62,9 @@ class TestGetUserConfigPath(unittest.TestCase):
         Test that get_user_config_path returns correct path on Windows.
         @athena: to-be-generated
         """
-        mock_user_config_dir.return_value = r"C:\Users\testuser\AppData\Local\tasktree"
+        # Use forward slashes for mock return value to avoid path separator issues
+        mock_user_config_dir.return_value = "C:/Users/testuser/AppData/Local/tasktree"
         result = get_user_config_path()
-        # Use forward slashes in Path comparison for cross-platform compatibility
         expected = Path("C:/Users/testuser/AppData/Local/tasktree/config.yml")
         self.assertEqual(result, expected)
 
