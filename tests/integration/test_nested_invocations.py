@@ -121,7 +121,7 @@ tasks:
                 parent_mtime_1 = parent_txt.stat().st_mtime
 
                 # Small delay to ensure timestamp difference
-                time.sleep(0.1)
+                time.sleep(1.01)
 
                 # Second run - child should skip (outputs fresh)
                 # Parent will run (no inputs, always runs)
@@ -450,7 +450,7 @@ tasks:
                 e_mtime_1 = e_txt.stat().st_mtime
 
                 # Small delay to ensure timestamp difference
-                time.sleep(0.1)
+                time.sleep(1.01)
 
                 # Second run - e should skip (outputs fresh, no inputs)
                 # But a, b, c, d have no inputs either, so they'll all run
