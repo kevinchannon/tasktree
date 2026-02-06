@@ -47,7 +47,7 @@ tasks:
   parent:
     outputs: [parent.txt]
     cmd: |
-      python3 -m tasktree child
+      python3 -m tasktree.cli child
       echo "parent output" > parent.txt
 """)
 
@@ -99,7 +99,7 @@ tasks:
   parent:
     outputs: [parent.txt]
     cmd: |
-      python3 -m tasktree child
+      python3 -m tasktree.cli child
       echo "parent output" > parent.txt
 """)
 
@@ -165,9 +165,9 @@ tasks:
   parent:
     outputs: [parent.txt]
     cmd: |
-      python3 -m tasktree child1
-      python3 -m tasktree child2
-      python3 -m tasktree child3
+      python3 -m tasktree.cli child1
+      python3 -m tasktree.cli child2
+      python3 -m tasktree.cli child3
       echo "parent done" > parent.txt
 """)
 
@@ -226,7 +226,7 @@ tasks:
   parent:
     outputs: [parent.txt]
     cmd: |
-      python3 -m tasktree child
+      python3 -m tasktree.cli child
       echo "parent" > parent.txt
 """)
 
@@ -279,19 +279,19 @@ tasks:
   c:
     outputs: [c.txt]
     cmd: |
-      python3 -m tasktree d
+      python3 -m tasktree.cli d
       echo "c" > c.txt
 
   b:
     outputs: [b.txt]
     cmd: |
-      python3 -m tasktree c
+      python3 -m tasktree.cli c
       echo "b" > b.txt
 
   a:
     outputs: [a.txt]
     cmd: |
-      python3 -m tasktree b
+      python3 -m tasktree.cli b
       echo "a" > a.txt
 """)
 
@@ -355,7 +355,7 @@ tasks:
     outputs: [parent.txt]
     cmd: |
       set -e
-      python3 -m tasktree failing-child
+      python3 -m tasktree.cli failing-child
       echo "should not reach here" > parent.txt
 """)
 
@@ -393,25 +393,25 @@ tasks:
   d:
     outputs: [d.txt]
     cmd: |
-      python3 -m tasktree e
+      python3 -m tasktree.cli e
       echo "d" > d.txt
 
   c:
     outputs: [c.txt]
     cmd: |
-      python3 -m tasktree d
+      python3 -m tasktree.cli d
       echo "c" > c.txt
 
   b:
     outputs: [b.txt]
     cmd: |
-      python3 -m tasktree c
+      python3 -m tasktree.cli c
       echo "b" > b.txt
 
   a:
     outputs: [a.txt]
     cmd: |
-      python3 -m tasktree b
+      python3 -m tasktree.cli b
       echo "a" > a.txt
 """)
 
