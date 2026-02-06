@@ -782,6 +782,9 @@ class Executor:
                 exported_env_vars,
             )
 
+        # Reload state from disk to capture any updates from nested tt calls
+        self.state.load()
+
         # Update state
         self._update_state(task, args_dict)
 
