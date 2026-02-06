@@ -59,9 +59,13 @@ tasks:
                 result = self.runner.invoke(app, ["parent"], env=self.env)
                 self.assertEqual(result.exit_code, 0)
 
-                # Verify both outputs were created
-                self.assertTrue((project_root / "child.txt").exists())
-                self.assertTrue((project_root / "parent.txt").exists())
+                # Verify both outputs were created with correct content
+                child_txt = project_root / "child.txt"
+                parent_txt = project_root / "parent.txt"
+                self.assertTrue(child_txt.exists())
+                self.assertTrue(parent_txt.exists())
+                self.assertEqual(child_txt.read_text().strip(), "child output")
+                self.assertEqual(parent_txt.read_text().strip(), "parent output")
 
                 # Verify state file exists and contains both tasks
                 state_file = project_root / ".tasktree-state"
@@ -175,11 +179,19 @@ tasks:
                 result = self.runner.invoke(app, ["parent"], env=self.env)
                 self.assertEqual(result.exit_code, 0)
 
-                # Verify all outputs created
-                self.assertTrue((project_root / "child1.txt").exists())
-                self.assertTrue((project_root / "child2.txt").exists())
-                self.assertTrue((project_root / "child3.txt").exists())
-                self.assertTrue((project_root / "parent.txt").exists())
+                # Verify all outputs created with correct content
+                child1_txt = project_root / "child1.txt"
+                child2_txt = project_root / "child2.txt"
+                child3_txt = project_root / "child3.txt"
+                parent_txt = project_root / "parent.txt"
+                self.assertTrue(child1_txt.exists())
+                self.assertTrue(child2_txt.exists())
+                self.assertTrue(child3_txt.exists())
+                self.assertTrue(parent_txt.exists())
+                self.assertEqual(child1_txt.read_text().strip(), "child1")
+                self.assertEqual(child2_txt.read_text().strip(), "child2")
+                self.assertEqual(child3_txt.read_text().strip(), "child3")
+                self.assertEqual(parent_txt.read_text().strip(), "parent done")
 
                 # Verify state has all 4 tasks
                 state_file = project_root / ".tasktree-state"
@@ -226,10 +238,16 @@ tasks:
                 result = self.runner.invoke(app, ["parent"], env=self.env)
                 self.assertEqual(result.exit_code, 0)
 
-                # Verify all outputs created (dep, child, parent)
-                self.assertTrue((project_root / "dep.txt").exists())
-                self.assertTrue((project_root / "child.txt").exists())
-                self.assertTrue((project_root / "parent.txt").exists())
+                # Verify all outputs created with correct content (dep, child, parent)
+                dep_txt = project_root / "dep.txt"
+                child_txt = project_root / "child.txt"
+                parent_txt = project_root / "parent.txt"
+                self.assertTrue(dep_txt.exists())
+                self.assertTrue(child_txt.exists())
+                self.assertTrue(parent_txt.exists())
+                self.assertEqual(dep_txt.read_text().strip(), "dependency")
+                self.assertEqual(child_txt.read_text().strip(), "child")
+                self.assertEqual(parent_txt.read_text().strip(), "parent")
 
                 # Verify execution order via timestamps
                 dep_time = (project_root / "dep.txt").stat().st_mtime
@@ -285,11 +303,19 @@ tasks:
                 result = self.runner.invoke(app, ["a"], env=self.env)
                 self.assertEqual(result.exit_code, 0)
 
-                # Verify all outputs created
-                self.assertTrue((project_root / "a.txt").exists())
-                self.assertTrue((project_root / "b.txt").exists())
-                self.assertTrue((project_root / "c.txt").exists())
-                self.assertTrue((project_root / "d.txt").exists())
+                # Verify all outputs created with correct content
+                a_txt = project_root / "a.txt"
+                b_txt = project_root / "b.txt"
+                c_txt = project_root / "c.txt"
+                d_txt = project_root / "d.txt"
+                self.assertTrue(a_txt.exists())
+                self.assertTrue(b_txt.exists())
+                self.assertTrue(c_txt.exists())
+                self.assertTrue(d_txt.exists())
+                self.assertEqual(a_txt.read_text().strip(), "a")
+                self.assertEqual(b_txt.read_text().strip(), "b")
+                self.assertEqual(c_txt.read_text().strip(), "c")
+                self.assertEqual(d_txt.read_text().strip(), "d")
 
                 # Verify state has all 4 tasks
                 state_file = project_root / ".tasktree-state"
@@ -307,6 +333,146 @@ tasks:
                 self.assertLessEqual(d_time, c_time)
                 self.assertLessEqual(c_time, b_time)
                 self.assertLessEqual(b_time, a_time)
+
+            finally:
+                os.chdir(original_cwd)
+
+    def test_nested_call_failure_propagates(self):
+        """
+        Test that a failed nested tt call causes the parent task to fail.
+        Error propagation should follow normal shell exit code behavior.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+tasks:
+  failing-child:
+    cmd: exit 1
+
+  parent:
+    outputs: [parent.txt]
+    cmd: |
+      set -e
+      python3 -m tasktree failing-child
+      echo "should not reach here" > parent.txt
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Run parent task - should fail
+                result = self.runner.invoke(app, ["parent"], env=self.env)
+                self.assertNotEqual(result.exit_code, 0, "Parent should fail when child fails")
+
+                # Parent output should not be created
+                parent_txt = project_root / "parent.txt"
+                self.assertFalse(parent_txt.exists(), "Parent should not complete after child failure")
+
+            finally:
+                os.chdir(original_cwd)
+
+    def test_deeply_nested_chain_with_incrementality(self):
+        """
+        Test deeply nested chain (5 levels: A→B→C→D→E) with incrementality.
+        First run executes all tasks, second run should skip E (bottom) due to incrementality,
+        causing D to skip, etc., but tasks without inputs always run.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+tasks:
+  e:
+    outputs: [e.txt]
+    cmd: echo "e" > e.txt
+
+  d:
+    outputs: [d.txt]
+    cmd: |
+      python3 -m tasktree e
+      echo "d" > d.txt
+
+  c:
+    outputs: [c.txt]
+    cmd: |
+      python3 -m tasktree d
+      echo "c" > c.txt
+
+  b:
+    outputs: [b.txt]
+    cmd: |
+      python3 -m tasktree c
+      echo "b" > b.txt
+
+  a:
+    outputs: [a.txt]
+    cmd: |
+      python3 -m tasktree b
+      echo "a" > a.txt
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # First run - all tasks execute
+                result = self.runner.invoke(app, ["a"], env=self.env)
+                self.assertEqual(result.exit_code, 0)
+
+                # Verify all outputs created with correct content
+                a_txt = project_root / "a.txt"
+                b_txt = project_root / "b.txt"
+                c_txt = project_root / "c.txt"
+                d_txt = project_root / "d.txt"
+                e_txt = project_root / "e.txt"
+
+                self.assertTrue(a_txt.exists())
+                self.assertTrue(b_txt.exists())
+                self.assertTrue(c_txt.exists())
+                self.assertTrue(d_txt.exists())
+                self.assertTrue(e_txt.exists())
+
+                self.assertEqual(a_txt.read_text().strip(), "a")
+                self.assertEqual(b_txt.read_text().strip(), "b")
+                self.assertEqual(c_txt.read_text().strip(), "c")
+                self.assertEqual(d_txt.read_text().strip(), "d")
+                self.assertEqual(e_txt.read_text().strip(), "e")
+
+                # Record mtimes
+                a_mtime_1 = a_txt.stat().st_mtime
+                b_mtime_1 = b_txt.stat().st_mtime
+                c_mtime_1 = c_txt.stat().st_mtime
+                d_mtime_1 = d_txt.stat().st_mtime
+                e_mtime_1 = e_txt.stat().st_mtime
+
+                # Small delay to ensure timestamp difference
+                time.sleep(0.1)
+
+                # Second run - e should skip (outputs fresh, no inputs)
+                # But a, b, c, d have no inputs either, so they'll all run
+                # (tasks without inputs always run)
+                result = self.runner.invoke(app, ["a"], env=self.env)
+                self.assertEqual(result.exit_code, 0)
+
+                # Get new mtimes
+                a_mtime_2 = a_txt.stat().st_mtime
+                b_mtime_2 = b_txt.stat().st_mtime
+                c_mtime_2 = c_txt.stat().st_mtime
+                d_mtime_2 = d_txt.stat().st_mtime
+                e_mtime_2 = e_txt.stat().st_mtime
+
+                # E should skip (outputs fresh, no inputs to track)
+                self.assertEqual(e_mtime_2, e_mtime_1, "Task e should skip on second run")
+
+                # A, B, C, D have no inputs, so they always run
+                self.assertGreater(a_mtime_2, a_mtime_1, "Task a should run (no inputs)")
+                self.assertGreater(b_mtime_2, b_mtime_1, "Task b should run (no inputs)")
+                self.assertGreater(c_mtime_2, c_mtime_1, "Task c should run (no inputs)")
+                self.assertGreater(d_mtime_2, d_mtime_1, "Task d should run (no inputs)")
 
             finally:
                 os.chdir(original_cwd)
