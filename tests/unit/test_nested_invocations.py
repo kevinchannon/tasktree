@@ -156,5 +156,263 @@ class TestStateManagementCore(unittest.TestCase):
             self.assertEqual(verify_state.get("child").last_run, 200.0)
 
 
+class TestEdgeCases(unittest.TestCase):
+    """Tests for edge cases in nested invocations."""
+
+    def test_overlapping_outputs(self):
+        """
+        Test that overlapping outputs between parent and child are handled.
+        Parent's final state should reflect actual filesystem state.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            output_file = project_root / "output.txt"
+
+            # Create initial output
+            output_file.write_text("initial")
+            initial_mtime = output_file.stat().st_mtime
+
+            # Simulate child modifying output
+            output_file.write_text("child")
+            child_mtime = output_file.stat().st_mtime
+
+            # Simulate parent modifying output after child
+            output_file.write_text("parent")
+            parent_mtime = output_file.stat().st_mtime
+
+            # Parent's state should reflect final filesystem state
+            self.assertNotEqual(initial_mtime, parent_mtime)
+            self.assertGreater(parent_mtime, child_mtime)
+            self.assertEqual(output_file.read_text(), "parent")
+
+    def test_nested_call_to_already_run_task(self):
+        """
+        Test that nested call can skip task if already run (incrementality).
+        Simulates checking if task needs to run based on existing state.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+
+            # Task B already ran and has state
+            state_manager.load()
+            state_manager.set("task_b", TaskState(last_run=100.0, input_state={}))
+            state_manager.save()
+
+            # Task A loads state (would call tt B)
+            state_manager_a = StateManager(project_root)
+            state_manager_a.load()
+
+            # Verify task B's state exists (would allow skip decision)
+            self.assertIsNotNone(state_manager_a.get("task_b"))
+            self.assertEqual(state_manager_a.get("task_b").last_run, 100.0)
+
+    def test_empty_command_only_nested_call(self):
+        """
+        Test task with cmd that only contains nested tt call.
+        Parent state should still be created.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+
+            # Simulate child running
+            state_manager.load()
+            state_manager.set("child", TaskState(last_run=100.0, input_state={}))
+            state_manager.save()
+
+            # Parent reloads and adds its own state
+            state_manager.load()
+            state_manager.set("parent", TaskState(last_run=200.0, input_state={}))
+            state_manager.save()
+
+            # Verify both exist
+            verify = StateManager(project_root)
+            verify.load()
+            self.assertIsNotNone(verify.get("parent"))
+            self.assertIsNotNone(verify.get("child"))
+
+    def test_state_file_missing_during_nested_call(self):
+        """
+        Test handling when state file is deleted between parent load and reload.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_path = project_root / ".tasktree-state"
+
+            # Parent loads state (empty)
+            parent_state = StateManager(project_root)
+            parent_state.load()
+
+            # Delete state file (simulates corruption or deletion)
+            if state_path.exists():
+                state_path.unlink()
+
+            # Child creates new state file
+            child_state = StateManager(project_root)
+            child_state.load()
+            child_state.set("child", TaskState(last_run=100.0, input_state={}))
+            child_state.save()
+
+            # Parent reloads (file now exists)
+            parent_state.load()
+            parent_state.set("parent", TaskState(last_run=200.0, input_state={}))
+            parent_state.save()
+
+            # Verify final state has both
+            verify = StateManager(project_root)
+            verify.load()
+            self.assertIsNotNone(verify.get("parent"))
+            self.assertIsNotNone(verify.get("child"))
+
+    def test_malformed_state_during_nested_call(self):
+        """
+        Test that malformed state is handled gracefully (fallback to empty).
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_path = project_root / ".tasktree-state"
+
+            # Create malformed state file
+            state_path.write_text("{invalid json")
+
+            # State manager should handle gracefully
+            state_manager = StateManager(project_root)
+            state_manager.load()  # Should not raise, should start with empty state
+
+            # Should be able to write valid state
+            state_manager.set("task_a", TaskState(last_run=100.0, input_state={}))
+            state_manager.save()
+
+            # Verify recovery
+            verify = StateManager(project_root)
+            verify.load()
+            self.assertEqual(verify.get("task_a").last_run, 100.0)
+
+    def test_nested_call_no_output_always_runs(self):
+        """
+        Test that task with no outputs always runs (state tracking only).
+        State should still be updated to track last run.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+
+            # First run
+            state_manager.load()
+            state_manager.set("no_output", TaskState(last_run=100.0, input_state={}))
+            state_manager.save()
+
+            # Second run (would run again because no outputs)
+            state_manager.load()
+            state_manager.set("no_output", TaskState(last_run=200.0, input_state={}))
+            state_manager.save()
+
+            # Verify state was updated
+            verify = StateManager(project_root)
+            verify.load()
+            self.assertEqual(verify.get("no_output").last_run, 200.0)
+
+    def test_parent_no_output_child_has_output(self):
+        """
+        Test parent with no outputs calling child with outputs.
+        Child should benefit from incrementality, parent always runs.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # First run: both tasks run
+            first_run = StateManager(project_root)
+            first_run.load()
+            first_run.set("parent", TaskState(last_run=100.0, input_state={}))
+            first_run.set("child", TaskState(last_run=100.0, input_state={"out.txt": 100.0}))
+            first_run.save()
+
+            # Second run: parent would run (no outputs), child might skip
+            second_run = StateManager(project_root)
+            second_run.load()
+            # Parent always updates (no outputs means always runs)
+            second_run.set("parent", TaskState(last_run=200.0, input_state={}))
+            # Child state unchanged (would skip if outputs fresh)
+            second_run.save()
+
+            # Verify parent updated, child preserved
+            verify = StateManager(project_root)
+            verify.load()
+            self.assertEqual(verify.get("parent").last_run, 200.0)
+            self.assertEqual(verify.get("child").last_run, 100.0)
+
+    def test_multiple_sequential_state_updates(self):
+        """
+        Test multiple nested calls updating state sequentially.
+        Each update should be preserved in final state.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+
+            # Initial state
+            state_manager.load()
+
+            # Sequential updates (simulating multiple nested calls)
+            state_manager.set("child1", TaskState(last_run=100.0, input_state={}))
+            state_manager.save()
+
+            state_manager.load()
+            state_manager.set("child2", TaskState(last_run=200.0, input_state={}))
+            state_manager.save()
+
+            state_manager.load()
+            state_manager.set("child3", TaskState(last_run=300.0, input_state={}))
+            state_manager.save()
+
+            state_manager.load()
+            state_manager.set("parent", TaskState(last_run=400.0, input_state={}))
+            state_manager.save()
+
+            # Verify all entries exist
+            verify = StateManager(project_root)
+            verify.load()
+            self.assertEqual(verify.get("child1").last_run, 100.0)
+            self.assertEqual(verify.get("child2").last_run, 200.0)
+            self.assertEqual(verify.get("child3").last_run, 300.0)
+            self.assertEqual(verify.get("parent").last_run, 400.0)
+
+    def test_state_preservation_across_multiple_reloads(self):
+        """
+        Test that state entries are preserved across multiple load/save cycles.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Cycle 1: Create initial state
+            state1 = StateManager(project_root)
+            state1.load()
+            state1.set("task1", TaskState(last_run=100.0, input_state={}))
+            state1.save()
+
+            # Cycle 2: Add another task
+            state2 = StateManager(project_root)
+            state2.load()
+            self.assertIsNotNone(state2.get("task1"))  # Previous entry preserved
+            state2.set("task2", TaskState(last_run=200.0, input_state={}))
+            state2.save()
+
+            # Cycle 3: Add third task
+            state3 = StateManager(project_root)
+            state3.load()
+            self.assertIsNotNone(state3.get("task1"))  # First entry still preserved
+            self.assertIsNotNone(state3.get("task2"))  # Second entry still preserved
+            state3.set("task3", TaskState(last_run=300.0, input_state={}))
+            state3.save()
+
+            # Final verification
+            verify = StateManager(project_root)
+            verify.load()
+            self.assertEqual(verify.get("task1").last_run, 100.0)
+            self.assertEqual(verify.get("task2").last_run, 200.0)
+            self.assertEqual(verify.get("task3").last_run, 300.0)
+
+
 if __name__ == "__main__":
     unittest.main()
