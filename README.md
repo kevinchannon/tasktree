@@ -1474,11 +1474,42 @@ tasks:
       echo "Done"
 ```
 
+### Error Handling
+
+Nested task invocations follow normal shell error propagation. If a nested `tt` call fails (exits with a non-zero code), the parent task's `cmd` will fail according to standard shell behavior:
+
+```yaml
+tasks:
+  risky-task:
+    cmd: exit 1  # Fails
+
+  parent:
+    cmd: |
+      set -e  # Exit on error
+      tt risky-task  # Parent fails here if risky-task fails
+      echo "This won't run"
+```
+
+For conditional execution or error recovery, use standard shell constructs:
+
+```yaml
+tasks:
+  optional-task:
+    cmd: ./might-fail.sh
+
+  parent:
+    cmd: |
+      tt optional-task || echo "Task failed, continuing anyway"
+      echo "This always runs"
+```
+
 ### Limitations (Phase 1)
 
 - **Docker-in-Docker**: Not currently supported. Nested calls from containerized tasks are not yet implemented (coming in Phase 2).
 - **Recursion**: Direct or indirect recursion (A → B → A) will cause infinite loops in this phase. Cycle detection is planned for Phase 3.
 - **Sequential execution**: Nested calls must run sequentially. Parallel invocations (e.g., using `&`) are not supported.
+
+**⚠️ Warning**: Do not use shell backgrounding (`&`) with nested calls. Running nested tasks in parallel (e.g., `tt task1 & tt task2`) will cause state file corruption. Phase 1 requires strictly sequential execution.
 
 ### Notes
 
