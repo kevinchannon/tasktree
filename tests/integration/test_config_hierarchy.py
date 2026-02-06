@@ -1,7 +1,7 @@
 """Integration tests for configuration file hierarchy.
 
-Tests the full 6-level configuration hierarchy:
-1. CLI --env flag
+Tests the full 7-level configuration hierarchy:
+1. CLI --runner flag
 2. Task's run_in field
 3. Recipe's default_runner
 4. Project config (.tasktree-config.yml)
