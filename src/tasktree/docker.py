@@ -20,6 +20,7 @@ except ImportError:
     pathspec = None  # type: ignore
 
 if TYPE_CHECKING:
+    from tasktree.logging import Logger
     from tasktree.parser import Runner
     from tasktree.process_runner import ProcessRunner
 
@@ -39,15 +40,17 @@ class DockerManager:
     @athena: f8f5c2693d84
     """
 
-    def __init__(self, project_root: Path):
+    def __init__(self, project_root: Path, logger: Logger):
         """
         Initialize Docker manager.
 
         Args:
-        project_root: Root directory of the project (where tasktree.yaml is located)
+            project_root: Root directory of the project (where tasktree.yaml is located)
+            logger: Logger instance for debug/trace messages
         @athena: eb7d4c5a27aa
         """
         self._project_root = project_root
+        self._logger = logger
         self._built_images: dict[
             str, tuple[str, str]
         ] = {}  # env_name -> (image_tag, image_id) cache
@@ -101,6 +104,13 @@ class DockerManager:
         # Resolve paths
         dockerfile_path = self._project_root / env.dockerfile
         context_path = self._project_root / env.context
+
+        # Log resolved paths for debugging
+        self._logger.debug(
+            f"Resolved paths for runner '{env.name}': "
+            f"dockerfile='{dockerfile_path}' (from '{env.dockerfile}'), "
+            f"context='{context_path}' (from '{env.context}')"
+        )
 
         # Generate image tag
         image_tag = f"tt-env-{env.name}"
