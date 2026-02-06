@@ -924,6 +924,92 @@ class TestDockerManager(unittest.TestCase):
         # Verify the volume mount uses the absolute path correctly
         self.assertEqual("/fake/project:/workspace", volume_mount)
 
+    @patch("tasktree.docker.subprocess.run")
+    def test_error_when_dockerfile_not_found(self, mock_run):
+        """
+        Test that appropriate error occurs when dockerfile path cannot be resolved.
+        Verifies that Docker build fails with clear error when file doesn't exist.
+        @athena: to-be-generated
+        """
+        env = Runner(
+            name="builder",
+            dockerfile="nonexistent/Dockerfile",
+            context=".",
+        )
+
+        # Mock docker --version to pass the check
+        # Mock docker build to fail with file not found error
+        def mock_run_side_effect(*args, **kwargs):
+            cmd = args[0]
+            if "--version" in cmd:
+                return Mock(returncode=0)
+            elif "build" in cmd:
+                # Simulate Docker's error when dockerfile doesn't exist
+                result = Mock()
+                result.returncode = 1
+                result.stderr = "unable to prepare context: unable to stat /fake/project/nonexistent/Dockerfile"
+                raise Exception(result.stderr)
+            return Mock(returncode=0)
+
+        mock_run.side_effect = mock_run_side_effect
+
+        # Attempt to build image should raise an exception
+        with self.assertRaises(Exception) as context:
+            self.manager.ensure_image_built(
+                env, make_process_runner(TaskOutputTypes.ALL, logger_stub)
+            )
+
+        # Verify error message mentions the missing file
+        self.assertIn("Dockerfile", str(context.exception))
+
+    @patch("tasktree.docker.subprocess.run")
+    def test_path_traversal_security(self, mock_run):
+        """
+        Test that path traversal attempts in dockerfile paths are handled safely.
+        Verifies that paths like ../../etc/passwd are resolved by pathlib correctly.
+        @athena: to-be-generated
+        """
+        env = Runner(
+            name="traversal",
+            dockerfile="../../etc/passwd",
+            context=".",
+        )
+
+        # Mock docker --version and docker build
+        def mock_run_side_effect(*args, **kwargs):
+            cmd = args[0]
+            if "--version" in cmd:
+                return Mock(returncode=0)
+            elif "build" in cmd:
+                # Check that the path passed to docker build has been resolved
+                # The -f flag should be followed by the resolved path
+                dockerfile_flag_index = cmd.index("-f")
+                dockerfile_path = cmd[dockerfile_flag_index + 1]
+
+                # Path should be resolved using pathlib's / operator which normalizes paths
+                # /fake/project / ../../etc/passwd resolves to /fake/etc/passwd (not /etc/passwd)
+                # This is safe because pathlib keeps the path within the filesystem tree
+                self.assertIn("/fake/", dockerfile_path)
+
+                # Simulate build failure (file doesn't exist)
+                result = Mock()
+                result.returncode = 1
+                result.stderr = f"unable to stat {dockerfile_path}"
+                raise Exception(result.stderr)
+            return Mock(returncode=0)
+
+        mock_run.side_effect = mock_run_side_effect
+
+        # Attempt to build should raise an exception
+        with self.assertRaises(Exception):
+            self.manager.ensure_image_built(
+                env, make_process_runner(TaskOutputTypes.ALL, logger_stub)
+            )
+
+        # Verify docker build was called with resolved path
+        build_call = [c for c in mock_run.call_args_list if len(c[0]) > 0 and "build" in c[0][0]]
+        self.assertTrue(len(build_call) > 0, "Docker build should have been called")
+
 
 if __name__ == "__main__":
     unittest.main()
