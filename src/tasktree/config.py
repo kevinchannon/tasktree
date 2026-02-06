@@ -149,6 +149,54 @@ def parse_config_file(path: Path) -> Optional[Runner]:
         >>> if runner:
         ...     print(f"Using {runner.shell} shell")
 
+    Config File Examples:
+
+        Project-level config (.tasktree-config.yml):
+            ```yaml
+            runners:
+              default:
+                dockerfile: docker/Dockerfile
+                context: .
+                volumes:
+                  - ./data:/workspace/data
+            ```
+
+        User-level config (~/.config/tasktree/config.yml):
+            ```yaml
+            runners:
+              default:
+                # Relative paths work if your projects use consistent structure
+                dockerfile: docker/Dockerfile
+                context: .
+            ```
+
+        Shell runner config:
+            ```yaml
+            runners:
+              default:
+                shell: /bin/bash
+                preamble: |
+                  set -euo pipefail
+                  export PATH=$PATH:$HOME/bin
+            ```
+
+    Note:
+        Relative paths in runner definitions (e.g., dockerfile, context) are stored
+        as-is in the Runner object. Path resolution happens at task execution time
+        in docker.py, where relative paths are resolved relative to the project root.
+        This allows configs to be portable across machines.
+
+        Path Resolution:
+        - Relative paths (e.g., "docker/Dockerfile") are stored as-is
+        - Absolute paths are stored as-is
+        - Resolution happens at task execution time in docker.py
+        - If a relative path cannot be resolved (e.g., dockerfile doesn't exist),
+          Docker will fail with an error indicating the file was not found
+
+        For user-level and machine-level configs with relative paths, ensure that
+        the relative paths are valid from the project root of projects where the
+        config will be used.
+
     @athena: to-be-generated
     """
     # Return None if file doesn't exist (not an error)

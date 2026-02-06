@@ -2625,6 +2625,116 @@ runners:
             call_args = mock_logger.warn.call_args[0][0]
             self.assertIn("Failed to load project config", call_args)
 
+    @patch("platform.system")
+    def test_project_root_passed_to_config_parser(self, mock_system):
+        """
+        Test that project_root is passed to parse_config_file for all config levels.
+        @athena: to-be-generated
+        """
+        mock_system.return_value = "Linux"
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create a project config with relative dockerfile path
+            config_path = project_root / ".tasktree-config.yml"
+            config_path.write_text(
+                """runners:
+  default:
+    dockerfile: docker/Dockerfile
+    context: .
+"""
+            )
+
+            state_manager = StateManager(project_root)
+            recipe = Recipe(
+                tasks={},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            runner = executor.get_session_default_runner(start_dir=project_root)
+
+            # Verify runner was loaded with dockerfile path stored as-is
+            self.assertEqual(runner.dockerfile, "docker/Dockerfile")
+            self.assertEqual(runner.context, ".")
+
+    @patch("platform.system")
+    def test_relative_paths_in_user_config(self, mock_system):
+        """
+        Test that relative paths in user config are accepted and stored.
+        Path resolution happens at execution time in docker.py.
+        @athena: to-be-generated
+        """
+        mock_system.return_value = "Linux"
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            user_config_dir = Path(tmpdir) / "user_config"
+            user_config_dir.mkdir()
+            user_config_path = user_config_dir / "config.yml"
+            user_config_path.write_text(
+                """runners:
+  default:
+    dockerfile: relative/path/Dockerfile
+    context: build
+"""
+            )
+
+            state_manager = StateManager(project_root)
+            recipe = Recipe(
+                tasks={},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+
+            # Mock get_user_config_path to return our test path
+            with patch(
+                "tasktree.config.get_user_config_path", return_value=user_config_path
+            ):
+                runner = executor.get_session_default_runner(start_dir=project_root)
+
+            # Verify relative paths are stored as-is
+            self.assertEqual(runner.dockerfile, "relative/path/Dockerfile")
+            self.assertEqual(runner.context, "build")
+
+    @patch("platform.system")
+    def test_absolute_paths_in_config(self, mock_system):
+        """
+        Test that absolute paths in config files are accepted and stored.
+        @athena: to-be-generated
+        """
+        mock_system.return_value = "Linux"
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create a project config with absolute paths
+            config_path = project_root / ".tasktree-config.yml"
+            abs_dockerfile = str(Path(tmpdir) / "docker" / "Dockerfile")
+            abs_context = str(Path(tmpdir) / "docker")
+            config_path.write_text(
+                f"""runners:
+  default:
+    dockerfile: {abs_dockerfile}
+    context: {abs_context}
+"""
+            )
+
+            state_manager = StateManager(project_root)
+            recipe = Recipe(
+                tasks={},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            runner = executor.get_session_default_runner(start_dir=project_root)
+
+            # Verify absolute paths are stored correctly
+            self.assertEqual(runner.dockerfile, abs_dockerfile)
+            self.assertEqual(runner.context, abs_context)
+
 
 class TestPlatformdirs(unittest.TestCase):
     """

@@ -94,7 +94,7 @@ class Executor:
         self.state = state_manager
         self.logger = logger
         self._process_runner_factory = process_runner_factory
-        self.docker_manager = docker_module.DockerManager(recipe.project_root)
+        self.docker_manager = docker_module.DockerManager(recipe.project_root, logger)
 
     @staticmethod
     def _has_regular_args(task: Task) -> bool:
@@ -269,7 +269,10 @@ class Executor:
         return env
 
     def _try_load_config(
-        self, config_path: Path, config_level: str, treat_permission_as_trace: bool = False
+        self,
+        config_path: Path,
+        config_level: str,
+        treat_permission_as_trace: bool = False,
     ) -> Runner | None:
         """
         Helper to load a config file with standardized error handling.
@@ -281,6 +284,10 @@ class Executor:
 
         Returns:
             Runner if config exists and is valid, None otherwise
+
+        Note:
+            Relative paths in config files are stored as-is and resolved at task
+            execution time. See parse_config_file() for details.
         """
         # Import here to avoid circular dependency
         from tasktree.config import parse_config_file
@@ -321,6 +328,13 @@ class Executor:
 
         Returns:
             Runner: Session default runner configuration
+
+        Note:
+            Relative paths in config files (e.g., dockerfile paths) are resolved
+            relative to project_root at task execution time. If a relative path
+            cannot be resolved (e.g., dockerfile doesn't exist), the error will
+            occur during task execution, not during config loading.
+
         @athena: to-be-generated
         """
         # Import here to avoid circular dependency
@@ -338,6 +352,9 @@ class Executor:
             platform_default = Runner(name="__platform_default__", shell="bash", args=["-c"])
 
         session_default = platform_default
+
+        # Get project root for path resolution
+        project_root = self.recipe.project_root
 
         # Check for machine-level config (higher precedence than platform default)
         machine_config_path = get_machine_config_path()
@@ -360,7 +377,9 @@ class Executor:
         # Check for project-level config (highest precedence)
         project_config_path = find_project_config(start_dir)
         if project_config_path:
-            project_runner = self._try_load_config(project_config_path, "project")
+            project_runner = self._try_load_config(
+                project_config_path, "project"
+            )
             if project_runner:
                 session_default = project_runner
 

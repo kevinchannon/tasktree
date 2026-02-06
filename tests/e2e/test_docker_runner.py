@@ -238,6 +238,70 @@ tasks:
                 pwd, "/app", f"Expected /app from Dockerfile WORKDIR, got: {pwd}"
             )
 
+    def test_config_file_with_relative_dockerfile_path(self):
+        """
+        Test that relative dockerfile paths in config files are parsed and resolved correctly.
+        This test verifies that:
+        1. Config files can contain relative paths
+        2. Relative paths in recipe runners are resolved at execution time
+        @athena: to-be-generated
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create docker subdirectory
+            docker_dir = project_root / "docker"
+            docker_dir.mkdir()
+
+            # Create Dockerfile in subdirectory
+            (docker_dir / "Dockerfile").write_text(
+                "FROM alpine:latest\nWORKDIR /workspace\n"
+            )
+
+            # Create output directory
+            (project_root / "output").mkdir()
+
+            # Create project config with relative dockerfile path
+            # Even though we don't use this runner, this tests that the config
+            # file can be parsed without errors when it contains relative paths
+            (project_root / ".tasktree-config.yml").write_text("""runners:
+  default:
+    dockerfile: docker/Dockerfile
+    context: .
+""")
+
+            # Create recipe with runner using relative paths
+            # This is what actually gets executed and tests path resolution
+            (project_root / "tasktree.yaml").write_text("""runners:
+  docker-test:
+    dockerfile: docker/Dockerfile
+    context: .
+    volumes: ["./output:/workspace/output"]
+
+tasks:
+  test:
+    run_in: docker-test
+    outputs: [output/result.txt]
+    cmd: echo "path resolution works" > /workspace/output/result.txt
+""")
+
+            # Execute task
+            result = run_tasktree_cli(["test"], cwd=project_root)
+
+            # Assert success
+            self.assertEqual(
+                result.returncode,
+                0,
+                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
+            )
+
+            # Verify output file was created
+            output_file = project_root / "output" / "result.txt"
+            self.assertTrue(output_file.exists(), "Output file not created")
+            self.assertEqual(
+                output_file.read_text().strip(), "path resolution works"
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
