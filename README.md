@@ -366,7 +366,10 @@ runners:
 - Project config overrides user config, which overrides machine config
 - Config files are optional; missing configs are not errors
 - Relative paths in configs (e.g., dockerfile paths) are resolved relative to the project root at execution time
-- Invalid configs fall back gracefully to the next level in the hierarchy
+- Invalid configs are handled gracefully:
+  - A warning message is displayed with the error details
+  - Task Tree falls back to the next level in the hierarchy
+  - Execution continues normally with the fallback runner
 
 **Use cases:**
 - **Project config**: Set consistent shell defaults for all contributors
