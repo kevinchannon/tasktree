@@ -1368,6 +1368,125 @@ tasks:
 Note that private tasks remain fully functional - they're only hidden from the list view. Users who know the task name can still execute it directly.
 
 
+## Nested Task Invocations
+
+Task Tree supports **inline task composition** - tasks can invoke other tasks during their execution by calling `tt <task-name>` (or `python3 -m tasktree <task-name>`) within their `cmd`. This enables orchestrating multi-step workflows where the ordering of subtask invocations relative to other commands matters.
+
+### Basic Usage
+
+```yaml
+tasks:
+  generate:
+    outputs: [src/generated.rs]
+    cmd: python codegen.py
+
+  build:
+    outputs: [target/release/bin]
+    cmd: |
+      tt generate
+      cargo build --release
+```
+
+Running `tt build` first ensures code generation is up-to-date, then compiles. This differs from using `deps: [generate]` because the invocation happens at a specific point within the command sequence.
+
+### State Management
+
+When a task calls `tt <subtask>`, the nested `tt` process independently reads and writes the state file. Task Tree automatically handles state synchronization:
+
+1. Parent task loads state and begins execution
+2. Parent's `cmd` invokes `tt child` as a subprocess
+3. Child `tt` process reads state, executes if needed, writes updated state
+4. After `cmd` completes, parent reloads state from disk (capturing child's updates)
+5. Parent updates its own state entry and writes back
+
+This ensures nested task state changes are preserved without manual coordination.
+
+### Incrementality
+
+Nested invocations benefit from normal incremental execution. If a parent task calls `tt child` and child's inputs haven't changed, child will skip execution:
+
+```yaml
+tasks:
+  child:
+    outputs: [data.json]
+    cmd: curl https://api.example.com/data > data.json
+
+  parent:
+    cmd: |
+      echo "Fetching data..."
+      tt child
+      echo "Processing data..."
+      python process.py data.json
+```
+
+Running `tt parent` twice will skip `child` on the second run if `data.json` is fresh.
+
+### Use Cases
+
+**Interleaved execution:**
+```yaml
+tasks:
+  setup:
+    outputs: [.env]
+    cmd: python setup_env.py
+
+  migrate:
+    outputs: [db/schema.sql]
+    cmd: python migrate.py
+
+  deploy:
+    cmd: |
+      tt setup
+      docker-compose up -d
+      tt migrate
+      docker-compose restart app
+```
+
+**Conditional subtasks:**
+```yaml
+tasks:
+  check:
+    cmd: ./health_check.sh
+
+  deploy:
+    cmd: |
+      tt check || echo "Warning: health check failed"
+      ./deploy.sh
+      tt check
+```
+
+**Multiple invocations:**
+```yaml
+tasks:
+  child1:
+    outputs: [out1.txt]
+    cmd: echo "child1" > out1.txt
+
+  child2:
+    outputs: [out2.txt]
+    cmd: echo "child2" > out2.txt
+
+  parent:
+    cmd: |
+      tt child1
+      echo "Between tasks..."
+      tt child2
+      echo "Done"
+```
+
+### Limitations (Phase 1)
+
+- **Docker-in-Docker**: Not currently supported. Nested calls from containerized tasks are not yet implemented (coming in Phase 2).
+- **Recursion**: Direct or indirect recursion (A → B → A) will cause infinite loops in this phase. Cycle detection is planned for Phase 3.
+- **Sequential execution**: Nested calls must run sequentially. Parallel invocations (e.g., using `&`) are not supported.
+
+### Notes
+
+- The `tt` binary (or `python3 -m tasktree`) must be available in the execution environment's PATH.
+- Nested invocations work with all task features: arguments, dependencies, inputs/outputs, etc.
+- State file access is sequential - no locking or concurrency handling is needed.
+
+
 ## Environment Variables
 
 Task Tree supports reading environment variables in two ways:
