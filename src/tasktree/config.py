@@ -149,6 +149,37 @@ def parse_config_file(path: Path) -> Optional[Runner]:
         >>> if runner:
         ...     print(f"Using {runner.shell} shell")
 
+    Config File Examples:
+
+        Project-level config (.tasktree-config.yml):
+            ```yaml
+            runners:
+              default:
+                dockerfile: docker/Dockerfile
+                context: .
+                volumes:
+                  - ./data:/workspace/data
+            ```
+
+        User-level config (~/.config/tasktree/config.yml):
+            ```yaml
+            runners:
+              default:
+                # Relative paths work if your projects use consistent structure
+                dockerfile: docker/Dockerfile
+                context: .
+            ```
+
+        Shell runner config:
+            ```yaml
+            runners:
+              default:
+                shell: /bin/bash
+                preamble: |
+                  set -euo pipefail
+                  export PATH=$PATH:$HOME/bin
+            ```
+
     Note:
         Relative paths in runner definitions (e.g., dockerfile, context) are stored
         as-is in the Runner object. Path resolution happens at task execution time
