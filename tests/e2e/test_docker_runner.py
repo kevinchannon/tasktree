@@ -238,6 +238,59 @@ tasks:
                 pwd, "/app", f"Expected /app from Dockerfile WORKDIR, got: {pwd}"
             )
 
+    def test_config_file_with_relative_dockerfile_path(self):
+        """
+        Test that relative dockerfile paths in config files are resolved correctly.
+        Verifies path resolution happens at execution time relative to project root.
+        @athena: to-be-generated
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create docker subdirectory
+            docker_dir = project_root / "docker"
+            docker_dir.mkdir()
+
+            # Create Dockerfile in subdirectory
+            (docker_dir / "Dockerfile").write_text(
+                "FROM alpine:latest\nWORKDIR /workspace\n"
+            )
+
+            # Create output directory
+            (project_root / "output").mkdir()
+
+            # Create project config with relative paths
+            (project_root / ".tasktree-config.yml").write_text("""runners:
+  default:
+    dockerfile: docker/Dockerfile
+    context: .
+    volumes: ["./output:/workspace/output"]
+""")
+
+            # Create recipe that uses the default runner from config
+            (project_root / "tasktree.yaml").write_text("""tasks:
+  test:
+    outputs: [output/result.txt]
+    cmd: echo "path resolution works" > /workspace/output/result.txt
+""")
+
+            # Execute task
+            result = run_tasktree_cli(["test"], cwd=project_root)
+
+            # Assert success
+            self.assertEqual(
+                result.returncode,
+                0,
+                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
+            )
+
+            # Verify output file was created
+            output_file = project_root / "output" / "result.txt"
+            self.assertTrue(output_file.exists(), "Output file not created")
+            self.assertEqual(
+                output_file.read_text().strip(), "path resolution works"
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
