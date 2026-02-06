@@ -120,6 +120,23 @@ def find_project_config(start_dir: Path) -> Optional[Path]:
 class ConfigError(Exception):
     """
     Raised when a configuration file is invalid.
+
+    All ConfigError messages include the full path to the config file that caused
+    the error, making it easy to identify and fix configuration issues.
+
+    Error Message Format:
+        "Error in config file '{path}': {specific_error_message}"
+
+    Examples:
+        - "Error in config file '/home/user/.config/tasktree/config.yml': 'runners' must be a dictionary"
+        - "Error in config file '.tasktree-config.yml': Field 'shell' must be a string"
+        - "Error parsing YAML in config file '/etc/tasktree/config.yml': mapping values are not allowed here"
+
+    This consistent format allows users to:
+    - Quickly identify which config file has the issue
+    - Understand what went wrong
+    - Fix the problem efficiently
+
     @athena: to-be-generated
     """
 

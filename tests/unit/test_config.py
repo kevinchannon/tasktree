@@ -681,6 +681,76 @@ class TestConfigFieldValidation(unittest.TestCase):
             self.assertIn(str(config_path), str(ctx.exception))
 
 
+class TestErrorMessageContext(unittest.TestCase):
+    """
+    Tests to verify all error messages include config file path for debugging.
+    @athena: to-be-generated
+    """
+
+    def test_all_config_errors_include_file_path(self):
+        """
+        Test that all ConfigError exceptions include the config file path in the error message.
+
+        This is a meta-test that verifies our error message requirements are met:
+        - All errors must include the config file path
+        - Error messages must be clear and actionable
+        - Users should be able to quickly identify which file has the problem
+
+        @athena: to-be-generated
+        """
+        test_cases = [
+            # (yaml_content, expected_error_substring)
+            ("runners: [not, a, dict]", "'runners' must be a dictionary"),
+            (
+                "runners:\n  other:\n    shell: bash",
+                "must contain exactly one runner named 'default'",
+            ),
+            (
+                "runners:\n  default:\n    shell: bash\n  extra:\n    shell: zsh",
+                "may only contain a runner named 'default'",
+            ),
+            ("runners:\n  default: not-a-dict", "Runner 'default' must be a dictionary"),
+            ("runners:\n  default:\n    preamble: test", "must specify either 'shell'"),
+            ("runners:\n  default:\n    shell: 123", "'shell' must be a string"),
+            ("runners:\n  default:\n    shell: bash\n    args: not-a-list", "'args' must be a list"),
+            (
+                "runners:\n  default:\n    shell: bash\n    preamble: [list]",
+                "'preamble' must be a string",
+            ),
+            (
+                "runners:\n  default:\n    dockerfile: Dockerfile\n    context: .\n    volumes: not-a-list",
+                "'volumes' must be a list",
+            ),
+            (
+                "runners:\n  default:\n    dockerfile: Dockerfile\n    context: .\n    env_vars: [list]",
+                "'env_vars' must be a dictionary",
+            ),
+        ]
+
+        with TemporaryDirectory() as tmpdir:
+            for i, (yaml_content, error_substring) in enumerate(test_cases):
+                with self.subTest(case=i, error=error_substring):
+                    config_path = Path(tmpdir) / f"config_{i}.yml"
+                    config_path.write_text(yaml_content)
+
+                    with self.assertRaises(ConfigError) as ctx:
+                        parse_config_file(config_path)
+
+                    error_msg = str(ctx.exception)
+                    # Verify the error message includes the config file path
+                    self.assertIn(
+                        str(config_path),
+                        error_msg,
+                        f"Error message does not include config file path: {error_msg}",
+                    )
+                    # Verify the error message includes the specific error
+                    self.assertIn(
+                        error_substring,
+                        error_msg,
+                        f"Error message does not include expected text: {error_msg}",
+                    )
+
+
 class TestFindProjectConfig(unittest.TestCase):
     """
     Tests for find_project_config function.
