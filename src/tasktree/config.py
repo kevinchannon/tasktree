@@ -126,7 +126,7 @@ class ConfigError(Exception):
     pass
 
 
-def parse_config_file(path: Path, project_root: Optional[Path] = None) -> Optional[Runner]:
+def parse_config_file(path: Path) -> Optional[Runner]:
     """
     Parse a tasktree configuration file and return the default runner if defined.
 
@@ -135,9 +135,6 @@ def parse_config_file(path: Path, project_root: Optional[Path] = None) -> Option
 
     Args:
         path: Path to the configuration file
-        project_root: Optional project root path for resolving relative paths at execution time.
-                     If not provided, relative paths will be resolved at execution time when
-                     the project root is known.
 
     Returns:
         Runner object for the default runner, or None if no default is defined
@@ -148,18 +145,19 @@ def parse_config_file(path: Path, project_root: Optional[Path] = None) -> Option
                      multiple runners, etc.)
 
     Example:
-        >>> runner = parse_config_file(Path(".tasktree-config.yml"), Path.cwd())
+        >>> runner = parse_config_file(Path(".tasktree-config.yml"))
         >>> if runner:
         ...     print(f"Using {runner.shell} shell")
 
     Note:
-        Relative paths in runner definitions (e.g., dockerfile, context) are resolved
-        relative to project_root at execution time, not at parse time. This allows
-        configs to be portable across machines.
+        Relative paths in runner definitions (e.g., dockerfile, context) are stored
+        as-is in the Runner object. Path resolution happens at task execution time
+        in docker.py, where relative paths are resolved relative to the project root.
+        This allows configs to be portable across machines.
 
         Path Resolution:
-        - Relative paths (e.g., "docker/Dockerfile") are resolved relative to project_root
-        - Absolute paths are used as-is
+        - Relative paths (e.g., "docker/Dockerfile") are stored as-is
+        - Absolute paths are stored as-is
         - Resolution happens at task execution time in docker.py
         - If a relative path cannot be resolved (e.g., dockerfile doesn't exist),
           Docker will fail with an error indicating the file was not found

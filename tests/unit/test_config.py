@@ -432,45 +432,21 @@ class TestParseConfigFile(unittest.TestCase):
     context: build
 """
             )
-            # Parse with project_root - should succeed even though paths don't exist
-            result = parse_config_file(config_path, project_root=project_root)
+            # Parse config - should succeed even though paths don't exist
+            # (validation happens at execution time)
+            result = parse_config_file(config_path)
             self.assertIsNotNone(result)
             self.assertEqual(result.dockerfile, "docker/Dockerfile")
             self.assertEqual(result.context, "build")
 
-    def test_accepts_project_root_parameter(self):
+    def test_relative_paths_stored_as_is(self):
         """
-        Test that parse_config_file accepts an optional project_root parameter.
+        Test that relative paths in config files are stored as-is.
+        Path resolution happens at execution time, not parse time.
         @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.yml"
-            config_path.write_text(
-                """runners:
-  default:
-    shell: bash
-    preamble: set -e
-"""
-            )
-            # Should work with or without project_root parameter
-            result_without = parse_config_file(config_path)
-            result_with = parse_config_file(config_path, project_root=Path(tmpdir))
-
-            self.assertIsNotNone(result_without)
-            self.assertIsNotNone(result_with)
-            self.assertEqual(result_without.shell, "bash")
-            self.assertEqual(result_with.shell, "bash")
-            self.assertEqual(result_without.preamble, "set -e")
-            self.assertEqual(result_with.preamble, "set -e")
-
-    def test_project_root_parameter_with_relative_dockerfile(self):
-        """
-        Test that project_root parameter is accepted with relative dockerfile paths.
-        @athena: to-be-generated
-        """
-        with TemporaryDirectory() as tmpdir:
-            config_path = Path(tmpdir) / "config.yml"
-            project_root = Path(tmpdir)
             config_path.write_text(
                 """runners:
   default:
@@ -478,7 +454,7 @@ class TestParseConfigFile(unittest.TestCase):
     context: .
 """
             )
-            result = parse_config_file(config_path, project_root=project_root)
+            result = parse_config_file(config_path)
             self.assertIsNotNone(result)
             # Paths should be stored as-is (resolution happens at execution time)
             self.assertEqual(result.dockerfile, "docker/Dockerfile")
