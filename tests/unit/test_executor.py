@@ -2691,7 +2691,7 @@ runners:
 
             # Mock get_user_config_path to return our test path
             with patch(
-                "tasktree.executor.get_user_config_path", return_value=user_config_path
+                "tasktree.config.get_user_config_path", return_value=user_config_path
             ):
                 runner = executor.get_session_default_runner(start_dir=project_root)
 
