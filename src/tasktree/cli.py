@@ -216,6 +216,23 @@ def main(
     Run tasks defined in tasktree.yaml with dependency tracking
     and incremental execution.
 
+    Configuration Files:
+
+    Default runner settings can be configured at multiple levels (highest precedence first):
+
+    - Project: .tasktree-config.yml at project root
+    - User: ~/.config/tasktree/config.yml (Linux/macOS) or equivalent
+    - Machine: /etc/tasktree/config.yml (Linux/macOS) or equivalent
+
+    Config files use the same runner schema as tasktree.yaml. The runner must be named 'default'.
+
+    Example config file:
+
+        runners:
+          default:
+            shell: zsh
+            preamble: set -euo pipefail
+
     Examples:
 
     tt build                     # Run the 'build' task
