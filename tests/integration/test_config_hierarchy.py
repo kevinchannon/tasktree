@@ -90,10 +90,10 @@ runners:
             recipe_file = project_root / "tasktree.yaml"
             recipe_file.write_text("""
 runners:
+  default: custom
   custom:
     shell: bash
     preamble: echo "RECIPE DEFAULT"
-    default: true
 
 tasks:
   test:
@@ -107,11 +107,11 @@ tasks:
                 output = strip_ansi_codes(result.stdout)
 
                 # Should see recipe default, not project config
+                self.assertIn("RECIPE DEFAULT", output)
+                self.assertNotIn("PROJECT CONFIG", output)
+                self.assertEqual(result.exit_code, 0)
             finally:
                 os.chdir(original_cwd)
-            self.assertIn("RECIPE DEFAULT", output)
-            self.assertNotIn("PROJECT CONFIG", output)
-            self.assertEqual(result.exit_code, 0)
 
     def test_task_run_in_overrides_all_configs(self):
         """Test that task's run_in field overrides all config levels."""
@@ -131,10 +131,10 @@ runners:
             recipe_file = project_root / "tasktree.yaml"
             recipe_file.write_text("""
 runners:
+  default: custom
   custom:
     shell: bash
     preamble: echo "RECIPE DEFAULT"
-    default: true
 
   task-specific:
     shell: bash
