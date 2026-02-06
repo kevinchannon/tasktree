@@ -221,8 +221,10 @@ def main(
     Default runner settings can be configured at multiple levels (highest precedence first):
 
     - Project: .tasktree-config.yml at project root
-    - User: ~/.config/tasktree/config.yml (Linux/macOS) or equivalent
-    - Machine: /etc/tasktree/config.yml (Linux/macOS) or equivalent
+    - User: ~/.config/tasktree/config.yml (Linux/macOS)
+    - Machine: /etc/tasktree/config.yml (Linux/macOS)
+
+    For Windows-specific config paths, see the README.
 
     Config files use the same runner schema as tasktree.yaml. The runner must be named 'default'.
 
