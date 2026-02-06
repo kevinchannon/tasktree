@@ -60,10 +60,13 @@ tasks:
 """)
 
             # Run task and verify project config was used
-            result = self.runner.invoke(
-                app, ["test"], cwd=str(project_root), env=self.env
-            )
-            output = strip_ansi_codes(result.stdout)
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+                result = self.runner.invoke(app, ["test"], env=self.env)
+                output = strip_ansi_codes(result.stdout)
+            finally:
+                os.chdir(original_cwd)
 
             # Should see the project config preamble
             self.assertIn("PROJECT CONFIG", output)
@@ -97,12 +100,15 @@ tasks:
     cmd: echo "Hello"
 """)
 
-            result = self.runner.invoke(
-                app, ["test"], cwd=str(project_root), env=self.env
-            )
-            output = strip_ansi_codes(result.stdout)
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+                result = self.runner.invoke(app, ["test"], env=self.env)
+                output = strip_ansi_codes(result.stdout)
 
-            # Should see recipe default, not project config
+                # Should see recipe default, not project config
+            finally:
+                os.chdir(original_cwd)
             self.assertIn("RECIPE DEFAULT", output)
             self.assertNotIn("PROJECT CONFIG", output)
             self.assertEqual(result.exit_code, 0)
@@ -140,12 +146,15 @@ tasks:
     cmd: echo "Hello"
 """)
 
-            result = self.runner.invoke(
-                app, ["test"], cwd=str(project_root), env=self.env
-            )
-            output = strip_ansi_codes(result.stdout)
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+                result = self.runner.invoke(app, ["test"], env=self.env)
+                output = strip_ansi_codes(result.stdout)
 
-            # Should see task-specific runner only
+                # Should see task-specific runner only
+            finally:
+                os.chdir(original_cwd)
             self.assertIn("TASK SPECIFIC", output)
             self.assertNotIn("RECIPE DEFAULT", output)
             self.assertNotIn("PROJECT CONFIG", output)
@@ -169,13 +178,16 @@ tasks:
 """)
 
             # Should not crash, should use platform default
-            result = self.runner.invoke(
-                app, ["test"], cwd=str(project_root), env=self.env
-            )
-            output = strip_ansi_codes(result.stdout)
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+                result = self.runner.invoke(app, ["test"], env=self.env)
+                output = strip_ansi_codes(result.stdout)
 
-            self.assertIn("Hello", output)
-            self.assertEqual(result.exit_code, 0)
+                self.assertIn("Hello", output)
+                self.assertEqual(result.exit_code, 0)
+            finally:
+                os.chdir(original_cwd)
 
     @patch("tasktree.config.get_user_config_path")
     def test_user_config_overrides_platform_default(self, mock_user_config):
@@ -203,14 +215,17 @@ tasks:
     cmd: echo "Hello"
 """)
 
-            result = self.runner.invoke(
-                app, ["test"], cwd=str(project_root), env=self.env
-            )
-            output = strip_ansi_codes(result.stdout)
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+                result = self.runner.invoke(app, ["test"], env=self.env)
+                output = strip_ansi_codes(result.stdout)
 
-            # Should see user config preamble
-            self.assertIn("USER CONFIG", output)
-            self.assertEqual(result.exit_code, 0)
+                # Should see user config preamble
+                self.assertIn("USER CONFIG", output)
+                self.assertEqual(result.exit_code, 0)
+            finally:
+                os.chdir(original_cwd)
 
     @patch("tasktree.config.get_user_config_path")
     def test_project_config_overrides_user_config(self, mock_user_config):
@@ -247,15 +262,18 @@ tasks:
     cmd: echo "Hello"
 """)
 
-            result = self.runner.invoke(
-                app, ["test"], cwd=str(project_root), env=self.env
-            )
-            output = strip_ansi_codes(result.stdout)
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+                result = self.runner.invoke(app, ["test"], env=self.env)
+                output = strip_ansi_codes(result.stdout)
 
-            # Should see project config, not user config
-            self.assertIn("PROJECT CONFIG", output)
-            self.assertNotIn("USER CONFIG", output)
-            self.assertEqual(result.exit_code, 0)
+                # Should see project config, not user config
+                self.assertIn("PROJECT CONFIG", output)
+                self.assertNotIn("USER CONFIG", output)
+                self.assertEqual(result.exit_code, 0)
+            finally:
+                os.chdir(original_cwd)
 
     @patch("tasktree.config.get_machine_config_path")
     @patch("tasktree.config.get_user_config_path")
@@ -305,16 +323,19 @@ tasks:
     cmd: echo "Hello"
 """)
 
-            result = self.runner.invoke(
-                app, ["test"], cwd=str(project_root), env=self.env
-            )
-            output = strip_ansi_codes(result.stdout)
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+                result = self.runner.invoke(app, ["test"], env=self.env)
+                output = strip_ansi_codes(result.stdout)
 
-            # Should see project config only (highest precedence)
-            self.assertIn("PROJECT CONFIG", output)
-            self.assertNotIn("USER CONFIG", output)
-            self.assertNotIn("MACHINE CONFIG", output)
-            self.assertEqual(result.exit_code, 0)
+                # Should see project config only (highest precedence)
+                self.assertIn("PROJECT CONFIG", output)
+                self.assertNotIn("USER CONFIG", output)
+                self.assertNotIn("MACHINE CONFIG", output)
+                self.assertEqual(result.exit_code, 0)
+            finally:
+                os.chdir(original_cwd)
 
     def test_project_config_discovery_walks_up_tree(self):
         """Test that project config is found by walking up directory tree."""
@@ -343,14 +364,17 @@ tasks:
 """)
 
             # Run from nested directory
-            result = self.runner.invoke(
-                app, ["test"], cwd=str(nested_dir), env=self.env
-            )
-            output = strip_ansi_codes(result.stdout)
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(nested_dir)
+                result = self.runner.invoke(app, ["test"], env=self.env)
+                output = strip_ansi_codes(result.stdout)
 
-            # Should find project config by walking up
-            self.assertIn("PROJECT CONFIG", output)
-            self.assertEqual(result.exit_code, 0)
+                # Should find project config by walking up
+                self.assertIn("PROJECT CONFIG", output)
+                self.assertEqual(result.exit_code, 0)
+            finally:
+                os.chdir(original_cwd)
 
     def test_invalid_config_falls_back_gracefully(self):
         """Test that invalid config falls back to platform default."""
@@ -377,14 +401,17 @@ tasks:
 """)
 
             # Should not crash, should fall back to platform default
-            result = self.runner.invoke(
-                app, ["test"], cwd=str(project_root), env=self.env
-            )
-            output = strip_ansi_codes(result.stdout)
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+                result = self.runner.invoke(app, ["test"], env=self.env)
+                output = strip_ansi_codes(result.stdout)
 
-            # Task should still execute with platform default
-            self.assertIn("Hello", output)
-            self.assertEqual(result.exit_code, 0)
+                # Task should still execute with platform default
+                self.assertIn("Hello", output)
+                self.assertEqual(result.exit_code, 0)
+            finally:
+                os.chdir(original_cwd)
 
     def test_config_with_no_runners_key_is_valid(self):
         """Test that config file with no 'runners' key is valid and ignored."""
@@ -407,13 +434,16 @@ tasks:
 """)
 
             # Should not crash, should use platform default
-            result = self.runner.invoke(
-                app, ["test"], cwd=str(project_root), env=self.env
-            )
-            output = strip_ansi_codes(result.stdout)
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+                result = self.runner.invoke(app, ["test"], env=self.env)
+                output = strip_ansi_codes(result.stdout)
 
-            self.assertIn("Hello", output)
-            self.assertEqual(result.exit_code, 0)
+                self.assertIn("Hello", output)
+                self.assertEqual(result.exit_code, 0)
+            finally:
+                os.chdir(original_cwd)
 
 
 if __name__ == "__main__":
