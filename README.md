@@ -318,11 +318,92 @@ tasks:
 1. CLI override: `tt --runner python build`
 2. Task's `run_in` field
 3. Recipe's `default` runner
-4. Platform default (bash on Unix, cmd on Windows)
+4. Project config (`.tasktree-config.yml`)
+5. User config (`~/.config/tasktree/config.yml`)
+6. Machine config (`/etc/tasktree/config.yml`)
+7. Platform default (bash on Unix, cmd on Windows)
 
 **Platform defaults** when no runners are configured:
 - **Unix/macOS**: bash
 - **Windows**: cmd
+
+### Configuration Files
+
+Default runner settings can be configured outside of task files using configuration files at three levels:
+
+**1. Project-level config** (`.tasktree-config.yml` at project root)
+```yaml
+runners:
+  default:
+    shell: bash
+    preamble: |
+      set -euo pipefail
+```
+
+**2. User-level config** (`~/.config/tasktree/config.yml` on Linux/macOS, `%APPDATA%\tasktree\config.yml` on Windows)
+```yaml
+runners:
+  default:
+    shell: zsh
+    preamble: |
+      # User-specific shell initialization
+      export PATH="$HOME/.local/bin:$PATH"
+```
+
+**3. Machine-level config** (`/etc/tasktree/config.yml` on Linux/macOS, `C:\ProgramData\tasktree\config.yml` on Windows)
+```yaml
+runners:
+  default:
+    shell: bash
+    preamble: |
+      # System-wide shell configuration
+      set -euo pipefail
+```
+
+**Key points:**
+- Config files use the same runner schema as `tasktree.yaml`
+- The runner **must** be named `default` in config files
+- Project config overrides user config, which overrides machine config
+- Config files are optional; missing configs are not errors
+- Relative paths in configs (e.g., dockerfile paths) are resolved relative to the project root at execution time
+- Invalid configs are handled gracefully:
+  - A warning message is displayed with the error details
+  - Task Tree falls back to the next level in the hierarchy
+  - Execution continues normally with the fallback runner
+
+**Use cases:**
+- **Project config**: Set consistent shell defaults for all contributors
+- **User config**: Customize shell environment across all your projects
+- **Machine config**: Set system-wide defaults for all users (requires admin/root)
+
+**Example workflow:**
+```bash
+# Machine admin sets system-wide strict bash
+$ sudo tee /etc/tasktree/config.yml > /dev/null << 'EOF'
+runners:
+  default:
+    shell: bash
+    preamble: set -euo pipefail
+EOF
+
+# User prefers zsh for their work
+$ mkdir -p ~/.config/tasktree
+$ cat > ~/.config/tasktree/config.yml << 'EOF'
+runners:
+  default:
+    shell: zsh
+EOF
+
+# Project requires specific Python environment
+$ cat > .tasktree-config.yml << 'EOF'
+runners:
+  default:
+    dockerfile: dev.dockerfile
+    context: .
+EOF
+
+# Result: Project's dockerfile runner is used (highest precedence)
+```
 
 ### Docker Runners
 
