@@ -160,6 +160,59 @@ tasks:
             self.assertNotIn("PROJECT CONFIG", output)
             self.assertEqual(result.exit_code, 0)
 
+    def test_cli_runner_flag_overrides_everything(self):
+        """Test that CLI --runner flag overrides all other runner sources (highest precedence)."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create project config
+            config_file = project_root / ".tasktree-config.yml"
+            config_file.write_text("""
+runners:
+  default:
+    shell: bash
+    preamble: echo "PROJECT CONFIG"
+""")
+
+            # Create tasktree.yaml with task-specific runner and recipe default
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+runners:
+  default: recipe-default
+  recipe-default:
+    shell: bash
+    preamble: echo "RECIPE DEFAULT"
+
+  task-specific:
+    shell: bash
+    preamble: echo "TASK SPECIFIC"
+
+  cli-override:
+    shell: bash
+    preamble: echo "CLI OVERRIDE"
+
+tasks:
+  test:
+    run_in: task-specific
+    cmd: echo "Hello"
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+                # Use CLI --runner flag to override everything
+                result = self.runner.invoke(app, ["--runner", "cli-override", "test"], env=self.env)
+                output = strip_ansi_codes(result.stdout)
+
+                # Should see CLI override only
+                self.assertIn("CLI OVERRIDE", output)
+                self.assertNotIn("TASK SPECIFIC", output)
+                self.assertNotIn("RECIPE DEFAULT", output)
+                self.assertNotIn("PROJECT CONFIG", output)
+                self.assertEqual(result.exit_code, 0)
+            finally:
+                os.chdir(original_cwd)
+
     def test_empty_project_config_falls_back_to_platform_default(self):
         """Test that empty project config falls back to platform default."""
         with TemporaryDirectory() as tmpdir:
