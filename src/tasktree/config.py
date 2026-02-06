@@ -259,20 +259,73 @@ def parse_config_file(path: Path) -> Optional[Runner]:
             f"Error in config file '{path}': Runner 'default' must be a dictionary"
         )
 
-    # Parse runner fields
+    # Parse runner fields with type validation
     shell = runner_config.get("shell", "")
-    args = runner_config.get("args", [])
-    preamble = runner_config.get("preamble", "")
-    working_dir = runner_config.get("working_dir", "")
+    if not isinstance(shell, str):
+        raise ConfigError(
+            f"Error in config file '{path}': Field 'shell' must be a string"
+        )
 
-    # Parse Docker-specific fields
+    args = runner_config.get("args", [])
+    if not isinstance(args, list):
+        raise ConfigError(
+            f"Error in config file '{path}': Field 'args' must be a list"
+        )
+
+    preamble = runner_config.get("preamble", "")
+    if not isinstance(preamble, str):
+        raise ConfigError(
+            f"Error in config file '{path}': Field 'preamble' must be a string"
+        )
+
+    working_dir = runner_config.get("working_dir", "")
+    if not isinstance(working_dir, str):
+        raise ConfigError(
+            f"Error in config file '{path}': Field 'working_dir' must be a string"
+        )
+
+    # Parse Docker-specific fields with type validation
     dockerfile = runner_config.get("dockerfile", "")
+    if not isinstance(dockerfile, str):
+        raise ConfigError(
+            f"Error in config file '{path}': Field 'dockerfile' must be a string"
+        )
+
     context = runner_config.get("context", "")
+    if not isinstance(context, str):
+        raise ConfigError(
+            f"Error in config file '{path}': Field 'context' must be a string"
+        )
+
     volumes = runner_config.get("volumes", [])
+    if not isinstance(volumes, list):
+        raise ConfigError(
+            f"Error in config file '{path}': Field 'volumes' must be a list"
+        )
+
     ports = runner_config.get("ports", [])
+    if not isinstance(ports, list):
+        raise ConfigError(
+            f"Error in config file '{path}': Field 'ports' must be a list"
+        )
+
     env_vars = runner_config.get("env_vars", {})
+    if not isinstance(env_vars, dict):
+        raise ConfigError(
+            f"Error in config file '{path}': Field 'env_vars' must be a dictionary"
+        )
+
     extra_args = runner_config.get("extra_args", [])
+    if not isinstance(extra_args, list):
+        raise ConfigError(
+            f"Error in config file '{path}': Field 'extra_args' must be a list"
+        )
+
     run_as_root = runner_config.get("run_as_root", False)
+    if not isinstance(run_as_root, bool):
+        raise ConfigError(
+            f"Error in config file '{path}': Field 'run_as_root' must be a boolean"
+        )
 
     # Validate runner type (must have either shell or dockerfile)
     if not shell and not dockerfile:

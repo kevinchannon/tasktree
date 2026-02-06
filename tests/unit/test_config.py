@@ -461,6 +461,226 @@ class TestParseConfigFile(unittest.TestCase):
             self.assertEqual(result.context, ".")
 
 
+class TestConfigFieldValidation(unittest.TestCase):
+    """
+    Tests for field type validation in config files.
+    @athena: to-be-generated
+    """
+
+    def test_shell_must_be_string(self):
+        """
+        Test that parse_config_file raises ConfigError when 'shell' is not a string.
+        @athena: to-be-generated
+        """
+        with TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.yml"
+            config_path.write_text(
+                """runners:
+  default:
+    shell: 123
+"""
+            )
+            with self.assertRaises(ConfigError) as ctx:
+                parse_config_file(config_path)
+            self.assertIn("'shell' must be a string", str(ctx.exception))
+            self.assertIn(str(config_path), str(ctx.exception))
+
+    def test_args_must_be_list(self):
+        """
+        Test that parse_config_file raises ConfigError when 'args' is not a list.
+        @athena: to-be-generated
+        """
+        with TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.yml"
+            config_path.write_text(
+                """runners:
+  default:
+    shell: bash
+    args: "-c"
+"""
+            )
+            with self.assertRaises(ConfigError) as ctx:
+                parse_config_file(config_path)
+            self.assertIn("'args' must be a list", str(ctx.exception))
+            self.assertIn(str(config_path), str(ctx.exception))
+
+    def test_preamble_must_be_string(self):
+        """
+        Test that parse_config_file raises ConfigError when 'preamble' is not a string.
+        @athena: to-be-generated
+        """
+        with TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.yml"
+            config_path.write_text(
+                """runners:
+  default:
+    shell: bash
+    preamble: [set, -e]
+"""
+            )
+            with self.assertRaises(ConfigError) as ctx:
+                parse_config_file(config_path)
+            self.assertIn("'preamble' must be a string", str(ctx.exception))
+            self.assertIn(str(config_path), str(ctx.exception))
+
+    def test_working_dir_must_be_string(self):
+        """
+        Test that parse_config_file raises ConfigError when 'working_dir' is not a string.
+        @athena: to-be-generated
+        """
+        with TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.yml"
+            config_path.write_text(
+                """runners:
+  default:
+    shell: bash
+    working_dir: 123
+"""
+            )
+            with self.assertRaises(ConfigError) as ctx:
+                parse_config_file(config_path)
+            self.assertIn("'working_dir' must be a string", str(ctx.exception))
+            self.assertIn(str(config_path), str(ctx.exception))
+
+    def test_dockerfile_must_be_string(self):
+        """
+        Test that parse_config_file raises ConfigError when 'dockerfile' is not a string.
+        @athena: to-be-generated
+        """
+        with TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.yml"
+            config_path.write_text(
+                """runners:
+  default:
+    dockerfile: 123
+    context: .
+"""
+            )
+            with self.assertRaises(ConfigError) as ctx:
+                parse_config_file(config_path)
+            self.assertIn("'dockerfile' must be a string", str(ctx.exception))
+            self.assertIn(str(config_path), str(ctx.exception))
+
+    def test_context_must_be_string(self):
+        """
+        Test that parse_config_file raises ConfigError when 'context' is not a string.
+        @athena: to-be-generated
+        """
+        with TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.yml"
+            config_path.write_text(
+                """runners:
+  default:
+    dockerfile: Dockerfile
+    context: [path, to, context]
+"""
+            )
+            with self.assertRaises(ConfigError) as ctx:
+                parse_config_file(config_path)
+            self.assertIn("'context' must be a string", str(ctx.exception))
+            self.assertIn(str(config_path), str(ctx.exception))
+
+    def test_volumes_must_be_list(self):
+        """
+        Test that parse_config_file raises ConfigError when 'volumes' is not a list.
+        @athena: to-be-generated
+        """
+        with TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.yml"
+            config_path.write_text(
+                """runners:
+  default:
+    dockerfile: Dockerfile
+    context: .
+    volumes: "/host:/container"
+"""
+            )
+            with self.assertRaises(ConfigError) as ctx:
+                parse_config_file(config_path)
+            self.assertIn("'volumes' must be a list", str(ctx.exception))
+            self.assertIn(str(config_path), str(ctx.exception))
+
+    def test_ports_must_be_list(self):
+        """
+        Test that parse_config_file raises ConfigError when 'ports' is not a list.
+        @athena: to-be-generated
+        """
+        with TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.yml"
+            config_path.write_text(
+                """runners:
+  default:
+    dockerfile: Dockerfile
+    context: .
+    ports: "8080:80"
+"""
+            )
+            with self.assertRaises(ConfigError) as ctx:
+                parse_config_file(config_path)
+            self.assertIn("'ports' must be a list", str(ctx.exception))
+            self.assertIn(str(config_path), str(ctx.exception))
+
+    def test_env_vars_must_be_dict(self):
+        """
+        Test that parse_config_file raises ConfigError when 'env_vars' is not a dict.
+        @athena: to-be-generated
+        """
+        with TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.yml"
+            config_path.write_text(
+                """runners:
+  default:
+    dockerfile: Dockerfile
+    context: .
+    env_vars: ["VAR1=value1", "VAR2=value2"]
+"""
+            )
+            with self.assertRaises(ConfigError) as ctx:
+                parse_config_file(config_path)
+            self.assertIn("'env_vars' must be a dictionary", str(ctx.exception))
+            self.assertIn(str(config_path), str(ctx.exception))
+
+    def test_extra_args_must_be_list(self):
+        """
+        Test that parse_config_file raises ConfigError when 'extra_args' is not a list.
+        @athena: to-be-generated
+        """
+        with TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.yml"
+            config_path.write_text(
+                """runners:
+  default:
+    dockerfile: Dockerfile
+    context: .
+    extra_args: "--network=host"
+"""
+            )
+            with self.assertRaises(ConfigError) as ctx:
+                parse_config_file(config_path)
+            self.assertIn("'extra_args' must be a list", str(ctx.exception))
+            self.assertIn(str(config_path), str(ctx.exception))
+
+    def test_run_as_root_must_be_bool(self):
+        """
+        Test that parse_config_file raises ConfigError when 'run_as_root' is not a boolean.
+        @athena: to-be-generated
+        """
+        with TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.yml"
+            config_path.write_text(
+                """runners:
+  default:
+    dockerfile: Dockerfile
+    context: .
+    run_as_root: "yes"
+"""
+            )
+            with self.assertRaises(ConfigError) as ctx:
+                parse_config_file(config_path)
+            self.assertIn("'run_as_root' must be a boolean", str(ctx.exception))
+            self.assertIn(str(config_path), str(ctx.exception))
+
+
 class TestFindProjectConfig(unittest.TestCase):
     """
     Tests for find_project_config function.
