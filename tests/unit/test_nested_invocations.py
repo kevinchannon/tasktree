@@ -1,5 +1,6 @@
 """Tests for nested task invocations (Phase 1: State Management)."""
 
+import time
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -172,9 +173,15 @@ class TestEdgeCases(unittest.TestCase):
             output_file.write_text("initial")
             initial_mtime = output_file.stat().st_mtime
 
+            # Sleep to ensure distinct timestamp
+            time.sleep(0.01)
+
             # Simulate child modifying output
             output_file.write_text("child")
             child_mtime = output_file.stat().st_mtime
+
+            # Sleep to ensure distinct timestamp
+            time.sleep(0.01)
 
             # Simulate parent modifying output after child
             output_file.write_text("parent")
