@@ -556,8 +556,9 @@ class TestMissingOutputs(unittest.TestCase):
             process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
 
             status = executor.check_task_status(task, {}, process_runner)
-            self.assertFalse(status.will_run)
-            self.assertEqual(status.reason, "fresh")
+            # Task has no inputs, so it always runs (even with fresh outputs)
+            self.assertTrue(status.will_run)
+            self.assertEqual(status.reason, "no_inputs")
 
     def test_fresh_task_with_missing_output(self):
         """
@@ -750,8 +751,9 @@ class TestMissingOutputs(unittest.TestCase):
             process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
 
             status = executor.check_task_status(task, {}, process_runner)
-            self.assertFalse(status.will_run)
-            self.assertEqual(status.reason, "fresh")
+            # Task has no inputs, so it always runs (even with fresh outputs)
+            self.assertTrue(status.will_run)
+            self.assertEqual(status.reason, "no_inputs")
 
     def test_output_glob_pattern_no_matches(self):
         """
