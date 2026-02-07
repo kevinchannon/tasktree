@@ -21,6 +21,7 @@ class TestCallChainParsing(unittest.TestCase):
         self.project_root = Path(self.tmpdir.name)
         self.recipe = Recipe(
             project_root=self.project_root,
+            recipe_path=self.project_root / "tasktree.yaml",
             tasks={},
             runners={},
             variables={},
@@ -93,6 +94,7 @@ class TestDirectRecursion(unittest.TestCase):
         self.project_root = Path(self.tmpdir.name)
         self.recipe = Recipe(
             project_root=self.project_root,
+            recipe_path=self.project_root / "tasktree.yaml",
             tasks={},
             runners={},
             variables={},
@@ -136,6 +138,7 @@ class TestIndirectRecursion(unittest.TestCase):
         self.project_root = Path(self.tmpdir.name)
         self.recipe = Recipe(
             project_root=self.project_root,
+            recipe_path=self.project_root / "tasktree.yaml",
             tasks={},
             runners={},
             variables={},
@@ -194,6 +197,7 @@ class TestDeepChainNoCycle(unittest.TestCase):
         self.project_root = Path(self.tmpdir.name)
         self.recipe = Recipe(
             project_root=self.project_root,
+            recipe_path=self.project_root / "tasktree.yaml",
             tasks={},
             runners={},
             variables={},
@@ -232,6 +236,7 @@ class TestErrorMessageFormatting(unittest.TestCase):
         self.project_root = Path(self.tmpdir.name)
         self.recipe = Recipe(
             project_root=self.project_root,
+            recipe_path=self.project_root / "tasktree.yaml",
             tasks={},
             runners={},
             variables={},
@@ -289,6 +294,7 @@ class TestComplexBranchingTopology(unittest.TestCase):
         self.project_root = Path(self.tmpdir.name)
         self.recipe = Recipe(
             project_root=self.project_root,
+            recipe_path=self.project_root / "tasktree.yaml",
             tasks={},
             runners={},
             variables={},
@@ -367,6 +373,7 @@ class TestFullyQualifiedTaskNames(unittest.TestCase):
         self.project_root = Path(self.tmpdir.name)
         self.recipe = Recipe(
             project_root=self.project_root,
+            recipe_path=self.project_root / "tasktree.yaml",
             tasks={},
             runners={},
             variables={},
