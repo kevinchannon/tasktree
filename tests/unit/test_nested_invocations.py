@@ -603,7 +603,6 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
             from tasktree.parser import Runner
             test_runner = Runner(
                 name="build",
-                default=False,
                 shell="/bin/bash",
                 preamble="set -e",
                 dockerfile="Dockerfile",
@@ -611,9 +610,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
                 volumes=[],
                 ports=[],
                 env_vars={},
-                build_args={},
-                image=None,
-                working_dir=None,
+                working_dir="",
                 args=[],
                 extra_args=[],
             )
@@ -666,7 +663,6 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
             from tasktree.parser import Runner
             build_runner = Runner(
                 name="build",
-                default=False,
                 shell="/bin/bash",
                 preamble="",
                 dockerfile="Dockerfile.build",
@@ -674,16 +670,13 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
                 volumes=[],
                 ports=[],
                 env_vars={},
-                build_args={},
-                image=None,
-                working_dir=None,
+                working_dir="",
                 args=[],
                 extra_args=[],
             )
 
             test_runner = Runner(
                 name="test",
-                default=False,
                 shell="/bin/bash",
                 preamble="",
                 dockerfile="Dockerfile.test",  # Different dockerfile
@@ -691,9 +684,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
                 volumes=[],
                 ports=[],
                 env_vars={},
-                build_args={},
-                image=None,
-                working_dir=None,
+                working_dir="",
                 args=[],
                 extra_args=[],
             )
@@ -744,7 +735,6 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
             from tasktree.parser import Runner
             docker_runner = Runner(
                 name="build",
-                default=False,
                 shell="/bin/bash",
                 preamble="",
                 dockerfile="Dockerfile",
@@ -752,28 +742,15 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
                 volumes=[],
                 ports=[],
                 env_vars={},
-                build_args={},
-                image=None,
-                working_dir=None,
+                working_dir="",
                 args=[],
                 extra_args=[],
             )
 
             shell_runner = Runner(
                 name="lint",
-                default=False,
                 shell="/bin/sh",
                 preamble="set -e",
-                dockerfile=None,  # Shell-only runner
-                context=None,
-                volumes=None,
-                ports=None,
-                env_vars=None,
-                build_args=None,
-                image=None,
-                working_dir=None,
-                args=None,
-                extra_args=None,
             )
 
             recipe = Recipe(
@@ -822,7 +799,6 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
             from tasktree.parser import Runner
             docker_runner = Runner(
                 name="build",
-                default=False,
                 shell="/bin/bash",
                 preamble="",
                 dockerfile="Dockerfile",
@@ -830,9 +806,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
                 volumes=[],
                 ports=[],
                 env_vars={},
-                build_args={},
-                image=None,
-                working_dir=None,
+                working_dir="",
                 args=[],
                 extra_args=[],
             )
@@ -884,7 +858,6 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
             from tasktree.parser import Runner
             docker_runner = Runner(
                 name="build",
-                default=False,
                 shell="/bin/bash",
                 preamble="",
                 dockerfile="Dockerfile",
@@ -892,9 +865,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
                 volumes=[],
                 ports=[],
                 env_vars={},
-                build_args={},
-                image=None,
-                working_dir=None,
+                working_dir="",
                 args=[],
                 extra_args=[],
             )
@@ -946,7 +917,6 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
             from tasktree.parser import Runner
             docker_runner = Runner(
                 name="build",
-                default=False,
                 shell="/bin/bash",
                 preamble="",
                 dockerfile="Dockerfile",
@@ -954,9 +924,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
                 volumes=[],
                 ports=[],
                 env_vars={},
-                build_args={},
-                image=None,
-                working_dir=None,
+                working_dir="",
                 args=[],
                 extra_args=[],
             )
@@ -1012,7 +980,6 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
             from tasktree.parser import Runner
             docker_runner = Runner(
                 name="build",
-                default=False,
                 shell="/bin/bash",
                 preamble="",
                 dockerfile="Dockerfile",
@@ -1020,9 +987,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
                 volumes=[],
                 ports=[],
                 env_vars={},
-                build_args={},
-                image=None,
-                working_dir=None,
+                working_dir="",
                 args=[],
                 extra_args=[],
             )
@@ -1076,7 +1041,6 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
             from tasktree.parser import Runner
             docker_runner = Runner(
                 name="build",
-                default=False,
                 shell="/bin/zsh",
                 preamble="set -euo pipefail",
                 dockerfile="Dockerfile",
@@ -1084,9 +1048,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
                 volumes=[],
                 ports=[],
                 env_vars={},
-                build_args={},
-                image=None,
-                working_dir=None,
+                working_dir="",
                 args=[],
                 extra_args=[],
             )
