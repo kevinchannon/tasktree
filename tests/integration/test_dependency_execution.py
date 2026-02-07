@@ -308,9 +308,9 @@ tasks:
             statuses = executor.execute_task("package", TaskOutputTypes.ALL)
 
             # Build task should run (changed command = new task definition = "never_run")
-            # OR if command hadn't changed, would be "no_outputs" (has outputs but no inputs)
+            # OR if command hadn't changed, would be "no_inputs" (has outputs but no inputs)
             assert statuses["build"].will_run
-            assert statuses["build"].reason in ["no_outputs", "never_run"]
+            assert statuses["build"].reason in ["no_inputs", "never_run"]
 
             # Verify build-artifact.txt mtime unchanged
             # (build command didn't touch it)
@@ -388,9 +388,9 @@ tasks:
             statuses = executor.execute_task("build", TaskOutputTypes.ALL)
 
             # Generate runs (changed command = new definition = "never_run")
-            # OR if command hadn't changed, would be "no_outputs" (has outputs but no inputs)
+            # OR if command hadn't changed, would be "no_inputs" (has outputs but no inputs)
             assert statuses["generate"].will_run
-            assert statuses["generate"].reason in ["no_outputs", "never_run"]
+            assert statuses["generate"].reason in ["no_inputs", "never_run"]
 
             # Build SHOULD run because generate's output changed
             assert statuses["build"].will_run, (

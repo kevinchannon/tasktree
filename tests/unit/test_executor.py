@@ -48,9 +48,9 @@ class TestTaskStatus(unittest.TestCase):
             self.assertTrue(status.will_run)
             self.assertEqual(status.reason, "never_run")
 
-    def test_check_no_outputs(self):
+    def test_check_no_inputs(self):
         """
-        Test status for task with no inputs and no outputs (always runs).
+        Test status for task with no inputs (always runs).
         @athena: fdaca0ac4e9f
         """
 
@@ -70,7 +70,7 @@ class TestTaskStatus(unittest.TestCase):
                 tasks["test"], {}, process_runner, False
             )
             self.assertTrue(status.will_run)
-            self.assertEqual(status.reason, "no_outputs")
+            self.assertEqual(status.reason, "no_inputs")
 
     def test_check_fresh(self):
         """
@@ -679,9 +679,9 @@ class TestMissingOutputs(unittest.TestCase):
             self.assertTrue(status.will_run)
             self.assertEqual(status.reason, "never_run")  # Not outputs_missing
 
-    def test_task_with_no_outputs_unaffected(self):
+    def test_task_with_no_inputs_always_runs(self):
         """
-        Test that tasks with no outputs declared are unaffected.
+        Test that tasks with no inputs always run.
         @athena: 027e040b2197
         """
 
@@ -689,7 +689,7 @@ class TestMissingOutputs(unittest.TestCase):
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
 
-            task = Task(name="test", cmd="echo test")  # No outputs
+            task = Task(name="test", cmd="echo test")  # No inputs
 
             tasks = {"test": task}
             recipe = Recipe(
@@ -702,7 +702,7 @@ class TestMissingOutputs(unittest.TestCase):
 
             status = executor.check_task_status(task, {}, process_runner)
             self.assertTrue(status.will_run)
-            self.assertEqual(status.reason, "no_outputs")  # Always runs
+            self.assertEqual(status.reason, "no_inputs")  # Always runs
 
     def test_output_glob_pattern_with_working_dir(self):
         """

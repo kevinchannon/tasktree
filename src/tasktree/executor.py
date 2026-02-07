@@ -41,7 +41,7 @@ class TaskStatus:
     task_name: str
     will_run: bool
     reason: str  # "fresh", "inputs_changed", "definition_changed",
-    # "never_run", "no_outputs", "outputs_missing", "forced", "environment_changed"
+    # "never_run", "no_inputs", "outputs_missing", "forced", "environment_changed"
     changed_files: list[str] = field(default_factory=list)
     last_run: datetime | None = None
 
@@ -476,7 +476,7 @@ class Executor:
         4. Any explicit inputs have newer mtime than last_run
         5. Any implicit inputs (from deps) have changed
         6. No cached state exists for this task+args combination
-        7. Task has no inputs AND no outputs (always runs)
+        7. Task has no inputs (always runs)
         8. Different arguments than any cached execution
 
         Args:
@@ -510,13 +510,13 @@ class Executor:
         args_hash = hash_args(args_dict) if args_dict else None
         cache_key = make_cache_key(task_hash, args_hash)
 
-        # Check if task has no inputs and no outputs (always runs)
+        # Check if task has no inputs (always runs)
         all_inputs = self._get_all_inputs(task)
-        if not all_inputs and not task.outputs:
+        if not all_inputs:
             return TaskStatus(
                 task_name=task.name,
                 will_run=True,
-                reason="no_outputs",
+                reason="no_inputs",
             )
 
         # Check cached state
