@@ -10,6 +10,7 @@ from helpers.logging import logger_stub
 from tasktree.executor import Executor, ExecutionError
 from tasktree.parser import Recipe, Task
 from tasktree.process_runner import TaskOutputTypes, make_process_runner
+from tasktree.state import StateManager
 
 
 class TestCallChainParsing(unittest.TestCase):
@@ -29,6 +30,7 @@ class TestCallChainParsing(unittest.TestCase):
         self.process_runner = make_process_runner(
             output_type=TaskOutputTypes.ON_ERR, logger=logger_stub
         )
+        self.state_manager = StateManager(self.project_root)
 
     def tearDown(self):
         """Clean up test fixtures."""
@@ -43,7 +45,9 @@ class TestCallChainParsing(unittest.TestCase):
         task = Task(name="test-task", cmd="echo 'test'")
         self.recipe.tasks["test-task"] = task
 
-        executor = Executor(self.recipe, force=False, dry_run=False, only=False)
+        executor = Executor(
+            self.recipe, self.state_manager, logger_stub, make_process_runner
+        )
 
         # Mock subprocess execution
         with patch.object(executor, "_run_command_as_script"):
@@ -55,7 +59,9 @@ class TestCallChainParsing(unittest.TestCase):
         task = Task(name="child-task", cmd="echo 'child'")
         self.recipe.tasks["child-task"] = task
 
-        executor = Executor(self.recipe, force=False, dry_run=False, only=False)
+        executor = Executor(
+            self.recipe, self.state_manager, logger_stub, make_process_runner
+        )
 
         # Simulate being called from parent-task
         os.environ["TT_CALL_CHAIN"] = "parent-task"
@@ -72,7 +78,9 @@ class TestCallChainParsing(unittest.TestCase):
         task = Task(name="grandchild-task", cmd="echo 'grandchild'")
         self.recipe.tasks["grandchild-task"] = task
 
-        executor = Executor(self.recipe, force=False, dry_run=False, only=False)
+        executor = Executor(
+            self.recipe, self.state_manager, logger_stub, make_process_runner
+        )
 
         # Simulate being called from parent->child
         os.environ["TT_CALL_CHAIN"] = "parent-task,child-task"
@@ -102,6 +110,7 @@ class TestDirectRecursion(unittest.TestCase):
         self.process_runner = make_process_runner(
             output_type=TaskOutputTypes.ON_ERR, logger=logger_stub
         )
+        self.state_manager = StateManager(self.project_root)
 
     def tearDown(self):
         """Clean up test fixtures."""
@@ -114,7 +123,9 @@ class TestDirectRecursion(unittest.TestCase):
         task = Task(name="self-caller", cmd="tt self-caller")
         self.recipe.tasks["self-caller"] = task
 
-        executor = Executor(self.recipe, force=False, dry_run=False, only=False)
+        executor = Executor(
+            self.recipe, self.state_manager, logger_stub, make_process_runner
+        )
 
         # Simulate task calling itself
         os.environ["TT_CALL_CHAIN"] = "self-caller"
@@ -146,6 +157,7 @@ class TestIndirectRecursion(unittest.TestCase):
         self.process_runner = make_process_runner(
             output_type=TaskOutputTypes.ON_ERR, logger=logger_stub
         )
+        self.state_manager = StateManager(self.project_root)
 
     def tearDown(self):
         """Clean up test fixtures."""
@@ -158,7 +170,9 @@ class TestIndirectRecursion(unittest.TestCase):
         task = Task(name="task-a", cmd="tt task-b")
         self.recipe.tasks["task-a"] = task
 
-        executor = Executor(self.recipe, force=False, dry_run=False, only=False)
+        executor = Executor(
+            self.recipe, self.state_manager, logger_stub, make_process_runner
+        )
 
         # Simulate: task-a calls task-b, task-b tries to call task-a
         os.environ["TT_CALL_CHAIN"] = "task-a,task-b"
@@ -175,7 +189,9 @@ class TestIndirectRecursion(unittest.TestCase):
         task = Task(name="task-a", cmd="tt task-b")
         self.recipe.tasks["task-a"] = task
 
-        executor = Executor(self.recipe, force=False, dry_run=False, only=False)
+        executor = Executor(
+            self.recipe, self.state_manager, logger_stub, make_process_runner
+        )
 
         # Simulate: task-a → task-b → task-c → task-a
         os.environ["TT_CALL_CHAIN"] = "task-a,task-b,task-c"
@@ -205,6 +221,7 @@ class TestDeepChainNoCycle(unittest.TestCase):
         self.process_runner = make_process_runner(
             output_type=TaskOutputTypes.ON_ERR, logger=logger_stub
         )
+        self.state_manager = StateManager(self.project_root)
 
     def tearDown(self):
         """Clean up test fixtures."""
@@ -217,7 +234,9 @@ class TestDeepChainNoCycle(unittest.TestCase):
         task = Task(name="task-e", cmd="echo 'task-e'")
         self.recipe.tasks["task-e"] = task
 
-        executor = Executor(self.recipe, force=False, dry_run=False, only=False)
+        executor = Executor(
+            self.recipe, self.state_manager, logger_stub, make_process_runner
+        )
 
         # Simulate: task-a → task-b → task-c → task-d → task-e
         os.environ["TT_CALL_CHAIN"] = "task-a,task-b,task-c,task-d"
@@ -244,6 +263,7 @@ class TestErrorMessageFormatting(unittest.TestCase):
         self.process_runner = make_process_runner(
             output_type=TaskOutputTypes.ON_ERR, logger=logger_stub
         )
+        self.state_manager = StateManager(self.project_root)
 
     def tearDown(self):
         """Clean up test fixtures."""
@@ -256,7 +276,9 @@ class TestErrorMessageFormatting(unittest.TestCase):
         task = Task(name="build", cmd="tt build")
         self.recipe.tasks["build"] = task
 
-        executor = Executor(self.recipe, force=False, dry_run=False, only=False)
+        executor = Executor(
+            self.recipe, self.state_manager, logger_stub, make_process_runner
+        )
 
         # Simulate: test → lint → build → build (cycle starts at build)
         os.environ["TT_CALL_CHAIN"] = "test,lint,build"
@@ -273,7 +295,9 @@ class TestErrorMessageFormatting(unittest.TestCase):
         task = Task(name="my-task", cmd="tt my-task")
         self.recipe.tasks["my-task"] = task
 
-        executor = Executor(self.recipe, force=False, dry_run=False, only=False)
+        executor = Executor(
+            self.recipe, self.state_manager, logger_stub, make_process_runner
+        )
 
         os.environ["TT_CALL_CHAIN"] = "my-task"
 
@@ -302,6 +326,7 @@ class TestComplexBranchingTopology(unittest.TestCase):
         self.process_runner = make_process_runner(
             output_type=TaskOutputTypes.ON_ERR, logger=logger_stub
         )
+        self.state_manager = StateManager(self.project_root)
 
     def tearDown(self):
         """Clean up test fixtures."""
@@ -347,7 +372,9 @@ class TestComplexBranchingTopology(unittest.TestCase):
         task_e = Task(name="task-e", cmd="echo 'task-e'")
         self.recipe.tasks["task-e"] = task_e
 
-        executor = Executor(self.recipe, force=False, dry_run=False, only=False)
+        executor = Executor(
+            self.recipe, self.state_manager, logger_stub, make_process_runner
+        )
 
         # Simulate the call chain: root → B → E → H → I → J → K
         # Now K tries to call E again
@@ -381,6 +408,7 @@ class TestFullyQualifiedTaskNames(unittest.TestCase):
         self.process_runner = make_process_runner(
             output_type=TaskOutputTypes.ON_ERR, logger=logger_stub
         )
+        self.state_manager = StateManager(self.project_root)
 
     def tearDown(self):
         """Clean up test fixtures."""
@@ -393,7 +421,9 @@ class TestFullyQualifiedTaskNames(unittest.TestCase):
         task = Task(name="local-task", cmd="echo 'local'")
         self.recipe.tasks["local-task"] = task
 
-        executor = Executor(self.recipe, force=False, dry_run=False, only=False)
+        executor = Executor(
+            self.recipe, self.state_manager, logger_stub, make_process_runner
+        )
 
         # Task name should be used as-is for local tasks
         os.environ["TT_CALL_CHAIN"] = "local-task"
@@ -410,7 +440,9 @@ class TestFullyQualifiedTaskNames(unittest.TestCase):
         task = Task(name="other.build", cmd="echo 'build'")
         self.recipe.tasks["other.build"] = task
 
-        executor = Executor(self.recipe, force=False, dry_run=False, only=False)
+        executor = Executor(
+            self.recipe, self.state_manager, logger_stub, make_process_runner
+        )
 
         # Simulate calling imported task that recursively calls itself
         os.environ["TT_CALL_CHAIN"] = "other.build"
