@@ -1570,6 +1570,7 @@ class Executor:
 
         # Expand glob patterns
         input_files = self._expand_globs(all_inputs, task.working_dir)
+        self.logger.trace(f"Checking {len(input_files)} input file(s) for task '{task.name}'")
 
         # Check if task uses Docker environment
         env_name = self._get_effective_runner_name(task)
@@ -1593,13 +1594,16 @@ class Executor:
                     )
                     if cached_context_time is None:
                         # Never checked before - consider changed
+                        self.logger.trace(f"Docker context '{context_name}' has no cached timestamp, treating as changed")
                         changed_files.append(f"Docker context: {context_name}")
                         continue
 
                     # Check if context changed (with early exit optimization)
+                    self.logger.trace(f"Checking Docker context '{context_name}' (last checked: {cached_context_time})")
                     if docker_module.context_changed_since(
                         context_path, dockerignore_path, cached_context_time
                     ):
+                        self.logger.trace(f"Docker context '{context_name}' has changed")
                         changed_files.append(f"Docker context: {context_name}")
                 continue
 
@@ -1623,26 +1627,36 @@ class Executor:
                                 cached_digests.add(digest)
 
                         # Check if digests changed
+                        self.logger.trace(f"Checking Dockerfile '{dockerfile_name}' base image digests (current: {current_digests}, cached: {cached_digests})")
                         if current_digests != cached_digests:
+                            self.logger.trace(f"Dockerfile '{dockerfile_name}' base image digests changed")
                             changed_files.append(
                                 f"Docker base image digests in {dockerfile_name}"
                             )
                     except (OSError, IOError):
                         # Can't read Dockerfile - consider changed
+                        self.logger.trace(f"Unable to read Dockerfile '{dockerfile_name}', treating as changed")
                         changed_files.append(f"Dockerfile: {dockerfile_name}")
                 continue
 
             # Regular file check
             file_path_obj = self.recipe.project_root / task.working_dir / file_path
             if not file_path_obj.exists():
+                self.logger.trace(f"Input file '{file_path}' does not exist, skipping")
                 continue
 
             current_mtime = file_path_obj.stat().st_mtime
 
             # Check if file is in cached state
             cached_mtime = cached_state.input_state.get(file_path)
-            if cached_mtime is None or current_mtime > cached_mtime:
+            if cached_mtime is None:
+                self.logger.trace(f"Input file '{file_path}' has no cached mtime, treating as changed (current mtime: {current_mtime})")
                 changed_files.append(file_path)
+            elif current_mtime > cached_mtime:
+                self.logger.trace(f"Input file '{file_path}' has changed (cached mtime: {cached_mtime}, current mtime: {current_mtime})")
+                changed_files.append(file_path)
+            else:
+                self.logger.trace(f"Input file '{file_path}' is unchanged (mtime: {current_mtime})")
 
         return changed_files
 
@@ -1687,12 +1701,16 @@ class Executor:
 
         # Expand outputs to paths (handles both named and anonymous)
         output_paths = self._expand_output_paths(task)
+        self.logger.trace(f"Checking {len(output_paths)} output pattern(s) for task '{task.name}'")
 
         for pattern in output_paths:
             # Check if pattern has any matches
             matches = list(base_path.glob(pattern))
             if not matches:
+                self.logger.trace(f"Output pattern '{pattern}' has no matches (missing)")
                 missing_patterns.append(pattern)
+            else:
+                self.logger.trace(f"Output pattern '{pattern}' has {len(matches)} match(es): {[str(m.relative_to(base_path)) for m in matches]}")
 
         return missing_patterns
 
