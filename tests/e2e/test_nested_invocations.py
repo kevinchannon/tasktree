@@ -89,6 +89,7 @@ tasks:
     cmd: echo "child" > child.out
 
   parent:
+    outputs: [parent.out]
     cmd: |
       python3 -m tasktree.cli child
       echo "parent" > parent.out

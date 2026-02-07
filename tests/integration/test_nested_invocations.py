@@ -97,6 +97,7 @@ tasks:
     cmd: echo "child output" > child.txt
 
   parent:
+    outputs: [parent.txt]
     cmd: |
       python3 -m tasktree.cli child
       echo "parent output" > parent.txt
@@ -123,11 +124,11 @@ tasks:
                 time.sleep(1.01)
 
                 # Second run - child should skip (outputs fresh)
-                # Parent will run (no outputs, always runs)
+                # Parent will run (no inputs, always runs)
                 result = self.runner.invoke(app, ["parent"], env=self.env)
                 self.assertEqual(result.exit_code, 0)
 
-                # Parent output updated (parent always runs - no outputs)
+                # Parent output updated (parent always runs - no inputs)
                 parent_mtime_2 = parent_txt.stat().st_mtime
                 self.assertGreater(parent_mtime_2, parent_mtime_1)
 
@@ -390,21 +391,25 @@ tasks:
     cmd: echo "e" > e.txt
 
   d:
+    outputs: [d.txt]
     cmd: |
       python3 -m tasktree.cli e
       echo "d" > d.txt
 
   c:
+    outputs: [c.txt]
     cmd: |
       python3 -m tasktree.cli d
       echo "c" > c.txt
 
   b:
+    outputs: [b.txt]
     cmd: |
       python3 -m tasktree.cli c
       echo "b" > b.txt
 
   a:
+    outputs: [a.txt]
     cmd: |
       python3 -m tasktree.cli b
       echo "a" > a.txt
@@ -448,8 +453,8 @@ tasks:
                 time.sleep(1.01)
 
                 # Second run - e should skip (outputs fresh, no inputs)
-                # But a, b, c, d have no outputs, so they'll all run
-                # (tasks without outputs always run)
+                # But a, b, c, d have no inputs either, so they'll all run
+                # (tasks without inputs always run)
                 result = self.runner.invoke(app, ["a"], env=self.env)
                 self.assertEqual(result.exit_code, 0)
 
@@ -463,7 +468,7 @@ tasks:
                 # E should skip (outputs fresh, no inputs to track)
                 self.assertEqual(e_mtime_2, e_mtime_1, "Task e should skip on second run")
 
-                # A, B, C, D have no outputs, so they always run
+                # A, B, C, D have no inputs, so they always run
                 self.assertGreater(a_mtime_2, a_mtime_1, "Task a should run (no inputs)")
                 self.assertGreater(b_mtime_2, b_mtime_1, "Task b should run (no inputs)")
                 self.assertGreater(c_mtime_2, c_mtime_1, "Task c should run (no inputs)")
