@@ -706,6 +706,10 @@ class Executor:
         # Capture timestamp at task start for consistency (in UTC)
         task_start_time = datetime.now(timezone.utc)
 
+        # Record the state file's hash before execution
+        # This allows us to skip re-reading if no nested tt calls modified it
+        initial_state_hash = self.state.get_hash()
+
         # Parse task arguments to identify exported args
         # Note: args_dict already has defaults applied by CLI (cli.py:413-424)
         from tasktree.parser import parse_arg_spec
@@ -786,7 +790,10 @@ class Executor:
             )
 
         # Reload state from disk to capture any updates from nested tt calls
-        self.state.load()
+        # Only reload if the state file contents have changed since we started
+        current_state_hash = self.state.get_hash()
+        if current_state_hash != initial_state_hash:
+            self.state.load()
 
         # Update state
         self._update_state(task, args_dict)

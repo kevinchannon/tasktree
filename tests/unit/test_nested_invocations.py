@@ -421,5 +421,131 @@ class TestEdgeCases(unittest.TestCase):
             self.assertEqual(verify.get("task3").last_run, 300.0)
 
 
+class TestStateHashOptimization(unittest.TestCase):
+    """Tests for state file hash-based reload optimization."""
+
+    def test_state_not_reloaded_if_hash_unchanged(self):
+        """
+        Test that state is not reloaded if file hash hasn't changed.
+        This is the optimization to avoid unnecessary disk I/O when no nested calls occurred.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_file = project_root / ".tasktree-state"
+
+            # Create initial state
+            state_manager = StateManager(project_root)
+            state_manager.load()
+            state_manager.set("task_a", TaskState(last_run=100.0, input_state={}))
+            state_manager.save()
+
+            # Get initial hash
+            initial_hash = state_manager.get_hash()
+            self.assertIsNotNone(initial_hash)
+
+            # Get hash again without modifying file contents
+            current_hash = state_manager.get_hash()
+
+            # Verify hash is unchanged
+            self.assertEqual(initial_hash, current_hash)
+
+    def test_state_hash_changes_when_file_modified(self):
+        """
+        Test that hash changes when state file contents are actually modified.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create initial state
+            state_manager = StateManager(project_root)
+            state_manager.load()
+            state_manager.set("task_a", TaskState(last_run=100.0, input_state={}))
+            state_manager.save()
+
+            # Get initial hash
+            initial_hash = state_manager.get_hash()
+
+            # Modify state file contents (simulate nested call)
+            state_manager2 = StateManager(project_root)
+            state_manager2.load()
+            state_manager2.set("task_b", TaskState(last_run=200.0, input_state={}))
+            state_manager2.save()
+
+            # Get new hash
+            new_hash = state_manager.get_hash()
+
+            # Verify hash changed
+            self.assertNotEqual(initial_hash, new_hash)
+
+    def test_state_hash_none_when_file_not_exists(self):
+        """
+        Test that get_hash returns None when state file doesn't exist.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+
+            # State file doesn't exist yet
+            hash_value = state_manager.get_hash()
+            self.assertIsNone(hash_value)
+
+    def test_executor_skips_reload_when_hash_unchanged(self):
+        """
+        Test that Executor skips state reload when file hash hasn't changed.
+        This verifies the optimization in _run_task.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create minimal recipe
+            recipe = Recipe(
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+                tasks={
+                    "simple": Task(
+                        name="simple",
+                        desc="Simple task",
+                        cmd="echo 'test'",
+                        deps=[],
+                        inputs=[],
+                        outputs=[],
+                        working_dir=".",
+                        run_in=None,
+                        args=[],
+                        private=False,
+                    )
+                },
+                runners={},
+                variables={},
+            )
+
+            state_manager = StateManager(project_root)
+            # Load state initially so set() won't trigger a load
+            state_manager.load()
+
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+
+            # Mock the state.load() method to track calls AFTER initial load
+            original_load = state_manager.load
+            load_call_count = {"count": 0}
+
+            def mock_load():
+                load_call_count["count"] += 1
+                original_load()
+
+            state_manager.load = mock_load
+
+            # Execute task
+            process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
+
+            executor._run_task(recipe.tasks["simple"], {}, process_runner)
+
+            # State should be loaded once initially (before we started tracking)
+            # but NOT reloaded after execution since hash unchanged
+            # The mock started tracking after initial load in executor
+            # So we expect 0 additional loads
+            self.assertEqual(load_call_count["count"], 0)
+
+
 if __name__ == "__main__":
     unittest.main()

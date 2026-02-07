@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -145,3 +146,17 @@ class StateManager:
         """
         self._state = {}
         self._loaded = True
+
+    def get_hash(self) -> str | None:
+        """
+        Get the hash of the state file contents.
+
+        Returns:
+        SHA256 hash of file contents, or None if file doesn't exist
+        @athena: tbd
+        """
+        if not self.state_path.exists():
+            return None
+
+        with open(self.state_path, "rb") as f:
+            return hashlib.sha256(f.read()).hexdigest()
