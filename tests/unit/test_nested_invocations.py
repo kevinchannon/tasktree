@@ -1159,6 +1159,68 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
                 self.assertEqual(captured_args["shell"], "/bin/zsh")
                 self.assertEqual(captured_args["preamble"], "set -euo pipefail")
 
+    def test_volume_mount_conflict_detection(self):
+        """
+        Test that conflicting user-defined volumes are detected and reported.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_file = project_root / ".tasktree-state"
+            state_file.touch()
+
+            from tasktree.parser import Runner
+            # Create runner with conflicting volume mount
+            docker_runner = Runner(
+                name="build",
+                shell="/bin/bash",
+                preamble="",
+                dockerfile="Dockerfile",
+                context=".",
+                volumes=["/host/data:/tasktree-internal/.tasktree-state"],  # Conflicts!
+                ports=[],
+                env_vars={},
+                working_dir="",
+                args=[],
+                extra_args=[],
+            )
+
+            recipe = Recipe(
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+                tasks={
+                    "test": Task(
+                        name="test",
+                        desc="Test",
+                        cmd="echo 'test'",
+                        deps=[],
+                        inputs=[],
+                        outputs=[],
+                        working_dir=".",
+                        run_in="build",
+                        args=[],
+                        private=False,
+                    )
+                },
+                runners={"build": docker_runner},
+                variables={},
+            )
+
+            state_manager = StateManager(project_root)
+            state_manager.load()
+
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+
+            # Attempt to run task should raise ExecutionError
+            from tasktree.executor import ExecutionError
+            with self.assertRaises(ExecutionError) as context:
+                process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
+                executor._run_task(recipe.tasks["test"], {}, process_runner)
+
+            # Verify error message mentions the conflict
+            error_msg = str(context.exception)
+            self.assertIn("Volume mount conflict", error_msg)
+            self.assertIn("/tasktree-internal/.tasktree-state", error_msg)
+
     def test_runner_names_with_special_characters(self):
         """
         Test that runner names with hyphens, underscores, and dots work correctly

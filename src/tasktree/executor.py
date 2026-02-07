@@ -1183,6 +1183,21 @@ class Executor:
 
         volumes_to_mount = env.volumes.copy() if env.volumes else []
         state_file_host_path = str(self.state.state_path.absolute())
+
+        # Check for volume mount conflicts with state file path
+        for volume in volumes_to_mount:
+            # Parse volume mount (format: "host:container" or "host:container:ro")
+            parts = volume.split(":")
+            if len(parts) >= 2:
+                container_path = parts[1]
+                if container_path == self.CONTAINER_STATE_FILE_PATH:
+                    raise ExecutionError(
+                        f"Volume mount conflict: User-defined volume '{volume}' conflicts with "
+                        f"automatic state file mount at '{self.CONTAINER_STATE_FILE_PATH}'. "
+                        f"The state file must be mounted at this location for nested task invocations to work. "
+                        f"Please use a different container path for your volume mount."
+                    )
+
         volumes_to_mount.append(f"{state_file_host_path}:{self.CONTAINER_STATE_FILE_PATH}")
 
         # Create modified environment with merged env vars and volumes using dataclass replace
