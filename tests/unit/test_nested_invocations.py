@@ -500,7 +500,7 @@ class TestStateHashOptimization(unittest.TestCase):
             # Create minimal recipe
             recipe = Recipe(
                 project_root=project_root,
-                recipe_dir=project_root,
+                recipe_path=project_root / "tasktree.yaml",
                 tasks={
                     "simple": Task(
                         name="simple",
