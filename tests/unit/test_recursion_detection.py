@@ -54,6 +54,7 @@ class TestCallChainParsing(unittest.TestCase):
             # Should not raise - no cycle
             executor._run_task(task, {}, self.process_runner)
 
+    @patch.dict(os.environ, {"TT_CALL_CHAIN": "parent-task"}, clear=False)
     def test_call_chain_single_task(self):
         """Test call chain with a single parent task."""
         task = Task(name="child-task", cmd="echo 'child'")
@@ -63,16 +64,12 @@ class TestCallChainParsing(unittest.TestCase):
             self.recipe, self.state_manager, logger_stub, make_process_runner
         )
 
-        # Simulate being called from parent-task
-        os.environ["TT_CALL_CHAIN"] = "parent-task"
+        # Simulate being called from parent-task (set via @patch.dict)
+        with patch.object(executor, "_run_command_as_script"):
+            # Should not raise - no cycle
+            executor._run_task(task, {}, self.process_runner)
 
-        try:
-            with patch.object(executor, "_run_command_as_script"):
-                # Should not raise - no cycle
-                executor._run_task(task, {}, self.process_runner)
-        finally:
-            del os.environ["TT_CALL_CHAIN"]
-
+    @patch.dict(os.environ, {"TT_CALL_CHAIN": "parent-task,child-task"}, clear=False)
     def test_call_chain_multiple_tasks(self):
         """Test call chain with multiple parent tasks."""
         task = Task(name="grandchild-task", cmd="echo 'grandchild'")
@@ -82,15 +79,10 @@ class TestCallChainParsing(unittest.TestCase):
             self.recipe, self.state_manager, logger_stub, make_process_runner
         )
 
-        # Simulate being called from parent->child
-        os.environ["TT_CALL_CHAIN"] = "parent-task,child-task"
-
-        try:
-            with patch.object(executor, "_run_command_as_script"):
-                # Should not raise - no cycle
-                executor._run_task(task, {}, self.process_runner)
-        finally:
-            del os.environ["TT_CALL_CHAIN"]
+        # Simulate being called from parent->child (set via @patch.dict)
+        with patch.object(executor, "_run_command_as_script"):
+            # Should not raise - no cycle
+            executor._run_task(task, {}, self.process_runner)
 
 
 class TestDirectRecursion(unittest.TestCase):
@@ -115,9 +107,8 @@ class TestDirectRecursion(unittest.TestCase):
     def tearDown(self):
         """Clean up test fixtures."""
         self.tmpdir.cleanup()
-        if "TT_CALL_CHAIN" in os.environ:
-            del os.environ["TT_CALL_CHAIN"]
 
+    @patch.dict(os.environ, {"TT_CALL_CHAIN": "self-caller"}, clear=False)
     def test_direct_recursion_detected(self):
         """Test that direct recursion (A calls A) is detected."""
         task = Task(name="self-caller", cmd="tt self-caller")
@@ -127,9 +118,7 @@ class TestDirectRecursion(unittest.TestCase):
             self.recipe, self.state_manager, logger_stub, make_process_runner
         )
 
-        # Simulate task calling itself
-        os.environ["TT_CALL_CHAIN"] = "self-caller"
-
+        # Simulate task calling itself (set via @patch.dict)
         with self.assertRaises(ExecutionError) as cm:
             executor._run_task(task, {}, self.process_runner)
 
@@ -162,9 +151,8 @@ class TestIndirectRecursion(unittest.TestCase):
     def tearDown(self):
         """Clean up test fixtures."""
         self.tmpdir.cleanup()
-        if "TT_CALL_CHAIN" in os.environ:
-            del os.environ["TT_CALL_CHAIN"]
 
+    @patch.dict(os.environ, {"TT_CALL_CHAIN": "task-a,task-b"}, clear=False)
     def test_indirect_recursion_2_tasks(self):
         """Test that 2-task cycle (A → B → A) is detected."""
         task = Task(name="task-a", cmd="tt task-b")
@@ -174,9 +162,7 @@ class TestIndirectRecursion(unittest.TestCase):
             self.recipe, self.state_manager, logger_stub, make_process_runner
         )
 
-        # Simulate: task-a calls task-b, task-b tries to call task-a
-        os.environ["TT_CALL_CHAIN"] = "task-a,task-b"
-
+        # Simulate: task-a calls task-b, task-b tries to call task-a (set via @patch.dict)
         with self.assertRaises(ExecutionError) as cm:
             executor._run_task(task, {}, self.process_runner)
 
@@ -184,6 +170,7 @@ class TestIndirectRecursion(unittest.TestCase):
         self.assertIn("Recursion detected", error_msg)
         self.assertIn("task-a → task-b → task-a", error_msg)
 
+    @patch.dict(os.environ, {"TT_CALL_CHAIN": "task-a,task-b,task-c"}, clear=False)
     def test_indirect_recursion_3_tasks(self):
         """Test that 3-task cycle (A → B → C → A) is detected."""
         task = Task(name="task-a", cmd="tt task-b")
@@ -193,9 +180,7 @@ class TestIndirectRecursion(unittest.TestCase):
             self.recipe, self.state_manager, logger_stub, make_process_runner
         )
 
-        # Simulate: task-a → task-b → task-c → task-a
-        os.environ["TT_CALL_CHAIN"] = "task-a,task-b,task-c"
-
+        # Simulate: task-a → task-b → task-c → task-a (set via @patch.dict)
         with self.assertRaises(ExecutionError) as cm:
             executor._run_task(task, {}, self.process_runner)
 
@@ -226,9 +211,8 @@ class TestDeepChainNoCycle(unittest.TestCase):
     def tearDown(self):
         """Clean up test fixtures."""
         self.tmpdir.cleanup()
-        if "TT_CALL_CHAIN" in os.environ:
-            del os.environ["TT_CALL_CHAIN"]
 
+    @patch.dict(os.environ, {"TT_CALL_CHAIN": "task-a,task-b,task-c,task-d"}, clear=False)
     def test_deep_chain_no_cycle(self):
         """Test that deep chain (A → B → C → D → E) without cycle succeeds."""
         task = Task(name="task-e", cmd="echo 'task-e'")
@@ -238,9 +222,7 @@ class TestDeepChainNoCycle(unittest.TestCase):
             self.recipe, self.state_manager, logger_stub, make_process_runner
         )
 
-        # Simulate: task-a → task-b → task-c → task-d → task-e
-        os.environ["TT_CALL_CHAIN"] = "task-a,task-b,task-c,task-d"
-
+        # Simulate: task-a → task-b → task-c → task-d → task-e (set via @patch.dict)
         with patch.object(executor, "_run_command_as_script"):
             # Should not raise - no cycle
             executor._run_task(task, {}, self.process_runner)
@@ -268,9 +250,8 @@ class TestErrorMessageFormatting(unittest.TestCase):
     def tearDown(self):
         """Clean up test fixtures."""
         self.tmpdir.cleanup()
-        if "TT_CALL_CHAIN" in os.environ:
-            del os.environ["TT_CALL_CHAIN"]
 
+    @patch.dict(os.environ, {"TT_CALL_CHAIN": "test,lint,build"}, clear=False)
     def test_error_message_shows_full_cycle(self):
         """Test that error message shows the full cycle path."""
         task = Task(name="build", cmd="tt build")
@@ -280,9 +261,7 @@ class TestErrorMessageFormatting(unittest.TestCase):
             self.recipe, self.state_manager, logger_stub, make_process_runner
         )
 
-        # Simulate: test → lint → build → build (cycle starts at build)
-        os.environ["TT_CALL_CHAIN"] = "test,lint,build"
-
+        # Simulate: test → lint → build → build (cycle starts at build, set via @patch.dict)
         with self.assertRaises(ExecutionError) as cm:
             executor._run_task(task, {}, self.process_runner)
 
@@ -290,6 +269,7 @@ class TestErrorMessageFormatting(unittest.TestCase):
         # Should show cycle starting from where it was first seen
         self.assertIn("build → build", error_msg)
 
+    @patch.dict(os.environ, {"TT_CALL_CHAIN": "my-task"}, clear=False)
     def test_error_message_shows_task_name(self):
         """Test that error message highlights the problematic task."""
         task = Task(name="my-task", cmd="tt my-task")
@@ -299,8 +279,7 @@ class TestErrorMessageFormatting(unittest.TestCase):
             self.recipe, self.state_manager, logger_stub, make_process_runner
         )
 
-        os.environ["TT_CALL_CHAIN"] = "my-task"
-
+        # Simulate: my-task calling itself (set via @patch.dict)
         with self.assertRaises(ExecutionError) as cm:
             executor._run_task(task, {}, self.process_runner)
 
@@ -331,9 +310,8 @@ class TestComplexBranchingTopology(unittest.TestCase):
     def tearDown(self):
         """Clean up test fixtures."""
         self.tmpdir.cleanup()
-        if "TT_CALL_CHAIN" in os.environ:
-            del os.environ["TT_CALL_CHAIN"]
 
+    @patch.dict(os.environ, {"TT_CALL_CHAIN": "root,task-b,task-e,task-h,task-i,task-j,task-k"}, clear=False)
     def test_complex_branching_topology_with_5_member_cycle(self):
         """
         Test complex branching topology with 5-member cycle.
@@ -376,10 +354,8 @@ class TestComplexBranchingTopology(unittest.TestCase):
             self.recipe, self.state_manager, logger_stub, make_process_runner
         )
 
-        # Simulate the call chain: root → B → E → H → I → J → K
+        # Simulate the call chain: root → B → E → H → I → J → K (set via @patch.dict)
         # Now K tries to call E again
-        os.environ["TT_CALL_CHAIN"] = "root,task-b,task-e,task-h,task-i,task-j,task-k"
-
         with self.assertRaises(ExecutionError) as cm:
             executor._run_task(task_e, {}, self.process_runner)
 
@@ -413,9 +389,8 @@ class TestFullyQualifiedTaskNames(unittest.TestCase):
     def tearDown(self):
         """Clean up test fixtures."""
         self.tmpdir.cleanup()
-        if "TT_CALL_CHAIN" in os.environ:
-            del os.environ["TT_CALL_CHAIN"]
 
+    @patch.dict(os.environ, {"TT_CALL_CHAIN": "local-task"}, clear=False)
     def test_fqn_without_import_prefix(self):
         """Test that local task names have no prefix."""
         task = Task(name="local-task", cmd="echo 'local'")
@@ -425,15 +400,14 @@ class TestFullyQualifiedTaskNames(unittest.TestCase):
             self.recipe, self.state_manager, logger_stub, make_process_runner
         )
 
-        # Task name should be used as-is for local tasks
-        os.environ["TT_CALL_CHAIN"] = "local-task"
-
+        # Task name should be used as-is for local tasks (set via @patch.dict)
         with self.assertRaises(ExecutionError) as cm:
             executor._run_task(task, {}, self.process_runner)
 
         error_msg = str(cm.exception)
         self.assertIn("local-task → local-task", error_msg)
 
+    @patch.dict(os.environ, {"TT_CALL_CHAIN": "other.build"}, clear=False)
     def test_fqn_with_import_prefix(self):
         """Test that imported task names include prefix."""
         # Simulate an imported task with prefix
@@ -444,9 +418,7 @@ class TestFullyQualifiedTaskNames(unittest.TestCase):
             self.recipe, self.state_manager, logger_stub, make_process_runner
         )
 
-        # Simulate calling imported task that recursively calls itself
-        os.environ["TT_CALL_CHAIN"] = "other.build"
-
+        # Simulate calling imported task that recursively calls itself (set via @patch.dict)
         with self.assertRaises(ExecutionError) as cm:
             executor._run_task(task, {}, self.process_runner)
 
