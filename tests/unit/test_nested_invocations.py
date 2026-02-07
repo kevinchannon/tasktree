@@ -533,13 +533,7 @@ class TestStateHashOptimization(unittest.TestCase):
             state_manager.load = mock_load
 
             # Execute task
-            process_runner = make_process_runner(
-                task_name="simple",
-                use_pty=False,
-                capture_stdout=True,
-                capture_stderr=True,
-                logger=logger_stub,
-            )
+            process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
 
             executor._run_task(recipe.tasks["simple"], {}, process_runner)
 
