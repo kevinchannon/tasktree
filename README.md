@@ -1623,9 +1623,100 @@ These variables enable nested `tt` calls to detect they're already running in a 
 
 The state file is automatically mounted into containers at `/workspace/.tasktree-state`, ensuring state updates work correctly across container boundaries.
 
+### Recursion Detection
+
+Task Tree automatically detects and prevents infinite recursion in nested task invocations:
+
+#### Direct Recursion
+
+A task calling itself is detected immediately:
+
+```yaml
+tasks:
+  self-caller:
+    cmd: |
+      echo "Before"
+      tt self-caller  # ❌ ERROR: Recursion detected
+      echo "After (never reached)"
+```
+
+**Error message:**
+```
+Recursion detected in task invocation chain:
+self-caller → self-caller
+
+Task 'self-caller' is already running in the call chain.
+This would create an infinite loop.
+```
+
+#### Indirect Recursion
+
+Cycles involving multiple tasks are also detected:
+
+```yaml
+tasks:
+  task-a:
+    cmd: |
+      echo "Task A"
+      tt task-b
+
+  task-b:
+    cmd: |
+      echo "Task B"
+      tt task-c
+
+  task-c:
+    cmd: |
+      echo "Task C"
+      tt task-a  # ❌ ERROR: Creates cycle A → B → C → A
+```
+
+**Error message:**
+```
+Recursion detected in task invocation chain:
+task-a → task-b → task-c → task-a
+
+Task 'task-a' is already running in the call chain.
+This would create an infinite loop.
+```
+
+#### How It Works
+
+Task Tree tracks the call chain via the `TT_CALL_CHAIN` environment variable, which contains a comma-separated list of task names currently in execution:
+
+- **Top-level invocation**: `TT_CALL_CHAIN` is empty
+- **Nested invocation**: Each task adds its name to the chain before executing its `cmd`
+- **Cycle detection**: Before executing, each task checks if its name already appears in the chain
+
+For imported tasks, fully-qualified names (including import prefix) are used to avoid false positives.
+
+#### Deep Nesting Without Cycles
+
+Deep call chains are fully supported as long as they don't form cycles:
+
+```yaml
+tasks:
+  level-1:
+    cmd: |
+      echo "Level 1"
+      tt level-2
+
+  level-2:
+    cmd: |
+      echo "Level 2"
+      tt level-3
+
+  level-3:
+    cmd: |
+      echo "Level 3"
+      tt level-4
+
+  level-4:
+    cmd: echo "Level 4"  # ✅ Works fine - no cycle
+```
+
 ### Limitations
 
-- **Recursion**: Direct or indirect recursion (A → B → A) will cause infinite loops. Cycle detection is planned for Phase 3.
 - **Sequential execution**: Nested calls must run sequentially. Parallel invocations (e.g., using `&`) are not supported.
 - **Docker-in-Docker**: Switching between different containerized runners is not supported.
 - **Volume conflicts**: User-defined volume mounts cannot use the path `/tasktree-internal/.tasktree-state` as it is reserved for the state file mount.
@@ -1640,6 +1731,16 @@ The state file is automatically mounted into containers at `/workspace/.tasktree
 - Nested invocations work with all task features: arguments, dependencies, inputs/outputs, etc.
 - State file access is sequential - no locking or concurrency handling is needed.
 - The state file is automatically mounted at `/tasktree-internal/.tasktree-state` inside Docker containers. This path was chosen to minimize conflicts with common user directories like `/workspace` or `/app`.
+
+### Environment Variables (Internal)
+
+Task Tree sets these environment variables internally for nested invocation support:
+
+- **`TT_CALL_CHAIN`**: Comma-separated list of task names in the current call stack (e.g., `"parent,child,grandchild"`). Used for recursion detection. Empty for top-level invocations.
+- **`TT_CONTAINERIZED_RUNNER`**: Name of the current Docker runner (only set when running inside a container). Used to prevent Docker-in-Docker across different runners.
+- **`TT_STATE_FILE_PATH`**: Path to the state file inside Docker containers (e.g., `"/workspace/.tasktree-state"`). Used by nested `tt` calls to locate state.
+
+These variables are managed automatically and generally don't require user interaction. They may be useful for debugging nested invocation issues.
 
 
 ## Environment Variables
