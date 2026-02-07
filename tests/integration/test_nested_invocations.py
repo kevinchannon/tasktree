@@ -451,9 +451,7 @@ tasks:
                 # Small delay to ensure timestamp difference
                 time.sleep(1.01)
 
-                # Second run - e should skip (outputs fresh, no inputs)
-                # But a, b, c, d have no inputs either, so they'll all run
-                # (tasks without inputs always run)
+                # Second run - ALL tasks have no inputs, so they all run
                 result = self.runner.invoke(app, ["a"], env=self.env)
                 self.assertEqual(result.exit_code, 0)
 
@@ -464,10 +462,8 @@ tasks:
                 d_mtime_2 = d_txt.stat().st_mtime
                 e_mtime_2 = e_txt.stat().st_mtime
 
-                # E should skip (outputs fresh, no inputs to track)
-                self.assertEqual(e_mtime_2, e_mtime_1, "Task e should skip on second run")
-
-                # A, B, C, D have no inputs, so they always run
+                # All tasks have no inputs, so they all run on second invocation
+                self.assertGreater(e_mtime_2, e_mtime_1, "Task e should run (no inputs)")
                 self.assertGreater(a_mtime_2, a_mtime_1, "Task a should run (no inputs)")
                 self.assertGreater(b_mtime_2, b_mtime_1, "Task b should run (no inputs)")
                 self.assertGreater(c_mtime_2, c_mtime_1, "Task c should run (no inputs)")

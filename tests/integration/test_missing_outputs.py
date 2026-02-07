@@ -47,16 +47,16 @@ class TestMissingOutputsIntegration(unittest.TestCase):
             state_manager.load()
             executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
-            # First run - task should execute (never run before)
+            # First run - task should execute (no inputs, always runs)
             statuses = executor.execute_task("build", TaskOutputTypes.ALL)
             self.assertTrue(statuses["build"].will_run)
-            self.assertEqual(statuses["build"].reason, "never_run")
+            self.assertEqual(statuses["build"].reason, "no_inputs")
             self.assertTrue((project_root / "output.txt").exists())
 
-            # Second run - task should skip (fresh)
+            # Second run - task should run again (no inputs, always runs)
             statuses = executor.execute_task("build", TaskOutputTypes.ALL)
-            self.assertFalse(statuses["build"].will_run)
-            self.assertEqual(statuses["build"].reason, "fresh")
+            self.assertTrue(statuses["build"].will_run)
+            self.assertEqual(statuses["build"].reason, "no_inputs")
 
             # Delete the output file
             (project_root / "output.txt").unlink()
@@ -102,16 +102,16 @@ class TestMissingOutputsIntegration(unittest.TestCase):
             state_manager.load()
             executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
-            # First run - task should execute and create both outputs
+            # First run - task should execute (no inputs, always runs)
             statuses = executor.execute_task("build", TaskOutputTypes.ALL)
             self.assertTrue(statuses["build"].will_run)
-            self.assertEqual(statuses["build"].reason, "never_run")
+            self.assertEqual(statuses["build"].reason, "no_inputs")
             self.assertTrue((project_root / "output1.txt").exists())
             self.assertTrue((project_root / "output2.txt").exists())
 
-            # Second run - task should skip (both outputs exist)
+            # Second run - task should run again (no inputs, always runs)
             statuses = executor.execute_task("build", TaskOutputTypes.ALL)
-            self.assertFalse(statuses["build"].will_run)
+            self.assertTrue(statuses["build"].will_run)
             self.assertEqual(statuses["build"].reason, "fresh")
 
             # Delete only one output file

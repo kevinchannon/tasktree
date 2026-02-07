@@ -436,15 +436,15 @@ tasks:
                 build_time_1 = (project_root / "build.log").stat().st_mtime
                 test_time_1 = (project_root / "test.log").stat().st_mtime
 
-                # Second run - all skip (fresh)
+                # Second run - all run again (no inputs, always run)
                 result = self.runner.invoke(app, ["test"], env=self.env)
                 self.assertEqual(result.exit_code, 0)
                 lint_time_2 = (project_root / "lint.log").stat().st_mtime
                 build_time_2 = (project_root / "build.log").stat().st_mtime
                 test_time_2 = (project_root / "test.log").stat().st_mtime
-                self.assertEqual(lint_time_1, lint_time_2)
-                self.assertEqual(build_time_1, build_time_2)
-                self.assertEqual(test_time_1, test_time_2)
+                self.assertGreater(lint_time_2, lint_time_1)
+                self.assertGreater(build_time_2, build_time_1)
+                self.assertGreater(test_time_2, test_time_1)
 
                 # Third run with --force - all re-execute
                 import time
