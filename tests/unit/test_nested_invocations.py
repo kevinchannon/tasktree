@@ -968,6 +968,70 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
             self.assertEqual(captured_env.get("TT_CONTAINERIZED_RUNNER"), "build")
             self.assertEqual(captured_env.get("TT_STATE_FILE_PATH"), "/tasktree-internal/.tasktree-state")
 
+    def test_state_file_created_before_mounting(self):
+        """
+        Test that state file is created if it doesn't exist before mounting.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_file = project_root / ".tasktree-state"
+            # Do NOT create state file - test that executor creates it
+
+            from tasktree.parser import Runner
+            docker_runner = Runner(
+                name="build",
+                shell="/bin/bash",
+                preamble="",
+                dockerfile="Dockerfile",
+                context=".",
+                volumes=[],
+                ports=[],
+                env_vars={},
+                working_dir="",
+                args=[],
+                extra_args=[],
+            )
+
+            recipe = Recipe(
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+                tasks={
+                    "test": Task(
+                        name="test",
+                        desc="Test",
+                        cmd="echo 'test'",
+                        deps=[],
+                        inputs=[],
+                        outputs=[],
+                        working_dir=".",
+                        run_in="build",
+                        args=[],
+                        private=False,
+                    )
+                },
+                runners={"build": docker_runner},
+                variables={},
+            )
+
+            state_manager = StateManager(project_root)
+            state_manager.load()
+
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+
+            # Verify state file does not exist yet
+            self.assertFalse(state_file.exists())
+
+            # Mock docker_manager.run_in_container to capture volumes
+            def mock_run_in_container(env, **kwargs):
+                pass
+
+            with patch.object(executor.docker_manager, "run_in_container", side_effect=mock_run_in_container):
+                process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
+                executor._run_task(recipe.tasks["test"], {}, process_runner)
+
+            # Verify state file was created
+            self.assertTrue(state_file.exists())
+
     def test_state_file_mounted_as_volume(self):
         """
         Test that state file is mounted as a volume in Docker containers.
@@ -1094,6 +1158,78 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
                 # Verify runner's shell and preamble were used
                 self.assertEqual(captured_args["shell"], "/bin/zsh")
                 self.assertEqual(captured_args["preamble"], "set -euo pipefail")
+
+    def test_runner_names_with_special_characters(self):
+        """
+        Test that runner names with hyphens, underscores, and dots work correctly
+        in TT_CONTAINERIZED_RUNNER environment variable.
+        """
+        test_cases = [
+            "my-runner",      # hyphens
+            "my_runner",      # underscores
+            "my.runner",      # dots
+            "my-runner_v1.0", # mixed
+        ]
+
+        for runner_name in test_cases:
+            with self.subTest(runner_name=runner_name):
+                with TemporaryDirectory() as tmpdir:
+                    project_root = Path(tmpdir)
+                    state_file = project_root / ".tasktree-state"
+                    state_file.touch()
+
+                    from tasktree.parser import Runner
+                    docker_runner = Runner(
+                        name=runner_name,
+                        shell="/bin/bash",
+                        preamble="",
+                        dockerfile="Dockerfile",
+                        context=".",
+                        volumes=[],
+                        ports=[],
+                        env_vars={},
+                        working_dir="",
+                        args=[],
+                        extra_args=[],
+                    )
+
+                    recipe = Recipe(
+                        project_root=project_root,
+                        recipe_path=project_root / "tasktree.yaml",
+                        tasks={
+                            "test": Task(
+                                name="test",
+                                desc="Test",
+                                cmd="echo 'test'",
+                                deps=[],
+                                inputs=[],
+                                outputs=[],
+                                working_dir=".",
+                                run_in=runner_name,
+                                args=[],
+                                private=False,
+                            )
+                        },
+                        runners={runner_name: docker_runner},
+                        variables={},
+                    )
+
+                    state_manager = StateManager(project_root)
+                    state_manager.load()
+
+                    executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+
+                    # Mock docker_manager.run_in_container to capture env vars
+                    captured_env = {}
+                    def mock_run_in_container(env, **kwargs):
+                        captured_env.update(env.env_vars or {})
+
+                    with patch.object(executor.docker_manager, "run_in_container", side_effect=mock_run_in_container):
+                        process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
+                        executor._run_task(recipe.tasks["test"], {}, process_runner)
+
+                    # Verify runner name is correctly set in environment variable
+                    self.assertEqual(captured_env.get("TT_CONTAINERIZED_RUNNER"), runner_name)
 
 
 if __name__ == "__main__":
