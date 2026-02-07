@@ -691,6 +691,50 @@ class Executor:
 
         return statuses
 
+    def _validate_nested_docker_runner(
+        self, task: Task, current_containerized_runner: str
+    ) -> bool:
+        """
+        Validate runner compatibility when already inside a container.
+
+        Args:
+            task: Task to validate
+            current_containerized_runner: Name of the current containerized runner
+
+        Returns:
+            bool: True if shell execution should be forced (compatible scenario)
+
+        Raises:
+            ExecutionError: If task requires incompatible Docker runner
+
+        @athena: validate_nested_docker_runner
+        """
+        task_runner_name = self._get_effective_runner_name(task)
+
+        # Task specifies a runner - check if it's compatible
+        if task_runner_name and task_runner_name != current_containerized_runner:
+            task_runner = self.recipe.get_runner(task_runner_name)
+
+            # REFINED REJECTION LOGIC:
+            # Only reject if:
+            # 1. Task has run_in specified (checked above via task_runner_name)
+            # 2. The specified runner has a dockerfile field
+            # 3. The dockerfile differs from current container's runner
+            if task_runner and task_runner.dockerfile:
+                raise ExecutionError(
+                    f"Task '{task.name}' requires containerized runner '{task_runner_name}' "
+                    f"but is currently executing inside runner '{current_containerized_runner}'. "
+                    f"Nested Docker-in-Docker invocations across different containerized runners are not supported. "
+                    f"Either remove the runner specification from '{task.name}', ensure it matches "
+                    f"the parent task's runner, or use a shell-only runner."
+                )
+
+        # If we get here, either:
+        # - Same containerized runner name → use it directly
+        # - Different shell-only runner → allowed, use its shell/preamble
+        # - No runner specified → use shell execution in current container
+        return True
+
     def _run_task(
         self, task: Task, args_dict: dict[str, Any], process_runner: ProcessRunner
     ) -> None:
@@ -715,31 +759,9 @@ class Executor:
 
         if current_containerized_runner:
             # We're inside a container - validate runner compatibility
-            task_runner_name = self._get_effective_runner_name(task)
-
-            # Task specifies a runner - check if it's compatible
-            if task_runner_name and task_runner_name != current_containerized_runner:
-                task_runner = self.recipe.get_runner(task_runner_name)
-
-                # REFINED REJECTION LOGIC:
-                # Only reject if:
-                # 1. Task has run_in specified (checked above via task_runner_name)
-                # 2. The specified runner has a dockerfile field
-                # 3. The dockerfile differs from current container's runner
-                if task_runner and task_runner.dockerfile:
-                    raise ExecutionError(
-                        f"Task '{task.name}' requires containerized runner '{task_runner_name}' "
-                        f"but is currently executing inside runner '{current_containerized_runner}'. "
-                        f"Nested Docker-in-Docker invocations across different containerized runners are not supported. "
-                        f"Either remove the runner specification from '{task.name}', ensure it matches "
-                        f"the parent task's runner, or use a shell-only runner."
-                    )
-
-            # If we get here, either:
-            # - Same containerized runner name → use it directly
-            # - Different shell-only runner → allowed, use its shell/preamble
-            # - No runner specified → use shell execution in current container
-            force_shell_execution = True
+            force_shell_execution = self._validate_nested_docker_runner(
+                task, current_containerized_runner
+            )
 
         # Record the state file's hash before execution
         # This allows us to skip re-reading if no nested tt calls modified it
