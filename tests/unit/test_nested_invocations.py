@@ -520,13 +520,7 @@ class TestStateHashOptimization(unittest.TestCase):
             )
 
             state_manager = StateManager(project_root)
-            executor = Executor(
-                recipe=recipe,
-                state=state_manager,
-                logger=logger_stub,
-                force=False,
-                only=False,
-            )
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             # Mock the state.load() method to track calls
             original_load = state_manager.load
