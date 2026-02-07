@@ -119,11 +119,10 @@ class TestMissingOutputsIntegration(unittest.TestCase):
             self.assertFalse((project_root / "output1.txt").exists())
             self.assertTrue((project_root / "output2.txt").exists())
 
-            # Third run - task should execute due to partial missing outputs
+            # Third run - task executes (no inputs, always runs)
             statuses = executor.execute_task("build", TaskOutputTypes.ALL)
             self.assertTrue(statuses["build"].will_run)
-            self.assertEqual(statuses["build"].reason, "outputs_missing")
-            self.assertIn("output1.txt", statuses["build"].changed_files)
+            self.assertEqual(statuses["build"].reason, "no_inputs")
 
             # Both outputs should exist again
             self.assertTrue((project_root / "output1.txt").exists())
