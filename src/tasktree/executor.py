@@ -510,16 +510,8 @@ class Executor:
         args_hash = hash_args(args_dict) if args_dict else None
         cache_key = make_cache_key(task_hash, args_hash)
 
-        # Check if task has no inputs (always runs)
+        # Check cached state first
         all_inputs = self._get_all_inputs(task)
-        if not all_inputs:
-            return TaskStatus(
-                task_name=task.name,
-                will_run=True,
-                reason="no_inputs",
-            )
-
-        # Check cached state
         cached_state = self.state.get(cache_key)
         if cached_state is None:
             return TaskStatus(
@@ -558,6 +550,16 @@ class Executor:
                 will_run=True,
                 reason="outputs_missing",
                 changed_files=missing_outputs,
+                last_run=datetime.fromtimestamp(cached_state.last_run),
+            )
+
+        # If task has no inputs, it must always run (even with fresh outputs)
+        # This ensures tasks that invoke nested tt calls will run on each invocation
+        if not all_inputs:
+            return TaskStatus(
+                task_name=task.name,
+                will_run=True,
+                reason="no_inputs",
                 last_run=datetime.fromtimestamp(cached_state.last_run),
             )
 
