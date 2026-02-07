@@ -522,8 +522,12 @@ class Executor:
             effective_env,
             task.deps,
         )
+        self.logger.trace(f"Task hash for '{task.name}': {task_hash}")
         args_hash = hash_args(args_dict) if args_dict else None
+        if args_hash:
+            self.logger.trace(f"Args hash: {args_hash}")
         cache_key = make_cache_key(task_hash, args_hash)
+        self.logger.trace(f"Cache key: {cache_key}")
 
         # Check if task has no inputs (always runs)
         # This check happens early to match original behavior
@@ -541,12 +545,15 @@ class Executor:
         # Check cached state
         cached_state = self.state.get(cache_key)
         if cached_state is None:
+            self.logger.trace(f"No cached state found for cache key: {cache_key}")
             self.logger.debug(f"Task '{task.name}' will run: no previous execution found")
             return TaskStatus(
                 task_name=task.name,
                 will_run=True,
                 reason="never_run",
             )
+
+        self.logger.trace(f"Found cached state for '{task.name}' (last run: {datetime.fromtimestamp(cached_state.last_run).isoformat()})")
 
         env_changed = self._check_runner_changed(
             task, cached_state, effective_env, process_runner
@@ -1460,6 +1467,7 @@ class Executor:
         from tasktree.hasher import hash_runner_definition
 
         current_env_hash = hash_runner_definition(env)
+        self.logger.trace(f"Runner '{env_name}' hash: {current_env_hash}")
 
         # Get cached runner hash
         marker_key = f"_runner_hash_{env_name}"
@@ -1467,10 +1475,14 @@ class Executor:
 
         # If no cached hash (old state file), treat as changed to establish baseline
         if cached_env_hash is None:
+            self.logger.trace(f"No cached runner hash found for '{env_name}'")
             return True
+
+        self.logger.trace(f"Cached runner hash for '{env_name}': {cached_env_hash}")
 
         # Check if YAML definition changed
         if current_env_hash != cached_env_hash:
+            self.logger.trace(f"Runner '{env_name}' hash changed (cached: {cached_env_hash}, current: {current_env_hash})")
             return True  # YAML changed, no need to check image
 
         # For Docker environments, also check if image ID changed
@@ -1510,8 +1522,10 @@ class Executor:
             image_tag, current_image_id = self.docker_manager.ensure_image_built(
                 env, process_runner
             )
+            self.logger.trace(f"Docker image ID for '{env_name}': {current_image_id}")
         except Exception:
             # If we can't build, treat as changed (will fail later with better error)
+            self.logger.trace(f"Failed to build Docker image for '{env_name}', treating as changed")
             return True
 
         # Get cached image ID
@@ -1520,10 +1534,17 @@ class Executor:
 
         # If no cached ID (first run or old state), treat as changed
         if cached_image_id is None:
+            self.logger.trace(f"No cached Docker image ID found for '{env_name}'")
             return True
 
+        self.logger.trace(f"Cached Docker image ID for '{env_name}': {cached_image_id}")
+
         # Compare image IDs
-        return current_image_id != cached_image_id
+        if current_image_id != cached_image_id:
+            self.logger.trace(f"Docker image ID changed for '{env_name}' (cached: {cached_image_id}, current: {current_image_id})")
+            return True
+
+        return False
 
     def _check_inputs_changed(
         self, task: Task, cached_state: TaskState, all_inputs: list[str]
