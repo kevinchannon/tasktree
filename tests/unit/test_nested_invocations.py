@@ -547,5 +547,592 @@ class TestStateHashOptimization(unittest.TestCase):
             self.assertEqual(load_call_count["count"], 0)
 
 
+class TestDockerEnvironmentSupport(unittest.TestCase):
+    """Tests for Phase 2: Docker environment support for nested invocations."""
+
+    def test_state_manager_uses_env_var_when_set(self):
+        """
+        Test that TT_STATE_FILE_PATH overrides default state file location.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            custom_state_path = "/workspace/.tasktree-state"
+
+            with patch.dict("os.environ", {
+                "TT_STATE_FILE_PATH": custom_state_path,
+                "TT_CONTAINERIZED_RUNNER": "test-runner"
+            }):
+                state_manager = StateManager(project_root)
+                self.assertEqual(str(state_manager.state_path), custom_state_path)
+                self.assertEqual(state_manager.project_root, Path("/workspace"))
+
+    def test_state_manager_default_path_when_no_env(self):
+        """
+        Test that default state file path is used when TT_STATE_FILE_PATH not set.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            with patch.dict("os.environ", {}, clear=True):
+                state_manager = StateManager(project_root)
+                expected_path = project_root / ".tasktree-state"
+                self.assertEqual(state_manager.state_path, expected_path)
+                self.assertEqual(state_manager.project_root, project_root)
+
+    def test_state_manager_error_on_state_path_without_runner(self):
+        """
+        Test that error is raised when TT_STATE_FILE_PATH is set but TT_CONTAINERIZED_RUNNER is not.
+        This indicates a configuration error.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            with patch.dict("os.environ", {"TT_STATE_FILE_PATH": "/workspace/.tasktree-state"}):
+                with self.assertRaises(ValueError) as context:
+                    StateManager(project_root)
+                self.assertIn("TT_STATE_FILE_PATH is set but TT_CONTAINERIZED_RUNNER is not", str(context.exception))
+
+    def test_same_docker_runner_uses_shell_execution(self):
+        """
+        Test that when inside a Docker container with matching runner, shell execution is used.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create a Docker runner
+            from tasktree.parser import Runner
+            test_runner = Runner(
+                name="build",
+                default=False,
+                shell="/bin/bash",
+                preamble="set -e",
+                dockerfile="Dockerfile",
+                context=".",
+                volumes=[],
+                ports=[],
+                env_vars={},
+                build_args={},
+                image=None,
+                working_dir=None,
+                args=[],
+                extra_args=[],
+            )
+
+            recipe = Recipe(
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+                tasks={
+                    "test": Task(
+                        name="test",
+                        desc="Test task",
+                        cmd="echo 'test'",
+                        deps=[],
+                        inputs=[],
+                        outputs=[],
+                        working_dir=".",
+                        run_in="build",  # Same as current container
+                        args=[],
+                        private=False,
+                    )
+                },
+                runners={"build": test_runner},
+                variables={},
+            )
+
+            state_manager = StateManager(project_root)
+            state_manager.load()
+
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+
+            # Mock environment to simulate being inside Docker container
+            with patch.dict("os.environ", {"TT_CONTAINERIZED_RUNNER": "build"}):
+                # Mock _run_command_as_script to verify it's called (not Docker execution)
+                with patch.object(executor, "_run_command_as_script") as mock_script:
+                    with patch.object(executor, "_run_task_in_docker") as mock_docker:
+                        process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
+                        executor._run_task(recipe.tasks["test"], {}, process_runner)
+
+                        # Verify shell execution was used, not Docker
+                        mock_script.assert_called_once()
+                        mock_docker.assert_not_called()
+
+    def test_different_docker_runner_raises_error(self):
+        """
+        Test that switching to a different Docker runner raises an error.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            from tasktree.parser import Runner
+            build_runner = Runner(
+                name="build",
+                default=False,
+                shell="/bin/bash",
+                preamble="",
+                dockerfile="Dockerfile.build",
+                context=".",
+                volumes=[],
+                ports=[],
+                env_vars={},
+                build_args={},
+                image=None,
+                working_dir=None,
+                args=[],
+                extra_args=[],
+            )
+
+            test_runner = Runner(
+                name="test",
+                default=False,
+                shell="/bin/bash",
+                preamble="",
+                dockerfile="Dockerfile.test",  # Different dockerfile
+                context=".",
+                volumes=[],
+                ports=[],
+                env_vars={},
+                build_args={},
+                image=None,
+                working_dir=None,
+                args=[],
+                extra_args=[],
+            )
+
+            recipe = Recipe(
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+                tasks={
+                    "child": Task(
+                        name="child",
+                        desc="Child task",
+                        cmd="echo 'test'",
+                        deps=[],
+                        inputs=[],
+                        outputs=[],
+                        working_dir=".",
+                        run_in="test",  # Different Docker runner
+                        args=[],
+                        private=False,
+                    )
+                },
+                runners={"build": build_runner, "test": test_runner},
+                variables={},
+            )
+
+            state_manager = StateManager(project_root)
+            state_manager.load()
+
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+
+            # Mock environment to simulate being inside build container
+            with patch.dict("os.environ", {"TT_CONTAINERIZED_RUNNER": "build"}):
+                from tasktree.executor import ExecutionError
+                with self.assertRaises(ExecutionError) as context:
+                    process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
+                    executor._run_task(recipe.tasks["child"], {}, process_runner)
+
+                self.assertIn("requires containerized runner 'test'", str(context.exception))
+                self.assertIn("currently executing inside runner 'build'", str(context.exception))
+
+    def test_shell_runner_switch_allowed_in_container(self):
+        """
+        Test that switching to a shell-only runner is allowed within a container.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            from tasktree.parser import Runner
+            docker_runner = Runner(
+                name="build",
+                default=False,
+                shell="/bin/bash",
+                preamble="",
+                dockerfile="Dockerfile",
+                context=".",
+                volumes=[],
+                ports=[],
+                env_vars={},
+                build_args={},
+                image=None,
+                working_dir=None,
+                args=[],
+                extra_args=[],
+            )
+
+            shell_runner = Runner(
+                name="lint",
+                default=False,
+                shell="/bin/sh",
+                preamble="set -e",
+                dockerfile=None,  # Shell-only runner
+                context=None,
+                volumes=None,
+                ports=None,
+                env_vars=None,
+                build_args=None,
+                image=None,
+                working_dir=None,
+                args=None,
+                extra_args=None,
+            )
+
+            recipe = Recipe(
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+                tasks={
+                    "lint": Task(
+                        name="lint",
+                        desc="Lint task",
+                        cmd="echo 'lint'",
+                        deps=[],
+                        inputs=[],
+                        outputs=[],
+                        working_dir=".",
+                        run_in="lint",  # Shell-only runner
+                        args=[],
+                        private=False,
+                    )
+                },
+                runners={"build": docker_runner, "lint": shell_runner},
+                variables={},
+            )
+
+            state_manager = StateManager(project_root)
+            state_manager.load()
+
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+
+            # Mock environment to simulate being inside Docker container
+            with patch.dict("os.environ", {"TT_CONTAINERIZED_RUNNER": "build"}):
+                # This should NOT raise an error (shell-only runner is allowed)
+                with patch.object(executor, "_run_command_as_script") as mock_script:
+                    process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
+                    executor._run_task(recipe.tasks["lint"], {}, process_runner)
+
+                    # Verify shell execution was used
+                    mock_script.assert_called_once()
+
+    def test_no_runner_in_container_uses_shell(self):
+        """
+        Test that task with no runner specification executes in current container.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            from tasktree.parser import Runner
+            docker_runner = Runner(
+                name="build",
+                default=False,
+                shell="/bin/bash",
+                preamble="",
+                dockerfile="Dockerfile",
+                context=".",
+                volumes=[],
+                ports=[],
+                env_vars={},
+                build_args={},
+                image=None,
+                working_dir=None,
+                args=[],
+                extra_args=[],
+            )
+
+            recipe = Recipe(
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+                tasks={
+                    "no_runner": Task(
+                        name="no_runner",
+                        desc="Task without runner",
+                        cmd="echo 'test'",
+                        deps=[],
+                        inputs=[],
+                        outputs=[],
+                        working_dir=".",
+                        run_in=None,  # No runner specified
+                        args=[],
+                        private=False,
+                    )
+                },
+                runners={"build": docker_runner},
+                variables={},
+            )
+
+            state_manager = StateManager(project_root)
+            state_manager.load()
+
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+
+            # Mock environment to simulate being inside Docker container
+            with patch.dict("os.environ", {"TT_CONTAINERIZED_RUNNER": "build"}):
+                with patch.object(executor, "_run_command_as_script") as mock_script:
+                    with patch.object(executor, "_run_task_in_docker") as mock_docker:
+                        process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
+                        executor._run_task(recipe.tasks["no_runner"], {}, process_runner)
+
+                        # Verify shell execution was used
+                        mock_script.assert_called_once()
+                        mock_docker.assert_not_called()
+
+    def test_local_to_docker_launches_container(self):
+        """
+        Test that local execution launches Docker container normally.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            from tasktree.parser import Runner
+            docker_runner = Runner(
+                name="build",
+                default=False,
+                shell="/bin/bash",
+                preamble="",
+                dockerfile="Dockerfile",
+                context=".",
+                volumes=[],
+                ports=[],
+                env_vars={},
+                build_args={},
+                image=None,
+                working_dir=None,
+                args=[],
+                extra_args=[],
+            )
+
+            recipe = Recipe(
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+                tasks={
+                    "docker_task": Task(
+                        name="docker_task",
+                        desc="Docker task",
+                        cmd="echo 'test'",
+                        deps=[],
+                        inputs=[],
+                        outputs=[],
+                        working_dir=".",
+                        run_in="build",
+                        args=[],
+                        private=False,
+                    )
+                },
+                runners={"build": docker_runner},
+                variables={},
+            )
+
+            state_manager = StateManager(project_root)
+            state_manager.load()
+
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+
+            # No TT_CONTAINERIZED_RUNNER env var (local execution)
+            with patch.dict("os.environ", {}, clear=True):
+                with patch.object(executor, "_run_task_in_docker") as mock_docker:
+                    with patch.object(executor, "_run_command_as_script") as mock_script:
+                        process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
+                        executor._run_task(recipe.tasks["docker_task"], {}, process_runner)
+
+                        # Verify Docker execution was used
+                        mock_docker.assert_called_once()
+                        mock_script.assert_not_called()
+
+    def test_docker_env_vars_include_tt_vars(self):
+        """
+        Test that TT_CONTAINERIZED_RUNNER and TT_STATE_FILE_PATH are added to docker_env_vars.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            from tasktree.parser import Runner
+            docker_runner = Runner(
+                name="build",
+                default=False,
+                shell="/bin/bash",
+                preamble="",
+                dockerfile="Dockerfile",
+                context=".",
+                volumes=[],
+                ports=[],
+                env_vars={},
+                build_args={},
+                image=None,
+                working_dir=None,
+                args=[],
+                extra_args=[],
+            )
+
+            recipe = Recipe(
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+                tasks={
+                    "test": Task(
+                        name="test",
+                        desc="Test",
+                        cmd="echo 'test'",
+                        deps=[],
+                        inputs=[],
+                        outputs=[],
+                        working_dir=".",
+                        run_in="build",
+                        args=[],
+                        private=False,
+                    )
+                },
+                runners={"build": docker_runner},
+                variables={},
+            )
+
+            state_manager = StateManager(project_root)
+            state_manager.load()
+
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+
+            # Mock docker_manager.run_in_container to capture env vars
+            captured_env = {}
+            def mock_run_in_container(env, **kwargs):
+                captured_env.update(env.env_vars or {})
+
+            with patch.object(executor.docker_manager, "run_in_container", side_effect=mock_run_in_container):
+                process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
+                executor._run_task(recipe.tasks["test"], {}, process_runner)
+
+            # Verify TT_* env vars were added
+            self.assertEqual(captured_env.get("TT_CONTAINERIZED_RUNNER"), "build")
+            self.assertEqual(captured_env.get("TT_STATE_FILE_PATH"), "/workspace/.tasktree-state")
+
+    def test_state_file_mounted_as_volume(self):
+        """
+        Test that state file is mounted as a volume in Docker containers.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_file = project_root / ".tasktree-state"
+            state_file.touch()  # Create state file
+
+            from tasktree.parser import Runner
+            docker_runner = Runner(
+                name="build",
+                default=False,
+                shell="/bin/bash",
+                preamble="",
+                dockerfile="Dockerfile",
+                context=".",
+                volumes=[],
+                ports=[],
+                env_vars={},
+                build_args={},
+                image=None,
+                working_dir=None,
+                args=[],
+                extra_args=[],
+            )
+
+            recipe = Recipe(
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+                tasks={
+                    "test": Task(
+                        name="test",
+                        desc="Test",
+                        cmd="echo 'test'",
+                        deps=[],
+                        inputs=[],
+                        outputs=[],
+                        working_dir=".",
+                        run_in="build",
+                        args=[],
+                        private=False,
+                    )
+                },
+                runners={"build": docker_runner},
+                variables={},
+            )
+
+            state_manager = StateManager(project_root)
+            state_manager.load()
+
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+
+            # Mock docker_manager.run_in_container to capture volumes
+            captured_volumes = []
+            def mock_run_in_container(env, **kwargs):
+                captured_volumes.extend(env.volumes or [])
+
+            with patch.object(executor.docker_manager, "run_in_container", side_effect=mock_run_in_container):
+                process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
+                executor._run_task(recipe.tasks["test"], {}, process_runner)
+
+            # Verify state file was mounted
+            state_mount = f"{state_file.absolute()}:/workspace/.tasktree-state"
+            self.assertIn(state_mount, captured_volumes)
+
+    def test_nested_call_uses_runner_shell_preamble(self):
+        """
+        Test that nested call in matching container uses runner's shell/preamble.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            from tasktree.parser import Runner
+            docker_runner = Runner(
+                name="build",
+                default=False,
+                shell="/bin/zsh",
+                preamble="set -euo pipefail",
+                dockerfile="Dockerfile",
+                context=".",
+                volumes=[],
+                ports=[],
+                env_vars={},
+                build_args={},
+                image=None,
+                working_dir=None,
+                args=[],
+                extra_args=[],
+            )
+
+            recipe = Recipe(
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+                tasks={
+                    "test": Task(
+                        name="test",
+                        desc="Test",
+                        cmd="echo 'test'",
+                        deps=[],
+                        inputs=[],
+                        outputs=[],
+                        working_dir=".",
+                        run_in="build",
+                        args=[],
+                        private=False,
+                    )
+                },
+                runners={"build": docker_runner},
+                variables={},
+            )
+
+            state_manager = StateManager(project_root)
+            state_manager.load()
+
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+
+            # Mock environment to simulate being inside container
+            with patch.dict("os.environ", {"TT_CONTAINERIZED_RUNNER": "build"}):
+                # Mock _run_command_as_script to capture shell/preamble
+                captured_args = {}
+                def mock_run_script(cmd, working_dir, task_name, shell, preamble, *args, **kwargs):
+                    captured_args["shell"] = shell
+                    captured_args["preamble"] = preamble
+
+                with patch.object(executor, "_run_command_as_script", side_effect=mock_run_script):
+                    process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
+                    executor._run_task(recipe.tasks["test"], {}, process_runner)
+
+                # Verify runner's shell and preamble were used
+                self.assertEqual(captured_args["shell"], "/bin/zsh")
+                self.assertEqual(captured_args["preamble"], "set -euo pipefail")
+
+
 if __name__ == "__main__":
     unittest.main()
