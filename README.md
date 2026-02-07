@@ -1628,6 +1628,8 @@ The state file is automatically mounted into containers at `/workspace/.tasktree
 - **Recursion**: Direct or indirect recursion (A → B → A) will cause infinite loops. Cycle detection is planned for Phase 3.
 - **Sequential execution**: Nested calls must run sequentially. Parallel invocations (e.g., using `&`) are not supported.
 - **Docker-in-Docker**: Switching between different containerized runners is not supported.
+- **Volume conflicts**: User-defined volume mounts cannot use the path `/tasktree-internal/.tasktree-state` as it is reserved for the state file mount.
+- **File permissions**: In Docker containers, the state file is mounted from the host. If the container runs as a different user (via Docker USER directive), ensure the user has read/write permissions on the state file. Consider using user mapping (`docker run --user`) to maintain consistent UIDs.
 
 **⚠️ Warning**: Do not use shell backgrounding (`&`) with nested calls. Running nested tasks in parallel (e.g., `tt task1 & tt task2`) will cause state file corruption.
 
@@ -1637,6 +1639,7 @@ The state file is automatically mounted into containers at `/workspace/.tasktree
 - For Docker tasks, `tt` must be installed inside the container image.
 - Nested invocations work with all task features: arguments, dependencies, inputs/outputs, etc.
 - State file access is sequential - no locking or concurrency handling is needed.
+- The state file is automatically mounted at `/tasktree-internal/.tasktree-state` inside Docker containers. This path was chosen to minimize conflicts with common user directories like `/workspace` or `/app`.
 
 
 ## Environment Variables
