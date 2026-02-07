@@ -810,11 +810,10 @@ class Executor:
             )
         else:
             # Shell execution path - either local or inside existing container
-            if current_containerized_runner and env_name:
+            if current_containerized_runner and env:
                 # Get shell/preamble from task's runner definition
-                task_env = self.recipe.get_runner(env_name)
-                shell = task_env.shell or "sh"
-                preamble = task_env.preamble or ""
+                shell = env.shell or "sh"
+                preamble = env.preamble or ""
             else:
                 # Normal shell resolution
                 shell, preamble = self._resolve_runner(task)
