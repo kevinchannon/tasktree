@@ -723,7 +723,7 @@ class Executor:
                 # 1. Task has run_in specified (checked above via task_runner_name)
                 # 2. The specified runner has a dockerfile field
                 # 3. The dockerfile differs from current container's runner
-                if task_runner.dockerfile:
+                if task_runner and task_runner.dockerfile:
                     raise ExecutionError(
                         f"Task '{task.name}' requires containerized runner '{task_runner_name}' "
                         f"but is currently executing inside runner '{current_containerized_runner}'. "
