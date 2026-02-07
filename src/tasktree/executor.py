@@ -61,6 +61,9 @@ class Executor:
     @athena: 779b12944194
     """
 
+    # Container state file path (mounted inside Docker containers)
+    CONTAINER_STATE_FILE_PATH = "/tasktree-internal/.tasktree-state"
+
     # Protected environment variables that cannot be overridden by exported args
     PROTECTED_ENV_VARS = {
         "PATH",
@@ -812,6 +815,8 @@ class Executor:
             # Shell execution path - either local or inside existing container
             if current_containerized_runner and env:
                 # Get shell/preamble from task's runner definition
+                # env_name was already validated at lines 715-733 above
+                assert env is not None, "Runner should exist after validation"
                 shell = env.shell or "sh"
                 preamble = env.preamble or ""
             else:
@@ -1137,7 +1142,7 @@ class Executor:
 
         # Add nested invocation support environment variables
         docker_env_vars["TT_CONTAINERIZED_RUNNER"] = env.name
-        docker_env_vars["TT_STATE_FILE_PATH"] = "/workspace/.tasktree-state"
+        docker_env_vars["TT_STATE_FILE_PATH"] = self.CONTAINER_STATE_FILE_PATH
 
         if exported_env_vars:
             # Check for protected environment variable overrides
@@ -1150,9 +1155,13 @@ class Executor:
             docker_env_vars.update(exported_env_vars)
 
         # Mount state file into container
+        # Ensure state file exists before mounting (Docker requires the file to exist)
+        if not self.state.state_path.exists():
+            self.state.state_path.touch()
+
         volumes_to_mount = env.volumes.copy() if env.volumes else []
         state_file_host_path = str(self.state.state_path.absolute())
-        volumes_to_mount.append(f"{state_file_host_path}:/workspace/.tasktree-state")
+        volumes_to_mount.append(f"{state_file_host_path}:{self.CONTAINER_STATE_FILE_PATH}")
 
         # Create modified environment with merged env vars and volumes using dataclass replace
         from dataclasses import replace
