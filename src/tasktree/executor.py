@@ -64,6 +64,9 @@ class Executor:
     # Container state file path (mounted inside Docker containers)
     CONTAINER_STATE_FILE_PATH = "/tasktree-internal/.tasktree-state"
 
+    # Environment variable for tracking task call chain (recursion detection)
+    TT_CALL_CHAIN_ENV_VAR = "TT_CALL_CHAIN"
+
     # Protected environment variables that cannot be overridden by exported args
     PROTECTED_ENV_VARS = {
         "PATH",
@@ -275,7 +278,7 @@ class Executor:
 
         # Add call chain for recursion detection
         if call_chain is not None:
-            env["TT_CALL_CHAIN"] = call_chain
+            env[self.TT_CALL_CHAIN_ENV_VAR] = call_chain
 
         return env
 
@@ -762,7 +765,7 @@ class Executor:
         task_start_time = datetime.now(timezone.utc)
 
         # Check for recursion via TT_CALL_CHAIN
-        current_chain = os.environ.get("TT_CALL_CHAIN", "")
+        current_chain = os.environ.get(self.TT_CALL_CHAIN_ENV_VAR, "")
         chain_list = [t.strip() for t in current_chain.split(",") if t.strip()]
 
         # Use fully-qualified task name (includes import prefix if any)
@@ -1221,7 +1224,7 @@ class Executor:
 
         # Add call chain for recursion detection
         if call_chain:
-            docker_env_vars["TT_CALL_CHAIN"] = call_chain
+            docker_env_vars[self.TT_CALL_CHAIN_ENV_VAR] = call_chain
 
         if exported_env_vars:
             # Check for protected environment variable overrides
