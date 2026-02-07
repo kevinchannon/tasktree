@@ -27,7 +27,7 @@ tasks:
 
             # Run tt via subprocess
             result = subprocess.run(
-                ["python3", "main.py", "recursive-task"],
+                ["python3", "-m", "tasktree", "recursive-task"],
                 cwd=tmpdir,
                 capture_output=True,
                 text=True,
@@ -50,35 +50,35 @@ tasks:
             Path(output_dir).mkdir()
 
             recipe_path.write_text(
-                f"""
+                """
 tasks:
   chain-1:
-    outputs: [{output_dir}/chain1.txt]
+    outputs: [outputs/chain1.txt]
     cmd: |
-      echo "Chain 1" > {output_dir}/chain1.txt
+      echo "Chain 1" > outputs/chain1.txt
       tt chain-2
 
   chain-2:
-    outputs: [{output_dir}/chain2.txt]
+    outputs: [outputs/chain2.txt]
     cmd: |
-      echo "Chain 2" > {output_dir}/chain2.txt
+      echo "Chain 2" > outputs/chain2.txt
       tt chain-3
 
   chain-3:
-    outputs: [{output_dir}/chain3.txt]
+    outputs: [outputs/chain3.txt]
     cmd: |
-      echo "Chain 3" > {output_dir}/chain3.txt
+      echo "Chain 3" > outputs/chain3.txt
       tt chain-4
 
   chain-4:
-    outputs: [{output_dir}/chain4.txt]
-    cmd: echo "Chain 4" > {output_dir}/chain4.txt
+    outputs: [outputs/chain4.txt]
+    cmd: echo "Chain 4" > outputs/chain4.txt
 """
             )
 
             # Run tt via subprocess
             result = subprocess.run(
-                ["python3", "main.py", "chain-1"],
+                ["python3", "-m", "tasktree", "chain-1"],
                 cwd=tmpdir,
                 capture_output=True,
                 text=True,
