@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from tests.e2e import run_tasktree_cli
+from . import run_tasktree_cli
 
 
 class TestRealSubprocessRecursion(unittest.TestCase):
