@@ -1,10 +1,10 @@
 """End-to-end tests for recursion detection in nested task invocations."""
 
-import os
-import subprocess
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+
+from tests.e2e import run_tasktree_cli
 
 
 class TestRealSubprocessRecursion(unittest.TestCase):
@@ -26,13 +26,7 @@ tasks:
             )
 
             # Run tt via subprocess
-            result = subprocess.run(
-                ["python3", "-m", "tasktree", "recursive-task"],
-                cwd=tmpdir,
-                capture_output=True,
-                text=True,
-                env={**os.environ, "PYTHONPATH": str(Path.cwd())},
-            )
+            result = run_tasktree_cli(["recursive-task"], cwd=Path(tmpdir))
 
             # Should fail with non-zero exit code
             self.assertNotEqual(result.returncode, 0)
@@ -77,13 +71,7 @@ tasks:
             )
 
             # Run tt via subprocess
-            result = subprocess.run(
-                ["python3", "-m", "tasktree", "chain-1"],
-                cwd=tmpdir,
-                capture_output=True,
-                text=True,
-                env={**os.environ, "PYTHONPATH": str(Path.cwd())},
-            )
+            result = run_tasktree_cli(["chain-1"], cwd=Path(tmpdir))
 
             # Should succeed
             self.assertEqual(
