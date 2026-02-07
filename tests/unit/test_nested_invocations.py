@@ -556,7 +556,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-            custom_state_path = "/workspace/.tasktree-state"
+            custom_state_path = "/tasktree-internal/.tasktree-state"
 
             with patch.dict("os.environ", {
                 "TT_STATE_FILE_PATH": custom_state_path,
@@ -587,7 +587,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            with patch.dict("os.environ", {"TT_STATE_FILE_PATH": "/workspace/.tasktree-state"}):
+            with patch.dict("os.environ", {"TT_STATE_FILE_PATH": "/tasktree-internal/.tasktree-state"}):
                 with self.assertRaises(ValueError) as context:
                     StateManager(project_root)
                 self.assertIn("TT_STATE_FILE_PATH is set but TT_CONTAINERIZED_RUNNER is not", str(context.exception))
@@ -966,7 +966,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
 
             # Verify TT_* env vars were added
             self.assertEqual(captured_env.get("TT_CONTAINERIZED_RUNNER"), "build")
-            self.assertEqual(captured_env.get("TT_STATE_FILE_PATH"), "/workspace/.tasktree-state")
+            self.assertEqual(captured_env.get("TT_STATE_FILE_PATH"), "/tasktree-internal/.tasktree-state")
 
     def test_state_file_mounted_as_volume(self):
         """
@@ -1028,7 +1028,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
                 executor._run_task(recipe.tasks["test"], {}, process_runner)
 
             # Verify state file was mounted
-            state_mount = f"{state_file.absolute()}:/workspace/.tasktree-state"
+            state_mount = f"{state_file.absolute()}:/tasktree-internal/.tasktree-state"
             self.assertIn(state_mount, captured_volumes)
 
     def test_nested_call_uses_runner_shell_preamble(self):
