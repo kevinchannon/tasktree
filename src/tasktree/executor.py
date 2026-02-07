@@ -983,6 +983,21 @@ class Executor:
                         stderr=stderr_target,
                         env=env,
                     )
+            except FileNotFoundError as e:
+                # Check if this is a containerized environment
+                current_containerized_runner = os.environ.get("TT_CONTAINERIZED_RUNNER")
+                if current_containerized_runner and ("tt" in cmd or "tasktree" in cmd):
+                    raise ExecutionError(
+                        f"Task '{task_name}' failed: Command not found. "
+                        f"When running nested tasks inside Docker container '{current_containerized_runner}', "
+                        f"the 'tt' binary must be installed in the container image. "
+                        f"Add 'RUN pip install tasktree' to your Dockerfile, or ensure the tasktree package "
+                        f"is available in your container's Python environment."
+                    ) from e
+                else:
+                    raise ExecutionError(
+                        f"Task '{task_name}' failed: Command not found. {e}"
+                    ) from e
             except subprocess.CalledProcessError as e:
                 raise ExecutionError(
                     f"Task '{task_name}' failed with exit code {e.returncode}"

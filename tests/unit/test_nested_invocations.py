@@ -1293,6 +1293,80 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
                     # Verify runner name is correctly set in environment variable
                     self.assertEqual(captured_env.get("TT_CONTAINERIZED_RUNNER"), runner_name)
 
+    def test_helpful_error_when_tt_not_found_in_container(self):
+        """
+        Test that a helpful error message is shown when tt binary is not found in container.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            from tasktree.parser import Runner
+            shell_runner = Runner(
+                name="shell",
+                shell="/bin/bash",
+                preamble="",
+                dockerfile=None,
+                context=None,
+                volumes=[],
+                ports=[],
+                env_vars={},
+                working_dir="",
+                args=[],
+                extra_args=[],
+            )
+
+            recipe = Recipe(
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+                tasks={
+                    "nested": Task(
+                        name="nested",
+                        desc="Nested task",
+                        cmd="tt --version",  # Will fail with FileNotFoundError
+                        deps=[],
+                        inputs=[],
+                        outputs=[],
+                        working_dir=".",
+                        run_in="shell",
+                        args=[],
+                        private=False,
+                    )
+                },
+                runners={"shell": shell_runner},
+                variables={},
+            )
+
+            state_manager = StateManager(project_root)
+            state_manager.load()
+
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+
+            # Simulate being inside a container
+            with patch.dict("os.environ", {"TT_CONTAINERIZED_RUNNER": "my-container"}):
+                # Mock process_runner.run to raise FileNotFoundError
+                from tasktree.executor import ExecutionError
+
+                with patch.object(
+                    executor._process_runner_factory(TaskOutputTypes.ALL, logger_stub),
+                    "run",
+                    side_effect=FileNotFoundError("tt: command not found")
+                ):
+                    with self.assertRaises(ExecutionError) as context:
+                        process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
+                        # Patch the process runner's run method
+                        with patch.object(
+                            process_runner,
+                            "run",
+                            side_effect=FileNotFoundError("tt: command not found")
+                        ):
+                            executor._run_task(recipe.tasks["nested"], {}, process_runner)
+
+                    # Verify error message is helpful
+                    error_msg = str(context.exception)
+                    self.assertIn("tt' binary must be installed", error_msg)
+                    self.assertIn("Dockerfile", error_msg)
+                    self.assertIn("my-container", error_msg)
+
 
 if __name__ == "__main__":
     unittest.main()
