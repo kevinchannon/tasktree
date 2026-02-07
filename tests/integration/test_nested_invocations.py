@@ -473,5 +473,361 @@ tasks:
                 os.chdir(original_cwd)
 
 
+class TestDockerNestedInvocations(unittest.TestCase):
+    """Integration tests for Phase 2: Docker support in nested invocations."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.runner = CliRunner()
+        self.env = {"NO_COLOR": "1"}
+
+    @unittest.skip("Requires Docker - run manually or in CI with Docker available")
+    def test_docker_task_calls_nested_same_runner(self):
+        """
+        Test that a Docker task can call another task with the same Docker runner.
+        Should execute directly without launching a new container.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create simple Dockerfile
+            dockerfile = project_root / "Dockerfile"
+            dockerfile.write_text("""
+FROM python:3.11-slim
+WORKDIR /workspace
+""")
+
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+runners:
+  build:
+    dockerfile: Dockerfile
+    context: .
+    shell: /bin/bash
+
+tasks:
+  child:
+    run_in: build
+    outputs: [child.txt]
+    cmd: echo "child output" > child.txt
+
+  parent:
+    run_in: build
+    outputs: [parent.txt]
+    cmd: |
+      python3 -m tasktree.cli child
+      echo "parent output" > parent.txt
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Run parent task
+                result = self.runner.invoke(app, ["parent"], env=self.env)
+                self.assertEqual(result.exit_code, 0)
+
+                # Verify outputs created
+                child_txt = project_root / "child.txt"
+                parent_txt = project_root / "parent.txt"
+                self.assertTrue(child_txt.exists())
+                self.assertTrue(parent_txt.exists())
+
+                # Verify state has both tasks
+                state_file = project_root / ".tasktree-state"
+                with open(state_file, "r") as f:
+                    state = json.load(f)
+                self.assertEqual(len(state), 2)
+
+            finally:
+                os.chdir(original_cwd)
+
+    @unittest.skip("Requires Docker - run manually or in CI with Docker available")
+    def test_docker_task_calls_nested_different_docker_fails(self):
+        """
+        Test that nested call to different Docker runner fails with clear error.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create two Dockerfiles
+            dockerfile_build = project_root / "Dockerfile.build"
+            dockerfile_build.write_text("""
+FROM python:3.11-slim
+WORKDIR /workspace
+""")
+
+            dockerfile_test = project_root / "Dockerfile.test"
+            dockerfile_test.write_text("""
+FROM python:3.11-slim
+WORKDIR /workspace
+""")
+
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+runners:
+  build:
+    dockerfile: Dockerfile.build
+    context: .
+    shell: /bin/bash
+
+  test:
+    dockerfile: Dockerfile.test
+    context: .
+    shell: /bin/bash
+
+tasks:
+  child:
+    run_in: test
+    cmd: echo "child"
+
+  parent:
+    run_in: build
+    cmd: python3 -m tasktree.cli child
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Run parent task - should fail
+                result = self.runner.invoke(app, ["parent"], env=self.env)
+                self.assertNotEqual(result.exit_code, 0)
+
+                # Verify error message mentions runner mismatch
+                output = strip_ansi_codes(result.stdout)
+                self.assertIn("requires containerized runner 'test'", output)
+                self.assertIn("currently executing inside runner 'build'", output)
+
+            finally:
+                os.chdir(original_cwd)
+
+    @unittest.skip("Requires Docker - run manually or in CI with Docker available")
+    def test_docker_task_calls_nested_shell_runner_succeeds(self):
+        """
+        Test that Docker task can call task with shell-only runner (allowed).
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            dockerfile = project_root / "Dockerfile"
+            dockerfile.write_text("""
+FROM python:3.11-slim
+WORKDIR /workspace
+""")
+
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+runners:
+  build:
+    dockerfile: Dockerfile
+    context: .
+    shell: /bin/bash
+
+  lint:
+    shell: /bin/sh
+    preamble: "set -e"
+
+tasks:
+  child:
+    run_in: lint
+    outputs: [child.txt]
+    cmd: echo "child output" > child.txt
+
+  parent:
+    run_in: build
+    outputs: [parent.txt]
+    cmd: |
+      python3 -m tasktree.cli child
+      echo "parent output" > parent.txt
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Run parent task - should succeed
+                result = self.runner.invoke(app, ["parent"], env=self.env)
+                self.assertEqual(result.exit_code, 0)
+
+                # Verify outputs created
+                child_txt = project_root / "child.txt"
+                parent_txt = project_root / "parent.txt"
+                self.assertTrue(child_txt.exists())
+                self.assertTrue(parent_txt.exists())
+
+            finally:
+                os.chdir(original_cwd)
+
+    @unittest.skip("Requires Docker - run manually or in CI with Docker available")
+    def test_local_calls_docker_task(self):
+        """
+        Test that local task can call Docker task (normal operation).
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            dockerfile = project_root / "Dockerfile"
+            dockerfile.write_text("""
+FROM python:3.11-slim
+WORKDIR /workspace
+""")
+
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+runners:
+  build:
+    dockerfile: Dockerfile
+    context: .
+    shell: /bin/bash
+
+tasks:
+  docker-child:
+    run_in: build
+    outputs: [child.txt]
+    cmd: echo "docker child" > child.txt
+
+  local-parent:
+    outputs: [parent.txt]
+    cmd: |
+      python3 -m tasktree.cli docker-child
+      echo "local parent" > parent.txt
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Run local parent task
+                result = self.runner.invoke(app, ["local-parent"], env=self.env)
+                self.assertEqual(result.exit_code, 0)
+
+                # Verify outputs created
+                child_txt = project_root / "child.txt"
+                parent_txt = project_root / "parent.txt"
+                self.assertTrue(child_txt.exists())
+                self.assertTrue(parent_txt.exists())
+
+            finally:
+                os.chdir(original_cwd)
+
+    @unittest.skip("Requires Docker - run manually or in CI with Docker available")
+    def test_state_file_accessible_in_container(self):
+        """
+        Test that state file is mounted and accessible inside Docker container.
+        Verify state updates work across container boundary.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            dockerfile = project_root / "Dockerfile"
+            dockerfile.write_text("""
+FROM python:3.11-slim
+WORKDIR /workspace
+""")
+
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+runners:
+  build:
+    dockerfile: Dockerfile
+    context: .
+    shell: /bin/bash
+
+tasks:
+  docker-task:
+    run_in: build
+    outputs: [output.txt]
+    cmd: echo "docker output" > output.txt
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Run docker task
+                result = self.runner.invoke(app, ["docker-task"], env=self.env)
+                self.assertEqual(result.exit_code, 0)
+
+                # Verify state file exists on host
+                state_file = project_root / ".tasktree-state"
+                self.assertTrue(state_file.exists())
+
+                # Verify state has entry for task
+                with open(state_file, "r") as f:
+                    state = json.load(f)
+                self.assertEqual(len(state), 1)
+
+            finally:
+                os.chdir(original_cwd)
+
+    @unittest.skip("Requires Docker - run manually or in CI with Docker available")
+    def test_multiple_nested_docker_calls_update_state(self):
+        """
+        Test that multiple sequential nested calls in Docker all update state correctly.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            dockerfile = project_root / "Dockerfile"
+            dockerfile.write_text("""
+FROM python:3.11-slim
+WORKDIR /workspace
+""")
+
+            recipe_file = project_root / "tasktree.yaml"
+            recipe_file.write_text("""
+runners:
+  build:
+    dockerfile: Dockerfile
+    context: .
+    shell: /bin/bash
+
+tasks:
+  child1:
+    run_in: build
+    outputs: [child1.txt]
+    cmd: echo "child1" > child1.txt
+
+  child2:
+    run_in: build
+    outputs: [child2.txt]
+    cmd: echo "child2" > child2.txt
+
+  parent:
+    run_in: build
+    outputs: [parent.txt]
+    cmd: |
+      python3 -m tasktree.cli child1
+      python3 -m tasktree.cli child2
+      echo "parent" > parent.txt
+""")
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Run parent task
+                result = self.runner.invoke(app, ["parent"], env=self.env)
+                self.assertEqual(result.exit_code, 0)
+
+                # Verify all outputs created
+                child1_txt = project_root / "child1.txt"
+                child2_txt = project_root / "child2.txt"
+                parent_txt = project_root / "parent.txt"
+                self.assertTrue(child1_txt.exists())
+                self.assertTrue(child2_txt.exists())
+                self.assertTrue(parent_txt.exists())
+
+                # Verify state has all 3 tasks
+                state_file = project_root / ".tasktree-state"
+                with open(state_file, "r") as f:
+                    state = json.load(f)
+                self.assertEqual(len(state), 3)
+
+            finally:
+                os.chdir(original_cwd)
+
+
 if __name__ == "__main__":
     unittest.main()

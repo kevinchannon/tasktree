@@ -1503,19 +1503,143 @@ tasks:
       echo "This always runs"
 ```
 
-### Limitations (Phase 1)
+### Docker Environment Support
 
-- **Docker-in-Docker**: Not currently supported. Nested calls from containerized tasks are not yet implemented (coming in Phase 2).
-- **Recursion**: Direct or indirect recursion (A → B → A) will cause infinite loops in this phase. Cycle detection is planned for Phase 3.
+Nested task invocations work seamlessly with Docker containers, with intelligent handling of runner compatibility:
+
+#### Same Container Execution
+
+When a task running in a Docker container invokes another task that uses the same Docker runner, the nested task executes directly inside the existing container (no Docker-in-Docker):
+
+```yaml
+runners:
+  build:
+    dockerfile: Dockerfile
+    context: .
+    shell: /bin/bash
+
+tasks:
+  compile:
+    run_in: build
+    outputs: [app.bin]
+    cmd: gcc app.c -o app.bin
+
+  test:
+    run_in: build  # Same runner as parent
+    cmd: |
+      tt compile
+      ./app.bin --test
+```
+
+Running `tt test` launches a single `build` container. The `tt compile` nested call executes directly inside that container using the runner's shell configuration.
+
+#### Shell-Only Runner Switching
+
+Tasks can switch from a Docker runner to a shell-only runner within a nested call:
+
+```yaml
+runners:
+  build:
+    dockerfile: Dockerfile
+    context: .
+
+  lint:
+    shell: /bin/sh
+    preamble: "set -e"
+
+tasks:
+  check-code:
+    run_in: lint  # Shell-only runner
+    cmd: shellcheck src/*.sh
+
+  build-app:
+    run_in: build
+    cmd: |
+      tt check-code  # Allowed: switch to shell-only runner
+      make build
+```
+
+The `tt check-code` call runs inside the `build` container using the `lint` runner's shell and preamble.
+
+#### Local to Docker
+
+Local tasks can invoke Docker tasks normally:
+
+```yaml
+tasks:
+  docker-task:
+    run_in: build
+    cmd: echo "Running in container"
+
+  local-task:
+    cmd: |
+      echo "Local execution"
+      tt docker-task  # Launches container normally
+```
+
+#### Different Docker Runners (Not Supported)
+
+Switching from one Docker runner to a **different** Docker runner is not allowed (Docker-in-Docker is complex and fragile):
+
+```yaml
+runners:
+  build:
+    dockerfile: Dockerfile.build
+    context: .
+
+  test:
+    dockerfile: Dockerfile.test  # Different Dockerfile
+    context: .
+
+tasks:
+  child:
+    run_in: test  # Different Docker runner
+
+  parent:
+    run_in: build
+    cmd: tt child  # ❌ ERROR: Cannot switch to different Docker runner
+```
+
+**Error message:**
+```
+Task 'child' requires containerized runner 'test' but is currently executing
+inside runner 'build'. Nested Docker-in-Docker invocations across different
+containerized runners are not supported. Either remove the runner specification
+from 'child', ensure it matches the parent task's runner, or use a shell-only runner.
+```
+
+#### How It Works
+
+Task Tree sets environment variables when launching Docker containers:
+
+- `TT_CONTAINERIZED_RUNNER`: Name of the current containerized runner
+- `TT_STATE_FILE_PATH`: Path to the state file inside the container
+
+These variables enable nested `tt` calls to detect they're already running in a container and make appropriate decisions:
+
+- **Same runner name**: Execute directly, skip container launch
+- **No runner or shell-only runner**: Execute with appropriate shell/preamble
+- **Different containerized runner**: Fail with clear error
+
+The state file is automatically mounted into containers at `/workspace/.tasktree-state`, ensuring state updates work correctly across container boundaries.
+
+### Limitations
+
+- **Recursion**: Direct or indirect recursion (A → B → A) will cause infinite loops. Cycle detection is planned for Phase 3.
 - **Sequential execution**: Nested calls must run sequentially. Parallel invocations (e.g., using `&`) are not supported.
+- **Docker-in-Docker**: Switching between different containerized runners is not supported.
+- **Volume conflicts**: User-defined volume mounts cannot use the path `/tasktree-internal/.tasktree-state` as it is reserved for the state file mount.
+- **File permissions**: In Docker containers, the state file is mounted from the host. If the container runs as a different user (via Docker USER directive), ensure the user has read/write permissions on the state file. Consider using user mapping (`docker run --user`) to maintain consistent UIDs.
 
-**⚠️ Warning**: Do not use shell backgrounding (`&`) with nested calls. Running nested tasks in parallel (e.g., `tt task1 & tt task2`) will cause state file corruption. Phase 1 requires strictly sequential execution.
+**⚠️ Warning**: Do not use shell backgrounding (`&`) with nested calls. Running nested tasks in parallel (e.g., `tt task1 & tt task2`) will cause state file corruption.
 
 ### Notes
 
 - The `tt` binary (or `python3 -m tasktree`) must be available in the execution environment's PATH.
+- For Docker tasks, `tt` must be installed inside the container image.
 - Nested invocations work with all task features: arguments, dependencies, inputs/outputs, etc.
 - State file access is sequential - no locking or concurrency handling is needed.
+- The state file is automatically mounted at `/tasktree-internal/.tasktree-state` inside Docker containers. This path was chosen to minimize conflicts with common user directories like `/workspace` or `/app`.
 
 
 ## Environment Variables

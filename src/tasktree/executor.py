@@ -61,6 +61,9 @@ class Executor:
     @athena: 779b12944194
     """
 
+    # Container state file path (mounted inside Docker containers)
+    CONTAINER_STATE_FILE_PATH = "/tasktree-internal/.tasktree-state"
+
     # Protected environment variables that cannot be overridden by exported args
     PROTECTED_ENV_VARS = {
         "PATH",
@@ -688,6 +691,50 @@ class Executor:
 
         return statuses
 
+    def _validate_nested_docker_runner(
+        self, task: Task, current_containerized_runner: str
+    ) -> bool:
+        """
+        Validate runner compatibility when already inside a container.
+
+        Args:
+            task: Task to validate
+            current_containerized_runner: Name of the current containerized runner
+
+        Returns:
+            bool: True if shell execution should be forced (compatible scenario)
+
+        Raises:
+            ExecutionError: If task requires incompatible Docker runner
+
+        @athena: validate_nested_docker_runner
+        """
+        task_runner_name = self._get_effective_runner_name(task)
+
+        # Task specifies a runner - check if it's compatible
+        if task_runner_name and task_runner_name != current_containerized_runner:
+            task_runner = self.recipe.get_runner(task_runner_name)
+
+            # REFINED REJECTION LOGIC:
+            # Only reject if:
+            # 1. Task has run_in specified (checked above via task_runner_name)
+            # 2. The specified runner has a dockerfile field
+            # 3. The dockerfile differs from current container's runner
+            if task_runner and task_runner.dockerfile:
+                raise ExecutionError(
+                    f"Task '{task.name}' requires containerized runner '{task_runner_name}' "
+                    f"but is currently executing inside runner '{current_containerized_runner}'. "
+                    f"Nested Docker-in-Docker invocations across different containerized runners are not supported. "
+                    f"Either remove the runner specification from '{task.name}', ensure it matches "
+                    f"the parent task's runner, or use a shell-only runner."
+                )
+
+        # If we get here, either:
+        # - Same containerized runner name → use it directly
+        # - Different shell-only runner → allowed, use its shell/preamble
+        # - No runner specified → use shell execution in current container
+        return True
+
     def _run_task(
         self, task: Task, args_dict: dict[str, Any], process_runner: ProcessRunner
     ) -> None:
@@ -705,6 +752,16 @@ class Executor:
         """
         # Capture timestamp at task start for consistency (in UTC)
         task_start_time = datetime.now(timezone.utc)
+
+        # Check if we're already inside a containerized runner
+        current_containerized_runner = os.environ.get("TT_CONTAINERIZED_RUNNER")
+        force_shell_execution = False
+
+        if current_containerized_runner:
+            # We're inside a container - validate runner compatibility
+            force_shell_execution = self._validate_nested_docker_runner(
+                task, current_containerized_runner
+            )
 
         # Record the state file's hash before execution
         # This allows us to skip re-reading if no nested tt calls modified it
@@ -766,8 +823,8 @@ class Executor:
         self.logger.log(LogLevel.INFO, f"Running: {task.name}")
 
         # Route to Docker execution or regular execution
-        if env and env.dockerfile:
-            # Docker execution path
+        if not force_shell_execution and env and env.dockerfile:
+            # Docker execution path - launch container
             self._run_task_in_docker(
                 task,
                 env,
@@ -777,8 +834,17 @@ class Executor:
                 exported_env_vars,
             )
         else:
-            # Regular execution path - use unified script-based execution
-            shell, preamble = self._resolve_runner(task)
+            # Shell execution path - either local or inside existing container
+            if current_containerized_runner and env:
+                # Get shell/preamble from task's runner definition
+                # env_name was already validated at lines 715-733 above
+                assert env is not None, "Runner should exist after validation"
+                shell = env.shell or "sh"
+                preamble = env.preamble or ""
+            else:
+                # Normal shell resolution
+                shell, preamble = self._resolve_runner(task)
+
             self._run_command_as_script(
                 cmd,
                 working_dir,
@@ -917,6 +983,21 @@ class Executor:
                         stderr=stderr_target,
                         env=env,
                     )
+            except FileNotFoundError as e:
+                # Check if this is a containerized environment
+                current_containerized_runner = os.environ.get("TT_CONTAINERIZED_RUNNER")
+                if current_containerized_runner and ("tt" in cmd or "tasktree" in cmd):
+                    raise ExecutionError(
+                        f"Task '{task_name}' failed: Command not found. "
+                        f"When running nested tasks inside Docker container '{current_containerized_runner}', "
+                        f"the 'tt' binary must be installed in the container image. "
+                        f"Add 'RUN pip install tasktree' to your Dockerfile, or ensure the tasktree package "
+                        f"is available in your container's Python environment."
+                    ) from e
+                else:
+                    raise ExecutionError(
+                        f"Task '{task_name}' failed: Command not found. {e}"
+                    ) from e
             except subprocess.CalledProcessError as e:
                 raise ExecutionError(
                     f"Task '{task_name}' failed with exit code {e.returncode}"
@@ -1095,6 +1176,11 @@ class Executor:
 
         # Validate and merge exported args with env vars (exported args take precedence)
         docker_env_vars = env.env_vars.copy() if env.env_vars else {}
+
+        # Add nested invocation support environment variables
+        docker_env_vars["TT_CONTAINERIZED_RUNNER"] = env.name
+        docker_env_vars["TT_STATE_FILE_PATH"] = self.CONTAINER_STATE_FILE_PATH
+
         if exported_env_vars:
             # Check for protected environment variable overrides
             for key in exported_env_vars:
@@ -1105,10 +1191,34 @@ class Executor:
                     )
             docker_env_vars.update(exported_env_vars)
 
-        # Create modified environment with merged env vars using dataclass replace
+        # Mount state file into container
+        # Ensure state file exists before mounting (Docker requires the file to exist)
+        if not self.state.state_path.exists():
+            self.state.state_path.touch()
+
+        volumes_to_mount = env.volumes.copy() if env.volumes else []
+        state_file_host_path = str(self.state.state_path.absolute())
+
+        # Check for volume mount conflicts with state file path
+        for volume in volumes_to_mount:
+            # Parse volume mount (format: "host:container" or "host:container:ro")
+            parts = volume.split(":")
+            if len(parts) >= 2:
+                container_path = parts[1]
+                if container_path == self.CONTAINER_STATE_FILE_PATH:
+                    raise ExecutionError(
+                        f"Volume mount conflict: User-defined volume '{volume}' conflicts with "
+                        f"automatic state file mount at '{self.CONTAINER_STATE_FILE_PATH}'. "
+                        f"The state file must be mounted at this location for nested task invocations to work. "
+                        f"Please use a different container path for your volume mount."
+                    )
+
+        volumes_to_mount.append(f"{state_file_host_path}:{self.CONTAINER_STATE_FILE_PATH}")
+
+        # Create modified environment with merged env vars and volumes using dataclass replace
         from dataclasses import replace
 
-        modified_env = replace(env, env_vars=docker_env_vars)
+        modified_env = replace(env, env_vars=docker_env_vars, volumes=volumes_to_mount)
 
         # Execute in container
         try:
