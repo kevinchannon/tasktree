@@ -34,13 +34,17 @@ tasks:
             env = os.environ.copy()
             env["TT_CALL_CHAIN"] = "self-caller"
 
-            result = runner.invoke(
-                app,
-                ["self-caller"],
-                catch_exceptions=False,
-                env=env,
-                obj={"config_path": recipe_path},
-            )
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                result = runner.invoke(
+                    app,
+                    ["self-caller"],
+                    catch_exceptions=False,
+                    env=env,
+                )
+            finally:
+                os.chdir(original_cwd)
 
             self.assertNotEqual(result.exit_code, 0)
             self.assertIn("Recursion detected", result.output)
@@ -73,13 +77,17 @@ tasks:
             env = os.environ.copy()
             env["TT_CALL_CHAIN"] = "task-a,task-b,task-c"
 
-            result = runner.invoke(
-                app,
-                ["task-a"],
-                catch_exceptions=False,
-                env=env,
-                obj={"config_path": recipe_path},
-            )
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                result = runner.invoke(
+                    app,
+                    ["task-a"],
+                    catch_exceptions=False,
+                    env=env,
+                )
+            finally:
+                os.chdir(original_cwd)
 
             self.assertNotEqual(result.exit_code, 0)
             self.assertIn("Recursion detected", result.output)
@@ -130,12 +138,16 @@ tasks:
             )
 
             runner = CliRunner()
-            result = runner.invoke(
-                app,
-                ["level-1"],
-                catch_exceptions=False,
-                obj={"config_path": recipe_path},
-            )
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                result = runner.invoke(
+                    app,
+                    ["level-1"],
+                    catch_exceptions=False,
+                )
+            finally:
+                os.chdir(original_cwd)
 
             # Should succeed
             self.assertEqual(result.exit_code, 0, f"Output: {result.output}")
@@ -178,12 +190,16 @@ tasks:
             )
 
             runner = CliRunner()
-            result = runner.invoke(
-                app,
-                ["parent"],
-                catch_exceptions=False,
-                obj={"config_path": recipe_path},
-            )
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                result = runner.invoke(
+                    app,
+                    ["parent"],
+                    catch_exceptions=False,
+                )
+            finally:
+                os.chdir(original_cwd)
 
             self.assertEqual(result.exit_code, 0, f"Output: {result.output}")
 
@@ -235,12 +251,16 @@ tasks:
             )
 
             runner = CliRunner()
-            result = runner.invoke(
-                app,
-                ["parent"],
-                catch_exceptions=False,
-                obj={"config_path": recipe_path},
-            )
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                result = runner.invoke(
+                    app,
+                    ["parent"],
+                    catch_exceptions=False,
+                )
+            finally:
+                os.chdir(original_cwd)
 
             # Should succeed
             self.assertEqual(result.exit_code, 0, f"Output: {result.output}")
