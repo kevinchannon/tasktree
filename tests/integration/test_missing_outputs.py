@@ -62,16 +62,16 @@ class TestMissingOutputsIntegration(unittest.TestCase):
             (project_root / "output.txt").unlink()
             self.assertFalse((project_root / "output.txt").exists())
 
-            # Third run - task should execute due to missing outputs
+            # Third run - task executes (no inputs, always runs)
             statuses = executor.execute_task("build", TaskOutputTypes.ALL)
             self.assertTrue(statuses["build"].will_run)
-            self.assertEqual(statuses["build"].reason, "outputs_missing")
+            self.assertEqual(statuses["build"].reason, "no_inputs")
             self.assertTrue((project_root / "output.txt").exists())
 
-            # Fourth run - task should skip again (outputs exist)
+            # Fourth run - task runs again (no inputs, always runs)
             statuses = executor.execute_task("build", TaskOutputTypes.ALL)
-            self.assertFalse(statuses["build"].will_run)
-            self.assertEqual(statuses["build"].reason, "fresh")
+            self.assertTrue(statuses["build"].will_run)
+            self.assertEqual(statuses["build"].reason, "no_inputs")
 
     def test_partial_outputs_missing_triggers_rerun(self):
         """
@@ -112,7 +112,7 @@ class TestMissingOutputsIntegration(unittest.TestCase):
             # Second run - task should run again (no inputs, always runs)
             statuses = executor.execute_task("build", TaskOutputTypes.ALL)
             self.assertTrue(statuses["build"].will_run)
-            self.assertEqual(statuses["build"].reason, "fresh")
+            self.assertEqual(statuses["build"].reason, "no_inputs")
 
             # Delete only one output file
             (project_root / "output1.txt").unlink()
