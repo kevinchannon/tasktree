@@ -123,8 +123,7 @@ tasks:
                 # Small delay to ensure timestamp difference
                 time.sleep(1.01)
 
-                # Second run - child should skip (outputs fresh)
-                # Parent will run (no inputs, always runs)
+                # Second run - both child and parent run (no inputs, always run)
                 result = self.runner.invoke(app, ["parent"], env=self.env)
                 self.assertEqual(result.exit_code, 0)
 
@@ -132,9 +131,9 @@ tasks:
                 parent_mtime_2 = parent_txt.stat().st_mtime
                 self.assertGreater(parent_mtime_2, parent_mtime_1)
 
-                # Child output unchanged (skipped due to incrementality)
+                # Child output also updated (child always runs - no inputs)
                 child_mtime_2 = child_txt.stat().st_mtime
-                self.assertEqual(child_mtime_2, child_mtime_1)
+                self.assertGreater(child_mtime_2, child_mtime_1)
 
             finally:
                 os.chdir(original_cwd)
