@@ -390,7 +390,7 @@ def _execute_dynamic_task(
     args_dict = parse_task_args(logger, task.args, task_args)
 
     # Create executor and state manager
-    state = StateManager(recipe.project_root)
+    state = StateManager(recipe.project_root, logger)
     state.load()
     executor = Executor(recipe, state, logger, make_process_runner)
 
