@@ -145,3 +145,15 @@ class StateManager:
         """
         self._state = {}
         self._loaded = True
+
+    def get_mtime(self) -> float | None:
+        """
+        Get the modification time of the state file.
+
+        Returns:
+        Modification time in seconds since epoch, or None if file doesn't exist
+        @athena: tbd
+        """
+        if self.state_path.exists():
+            return self.state_path.stat().st_mtime
+        return None
