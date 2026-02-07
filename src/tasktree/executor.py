@@ -244,16 +244,19 @@ class Executor:
         return builtin_vars
 
     def _prepare_env_with_exports(
-        self, exported_env_vars: dict[str, str] | None = None
+        self,
+        exported_env_vars: dict[str, str] | None = None,
+        call_chain: str | None = None,
     ) -> dict[str, str]:
         """
-        Prepare environment with exported arguments.
+        Prepare environment with exported arguments and call chain.
 
         Args:
         exported_env_vars: Exported arguments to set as environment variables
+        call_chain: TT_CALL_CHAIN value for recursion detection
 
         Returns:
-        Environment dict with exported args merged
+        Environment dict with exported args and call chain merged
 
         Raises:
         ValueError: If an exported arg attempts to override a protected environment variable
@@ -269,6 +272,11 @@ class Executor:
                         f"Protected variables are: {', '.join(sorted(self.PROTECTED_ENV_VARS))}"
                     )
             env.update(exported_env_vars)
+
+        # Add call chain for recursion detection
+        if call_chain is not None:
+            env["TT_CALL_CHAIN"] = call_chain
+
         return env
 
     def _try_load_config(
@@ -753,6 +761,30 @@ class Executor:
         # Capture timestamp at task start for consistency (in UTC)
         task_start_time = datetime.now(timezone.utc)
 
+        # Check for recursion via TT_CALL_CHAIN
+        current_chain = os.environ.get("TT_CALL_CHAIN", "")
+        chain_list = [t.strip() for t in current_chain.split(",") if t.strip()]
+
+        # Use fully-qualified task name (includes import prefix if any)
+        task_fqn = task.name  # Already includes import prefix from parser
+
+        # Check if this task is already in the call chain
+        if task_fqn in chain_list:
+            # Recursion detected - build cycle path for error message
+            cycle_start_idx = chain_list.index(task_fqn)
+            cycle_path = chain_list[cycle_start_idx:] + [task_fqn]
+            cycle_str = " → ".join(cycle_path)
+
+            raise ExecutionError(
+                f"Recursion detected in task invocation chain:\n"
+                f"{cycle_str}\n\n"
+                f"Task '{task_fqn}' is already running in the call chain.\n"
+                f"This would create an infinite loop."
+            )
+
+        # Add current task to chain for child processes
+        updated_chain = ",".join(chain_list + [task_fqn]) if chain_list else task_fqn
+
         # Check if we're already inside a containerized runner
         current_containerized_runner = os.environ.get("TT_CONTAINERIZED_RUNNER")
         force_shell_execution = False
@@ -832,6 +864,7 @@ class Executor:
                 working_dir,
                 process_runner,
                 exported_env_vars,
+                updated_chain,
             )
         else:
             # Shell execution path - either local or inside existing container
@@ -853,6 +886,7 @@ class Executor:
                 preamble,
                 process_runner,
                 exported_env_vars,
+                updated_chain,
             )
 
         # Reload state from disk to capture any updates from nested tt calls
@@ -873,6 +907,7 @@ class Executor:
         preamble: str,
         process_runner: ProcessRunner,
         exported_env_vars: dict[str, str] | None = None,
+        call_chain: str | None = None,
     ) -> None:
         """
         Execute a command via temporary script file (unified execution path).
@@ -889,14 +924,15 @@ class Executor:
         preamble: Preamble text to prepend to script
         process_runner: ProcessRunner instance to use for subprocess execution
         exported_env_vars: Exported arguments to set as environment variables
+        call_chain: TT_CALL_CHAIN value for recursion detection
 
         Raises:
         ExecutionError: If command execution fails
         @athena: TBD
         @athena: 228cc00e7665
         """
-        # Prepare environment with exported args
-        env = self._prepare_env_with_exports(exported_env_vars)
+        # Prepare environment with exported args and call chain
+        env = self._prepare_env_with_exports(exported_env_vars, call_chain)
 
         # Determine file extension based on platform
         is_windows = platform.system() == "Windows"
@@ -1140,6 +1176,7 @@ class Executor:
         working_dir: Path,
         process_runner: ProcessRunner,
         exported_env_vars: dict[str, str] | None = None,
+        call_chain: str | None = None,
     ) -> None:
         """
         Execute task inside Docker container.
@@ -1151,6 +1188,7 @@ class Executor:
         working_dir: Host working directory
         process_runner: ProcessRunner instance to use for subprocess execution
         exported_env_vars: Exported arguments to set as environment variables
+        call_chain: TT_CALL_CHAIN value for recursion detection
         task_output: Control task subprocess output (all, out, err, on-err, none)
 
         Raises:
@@ -1180,6 +1218,10 @@ class Executor:
         # Add nested invocation support environment variables
         docker_env_vars["TT_CONTAINERIZED_RUNNER"] = env.name
         docker_env_vars["TT_STATE_FILE_PATH"] = self.CONTAINER_STATE_FILE_PATH
+
+        # Add call chain for recursion detection
+        if call_chain:
+            docker_env_vars["TT_CALL_CHAIN"] = call_chain
 
         if exported_env_vars:
             # Check for protected environment variable overrides
