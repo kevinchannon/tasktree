@@ -197,5 +197,186 @@ tasks:
             self.assertLessEqual(c_time, parent_time)
 
 
+class TestDockerNestedInvocationsE2E(unittest.TestCase):
+    """E2E tests for Phase 2: Docker support in nested invocations."""
+
+    @unittest.skip("Requires Docker - run manually or in CI with Docker available")
+    def test_real_docker_nested_invocation(self):
+        """
+        Test real Docker container with nested tt call.
+        Verify state file updates work across container boundary.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create Dockerfile
+            (project_root / "Dockerfile").write_text("""
+FROM python:3.11-slim
+WORKDIR /workspace
+RUN pip install pyyaml typer rich
+COPY . /app
+ENV PYTHONPATH=/app
+""")
+
+            # Create recipe
+            (project_root / "tasktree.yaml").write_text("""
+runners:
+  build:
+    dockerfile: Dockerfile
+    context: .
+    shell: /bin/bash
+
+tasks:
+  child:
+    run_in: build
+    outputs: [child.txt]
+    cmd: echo "docker child" > child.txt
+
+  parent:
+    run_in: build
+    outputs: [parent.txt]
+    cmd: |
+      python3 -m tasktree.cli child
+      echo "docker parent" > parent.txt
+""")
+
+            # Execute parent task
+            result = run_tasktree_cli(["parent"], cwd=project_root)
+
+            self.assertEqual(
+                result.returncode,
+                0,
+                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
+            )
+
+            # Verify outputs created
+            child_txt = project_root / "child.txt"
+            parent_txt = project_root / "parent.txt"
+            self.assertTrue(child_txt.exists())
+            self.assertTrue(parent_txt.exists())
+
+            # Verify state has both entries
+            state_file = project_root / ".tasktree-state"
+            with open(state_file, "r") as f:
+                state_data = json.load(f)
+            self.assertEqual(len(state_data), 2)
+
+    @unittest.skip("Requires Docker - run manually or in CI with Docker available")
+    def test_real_docker_different_runner_error(self):
+        """
+        Test that attempting to switch to different Docker runner produces clear error.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create two Dockerfiles
+            (project_root / "Dockerfile.build").write_text("""
+FROM python:3.11-slim
+WORKDIR /workspace
+RUN pip install pyyaml typer rich
+COPY . /app
+ENV PYTHONPATH=/app
+""")
+
+            (project_root / "Dockerfile.test").write_text("""
+FROM python:3.11-slim
+WORKDIR /workspace
+RUN pip install pyyaml typer rich
+COPY . /app
+ENV PYTHONPATH=/app
+""")
+
+            # Create recipe
+            (project_root / "tasktree.yaml").write_text("""
+runners:
+  build:
+    dockerfile: Dockerfile.build
+    context: .
+    shell: /bin/bash
+
+  test:
+    dockerfile: Dockerfile.test
+    context: .
+    shell: /bin/bash
+
+tasks:
+  child:
+    run_in: test
+    cmd: echo "test child"
+
+  parent:
+    run_in: build
+    cmd: python3 -m tasktree.cli child
+""")
+
+            # Execute parent task - should fail
+            result = run_tasktree_cli(["parent"], cwd=project_root)
+
+            self.assertNotEqual(result.returncode, 0, "Should fail when switching Docker runners")
+
+            # Verify error message
+            error_output = result.stderr + result.stdout
+            self.assertIn("requires containerized runner 'test'", error_output)
+            self.assertIn("currently executing inside runner 'build'", error_output)
+
+    @unittest.skip("Requires Docker - run manually or in CI with Docker available")
+    def test_real_docker_shell_runner_switch(self):
+        """
+        Test that switching from Docker runner to shell-only runner works.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create Dockerfile
+            (project_root / "Dockerfile").write_text("""
+FROM python:3.11-slim
+WORKDIR /workspace
+RUN pip install pyyaml typer rich
+COPY . /app
+ENV PYTHONPATH=/app
+""")
+
+            # Create recipe
+            (project_root / "tasktree.yaml").write_text("""
+runners:
+  build:
+    dockerfile: Dockerfile
+    context: .
+    shell: /bin/bash
+
+  lint:
+    shell: /bin/sh
+    preamble: "set -e"
+
+tasks:
+  child:
+    run_in: lint
+    outputs: [child.txt]
+    cmd: echo "shell child" > child.txt
+
+  parent:
+    run_in: build
+    outputs: [parent.txt]
+    cmd: |
+      python3 -m tasktree.cli child
+      echo "docker parent" > parent.txt
+""")
+
+            # Execute parent task - should succeed
+            result = run_tasktree_cli(["parent"], cwd=project_root)
+
+            self.assertEqual(
+                result.returncode,
+                0,
+                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
+            )
+
+            # Verify outputs created
+            child_txt = project_root / "child.txt"
+            parent_txt = project_root / "parent.txt"
+            self.assertTrue(child_txt.exists())
+            self.assertTrue(parent_txt.exists())
+
+
 if __name__ == "__main__":
     unittest.main()
