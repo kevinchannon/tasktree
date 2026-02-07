@@ -505,6 +505,7 @@ class Executor:
         """
         # If force flag is set, always run
         if force:
+            self.logger.debug(f"Task '{task.name}' will run: force flag specified")
             return TaskStatus(
                 task_name=task.name,
                 will_run=True,
@@ -529,6 +530,7 @@ class Executor:
         all_inputs = self._get_all_inputs(task)
         if not all_inputs:
             cached_state = self.state.get(cache_key)
+            self.logger.debug(f"Task '{task.name}' will run: task has no inputs (always runs)")
             return TaskStatus(
                 task_name=task.name,
                 will_run=True,
@@ -539,6 +541,7 @@ class Executor:
         # Check cached state
         cached_state = self.state.get(cache_key)
         if cached_state is None:
+            self.logger.debug(f"Task '{task.name}' will run: no previous execution found")
             return TaskStatus(
                 task_name=task.name,
                 will_run=True,
@@ -549,6 +552,7 @@ class Executor:
             task, cached_state, effective_env, process_runner
         )
         if env_changed:
+            self.logger.debug(f"Task '{task.name}' will run: runner definition changed")
             return TaskStatus(
                 task_name=task.name,
                 will_run=True,
@@ -559,6 +563,8 @@ class Executor:
         # Check if inputs have changed
         changed_files = self._check_inputs_changed(task, cached_state, all_inputs)
         if changed_files:
+            files_list = ", ".join(changed_files)
+            self.logger.debug(f"Task '{task.name}' will run: inputs changed: {files_list}")
             return TaskStatus(
                 task_name=task.name,
                 will_run=True,
@@ -570,6 +576,8 @@ class Executor:
         # Check if declared outputs are missing
         missing_outputs = self._check_outputs_missing(task)
         if missing_outputs:
+            outputs_list = ", ".join(missing_outputs)
+            self.logger.debug(f"Task '{task.name}' will run: outputs missing: {outputs_list}")
             return TaskStatus(
                 task_name=task.name,
                 will_run=True,
@@ -579,6 +587,7 @@ class Executor:
             )
 
         # Task is fresh
+        self.logger.debug(f"Task '{task.name}' is up-to-date, skipping")
         return TaskStatus(
             task_name=task.name,
             will_run=False,
@@ -634,9 +643,12 @@ class Executor:
         if only:
             # Only execute the target task, skip dependencies
             execution_order = [(task_name, args_dict)]
+            self.logger.debug(f"Skipping dependencies (--only mode)")
         else:
             # Execute task and all dependencies
             execution_order = resolve_execution_order(self.recipe, task_name, args_dict)
+            task_names = [name for name, _ in execution_order]
+            self.logger.debug(f"Execution order: {' -> '.join(task_names)}")
 
         # Resolve dependency output references in topological order
         # This substitutes {{ dep.*.outputs.* }} templates before execution
