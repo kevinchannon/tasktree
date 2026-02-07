@@ -210,14 +210,14 @@ tasks:
                 marker_dir / "grandchild_chain.txt"
             ).read_text().strip()
 
-            # Parent should see empty chain (it's the top level)
-            self.assertEqual(parent_chain, "")
+            # Parent adds itself to chain before execution
+            self.assertEqual(parent_chain, "parent")
 
-            # Child should see parent in chain
-            self.assertEqual(child_chain, "parent")
+            # Child should see parent,child in chain
+            self.assertEqual(child_chain, "parent,child")
 
-            # Grandchild should see parent,child in chain
-            self.assertEqual(grandchild_chain, "parent,child")
+            # Grandchild should see parent,child,grandchild in chain
+            self.assertEqual(grandchild_chain, "parent,child,grandchild")
 
 
 class TestNestedCallWithDeps(unittest.TestCase):
@@ -231,22 +231,22 @@ class TestNestedCallWithDeps(unittest.TestCase):
             output_dir.mkdir()
 
             recipe_path.write_text(
-                f"""
+                """
 tasks:
   dep-task:
-    outputs: [{output_dir}/dep.txt]
-    cmd: echo "Dependency" > {output_dir}/dep.txt
+    outputs: [outputs/dep.txt]
+    cmd: echo "Dependency" > outputs/dep.txt
 
   parent:
     deps: [dep-task]
-    outputs: [{output_dir}/parent.txt]
+    outputs: [outputs/parent.txt]
     cmd: |
-      echo "Parent" > {output_dir}/parent.txt
+      echo "Parent" > outputs/parent.txt
       tt child
 
   child:
-    outputs: [{output_dir}/child.txt]
-    cmd: echo "Child" > {output_dir}/child.txt
+    outputs: [outputs/child.txt]
+    cmd: echo "Child" > outputs/child.txt
 """
             )
 
