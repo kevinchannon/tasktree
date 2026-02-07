@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from click.testing import CliRunner
+from typer.testing import CliRunner
 
 from tasktree.cli import app
 
