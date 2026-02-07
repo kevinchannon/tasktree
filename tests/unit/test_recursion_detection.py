@@ -27,7 +27,7 @@ class TestCallChainParsing(unittest.TestCase):
             variables={},
         )
         self.process_runner = make_process_runner(
-            task_output=TaskOutputTypes.ON_ERROR, logger=logger_stub
+            task_output=TaskOutputTypes.ON_ERR, logger=logger_stub
         )
 
     def tearDown(self):
@@ -100,7 +100,7 @@ class TestDirectRecursion(unittest.TestCase):
             variables={},
         )
         self.process_runner = make_process_runner(
-            task_output=TaskOutputTypes.ON_ERROR, logger=logger_stub
+            task_output=TaskOutputTypes.ON_ERR, logger=logger_stub
         )
 
     def tearDown(self):
@@ -144,7 +144,7 @@ class TestIndirectRecursion(unittest.TestCase):
             variables={},
         )
         self.process_runner = make_process_runner(
-            task_output=TaskOutputTypes.ON_ERROR, logger=logger_stub
+            task_output=TaskOutputTypes.ON_ERR, logger=logger_stub
         )
 
     def tearDown(self):
@@ -203,7 +203,7 @@ class TestDeepChainNoCycle(unittest.TestCase):
             variables={},
         )
         self.process_runner = make_process_runner(
-            task_output=TaskOutputTypes.ON_ERROR, logger=logger_stub
+            task_output=TaskOutputTypes.ON_ERR, logger=logger_stub
         )
 
     def tearDown(self):
@@ -242,7 +242,7 @@ class TestErrorMessageFormatting(unittest.TestCase):
             variables={},
         )
         self.process_runner = make_process_runner(
-            task_output=TaskOutputTypes.ON_ERROR, logger=logger_stub
+            task_output=TaskOutputTypes.ON_ERR, logger=logger_stub
         )
 
     def tearDown(self):
@@ -300,7 +300,7 @@ class TestComplexBranchingTopology(unittest.TestCase):
             variables={},
         )
         self.process_runner = make_process_runner(
-            task_output=TaskOutputTypes.ON_ERROR, logger=logger_stub
+            task_output=TaskOutputTypes.ON_ERR, logger=logger_stub
         )
 
     def tearDown(self):
@@ -379,7 +379,7 @@ class TestFullyQualifiedTaskNames(unittest.TestCase):
             variables={},
         )
         self.process_runner = make_process_runner(
-            task_output=TaskOutputTypes.ON_ERROR, logger=logger_stub
+            task_output=TaskOutputTypes.ON_ERR, logger=logger_stub
         )
 
     def tearDown(self):
