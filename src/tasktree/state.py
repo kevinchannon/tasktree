@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Set
@@ -57,8 +58,26 @@ class StateManager:
         project_root: Root directory of the project
         @athena: a0afbd8ae591
         """
-        self.project_root = project_root
-        self.state_path = project_root / self.STATE_FILE
+        # Check for containerized state file path first
+        state_file_path_env = os.environ.get("TT_STATE_FILE_PATH")
+        containerized_runner = os.environ.get("TT_CONTAINERIZED_RUNNER")
+
+        # Validation: TT_STATE_FILE_PATH requires TT_CONTAINERIZED_RUNNER
+        if state_file_path_env and not containerized_runner:
+            raise ValueError(
+                "TT_STATE_FILE_PATH is set but TT_CONTAINERIZED_RUNNER is not. "
+                "This indicates a configuration error in the Docker container setup."
+            )
+
+        if state_file_path_env:
+            # Use explicit state file path from environment
+            self.state_path = Path(state_file_path_env)
+            self.project_root = self.state_path.parent
+        else:
+            # Use default: co-located with recipe in project_root
+            self.project_root = project_root
+            self.state_path = project_root / self.STATE_FILE
+
         self._state: dict[str, TaskState] = {}
         self._loaded = False
 
