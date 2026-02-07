@@ -520,9 +520,12 @@ class TestStateHashOptimization(unittest.TestCase):
             )
 
             state_manager = StateManager(project_root)
+            # Load state initially so set() won't trigger a load
+            state_manager.load()
+
             executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
-            # Mock the state.load() method to track calls
+            # Mock the state.load() method to track calls AFTER initial load
             original_load = state_manager.load
             load_call_count = {"count": 0}
 
