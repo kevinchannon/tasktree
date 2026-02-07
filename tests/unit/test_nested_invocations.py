@@ -564,7 +564,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
             }):
                 state_manager = StateManager(project_root)
                 self.assertEqual(str(state_manager.state_path), custom_state_path)
-                self.assertEqual(state_manager.project_root, Path("/workspace"))
+                self.assertEqual(state_manager.project_root, Path("/tasktree-internal"))
 
     def test_state_manager_default_path_when_no_env(self):
         """
