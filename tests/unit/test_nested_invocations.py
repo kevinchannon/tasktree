@@ -421,12 +421,12 @@ class TestEdgeCases(unittest.TestCase):
             self.assertEqual(verify.get("task3").last_run, 300.0)
 
 
-class TestStateMtimeOptimization(unittest.TestCase):
-    """Tests for state file mtime-based reload optimization."""
+class TestStateHashOptimization(unittest.TestCase):
+    """Tests for state file hash-based reload optimization."""
 
-    def test_state_not_reloaded_if_mtime_unchanged(self):
+    def test_state_not_reloaded_if_hash_unchanged(self):
         """
-        Test that state is not reloaded if modification time hasn't changed.
+        Test that state is not reloaded if file hash hasn't changed.
         This is the optimization to avoid unnecessary disk I/O when no nested calls occurred.
         """
         with TemporaryDirectory() as tmpdir:
@@ -439,22 +439,19 @@ class TestStateMtimeOptimization(unittest.TestCase):
             state_manager.set("task_a", TaskState(last_run=100.0, input_state={}))
             state_manager.save()
 
-            # Get initial mtime
-            initial_mtime = state_manager.get_mtime()
-            self.assertIsNotNone(initial_mtime)
+            # Get initial hash
+            initial_hash = state_manager.get_hash()
+            self.assertIsNotNone(initial_hash)
 
-            # Wait a tiny bit to ensure mtime would be different if file was modified
-            time.sleep(0.01)
+            # Get hash again without modifying file contents
+            current_hash = state_manager.get_hash()
 
-            # Get mtime again without modifying file
-            current_mtime = state_manager.get_mtime()
+            # Verify hash is unchanged
+            self.assertEqual(initial_hash, current_hash)
 
-            # Verify mtime is unchanged
-            self.assertEqual(initial_mtime, current_mtime)
-
-    def test_state_mtime_changes_when_file_modified(self):
+    def test_state_hash_changes_when_file_modified(self):
         """
-        Test that mtime changes when state file is actually modified.
+        Test that hash changes when state file contents are actually modified.
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -465,39 +462,36 @@ class TestStateMtimeOptimization(unittest.TestCase):
             state_manager.set("task_a", TaskState(last_run=100.0, input_state={}))
             state_manager.save()
 
-            # Get initial mtime
-            initial_mtime = state_manager.get_mtime()
+            # Get initial hash
+            initial_hash = state_manager.get_hash()
 
-            # Wait to ensure filesystem mtime granularity
-            time.sleep(0.01)
-
-            # Modify state file (simulate nested call)
+            # Modify state file contents (simulate nested call)
             state_manager2 = StateManager(project_root)
             state_manager2.load()
             state_manager2.set("task_b", TaskState(last_run=200.0, input_state={}))
             state_manager2.save()
 
-            # Get new mtime
-            new_mtime = state_manager.get_mtime()
+            # Get new hash
+            new_hash = state_manager.get_hash()
 
-            # Verify mtime changed
-            self.assertNotEqual(initial_mtime, new_mtime)
+            # Verify hash changed
+            self.assertNotEqual(initial_hash, new_hash)
 
-    def test_state_mtime_none_when_file_not_exists(self):
+    def test_state_hash_none_when_file_not_exists(self):
         """
-        Test that get_mtime returns None when state file doesn't exist.
+        Test that get_hash returns None when state file doesn't exist.
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
 
             # State file doesn't exist yet
-            mtime = state_manager.get_mtime()
-            self.assertIsNone(mtime)
+            hash_value = state_manager.get_hash()
+            self.assertIsNone(hash_value)
 
-    def test_executor_skips_reload_when_mtime_unchanged(self):
+    def test_executor_skips_reload_when_hash_unchanged(self):
         """
-        Test that Executor skips state reload when mtime hasn't changed.
+        Test that Executor skips state reload when file hash hasn't changed.
         This verifies the optimization in _run_task.
         """
         with TemporaryDirectory() as tmpdir:
@@ -556,7 +550,7 @@ class TestStateMtimeOptimization(unittest.TestCase):
             executor._run_task(recipe.tasks["simple"], {}, process_runner)
 
             # State should be loaded once initially (before we started tracking)
-            # but NOT reloaded after execution since mtime unchanged
+            # but NOT reloaded after execution since hash unchanged
             # The mock started tracking after initial load in executor
             # So we expect 0 additional loads
             self.assertEqual(load_call_count["count"], 0)
