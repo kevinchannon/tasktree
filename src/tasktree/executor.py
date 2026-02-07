@@ -702,6 +702,20 @@ class Executor:
 
         return statuses
 
+    @staticmethod
+    def _parse_call_chain(call_chain: str) -> list[str]:
+        """
+        Parse TT_CALL_CHAIN environment variable into list of task names.
+
+        Args:
+        call_chain: Comma-separated task names from TT_CALL_CHAIN env var
+
+        Returns:
+        List of task names in the call chain (empty list if chain is empty)
+        """
+        # Optimized to avoid double strip() - strip once in generator, filter non-empty
+        return [t for t in (x.strip() for x in call_chain.split(",")) if t]
+
     def _validate_nested_docker_runner(
         self, task: Task, current_containerized_runner: str
     ) -> bool:
@@ -766,7 +780,7 @@ class Executor:
 
         # Check for recursion via TT_CALL_CHAIN
         current_chain = os.environ.get(self.TT_CALL_CHAIN_ENV_VAR, "")
-        chain_list = [t.strip() for t in current_chain.split(",") if t.strip()]
+        chain_list = self._parse_call_chain(current_chain)
 
         # Use fully-qualified task name (includes import prefix if any)
         task_fqn = task.name  # Already includes import prefix from parser
