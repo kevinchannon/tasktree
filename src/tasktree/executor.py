@@ -735,6 +735,50 @@ class Executor:
         # Optimized to avoid double strip() - strip once in generator, filter non-empty
         return [t for t in (x.strip() for x in call_chain.split(",")) if t]
 
+    @staticmethod
+    def _resolve_container_path(host_path: Path, volumes: list[str]) -> Path:
+        """
+        Resolve the container path for a given host path based on volume mounts.
+
+        Args:
+            host_path: Host file system path
+            volumes: List of volume mount specifications (e.g., ["./src:/app/src", ".:/workspace"])
+
+        Returns:
+            Container path if a matching volume mount is found, otherwise the host path
+        """
+        # Resolve host_path to absolute to handle relative paths like "."
+        host_path = host_path.resolve()
+
+        # Check each volume mount to see if it covers the host_path
+        for volume in volumes:
+            # Parse volume specification: "host:container[:mode]"
+            parts = volume.split(":")
+            if len(parts) < 2:
+                continue
+
+            mount_host = parts[0]
+            mount_container = parts[1]
+
+            # Resolve mount_host to absolute
+            mount_host_path = Path(mount_host).resolve()
+
+            # Check if host_path is within or equal to mount_host_path
+            try:
+                # Get the relative path from mount_host to host_path
+                rel_path = host_path.relative_to(mount_host_path)
+                # Return the corresponding container path
+                if str(rel_path) == ".":
+                    return Path(mount_container)
+                else:
+                    return Path(mount_container) / rel_path
+            except ValueError:
+                # host_path is not relative to mount_host_path, try next volume
+                continue
+
+        # No matching volume mount found, return host path
+        return host_path
+
     def _validate_nested_docker_runner(
         self, task: Task, current_containerized_runner: str
     ) -> bool:
@@ -764,7 +808,17 @@ class Executor:
             # 1. Task has run_in specified (checked above via task_runner_name)
             # 2. The specified runner has a dockerfile field
             # 3. The dockerfile differs from current container's runner
+            # 4. We're in the same project (cross-project invocations are allowed)
             if task_runner and task_runner.dockerfile:
+                # Check if this is a cross-project invocation
+                parent_project_root = os.environ.get("TT_PROJECT_ROOT", "").strip()
+                current_project_root = str(self.recipe.project_root)
+
+                # Allow Docker runner transition if we're in a different project
+                if parent_project_root and parent_project_root != current_project_root:
+                    # Different project - allow the Docker runner transition
+                    return True
+
                 raise ExecutionError(
                     f"Task '{task.name}' requires containerized runner '{task_runner_name}' "
                     f"but is currently executing inside runner '{current_containerized_runner}'. "
@@ -822,7 +876,9 @@ class Executor:
         updated_chain = ",".join(chain_list + [task_fqn]) if chain_list else task_fqn
 
         # Check if we're already inside a containerized runner
-        current_containerized_runner = os.environ.get("TT_CONTAINERIZED_RUNNER")
+        # Note: Only proceed if the variable is set AND non-empty
+        # An empty string means we're not in a containerized environment
+        current_containerized_runner = os.environ.get("TT_CONTAINERIZED_RUNNER", "").strip()
         force_shell_execution = False
 
         if current_containerized_runner:
@@ -1057,7 +1113,8 @@ class Executor:
                     )
             except FileNotFoundError as e:
                 # Check if this is a containerized environment
-                current_containerized_runner = os.environ.get("TT_CONTAINERIZED_RUNNER")
+                # Note: Only proceed if the variable is set AND non-empty
+                current_containerized_runner = os.environ.get("TT_CONTAINERIZED_RUNNER", "").strip()
                 if current_containerized_runner and ("tt" in cmd or "tasktree" in cmd):
                     raise ExecutionError(
                         f"Task '{task_name}' failed: Command not found. "
@@ -1254,6 +1311,12 @@ class Executor:
         # Add nested invocation support environment variables
         docker_env_vars["TT_CONTAINERIZED_RUNNER"] = env.name
         docker_env_vars["TT_STATE_FILE_PATH"] = self.CONTAINER_STATE_FILE_PATH
+
+        # Resolve container path for project root from volume mounts
+        container_project_root = self._resolve_container_path(
+            self.recipe.project_root, env.volumes or []
+        )
+        docker_env_vars["TT_PROJECT_ROOT"] = str(container_project_root)
 
         # Add call chain for recursion detection
         if call_chain:

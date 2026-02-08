@@ -1505,7 +1505,18 @@ tasks:
 
 ### Docker Environment Support
 
-Nested task invocations work seamlessly with Docker containers, with intelligent handling of runner compatibility:
+Nested task invocations work seamlessly with Docker containers, with intelligent handling of runner compatibility.
+
+**Summary of Rules:**
+
+| Scenario | Same Project | Cross-Project | Behavior |
+|----------|--------------|---------------|----------|
+| **Docker → Same Docker runner** | ✅ Allowed | ✅ Allowed | Executes in existing container |
+| **Docker → Different Docker runner** | ❌ Blocked | ✅ Allowed | Error (same project) / New container (cross-project) |
+| **Docker → Shell-only runner** | ✅ Allowed | ✅ Allowed | Uses shell inside current container |
+| **Local → Docker runner** | ✅ Allowed | ✅ Allowed | Launches container normally |
+
+A "cross-project invocation" occurs when the nested task's project root (directory containing `.tasktree-state`) differs from the parent task's project root.
 
 #### Same Container Execution
 
@@ -1577,9 +1588,41 @@ tasks:
       tt docker-task  # Launches container normally
 ```
 
-#### Different Docker Runners (Not Supported)
+#### Cross-Project Invocations
 
-Switching from one Docker runner to a **different** Docker runner is not allowed (Docker-in-Docker is complex and fragile):
+Tasks can invoke tasks from **different Task Tree projects** with their own Docker runners. This is allowed because they represent independent projects with separate state and configuration:
+
+```yaml
+# Project A: tasktree.yaml
+runners:
+  build:
+    dockerfile: Dockerfile.build
+    context: .
+
+tasks:
+  compile:
+    run_in: build
+    cmd: |
+      # Can invoke tasks from other projects
+      cd ../project-b && tt test  # ✅ ALLOWED: Different project
+      make build
+```
+
+Task Tree tracks project boundaries using the project root directory (where `.tasktree-state` resides). When a task invokes `tt` in a different directory with its own `tasktree.yaml`, that counts as a cross-project invocation and Docker runner transitions are permitted.
+
+**How it works:**
+- Each Docker container receives `TT_PROJECT_ROOT` environment variable pointing to its project root
+- When a nested task runs, it compares its project root with the parent's `TT_PROJECT_ROOT`
+- Different project roots = cross-project invocation = Docker runner transition allowed
+
+**Use cases:**
+- Test suites that create temporary tasktree projects with their own Docker runners
+- Monorepos where sub-projects have independent Task Tree configurations
+- Build orchestration across multiple repositories
+
+#### Different Docker Runners (Same Project)
+
+Switching from one Docker runner to a **different** Docker runner **within the same project** is not allowed (Docker-in-Docker is complex and fragile):
 
 ```yaml
 runners:
@@ -1597,7 +1640,7 @@ tasks:
 
   parent:
     run_in: build
-    cmd: tt child  # ❌ ERROR: Cannot switch to different Docker runner
+    cmd: tt child  # ❌ ERROR: Cannot switch to different Docker runner in same project
 ```
 
 **Error message:**
@@ -1608,20 +1651,44 @@ containerized runners are not supported. Either remove the runner specification
 from 'child', ensure it matches the parent task's runner, or use a shell-only runner.
 ```
 
+**Why this restriction exists:**
+- Docker-in-Docker requires privileged mode and Docker socket mounting
+- Complex volume path translation between host and nested containers
+- State file synchronization becomes fragile
+- Performance overhead from nested containerization
+
+**Workarounds:**
+- Use dependencies (`deps: [test-task]`) instead of nested calls - dependencies run sequentially at the top level
+- Refactor into a single Docker runner with all required tools
+- Switch to a shell-only runner for the nested task
+- Split into separate projects if the tasks are truly independent
+
 #### How It Works
 
 Task Tree sets environment variables when launching Docker containers:
 
 - `TT_CONTAINERIZED_RUNNER`: Name of the current containerized runner
 - `TT_STATE_FILE_PATH`: Path to the state file inside the container
+- `TT_PROJECT_ROOT`: Container path to the project root directory
 
 These variables enable nested `tt` calls to detect they're already running in a container and make appropriate decisions:
 
 - **Same runner name**: Execute directly, skip container launch
 - **No runner or shell-only runner**: Execute with appropriate shell/preamble
-- **Different containerized runner**: Fail with clear error
+- **Different containerized runner, same project**: Fail with clear error
+- **Different containerized runner, different project**: Launch new container (cross-project invocation)
 
-The state file is automatically mounted into containers at `/workspace/.tasktree-state`, ensuring state updates work correctly across container boundaries.
+The state file is automatically mounted into containers at `/tasktree-internal/.tasktree-state`, ensuring state updates work correctly across container boundaries.
+
+**Project root resolution:**
+
+The `TT_PROJECT_ROOT` variable contains the *container path* to the project root, not the host path. Task Tree resolves this by:
+
+1. Identifying the host path to the project root
+2. Analyzing volume mount specifications to find matching mounts
+3. Translating the host path to the corresponding container path
+
+For example, if the project root is `/home/user/myproject` on the host and volumes include `.:/workspace`, then `TT_PROJECT_ROOT` is set to `/workspace` inside the container. This ensures path comparisons work correctly even when host and container paths differ.
 
 ### Recursion Detection
 
@@ -1737,10 +1804,28 @@ tasks:
 Task Tree sets these environment variables internally for nested invocation support:
 
 - **`TT_CALL_CHAIN`**: Comma-separated list of task names in the current call stack (e.g., `"parent,child,grandchild"`). Used for recursion detection. Empty for top-level invocations.
-- **`TT_CONTAINERIZED_RUNNER`**: Name of the current Docker runner (only set when running inside a container). Used to prevent Docker-in-Docker across different runners.
-- **`TT_STATE_FILE_PATH`**: Path to the state file inside Docker containers (e.g., `"/workspace/.tasktree-state"`). Used by nested `tt` calls to locate state.
+- **`TT_CONTAINERIZED_RUNNER`**: Name of the current Docker runner (only set when running inside a container). Used to prevent Docker-in-Docker across different runners within the same project. Value is empty string for non-containerized execution.
+- **`TT_STATE_FILE_PATH`**: Path to the state file inside Docker containers (e.g., `"/tasktree-internal/.tasktree-state"`). Used by nested `tt` calls to locate state.
+- **`TT_PROJECT_ROOT`**: Container path to the project root directory (only set when running inside a container). Used to detect cross-project invocations. Contains the *container path* (not host path) resolved from volume mount specifications.
 
 These variables are managed automatically and generally don't require user interaction. They may be useful for debugging nested invocation issues.
+
+**Debugging tips:**
+
+To inspect these variables inside a Docker task:
+
+```yaml
+tasks:
+  debug:
+    run_in: builder
+    cmd: |
+      echo "Call chain: $TT_CALL_CHAIN"
+      echo "Container runner: $TT_CONTAINERIZED_RUNNER"
+      echo "State file: $TT_STATE_FILE_PATH"
+      echo "Project root: $TT_PROJECT_ROOT"
+```
+
+Empty values indicate the variable is not set (e.g., `TT_CONTAINERIZED_RUNNER` is empty for local execution).
 
 
 ## Environment Variables

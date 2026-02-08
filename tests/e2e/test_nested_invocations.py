@@ -1,11 +1,34 @@
 """E2E tests for nested task invocations."""
 
 import json
+import subprocess
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from . import run_tasktree_cli
+
+
+def is_docker_available() -> bool:
+    """Check if Docker is installed and running.
+
+    Returns:
+        True if docker command exists and daemon is running
+    """
+    try:
+        result = subprocess.run(
+            ["docker", "info"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        return result.returncode == 0
+    except (
+        subprocess.CalledProcessError,
+        FileNotFoundError,
+        subprocess.TimeoutExpired,
+    ):
+        return False
 
 
 class TestNestedInvocationsE2E(unittest.TestCase):
@@ -197,10 +220,10 @@ tasks:
             self.assertLessEqual(c_time, parent_time)
 
 
+@unittest.skipUnless(is_docker_available(), "Docker not available")
 class TestDockerNestedInvocationsE2E(unittest.TestCase):
     """E2E tests for Phase 2: Docker support in nested invocations."""
 
-    @unittest.skip("Requires Docker - run manually or in CI with Docker available")
     def test_real_docker_nested_invocation(self):
         """
         Test real Docker container with nested tt call.
@@ -209,22 +232,28 @@ class TestDockerNestedInvocationsE2E(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
+            # Find project source directory for mounting
+            test_file_dir = Path(__file__).parent.parent.parent
+            src_dir = test_file_dir / "src"
+
             # Create Dockerfile
             (project_root / "Dockerfile").write_text("""
 FROM python:3.11-slim
 WORKDIR /workspace
-RUN pip install pyyaml typer rich
-COPY . /app
-ENV PYTHONPATH=/app
+RUN pip install pyyaml typer click rich colorama pathspec platformdirs
+ENV PYTHONPATH=/app/src
 """)
 
             # Create recipe
-            (project_root / "tasktree.yaml").write_text("""
+            (project_root / "tasktree.yaml").write_text(f"""
 runners:
   build:
     dockerfile: Dockerfile
     context: .
     shell: /bin/bash
+    volumes:
+      - ".:/workspace"
+      - "{src_dir}:/app/src:ro"
 
 tasks:
   child:
@@ -261,7 +290,6 @@ tasks:
                 state_data = json.load(f)
             self.assertEqual(len(state_data), 2)
 
-    @unittest.skip("Requires Docker - run manually or in CI with Docker available")
     def test_real_docker_different_runner_error(self):
         """
         Test that attempting to switch to different Docker runner produces clear error.
@@ -269,35 +297,43 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
+            # Find project source directory for mounting
+            test_file_dir = Path(__file__).parent.parent.parent
+            src_dir = test_file_dir / "src"
+
             # Create two Dockerfiles
             (project_root / "Dockerfile.build").write_text("""
 FROM python:3.11-slim
 WORKDIR /workspace
-RUN pip install pyyaml typer rich
-COPY . /app
-ENV PYTHONPATH=/app
+RUN pip install pyyaml typer click rich colorama pathspec platformdirs
+ENV PYTHONPATH=/app/src
 """)
 
             (project_root / "Dockerfile.test").write_text("""
 FROM python:3.11-slim
 WORKDIR /workspace
-RUN pip install pyyaml typer rich
-COPY . /app
-ENV PYTHONPATH=/app
+RUN pip install pyyaml typer click rich colorama pathspec platformdirs
+ENV PYTHONPATH=/app/src
 """)
 
             # Create recipe
-            (project_root / "tasktree.yaml").write_text("""
+            (project_root / "tasktree.yaml").write_text(f"""
 runners:
   build:
     dockerfile: Dockerfile.build
     context: .
     shell: /bin/bash
+    volumes:
+      - ".:/workspace"
+      - "{src_dir}:/app/src:ro"
 
   test:
     dockerfile: Dockerfile.test
     context: .
     shell: /bin/bash
+    volumes:
+      - ".:/workspace"
+      - "{src_dir}:/app/src:ro"
 
 tasks:
   child:
@@ -319,7 +355,6 @@ tasks:
             self.assertIn("requires containerized runner 'test'", error_output)
             self.assertIn("currently executing inside runner 'build'", error_output)
 
-    @unittest.skip("Requires Docker - run manually or in CI with Docker available")
     def test_real_docker_shell_runner_switch(self):
         """
         Test that switching from Docker runner to shell-only runner works.
@@ -327,22 +362,28 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
+            # Find project source directory for mounting
+            test_file_dir = Path(__file__).parent.parent.parent
+            src_dir = test_file_dir / "src"
+
             # Create Dockerfile
             (project_root / "Dockerfile").write_text("""
 FROM python:3.11-slim
 WORKDIR /workspace
-RUN pip install pyyaml typer rich
-COPY . /app
-ENV PYTHONPATH=/app
+RUN pip install pyyaml typer click rich colorama pathspec platformdirs
+ENV PYTHONPATH=/app/src
 """)
 
             # Create recipe
-            (project_root / "tasktree.yaml").write_text("""
+            (project_root / "tasktree.yaml").write_text(f"""
 runners:
   build:
     dockerfile: Dockerfile
     context: .
     shell: /bin/bash
+    volumes:
+      - ".:/workspace"
+      - "{src_dir}:/app/src:ro"
 
   lint:
     shell: /bin/sh
