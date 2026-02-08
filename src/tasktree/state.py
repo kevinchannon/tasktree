@@ -93,7 +93,7 @@ class StateManager:
         """
         if self.state_path.exists():
             if self.logger:
-                self.logger.trace(f"Loading state from {self.state_path}")
+                self.logger.trace(f"Loading state from '{self.state_path}'")
             try:
                 with open(self.state_path, "r") as f:
                     data = json.load(f)
@@ -109,7 +109,7 @@ class StateManager:
                 self._state = {}
         else:
             if self.logger:
-                self.logger.trace(f"No state file found at {self.state_path}")
+                self.logger.trace(f"No state file found at '{self.state_path}'")
         self._loaded = True
 
     def save(self) -> None:
@@ -118,7 +118,7 @@ class StateManager:
         @athena: 11e4a9761e4d
         """
         if self.logger:
-            self.logger.trace(f"Saving state to {self.state_path} ({len(self._state)} task state(s))")
+            self.logger.trace(f"Saving state to '{self.state_path}' ({len(self._state)} task state(s))")
         data = {key: value.to_dict() for key, value in self._state.items()}
         with open(self.state_path, "w") as f:
             json.dump(data, f, indent=2)
@@ -170,8 +170,11 @@ class StateManager:
             if task_hash not in valid_task_hashes:
                 keys_to_remove.append(cache_key)
 
-        if self.logger and keys_to_remove:
-            self.logger.trace(f"Pruning {len(keys_to_remove)} stale state entry(ies): {', '.join(keys_to_remove[:5])}{'...' if len(keys_to_remove) > 5 else ''}")
+        if self.logger:
+            if keys_to_remove:
+                self.logger.trace(f"Pruning {len(keys_to_remove)} stale state entry(ies): {', '.join(keys_to_remove[:5])}{'...' if len(keys_to_remove) > 5 else ''}")
+            else:
+                self.logger.trace("No stale state entries to prune")
 
         # Remove stale entries
         for key in keys_to_remove:
