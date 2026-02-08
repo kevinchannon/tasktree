@@ -122,7 +122,7 @@ tasks:
 
             # Run tt via subprocess
             result = subprocess.run(
-                ["python3", "-m", "tasktree.cli.py", "docker-recursive"],
+                ["python3", "-m", "tasktree.cli", "docker-recursive"],
                 cwd=tmpdir,
                 capture_output=True,
                 text=True,
