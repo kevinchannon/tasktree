@@ -56,6 +56,7 @@ runners:
     dockerfile: ./Dockerfile
     context: .
     shell: /bin/sh
+    volumes: [".:/workspace"]
     args:
       BUILD_VERSION: "1.2.3"
       BUILD_DATE: "2024-01-01"
