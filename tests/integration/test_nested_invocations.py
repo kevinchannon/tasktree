@@ -526,6 +526,9 @@ class TestDockerNestedInvocations(unittest.TestCase):
             dockerfile.write_text("""
 FROM python:3.11-slim
 WORKDIR /workspace
+RUN pip install pyyaml typer rich
+COPY . /app
+ENV PYTHONPATH=/app
 """)
 
             recipe_file = project_root / "tasktree.yaml"
@@ -585,12 +588,18 @@ tasks:
             dockerfile_build.write_text("""
 FROM python:3.11-slim
 WORKDIR /workspace
+RUN pip install pyyaml typer rich
+COPY . /app
+ENV PYTHONPATH=/app
 """)
 
             dockerfile_test = project_root / "Dockerfile.test"
             dockerfile_test.write_text("""
 FROM python:3.11-slim
 WORKDIR /workspace
+RUN pip install pyyaml typer rich
+COPY . /app
+ENV PYTHONPATH=/app
 """)
 
             recipe_file = project_root / "tasktree.yaml"
@@ -643,6 +652,9 @@ tasks:
             dockerfile.write_text("""
 FROM python:3.11-slim
 WORKDIR /workspace
+RUN pip install pyyaml typer rich
+COPY . /app
+ENV PYTHONPATH=/app
 """)
 
             recipe_file = project_root / "tasktree.yaml"
@@ -699,6 +711,9 @@ tasks:
             dockerfile.write_text("""
 FROM python:3.11-slim
 WORKDIR /workspace
+RUN pip install pyyaml typer rich
+COPY . /app
+ENV PYTHONPATH=/app
 """)
 
             recipe_file = project_root / "tasktree.yaml"
@@ -751,6 +766,9 @@ tasks:
             dockerfile.write_text("""
 FROM python:3.11-slim
 WORKDIR /workspace
+RUN pip install pyyaml typer rich
+COPY . /app
+ENV PYTHONPATH=/app
 """)
 
             recipe_file = project_root / "tasktree.yaml"
@@ -799,6 +817,9 @@ tasks:
             dockerfile.write_text("""
 FROM python:3.11-slim
 WORKDIR /workspace
+RUN pip install pyyaml typer rich
+COPY . /app
+ENV PYTHONPATH=/app
 """)
 
             recipe_file = project_root / "tasktree.yaml"
