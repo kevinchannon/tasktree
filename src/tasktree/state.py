@@ -7,7 +7,9 @@ import json
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Set
+from typing import Any, Optional, Set
+
+from tasktree.logging import Logger
 
 
 @dataclass
@@ -50,14 +52,17 @@ class StateManager:
 
     STATE_FILE = ".tasktree-state"
 
-    def __init__(self, project_root: Path):
+    def __init__(self, project_root: Path, logger: Optional[Logger] = None):
         """
         Initialize state manager.
 
         Args:
         project_root: Root directory of the project
+        logger: Optional logger for diagnostic output
         @athena: a0afbd8ae591
         """
+        self.logger = logger
+
         # Check for containerized state file path first
         state_file_path_env = os.environ.get("TT_STATE_FILE_PATH")
         containerized_runner = os.environ.get("TT_CONTAINERIZED_RUNNER")
@@ -87,15 +92,24 @@ class StateManager:
         @athena: e0cf9097c590
         """
         if self.state_path.exists():
+            if self.logger:
+                self.logger.trace(f"Loading state from '{self.state_path}'")
             try:
                 with open(self.state_path, "r") as f:
                     data = json.load(f)
                     self._state = {
                         key: TaskState.from_dict(value) for key, value in data.items()
                     }
+                if self.logger:
+                    self.logger.trace(f"Loaded {len(self._state)} task state(s)")
             except (json.JSONDecodeError, KeyError):
                 # If state file is corrupted, start fresh
+                if self.logger:
+                    self.logger.trace(f"State file corrupted, starting fresh")
                 self._state = {}
+        else:
+            if self.logger:
+                self.logger.trace(f"No state file found at '{self.state_path}'")
         self._loaded = True
 
     def save(self) -> None:
@@ -103,6 +117,8 @@ class StateManager:
         Save state to file.
         @athena: 11e4a9761e4d
         """
+        if self.logger:
+            self.logger.trace(f"Saving state to '{self.state_path}' ({len(self._state)} task state(s))")
         data = {key: value.to_dict() for key, value in self._state.items()}
         with open(self.state_path, "w") as f:
             json.dump(data, f, indent=2)
@@ -153,6 +169,12 @@ class StateManager:
             task_hash = cache_key.split("__")[0]
             if task_hash not in valid_task_hashes:
                 keys_to_remove.append(cache_key)
+
+        if self.logger:
+            if keys_to_remove:
+                self.logger.trace(f"Pruning {len(keys_to_remove)} stale state entry(ies): {', '.join(keys_to_remove[:5])}{'...' if len(keys_to_remove) > 5 else ''}")
+            else:
+                self.logger.trace("No stale state entries to prune")
 
         # Remove stale entries
         for key in keys_to_remove:
