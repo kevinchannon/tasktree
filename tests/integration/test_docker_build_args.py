@@ -57,6 +57,7 @@ runners:
   builder:
     dockerfile: ./Dockerfile
     context: .
+    shell: /bin/sh
     args:
       BUILD_VERSION: "1.2.3"
       BUILD_DATE: "2024-01-01"
