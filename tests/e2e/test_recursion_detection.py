@@ -1,9 +1,11 @@
 """End-to-end tests for recursion detection in nested task invocations."""
-
+import os
+import subprocess
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from helpers.docker import is_docker_available
 from . import run_tasktree_cli
 
 
@@ -86,7 +88,7 @@ tasks:
                 output_file = Path(output_dir) / f"chain{i}.txt"
                 self.assertTrue(output_file.exists())
 
-    @unittest.skip("Requires Docker runtime")
+    @unittest.skipUnless(is_docker_available(), "Docker not available")
     def test_real_subprocess_cycle_in_docker(self):
         """Test that recursion detection works inside Docker container."""
         with TemporaryDirectory() as tmpdir:
@@ -120,7 +122,7 @@ tasks:
 
             # Run tt via subprocess
             result = subprocess.run(
-                ["python3", "main.py", "docker-recursive"],
+                ["python3", "-m", "tasktree.cli.py", "docker-recursive"],
                 cwd=tmpdir,
                 capture_output=True,
                 text=True,

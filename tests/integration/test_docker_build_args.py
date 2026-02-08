@@ -7,6 +7,7 @@ from tempfile import TemporaryDirectory
 
 from typer.testing import CliRunner
 
+from helpers.docker import is_docker_available
 from tasktree.cli import app
 
 
@@ -24,6 +25,7 @@ class TestDockerBuildArgs(unittest.TestCase):
         self.runner = CliRunner()
         self.env = {"NO_COLOR": "1"}
 
+    @unittest.skipUnless(is_docker_available(), "Docker not available")
     def test_build_args_passed_to_dockerfile(self):
         """
         Test that build args are passed to docker build and used in Dockerfile.
@@ -73,10 +75,6 @@ tasks:
                 # Run the task - this will build the Docker image with build args
                 # Note: This test will be skipped in CI if Docker is not available
                 result = self.runner.invoke(app, ["build"], env=self.env)
-
-                # If Docker is not available, skip the test
-                if "Docker is not available" in result.stdout or result.exit_code != 0:
-                    self.skipTest("Docker not available in test environment")
 
                 self.assertEqual(result.exit_code, 0)
 
