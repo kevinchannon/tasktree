@@ -217,9 +217,8 @@ class DockerManager:
 
         # Add shell and command
         shell = env.shell or "sh"
-        shell_args = (
-            env.args or [] if isinstance(env.args, list) else list(env.args.values())
-        )
+        # Only use args as shell args if it's a list; dict args are build args only
+        shell_args = env.args if isinstance(env.args, list) else []
         docker_cmd.extend([shell, *shell_args, "-c", cmd])
 
         # Execute
