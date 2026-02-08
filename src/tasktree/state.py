@@ -65,7 +65,8 @@ class StateManager:
 
         # Check for containerized state file path first
         state_file_path_env = os.environ.get("TT_STATE_FILE_PATH")
-        containerized_runner = os.environ.get("TT_CONTAINERIZED_RUNNER")
+        # Note: Only consider containerized runner if it's set AND non-empty
+        containerized_runner = os.environ.get("TT_CONTAINERIZED_RUNNER", "").strip()
 
         # Validation: TT_STATE_FILE_PATH requires TT_CONTAINERIZED_RUNNER
         if state_file_path_env and not containerized_runner:

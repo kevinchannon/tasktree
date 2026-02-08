@@ -822,7 +822,9 @@ class Executor:
         updated_chain = ",".join(chain_list + [task_fqn]) if chain_list else task_fqn
 
         # Check if we're already inside a containerized runner
-        current_containerized_runner = os.environ.get("TT_CONTAINERIZED_RUNNER")
+        # Note: Only proceed if the variable is set AND non-empty
+        # An empty string means we're not in a containerized environment
+        current_containerized_runner = os.environ.get("TT_CONTAINERIZED_RUNNER", "").strip()
         force_shell_execution = False
 
         if current_containerized_runner:
@@ -1057,7 +1059,8 @@ class Executor:
                     )
             except FileNotFoundError as e:
                 # Check if this is a containerized environment
-                current_containerized_runner = os.environ.get("TT_CONTAINERIZED_RUNNER")
+                # Note: Only proceed if the variable is set AND non-empty
+                current_containerized_runner = os.environ.get("TT_CONTAINERIZED_RUNNER", "").strip()
                 if current_containerized_runner and ("tt" in cmd or "tasktree" in cmd):
                     raise ExecutionError(
                         f"Task '{task_name}' failed: Command not found. "
