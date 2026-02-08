@@ -561,6 +561,7 @@ runners:
     dockerfile: Dockerfile
     context: .
     shell: /bin/bash
+    volumes: [".:/workspace"]
 
 tasks:
   child:
@@ -635,11 +636,13 @@ runners:
     dockerfile: Dockerfile.build
     context: .
     shell: /bin/bash
+    volumes: [".:/workspace"]
 
   test:
     dockerfile: Dockerfile.test
     context: .
     shell: /bin/bash
+    volumes: [".:/workspace"]
 
 tasks:
   child:
@@ -693,6 +696,7 @@ runners:
     dockerfile: Dockerfile
     context: .
     shell: /bin/bash
+    volumes: [".:/workspace"]
 
   lint:
     shell: /bin/sh
@@ -755,6 +759,7 @@ runners:
     dockerfile: Dockerfile
     context: .
     shell: /bin/bash
+    volumes: [".:/workspace"]
 
 tasks:
   docker-child:
@@ -813,6 +818,7 @@ runners:
     dockerfile: Dockerfile
     context: .
     shell: /bin/bash
+    volumes: [".:/workspace"]
 
 tasks:
   docker-task:
@@ -867,6 +873,7 @@ runners:
     dockerfile: Dockerfile
     context: .
     shell: /bin/bash
+    volumes: [".:/workspace"]
 
 tasks:
   child1:
