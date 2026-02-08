@@ -770,11 +770,18 @@ class Executor:
                 parent_project_root = os.environ.get("TT_PROJECT_ROOT", "").strip()
                 current_project_root = str(self.recipe.project_root)
 
+                # DEBUG: Print values for investigation
+                print(f"DEBUG: parent_project_root={parent_project_root!r}", flush=True)
+                print(f"DEBUG: current_project_root={current_project_root!r}", flush=True)
+                print(f"DEBUG: are they equal? {parent_project_root == current_project_root}", flush=True)
+
                 # Allow Docker runner transition if we're in a different project
                 if parent_project_root and parent_project_root != current_project_root:
                     # Different project - allow the Docker runner transition
+                    print(f"DEBUG: Allowing cross-project transition", flush=True)
                     return True
 
+                print(f"DEBUG: Same project, should raise error", flush=True)
                 raise ExecutionError(
                     f"Task '{task.name}' requires containerized runner '{task_runner_name}' "
                     f"but is currently executing inside runner '{current_containerized_runner}'. "
