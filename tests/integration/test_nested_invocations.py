@@ -655,7 +655,8 @@ tasks:
                 self.assertNotEqual(result.exit_code, 0, "Parent should fail when child requires different Docker runner")
 
                 # Note: The detailed error message about runner mismatch is printed during execution
-                # but may not appear in result.stdout. The important behavior is that it fails.
+                # but may not appear in result.stdout because of the way the CliRunner works.
+                # The important behavior is that it fails.
 
             finally:
                 os.chdir(original_cwd)
