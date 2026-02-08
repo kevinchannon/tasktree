@@ -200,7 +200,6 @@ tasks:
 class TestDockerNestedInvocationsE2E(unittest.TestCase):
     """E2E tests for Phase 2: Docker support in nested invocations."""
 
-    @unittest.skip("Requires Docker - run manually or in CI with Docker available")
     def test_real_docker_nested_invocation(self):
         """
         Test real Docker container with nested tt call.
@@ -261,7 +260,6 @@ tasks:
                 state_data = json.load(f)
             self.assertEqual(len(state_data), 2)
 
-    @unittest.skip("Requires Docker - run manually or in CI with Docker available")
     def test_real_docker_different_runner_error(self):
         """
         Test that attempting to switch to different Docker runner produces clear error.
@@ -319,7 +317,6 @@ tasks:
             self.assertIn("requires containerized runner 'test'", error_output)
             self.assertIn("currently executing inside runner 'build'", error_output)
 
-    @unittest.skip("Requires Docker - run manually or in CI with Docker available")
     def test_real_docker_shell_runner_switch(self):
         """
         Test that switching from Docker runner to shell-only runner works.
