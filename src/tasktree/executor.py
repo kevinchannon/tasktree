@@ -764,7 +764,17 @@ class Executor:
             # 1. Task has run_in specified (checked above via task_runner_name)
             # 2. The specified runner has a dockerfile field
             # 3. The dockerfile differs from current container's runner
+            # 4. We're in the same project (cross-project invocations are allowed)
             if task_runner and task_runner.dockerfile:
+                # Check if this is a cross-project invocation
+                parent_project_root = os.environ.get("TT_PROJECT_ROOT", "").strip()
+                current_project_root = str(self.recipe.project_root)
+
+                # Allow Docker runner transition if we're in a different project
+                if parent_project_root and parent_project_root != current_project_root:
+                    # Different project - allow the Docker runner transition
+                    return True
+
                 raise ExecutionError(
                     f"Task '{task.name}' requires containerized runner '{task_runner_name}' "
                     f"but is currently executing inside runner '{current_containerized_runner}'. "
@@ -1257,6 +1267,7 @@ class Executor:
         # Add nested invocation support environment variables
         docker_env_vars["TT_CONTAINERIZED_RUNNER"] = env.name
         docker_env_vars["TT_STATE_FILE_PATH"] = self.CONTAINER_STATE_FILE_PATH
+        docker_env_vars["TT_PROJECT_ROOT"] = str(self.recipe.project_root)
 
         # Add call chain for recursion detection
         if call_chain:
