@@ -1,11 +1,54 @@
 """E2E tests for nested task invocations."""
 
 import json
+import shutil
+import subprocess
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from . import run_tasktree_cli
+
+
+def is_docker_available() -> bool:
+    """Check if Docker is installed and running.
+
+    Returns:
+        True if docker command exists and daemon is running
+    """
+    try:
+        result = subprocess.run(
+            ["docker", "info"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        return result.returncode == 0
+    except (
+        subprocess.CalledProcessError,
+        FileNotFoundError,
+        subprocess.TimeoutExpired,
+    ):
+        return False
+
+
+def copy_tasktree_source(dest_dir: Path) -> None:
+    """Copy tasktree source code to destination directory for Docker builds.
+
+    Args:
+        dest_dir: Destination directory (typically a test's temporary directory)
+    """
+    # Find the tasktree source directory (src/tasktree)
+    # We're in tests/e2e, so go up to project root
+    project_root = Path(__file__).parent.parent.parent
+    src_dir = project_root / "src"
+
+    if not src_dir.exists():
+        raise RuntimeError(f"Could not find tasktree source at {src_dir}")
+
+    # Copy the entire src directory to the destination
+    dest_src = dest_dir / "src"
+    shutil.copytree(src_dir, dest_src)
 
 
 class TestNestedInvocationsE2E(unittest.TestCase):
@@ -197,6 +240,7 @@ tasks:
             self.assertLessEqual(c_time, parent_time)
 
 
+@unittest.skipUnless(is_docker_available(), "Docker not available")
 class TestDockerNestedInvocationsE2E(unittest.TestCase):
     """E2E tests for Phase 2: Docker support in nested invocations."""
 
@@ -208,13 +252,16 @@ class TestDockerNestedInvocationsE2E(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
+            # Copy tasktree source code for Docker builds
+            copy_tasktree_source(project_root)
+
             # Create Dockerfile
             (project_root / "Dockerfile").write_text("""
 FROM python:3.11-slim
 WORKDIR /workspace
-RUN pip install pyyaml typer rich
+RUN pip install pyyaml typer click rich colorama pathspec platformdirs
 COPY . /app
-ENV PYTHONPATH=/app
+ENV PYTHONPATH=/app/src
 """)
 
             # Create recipe
@@ -224,6 +271,7 @@ runners:
     dockerfile: Dockerfile
     context: .
     shell: /bin/bash
+    volumes: [".:/workspace"]
 
 tasks:
   child:
@@ -267,21 +315,24 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
+            # Copy tasktree source code for Docker builds
+            copy_tasktree_source(project_root)
+
             # Create two Dockerfiles
             (project_root / "Dockerfile.build").write_text("""
 FROM python:3.11-slim
 WORKDIR /workspace
-RUN pip install pyyaml typer rich
+RUN pip install pyyaml typer click rich colorama pathspec platformdirs
 COPY . /app
-ENV PYTHONPATH=/app
+ENV PYTHONPATH=/app/src
 """)
 
             (project_root / "Dockerfile.test").write_text("""
 FROM python:3.11-slim
 WORKDIR /workspace
-RUN pip install pyyaml typer rich
+RUN pip install pyyaml typer click rich colorama pathspec platformdirs
 COPY . /app
-ENV PYTHONPATH=/app
+ENV PYTHONPATH=/app/src
 """)
 
             # Create recipe
@@ -291,11 +342,13 @@ runners:
     dockerfile: Dockerfile.build
     context: .
     shell: /bin/bash
+    volumes: [".:/workspace"]
 
   test:
     dockerfile: Dockerfile.test
     context: .
     shell: /bin/bash
+    volumes: [".:/workspace"]
 
 tasks:
   child:
@@ -324,13 +377,16 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
+            # Copy tasktree source code for Docker builds
+            copy_tasktree_source(project_root)
+
             # Create Dockerfile
             (project_root / "Dockerfile").write_text("""
 FROM python:3.11-slim
 WORKDIR /workspace
-RUN pip install pyyaml typer rich
+RUN pip install pyyaml typer click rich colorama pathspec platformdirs
 COPY . /app
-ENV PYTHONPATH=/app
+ENV PYTHONPATH=/app/src
 """)
 
             # Create recipe
@@ -340,6 +396,7 @@ runners:
     dockerfile: Dockerfile
     context: .
     shell: /bin/bash
+    volumes: [".:/workspace"]
 
   lint:
     shell: /bin/sh
