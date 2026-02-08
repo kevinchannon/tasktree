@@ -481,7 +481,6 @@ class TestDockerNestedInvocations(unittest.TestCase):
         self.runner = CliRunner()
         self.env = {"NO_COLOR": "1"}
 
-    @unittest.skip("Requires Docker - run manually or in CI with Docker available")
     def test_docker_task_calls_nested_same_runner(self):
         """
         Test that a Docker task can call another task with the same Docker runner.
@@ -542,7 +541,6 @@ tasks:
             finally:
                 os.chdir(original_cwd)
 
-    @unittest.skip("Requires Docker - run manually or in CI with Docker available")
     def test_docker_task_calls_nested_different_docker_fails(self):
         """
         Test that nested call to different Docker runner fails with clear error.
@@ -602,7 +600,6 @@ tasks:
             finally:
                 os.chdir(original_cwd)
 
-    @unittest.skip("Requires Docker - run manually or in CI with Docker available")
     def test_docker_task_calls_nested_shell_runner_succeeds(self):
         """
         Test that Docker task can call task with shell-only runner (allowed).
@@ -659,7 +656,6 @@ tasks:
             finally:
                 os.chdir(original_cwd)
 
-    @unittest.skip("Requires Docker - run manually or in CI with Docker available")
     def test_local_calls_docker_task(self):
         """
         Test that local task can call Docker task (normal operation).
@@ -711,7 +707,6 @@ tasks:
             finally:
                 os.chdir(original_cwd)
 
-    @unittest.skip("Requires Docker - run manually or in CI with Docker available")
     def test_state_file_accessible_in_container(self):
         """
         Test that state file is mounted and accessible inside Docker container.
@@ -761,7 +756,6 @@ tasks:
             finally:
                 os.chdir(original_cwd)
 
-    @unittest.skip("Requires Docker - run manually or in CI with Docker available")
     def test_multiple_nested_docker_calls_update_state(self):
         """
         Test that multiple sequential nested calls in Docker all update state correctly.
