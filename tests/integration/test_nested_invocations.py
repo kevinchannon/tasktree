@@ -516,17 +516,9 @@ tasks:
                 os.chdir(original_cwd)
 
 
+@unittest.skipUnless(is_docker_available(), "Docker not available")
 class TestDockerNestedInvocations(unittest.TestCase):
     """Integration tests for Phase 2: Docker support in nested invocations."""
-
-    @classmethod
-    def setUpClass(cls):
-        """Ensure Docker is available before running tests."""
-        if not is_docker_available():
-            raise RuntimeError(
-                "Docker is not available or not running. "
-                "Docker integration tests require Docker to be installed and the daemon to be running."
-            )
 
     def setUp(self):
         """Set up test fixtures."""
