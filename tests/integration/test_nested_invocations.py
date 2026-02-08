@@ -3,7 +3,6 @@
 import json
 import os
 import re
-import shutil
 import subprocess
 import time
 import unittest
@@ -41,25 +40,6 @@ def is_docker_available() -> bool:
         subprocess.TimeoutExpired,
     ):
         return False
-
-
-def copy_tasktree_source(dest_dir: Path) -> None:
-    """Copy tasktree source code to destination directory for Docker builds.
-
-    Args:
-        dest_dir: Destination directory (typically a test's temporary directory)
-    """
-    # Find the tasktree source directory (src/tasktree)
-    # We're in tests/integration, so go up to project root
-    project_root = Path(__file__).parent.parent.parent
-    src_dir = project_root / "src"
-
-    if not src_dir.exists():
-        raise RuntimeError(f"Could not find tasktree source at {src_dir}")
-
-    # Copy the entire src directory to the destination
-    dest_src = dest_dir / "src"
-    shutil.copytree(src_dir, dest_src)
 
 
 class TestNestedInvocations(unittest.TestCase):
@@ -533,8 +513,9 @@ class TestDockerNestedInvocations(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Copy tasktree source code for Docker build
-            copy_tasktree_source(project_root)
+            # Find project source directory for mounting
+            test_file_dir = Path(__file__).parent.parent.parent
+            src_dir = test_file_dir / "src"
 
             # Create simple Dockerfile
             dockerfile = project_root / "Dockerfile"
@@ -542,18 +523,19 @@ class TestDockerNestedInvocations(unittest.TestCase):
 FROM python:3.11-slim
 WORKDIR /workspace
 RUN pip install pyyaml typer click rich colorama pathspec platformdirs
-COPY . /app
 ENV PYTHONPATH=/app/src
 """)
 
             recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
+            recipe_file.write_text(f"""
 runners:
   build:
     dockerfile: Dockerfile
     context: .
     shell: /bin/bash
-    volumes: [".:/workspace"]
+    volumes:
+      - ".:/workspace"
+      - "{src_dir}:/app/src:ro"
 
 tasks:
   child:
@@ -599,8 +581,9 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Copy tasktree source code for Docker build
-            copy_tasktree_source(project_root)
+            # Find project source directory for mounting
+            test_file_dir = Path(__file__).parent.parent.parent
+            src_dir = test_file_dir / "src"
 
             # Create two Dockerfiles
             dockerfile_build = project_root / "Dockerfile.build"
@@ -608,7 +591,6 @@ tasks:
 FROM python:3.11-slim
 WORKDIR /workspace
 RUN pip install pyyaml typer click rich colorama pathspec platformdirs
-COPY . /app
 ENV PYTHONPATH=/app/src
 """)
 
@@ -617,24 +599,27 @@ ENV PYTHONPATH=/app/src
 FROM python:3.11-slim
 WORKDIR /workspace
 RUN pip install pyyaml typer click rich colorama pathspec platformdirs
-COPY . /app
 ENV PYTHONPATH=/app/src
 """)
 
             recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
+            recipe_file.write_text(f"""
 runners:
   build:
     dockerfile: Dockerfile.build
     context: .
     shell: /bin/bash
-    volumes: [".:/workspace"]
+    volumes:
+      - ".:/workspace"
+      - "{src_dir}:/app/src:ro"
 
   test:
     dockerfile: Dockerfile.test
     context: .
     shell: /bin/bash
-    volumes: [".:/workspace"]
+    volumes:
+      - ".:/workspace"
+      - "{src_dir}:/app/src:ro"
 
 tasks:
   child:
@@ -668,26 +653,28 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Copy tasktree source code for Docker build
-            copy_tasktree_source(project_root)
+            # Find project source directory for mounting
+            test_file_dir = Path(__file__).parent.parent.parent
+            src_dir = test_file_dir / "src"
 
             dockerfile = project_root / "Dockerfile"
             dockerfile.write_text("""
 FROM python:3.11-slim
 WORKDIR /workspace
 RUN pip install pyyaml typer click rich colorama pathspec platformdirs
-COPY . /app
 ENV PYTHONPATH=/app/src
 """)
 
             recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
+            recipe_file.write_text(f"""
 runners:
   build:
     dockerfile: Dockerfile
     context: .
     shell: /bin/bash
-    volumes: [".:/workspace"]
+    volumes:
+      - ".:/workspace"
+      - "{src_dir}:/app/src:ro"
 
   lint:
     shell: /bin/sh
@@ -731,26 +718,28 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Copy tasktree source code for Docker build
-            copy_tasktree_source(project_root)
+            # Find project source directory for mounting
+            test_file_dir = Path(__file__).parent.parent.parent
+            src_dir = test_file_dir / "src"
 
             dockerfile = project_root / "Dockerfile"
             dockerfile.write_text("""
 FROM python:3.11-slim
 WORKDIR /workspace
 RUN pip install pyyaml typer click rich colorama pathspec platformdirs
-COPY . /app
 ENV PYTHONPATH=/app/src
 """)
 
             recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
+            recipe_file.write_text(f"""
 runners:
   build:
     dockerfile: Dockerfile
     context: .
     shell: /bin/bash
-    volumes: [".:/workspace"]
+    volumes:
+      - ".:/workspace"
+      - "{src_dir}:/app/src:ro"
 
 tasks:
   docker-child:
@@ -790,26 +779,28 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Copy tasktree source code for Docker build
-            copy_tasktree_source(project_root)
+            # Find project source directory for mounting
+            test_file_dir = Path(__file__).parent.parent.parent
+            src_dir = test_file_dir / "src"
 
             dockerfile = project_root / "Dockerfile"
             dockerfile.write_text("""
 FROM python:3.11-slim
 WORKDIR /workspace
 RUN pip install pyyaml typer click rich colorama pathspec platformdirs
-COPY . /app
 ENV PYTHONPATH=/app/src
 """)
 
             recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
+            recipe_file.write_text(f"""
 runners:
   build:
     dockerfile: Dockerfile
     context: .
     shell: /bin/bash
-    volumes: [".:/workspace"]
+    volumes:
+      - ".:/workspace"
+      - "{src_dir}:/app/src:ro"
 
 tasks:
   docker-task:
@@ -845,26 +836,28 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Copy tasktree source code for Docker build
-            copy_tasktree_source(project_root)
+            # Find project source directory for mounting
+            test_file_dir = Path(__file__).parent.parent.parent
+            src_dir = test_file_dir / "src"
 
             dockerfile = project_root / "Dockerfile"
             dockerfile.write_text("""
 FROM python:3.11-slim
 WORKDIR /workspace
 RUN pip install pyyaml typer click rich colorama pathspec platformdirs
-COPY . /app
 ENV PYTHONPATH=/app/src
 """)
 
             recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
+            recipe_file.write_text(f"""
 runners:
   build:
     dockerfile: Dockerfile
     context: .
     shell: /bin/bash
-    volumes: [".:/workspace"]
+    volumes:
+      - ".:/workspace"
+      - "{src_dir}:/app/src:ro"
 
 tasks:
   child1:
