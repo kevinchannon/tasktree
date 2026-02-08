@@ -3,6 +3,7 @@
 import json
 import os
 import re
+import shutil
 import subprocess
 import time
 import unittest
@@ -40,6 +41,25 @@ def is_docker_available() -> bool:
         subprocess.TimeoutExpired,
     ):
         return False
+
+
+def copy_tasktree_source(dest_dir: Path) -> None:
+    """Copy tasktree source code to destination directory for Docker builds.
+
+    Args:
+        dest_dir: Destination directory (typically a test's temporary directory)
+    """
+    # Find the tasktree source directory (src/tasktree)
+    # We're in tests/integration, so go up to project root
+    project_root = Path(__file__).parent.parent.parent
+    src_dir = project_root / "src"
+
+    if not src_dir.exists():
+        raise RuntimeError(f"Could not find tasktree source at {src_dir}")
+
+    # Copy the entire src directory to the destination
+    dest_src = dest_dir / "src"
+    shutil.copytree(src_dir, dest_src)
 
 
 class TestNestedInvocations(unittest.TestCase):
@@ -521,6 +541,9 @@ class TestDockerNestedInvocations(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
+            # Copy tasktree source code for Docker build
+            copy_tasktree_source(project_root)
+
             # Create simple Dockerfile
             dockerfile = project_root / "Dockerfile"
             dockerfile.write_text("""
@@ -582,6 +605,9 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
+
+            # Copy tasktree source code for Docker build
+            copy_tasktree_source(project_root)
 
             # Create two Dockerfiles
             dockerfile_build = project_root / "Dockerfile.build"
@@ -648,6 +674,9 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
+            # Copy tasktree source code for Docker build
+            copy_tasktree_source(project_root)
+
             dockerfile = project_root / "Dockerfile"
             dockerfile.write_text("""
 FROM python:3.11-slim
@@ -707,6 +736,9 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
+            # Copy tasktree source code for Docker build
+            copy_tasktree_source(project_root)
+
             dockerfile = project_root / "Dockerfile"
             dockerfile.write_text("""
 FROM python:3.11-slim
@@ -762,6 +794,9 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
+            # Copy tasktree source code for Docker build
+            copy_tasktree_source(project_root)
+
             dockerfile = project_root / "Dockerfile"
             dockerfile.write_text("""
 FROM python:3.11-slim
@@ -812,6 +847,9 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
+
+            # Copy tasktree source code for Docker build
+            copy_tasktree_source(project_root)
 
             dockerfile = project_root / "Dockerfile"
             dockerfile.write_text("""
