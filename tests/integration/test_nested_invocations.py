@@ -549,7 +549,7 @@ class TestDockerNestedInvocations(unittest.TestCase):
             dockerfile.write_text("""
 FROM python:3.11-slim
 WORKDIR /workspace
-RUN pip install pyyaml typer rich
+RUN pip install pyyaml typer click rich colorama pathspec platformdirs
 COPY . /app
 ENV PYTHONPATH=/app/src
 """)
@@ -614,7 +614,7 @@ tasks:
             dockerfile_build.write_text("""
 FROM python:3.11-slim
 WORKDIR /workspace
-RUN pip install pyyaml typer rich
+RUN pip install pyyaml typer click rich colorama pathspec platformdirs
 COPY . /app
 ENV PYTHONPATH=/app/src
 """)
@@ -623,7 +623,7 @@ ENV PYTHONPATH=/app/src
             dockerfile_test.write_text("""
 FROM python:3.11-slim
 WORKDIR /workspace
-RUN pip install pyyaml typer rich
+RUN pip install pyyaml typer click rich colorama pathspec platformdirs
 COPY . /app
 ENV PYTHONPATH=/app/src
 """)
@@ -681,7 +681,7 @@ tasks:
             dockerfile.write_text("""
 FROM python:3.11-slim
 WORKDIR /workspace
-RUN pip install pyyaml typer rich
+RUN pip install pyyaml typer click rich colorama pathspec platformdirs
 COPY . /app
 ENV PYTHONPATH=/app/src
 """)
@@ -743,7 +743,7 @@ tasks:
             dockerfile.write_text("""
 FROM python:3.11-slim
 WORKDIR /workspace
-RUN pip install pyyaml typer rich
+RUN pip install pyyaml typer click rich colorama pathspec platformdirs
 COPY . /app
 ENV PYTHONPATH=/app/src
 """)
@@ -801,7 +801,7 @@ tasks:
             dockerfile.write_text("""
 FROM python:3.11-slim
 WORKDIR /workspace
-RUN pip install pyyaml typer rich
+RUN pip install pyyaml typer click rich colorama pathspec platformdirs
 COPY . /app
 ENV PYTHONPATH=/app/src
 """)
@@ -855,7 +855,7 @@ tasks:
             dockerfile.write_text("""
 FROM python:3.11-slim
 WORKDIR /workspace
-RUN pip install pyyaml typer rich
+RUN pip install pyyaml typer click rich colorama pathspec platformdirs
 COPY . /app
 ENV PYTHONPATH=/app/src
 """)
