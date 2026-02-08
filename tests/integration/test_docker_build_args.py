@@ -34,9 +34,13 @@ class TestDockerBuildArgs(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
+            # Create output directory
+            (project_root / "output").mkdir()
+
             # Create a Dockerfile that uses ARG statements
             dockerfile = project_root / "Dockerfile"
             dockerfile.write_text("""FROM alpine:latest
+WORKDIR /workspace
 
 ARG BUILD_VERSION
 ARG BUILD_DATE
@@ -56,7 +60,7 @@ runners:
     dockerfile: ./Dockerfile
     context: .
     shell: /bin/sh
-    volumes: [".:/workspace"]
+    volumes: ["./output:/workspace/output"]
     args:
       BUILD_VERSION: "1.2.3"
       BUILD_DATE: "2024-01-01"
@@ -65,8 +69,8 @@ runners:
 tasks:
   build:
     run_in: builder
-    outputs: [build-output.txt]
-    cmd: cp /build-info.txt build-output.txt
+    outputs: [output/build-output.txt]
+    cmd: cp /build-info.txt output/build-output.txt
 """)
 
             original_cwd = os.getcwd()
@@ -80,8 +84,8 @@ tasks:
                 self.assertEqual(result.exit_code, 0, f"Task failed:\n{result.stdout}\n{result.stderr}")
 
                 # Verify that the build args were actually used in the container
-                build_output = project_root / "build-output.txt"
-                self.assertTrue(build_output.exists(), "build-output.txt should be created")
+                build_output = project_root / "output" / "build-output.txt"
+                self.assertTrue(build_output.exists(), "output/build-output.txt should be created")
 
                 content = build_output.read_text()
                 self.assertIn("Build version: 1.2.3", content, "BUILD_VERSION arg should be passed")
