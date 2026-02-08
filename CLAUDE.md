@@ -36,7 +36,10 @@ If you are checking that a feature you are implementing has been implemented cor
 
 It is still permissible to write and run an ad hoc script to investigate/confirm the current behaviour. Although, it is better to first search for a test that does the thing that you're investigating. If one exists and is passing: then the app does the thing.
 
-### Testas we go!
+### Skipping tests for all platforms is not acceptable
+We DO NOT introduce `unittest.skip`, or its variants into the codebase. SOMETIMES, it is permissible to skip tests under some specific condition (e.g. docker is not available for MacOS in CI). Use `unittest.skipUnless` for this (rare) eventuality.
+
+### Test as we go!
 We do not plan to implement all the code (maybe even with unit tests) and then write a bunch of integration tests. We PLAN END-TO-END incremental changes. This will involve writing high-level test of the functionality as early as possible, to ensure that the new feature is progressing as expected.
 
 ### Try to be efficient with token usage
