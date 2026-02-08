@@ -196,7 +196,7 @@ Task Tree only runs tasks when necessary. A task executes if:
 - Any input files have changed since the last run
 - Any dependencies have re-run
 - It has never been executed before
-- It has no inputs or outputs (always runs)
+- It has no inputs (always runs)
 - The execution runner has changed (CLI override or runner config change)
 
 ### Automatic Input Inheritance
