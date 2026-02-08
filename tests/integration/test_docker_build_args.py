@@ -45,8 +45,6 @@ ARG PYTHON_VERSION=3.11
 RUN echo "Build version: $BUILD_VERSION" > /build-info.txt && \\
     echo "Build date: $BUILD_DATE" >> /build-info.txt && \\
     echo "Python version: $PYTHON_VERSION" >> /build-info.txt
-
-CMD ["sh", "-c", "cat /build-info.txt"]
 """)
 
             # Create recipe with Docker runner and build args
@@ -67,7 +65,7 @@ tasks:
   build:
     run_in: builder
     outputs: [build-output.txt]
-    cmd: cat /build-info.txt > build-output.txt
+    cmd: cp /build-info.txt build-output.txt
 """)
 
             original_cwd = os.getcwd()
