@@ -46,7 +46,7 @@ RUN echo "Build version: $BUILD_VERSION" > /build-info.txt && \\
     echo "Build date: $BUILD_DATE" >> /build-info.txt && \\
     echo "Python version: $PYTHON_VERSION" >> /build-info.txt
 
-CMD ["cat", "/build-info.txt"]
+CMD ["sh", "-c", "cat /build-info.txt"]
 """)
 
             # Create recipe with Docker runner and build args
@@ -65,7 +65,8 @@ runners:
 tasks:
   build:
     run_in: builder
-    cmd: echo "Build args test"
+    outputs: [build-output.txt]
+    cmd: cat /build-info.txt > build-output.txt
 """)
 
             original_cwd = os.getcwd()
@@ -76,7 +77,16 @@ tasks:
                 # Note: This test will be skipped in CI if Docker is not available
                 result = self.runner.invoke(app, ["build"], env=self.env)
 
-                self.assertEqual(result.exit_code, 0)
+                self.assertEqual(result.exit_code, 0, f"Task failed:\n{result.stdout}\n{result.stderr}")
+
+                # Verify that the build args were actually used in the container
+                build_output = project_root / "build-output.txt"
+                self.assertTrue(build_output.exists(), "build-output.txt should be created")
+
+                content = build_output.read_text()
+                self.assertIn("Build version: 1.2.3", content, "BUILD_VERSION arg should be passed")
+                self.assertIn("Build date: 2024-01-01", content, "BUILD_DATE arg should be passed")
+                self.assertIn("Python version: 3.12", content, "PYTHON_VERSION arg should override default")
 
             finally:
                 os.chdir(original_cwd)
