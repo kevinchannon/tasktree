@@ -109,6 +109,7 @@ RUN pip install --no-cache-dir -e .
 runners:
   docker-env:
     dockerfile: Dockerfile
+    context: .
 
 tasks:
   docker-recursive:
