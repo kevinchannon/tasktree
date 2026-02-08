@@ -92,31 +92,39 @@ tasks:
     def test_real_subprocess_cycle_in_docker(self):
         """Test that recursion detection works inside Docker container."""
         with TemporaryDirectory() as tmpdir:
+            # Find project source directory for mounting
+            test_file_dir = Path(__file__).parent.parent.parent
+            src_dir = test_file_dir / "src"
+
             # Create Dockerfile
             dockerfile_path = Path(tmpdir) / "Dockerfile"
             dockerfile_path.write_text(
                 """
 FROM python:3.11-slim
-WORKDIR /app
-COPY . /app
-RUN pip install --no-cache-dir -e .
+WORKDIR /workspace
+RUN pip install pyyaml typer click rich colorama pathspec platformdirs
+ENV PYTHONPATH=/app/src
 """
             )
 
             recipe_path = Path(tmpdir) / "tasktree.yaml"
             recipe_path.write_text(
-                """
+                f"""
 runners:
   docker-env:
     dockerfile: Dockerfile
     context: .
+    shell: /bin/bash
+    volumes:
+      - ".:/workspace"
+      - "{src_dir}:/app/src:ro"
 
 tasks:
   docker-recursive:
     run_in: docker-env
     cmd: |
       echo "In Docker, before recursive call"
-      tt docker-recursive
+      python3 -m tasktree.cli docker-recursive
       echo "After recursive call (should never reach here)"
 """
             )
