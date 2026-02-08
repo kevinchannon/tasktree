@@ -551,7 +551,7 @@ FROM python:3.11-slim
 WORKDIR /workspace
 RUN pip install pyyaml typer rich
 COPY . /app
-ENV PYTHONPATH=/app
+ENV PYTHONPATH=/app/src
 """)
 
             recipe_file = project_root / "tasktree.yaml"
@@ -616,7 +616,7 @@ FROM python:3.11-slim
 WORKDIR /workspace
 RUN pip install pyyaml typer rich
 COPY . /app
-ENV PYTHONPATH=/app
+ENV PYTHONPATH=/app/src
 """)
 
             dockerfile_test = project_root / "Dockerfile.test"
@@ -625,7 +625,7 @@ FROM python:3.11-slim
 WORKDIR /workspace
 RUN pip install pyyaml typer rich
 COPY . /app
-ENV PYTHONPATH=/app
+ENV PYTHONPATH=/app/src
 """)
 
             recipe_file = project_root / "tasktree.yaml"
@@ -683,7 +683,7 @@ FROM python:3.11-slim
 WORKDIR /workspace
 RUN pip install pyyaml typer rich
 COPY . /app
-ENV PYTHONPATH=/app
+ENV PYTHONPATH=/app/src
 """)
 
             recipe_file = project_root / "tasktree.yaml"
@@ -745,7 +745,7 @@ FROM python:3.11-slim
 WORKDIR /workspace
 RUN pip install pyyaml typer rich
 COPY . /app
-ENV PYTHONPATH=/app
+ENV PYTHONPATH=/app/src
 """)
 
             recipe_file = project_root / "tasktree.yaml"
@@ -803,7 +803,7 @@ FROM python:3.11-slim
 WORKDIR /workspace
 RUN pip install pyyaml typer rich
 COPY . /app
-ENV PYTHONPATH=/app
+ENV PYTHONPATH=/app/src
 """)
 
             recipe_file = project_root / "tasktree.yaml"
@@ -857,7 +857,7 @@ FROM python:3.11-slim
 WORKDIR /workspace
 RUN pip install pyyaml typer rich
 COPY . /app
-ENV PYTHONPATH=/app
+ENV PYTHONPATH=/app/src
 """)
 
             recipe_file = project_root / "tasktree.yaml"
