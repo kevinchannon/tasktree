@@ -3,6 +3,7 @@
 import json
 import os
 import re
+import subprocess
 import time
 import unittest
 from pathlib import Path
@@ -17,6 +18,28 @@ def strip_ansi_codes(text: str) -> str:
     """Remove ANSI escape sequences from text."""
     ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
     return ansi_escape.sub("", text)
+
+
+def is_docker_available() -> bool:
+    """Check if Docker is installed and running.
+
+    Returns:
+        True if docker command exists and daemon is running
+    """
+    try:
+        result = subprocess.run(
+            ["docker", "info"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        return result.returncode == 0
+    except (
+        subprocess.CalledProcessError,
+        FileNotFoundError,
+        subprocess.TimeoutExpired,
+    ):
+        return False
 
 
 class TestNestedInvocations(unittest.TestCase):
@@ -475,6 +498,15 @@ tasks:
 
 class TestDockerNestedInvocations(unittest.TestCase):
     """Integration tests for Phase 2: Docker support in nested invocations."""
+
+    @classmethod
+    def setUpClass(cls):
+        """Ensure Docker is available before running tests."""
+        if not is_docker_available():
+            raise RuntimeError(
+                "Docker is not available or not running. "
+                "Docker integration tests require Docker to be installed and the daemon to be running."
+            )
 
     def setUp(self):
         """Set up test fixtures."""
