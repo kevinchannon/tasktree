@@ -7,6 +7,7 @@ from tempfile import TemporaryDirectory
 
 from typer.testing import CliRunner
 
+from helpers.docker import is_docker_available
 from tasktree.cli import app
 
 
@@ -24,6 +25,7 @@ class TestDockerBuildArgs(unittest.TestCase):
         self.runner = CliRunner()
         self.env = {"NO_COLOR": "1"}
 
+    @unittest.skipUnless(is_docker_available(), "Docker not available")
     def test_build_args_passed_to_dockerfile(self):
         """
         Test that build args are passed to docker build and used in Dockerfile.
@@ -32,9 +34,13 @@ class TestDockerBuildArgs(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
+            # Create output directory
+            (project_root / "output").mkdir()
+
             # Create a Dockerfile that uses ARG statements
             dockerfile = project_root / "Dockerfile"
             dockerfile.write_text("""FROM alpine:latest
+WORKDIR /workspace
 
 ARG BUILD_VERSION
 ARG BUILD_DATE
@@ -43,8 +49,6 @@ ARG PYTHON_VERSION=3.11
 RUN echo "Build version: $BUILD_VERSION" > /build-info.txt && \\
     echo "Build date: $BUILD_DATE" >> /build-info.txt && \\
     echo "Python version: $PYTHON_VERSION" >> /build-info.txt
-
-CMD ["cat", "/build-info.txt"]
 """)
 
             # Create recipe with Docker runner and build args
@@ -55,6 +59,8 @@ runners:
   builder:
     dockerfile: ./Dockerfile
     context: .
+    shell: /bin/sh
+    volumes: ["./output:/workspace/output"]
     args:
       BUILD_VERSION: "1.2.3"
       BUILD_DATE: "2024-01-01"
@@ -63,7 +69,8 @@ runners:
 tasks:
   build:
     run_in: builder
-    cmd: echo "Build args test"
+    outputs: [output/build-output.txt]
+    cmd: cp /build-info.txt output/build-output.txt
 """)
 
             original_cwd = os.getcwd()
@@ -74,11 +81,16 @@ tasks:
                 # Note: This test will be skipped in CI if Docker is not available
                 result = self.runner.invoke(app, ["build"], env=self.env)
 
-                # If Docker is not available, skip the test
-                if "Docker is not available" in result.stdout or result.exit_code != 0:
-                    self.skipTest("Docker not available in test environment")
+                self.assertEqual(result.exit_code, 0, f"Task failed:\n{result.stdout}\n{result.stderr}")
 
-                self.assertEqual(result.exit_code, 0)
+                # Verify that the build args were actually used in the container
+                build_output = project_root / "output" / "build-output.txt"
+                self.assertTrue(build_output.exists(), "output/build-output.txt should be created")
+
+                content = build_output.read_text()
+                self.assertIn("Build version: 1.2.3", content, "BUILD_VERSION arg should be passed")
+                self.assertIn("Build date: 2024-01-01", content, "BUILD_DATE arg should be passed")
+                self.assertIn("Python version: 3.12", content, "PYTHON_VERSION arg should override default")
 
             finally:
                 os.chdir(original_cwd)

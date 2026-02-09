@@ -1,9 +1,11 @@
 """End-to-end tests for recursion detection in nested task invocations."""
-
+import os
+import subprocess
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from helpers.docker import is_docker_available
 from . import run_tasktree_cli
 
 
@@ -86,41 +88,51 @@ tasks:
                 output_file = Path(output_dir) / f"chain{i}.txt"
                 self.assertTrue(output_file.exists())
 
-    @unittest.skip("Requires Docker runtime")
+    @unittest.skipUnless(is_docker_available(), "Docker not available")
     def test_real_subprocess_cycle_in_docker(self):
         """Test that recursion detection works inside Docker container."""
         with TemporaryDirectory() as tmpdir:
+            # Find project source directory for mounting
+            test_file_dir = Path(__file__).parent.parent.parent
+            src_dir = test_file_dir / "src"
+
             # Create Dockerfile
             dockerfile_path = Path(tmpdir) / "Dockerfile"
             dockerfile_path.write_text(
                 """
 FROM python:3.11-slim
-WORKDIR /app
-COPY . /app
-RUN pip install --no-cache-dir -e .
+WORKDIR /workspace
+RUN pip install pyyaml typer click rich colorama pathspec platformdirs
+ENV PYTHONPATH=/app/src
 """
             )
 
             recipe_path = Path(tmpdir) / "tasktree.yaml"
             recipe_path.write_text(
-                """
+                f"""
 runners:
   docker-env:
     dockerfile: Dockerfile
+    context: .
+    shell: /bin/bash
+    preamble: "set -e"
+    volumes:
+      - ".:/workspace"
+      - "{src_dir}:/app/src:ro"
 
 tasks:
   docker-recursive:
     run_in: docker-env
     cmd: |
       echo "In Docker, before recursive call"
-      tt docker-recursive
+      python3 -m tasktree.cli docker-recursive
       echo "After recursive call (should never reach here)"
 """
             )
 
             # Run tt via subprocess
             result = subprocess.run(
-                ["python3", "main.py", "docker-recursive"],
+                ["python3", "-m", "tasktree.cli", "docker-recursive"],
                 cwd=tmpdir,
                 capture_output=True,
                 text=True,
@@ -128,7 +140,11 @@ tasks:
             )
 
             # Should fail with recursion error
-            self.assertNotEqual(result.returncode, 0)
+            self.assertNotEqual(
+                result.returncode,
+                0,
+                f"Expected non-zero exit code but got 0.\nstdout: {result.stdout}\nstderr: {result.stderr}",
+            )
 
             combined_output = result.stdout + result.stderr
             self.assertIn("Recursion detected", combined_output)

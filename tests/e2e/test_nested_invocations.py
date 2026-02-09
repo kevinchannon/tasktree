@@ -7,28 +7,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from . import run_tasktree_cli
-
-
-def is_docker_available() -> bool:
-    """Check if Docker is installed and running.
-
-    Returns:
-        True if docker command exists and daemon is running
-    """
-    try:
-        result = subprocess.run(
-            ["docker", "info"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        return result.returncode == 0
-    except (
-        subprocess.CalledProcessError,
-        FileNotFoundError,
-        subprocess.TimeoutExpired,
-    ):
-        return False
+from helpers.docker import is_docker_available
 
 
 class TestNestedInvocationsE2E(unittest.TestCase):

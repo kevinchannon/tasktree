@@ -3,7 +3,6 @@
 import json
 import os
 import re
-import subprocess
 import time
 import unittest
 from pathlib import Path
@@ -11,6 +10,7 @@ from tempfile import TemporaryDirectory
 
 from typer.testing import CliRunner
 
+from helpers.docker import is_docker_available
 from tasktree.cli import app
 
 
@@ -18,28 +18,6 @@ def strip_ansi_codes(text: str) -> str:
     """Remove ANSI escape sequences from text."""
     ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
     return ansi_escape.sub("", text)
-
-
-def is_docker_available() -> bool:
-    """Check if Docker is installed and running.
-
-    Returns:
-        True if docker command exists and daemon is running
-    """
-    try:
-        result = subprocess.run(
-            ["docker", "info"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        return result.returncode == 0
-    except (
-        subprocess.CalledProcessError,
-        FileNotFoundError,
-        subprocess.TimeoutExpired,
-    ):
-        return False
 
 
 class TestNestedInvocations(unittest.TestCase):
