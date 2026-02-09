@@ -125,7 +125,7 @@ tasks:
     cmd: |
       echo "In Docker, before recursive call"
       echo "TT_CALL_CHAIN env var: $TT_CALL_CHAIN"
-      python3 -c "import os; print(f'Python sees TT_CALL_CHAIN: {os.environ.get(\"TT_CALL_CHAIN\", \"NOT_SET\")}')"
+      python3 -c 'import os; print("Python sees TT_CALL_CHAIN:", os.environ.get("TT_CALL_CHAIN", "NOT_SET"))'
       python3 -m tasktree.cli docker-recursive
       echo "After recursive call (should never reach here)"
 """
