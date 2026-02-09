@@ -271,6 +271,27 @@ class TestTempScript(unittest.TestCase):
 
         self.assertFalse(script_path.exists())
 
+    def test_non_ascii_characters_in_command(self):
+        """
+        Test TempScript handles non-ASCII (UTF-8) characters in commands.
+
+        @athena: method
+        """
+        # Test with various Unicode characters
+        cmd = "echo 'Hello 世界 🌍 Привет café'"
+
+        with TempScript(cmd=cmd) as script_path:
+            # Read with explicit UTF-8 encoding
+            content = script_path.read_text(encoding="utf-8")
+
+            # Verify all Unicode characters are preserved
+            self.assertIn("世界", content)
+            self.assertIn("🌍", content)
+            self.assertIn("Привет", content)
+            self.assertIn("café", content)
+
+        self.assertFalse(script_path.exists())
+
 
 if __name__ == "__main__":
     unittest.main()
