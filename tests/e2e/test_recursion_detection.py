@@ -140,6 +140,13 @@ tasks:
                 env={**os.environ, "PYTHONPATH": str(Path.cwd())},
             )
 
+            # Debug: Print actual output
+            print(f"\n=== DEBUG OUTPUT ===")
+            print(f"Return code: {result.returncode}")
+            print(f"STDOUT:\n{result.stdout}")
+            print(f"STDERR:\n{result.stderr}")
+            print(f"=== END DEBUG ===\n")
+
             # Should fail with recursion error
             self.assertNotEqual(result.returncode, 0)
 
