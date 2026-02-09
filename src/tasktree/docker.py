@@ -219,7 +219,14 @@ class DockerManager:
         shell = env.shell or "sh"
         # Only use args as shell args if it's a list; dict args are build args only
         shell_args = env.args if isinstance(env.args, list) else []
-        docker_cmd.extend([shell, *shell_args, "-c", cmd])
+
+        # Prepend preamble to command if specified
+        final_cmd = cmd
+        if env.preamble:
+            preamble_text = env.preamble if env.preamble.endswith("\n") else env.preamble + "\n"
+            final_cmd = preamble_text + cmd
+
+        docker_cmd.extend([shell, *shell_args, "-c", final_cmd])
 
         # Execute
         try:
