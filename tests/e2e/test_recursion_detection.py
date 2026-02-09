@@ -115,6 +115,7 @@ runners:
     dockerfile: Dockerfile
     context: .
     shell: /bin/bash
+    preamble: "set -e"
     volumes:
       - ".:/workspace"
       - "{src_dir}:/app/src:ro"
@@ -124,8 +125,6 @@ tasks:
     run_in: docker-env
     cmd: |
       echo "In Docker, before recursive call"
-      echo "TT_CALL_CHAIN env var: $TT_CALL_CHAIN"
-      python3 -c 'import os; print("Python sees TT_CALL_CHAIN:", os.environ.get("TT_CALL_CHAIN", "NOT_SET"))'
       python3 -m tasktree.cli docker-recursive
       echo "After recursive call (should never reach here)"
 """
@@ -140,15 +139,12 @@ tasks:
                 env={**os.environ, "PYTHONPATH": str(Path.cwd())},
             )
 
-            # Debug: Print actual output
-            print(f"\n=== DEBUG OUTPUT ===")
-            print(f"Return code: {result.returncode}")
-            print(f"STDOUT:\n{result.stdout}")
-            print(f"STDERR:\n{result.stderr}")
-            print(f"=== END DEBUG ===\n")
-
             # Should fail with recursion error
-            self.assertNotEqual(result.returncode, 0)
+            self.assertNotEqual(
+                result.returncode,
+                0,
+                f"Expected non-zero exit code but got 0.\nstdout: {result.stdout}\nstderr: {result.stderr}",
+            )
 
             combined_output = result.stdout + result.stderr
             self.assertIn("Recursion detected", combined_output)
