@@ -8,13 +8,14 @@ between containerized and non-containerized execution paths.
 @athena: module
 """
 
-import logging
 import os
 import platform
 import stat
 import tempfile
 import types
 from pathlib import Path
+
+from tasktree.logging import Logger
 
 # Module-level constant for platform detection to avoid repeated system calls
 _IS_WINDOWS = platform.system() == "Windows"
@@ -47,7 +48,7 @@ class TempScript:
         cmd: str,
         preamble: str = "",
         shell: str = "bash",
-        logger: logging.Logger | None = None,
+        logger: Logger | None = None,
     ):
         """
         Initialize temp script manager.
@@ -169,6 +170,6 @@ class TempScript:
                 # Log cleanup failure but don't raise to avoid masking exceptions
                 # from the context manager body
                 if self.logger:
-                    self.logger.warning(
+                    self.logger.warn(
                         f"Failed to clean up temp script {self.script_path}: {e}"
                     )
