@@ -14,6 +14,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from helpers.logging import logger_stub
 from tasktree.temp_script import TempScript
 
 
@@ -32,7 +33,7 @@ class TestTempScript(unittest.TestCase):
         """
         cmd = "echo hello"
 
-        with TempScript(cmd=cmd) as script_path:
+        with TempScript(cmd=cmd, logger=logger_stub) as script_path:
             # Verify script file exists
             self.assertTrue(script_path.exists())
             self.assertTrue(script_path.is_file())
@@ -62,7 +63,7 @@ class TestTempScript(unittest.TestCase):
         cmd = "echo hello"
         preamble = "set -e\n"
 
-        with TempScript(cmd=cmd, preamble=preamble) as script_path:
+        with TempScript(cmd=cmd, preamble=preamble, logger=logger_stub) as script_path:
             content = script_path.read_text()
 
             # Verify preamble is in content
@@ -87,7 +88,7 @@ class TestTempScript(unittest.TestCase):
         cmd = "echo hello"
         preamble = "set -e"  # No trailing newline
 
-        with TempScript(cmd=cmd, preamble=preamble) as script_path:
+        with TempScript(cmd=cmd, preamble=preamble, logger=logger_stub) as script_path:
             content = script_path.read_text()
 
             # Verify newline was added after preamble
@@ -103,7 +104,7 @@ class TestTempScript(unittest.TestCase):
         """
         cmd = "echo hello\necho world\necho !"
 
-        with TempScript(cmd=cmd) as script_path:
+        with TempScript(cmd=cmd, logger=logger_stub) as script_path:
             content = script_path.read_text()
 
             # Verify all lines are present
@@ -126,7 +127,7 @@ class TestTempScript(unittest.TestCase):
         cmd = "echo hello"
         shell = "zsh"
 
-        with TempScript(cmd=cmd, shell=shell) as script_path:
+        with TempScript(cmd=cmd, shell=shell, logger=logger_stub) as script_path:
             content = script_path.read_text()
 
             # Verify custom shell in shebang
@@ -146,7 +147,7 @@ class TestTempScript(unittest.TestCase):
 
         cmd = "echo hello"
 
-        with TempScript(cmd=cmd) as script_path:
+        with TempScript(cmd=cmd, logger=logger_stub) as script_path:
             # Verify script is executable
             file_stat = os.stat(script_path)
             is_executable = bool(file_stat.st_mode & stat.S_IEXEC)
@@ -164,7 +165,7 @@ class TestTempScript(unittest.TestCase):
         script_path_ref = None
 
         try:
-            with TempScript(cmd=cmd) as script_path:
+            with TempScript(cmd=cmd, logger=logger_stub) as script_path:
                 script_path_ref = script_path
                 # Verify script exists during context
                 self.assertTrue(script_path.exists())
@@ -187,7 +188,7 @@ class TestTempScript(unittest.TestCase):
 
         with patch("os.unlink", side_effect=OSError("Mock error")):
             # Should not raise exception even if unlink fails
-            with TempScript(cmd=cmd) as script_path:
+            with TempScript(cmd=cmd, logger=logger_stub) as script_path:
                 pass
 
         # Test passes if no exception was raised
@@ -204,7 +205,7 @@ class TestTempScript(unittest.TestCase):
 
         cmd = "#!/bin/sh\necho hello"
 
-        with TempScript(cmd=cmd, shell="bash") as script_path:
+        with TempScript(cmd=cmd, shell="bash", logger=logger_stub) as script_path:
             content = script_path.read_text()
 
             # Verify original shebang is preserved
@@ -223,7 +224,7 @@ class TestTempScript(unittest.TestCase):
         """
         cmd = ""
 
-        with TempScript(cmd=cmd) as script_path:
+        with TempScript(cmd=cmd, logger=logger_stub) as script_path:
             content = script_path.read_text()
 
             # On Unix/macOS, should have shebang even with empty command
@@ -243,7 +244,7 @@ class TestTempScript(unittest.TestCase):
         """
         cmd = "echo hello"
 
-        with TempScript(cmd=cmd) as script_path:
+        with TempScript(cmd=cmd, logger=logger_stub) as script_path:
             # Verify return type is Path
             self.assertIsInstance(script_path, Path)
 
@@ -261,7 +262,7 @@ class TestTempScript(unittest.TestCase):
 
         cmd = "echo hello"
 
-        with TempScript(cmd=cmd) as script_path:
+        with TempScript(cmd=cmd, logger=logger_stub) as script_path:
             # Verify .bat extension
             self.assertTrue(str(script_path).endswith(".bat"))
 
@@ -280,7 +281,7 @@ class TestTempScript(unittest.TestCase):
         # Test with various Unicode characters
         cmd = "echo 'Hello 世界 🌍 Привет café'"
 
-        with TempScript(cmd=cmd) as script_path:
+        with TempScript(cmd=cmd, logger=logger_stub) as script_path:
             # Read with explicit UTF-8 encoding
             content = script_path.read_text(encoding="utf-8")
 

@@ -35,7 +35,7 @@ class TempScript:
     to execute. On Unix/macOS, the script is made executable.
 
     Usage:
-        with TempScript(cmd="echo hello", preamble="set -e", shell="bash") as script_path:
+        with TempScript(cmd="echo hello", preamble="set -e", shell="bash", logger=my_logger) as script_path:
             # script_path is a Path object pointing to the temp script
             subprocess.run([str(script_path)], check=True)
         # Script is automatically cleaned up after the with block
@@ -48,7 +48,7 @@ class TempScript:
         cmd: str,
         preamble: str = "",
         shell: str = "bash",
-        logger: Logger | None = None,
+        logger: Logger,
     ):
         """
         Initialize temp script manager.
@@ -57,7 +57,7 @@ class TempScript:
             cmd: Command string to execute (can be multi-line)
             preamble: Optional preamble to prepend to command
             shell: Shell to use for shebang (default: bash)
-            logger: Optional logger for debug/trace logging
+            logger: Logger for debug/trace logging
 
         @athena: method
         """
@@ -89,8 +89,7 @@ class TempScript:
         # Determine file extension based on platform
         script_ext = ".bat" if _IS_WINDOWS else ".sh"
 
-        if self.logger:
-            self.logger.debug(f"Creating temp script with extension {script_ext}")
+        self.logger.debug(f"Creating temp script with extension {script_ext}")
 
         # Create temporary script file with explicit UTF-8 encoding
         with tempfile.NamedTemporaryFile(
@@ -107,16 +106,14 @@ class TempScript:
                     # Use the configured shell in shebang
                     shebang = f"#!/usr/bin/env {self.shell}\n"
                     script_file.write(shebang)
-                    if self.logger:
-                        self.logger.debug(f"Added shebang: {shebang.strip()}")
+                    self.logger.debug(f"Added shebang: {shebang.strip()}")
 
             # Add preamble if provided
             if self.preamble:
                 script_file.write(self.preamble)
                 if not self.preamble.endswith("\n"):
                     script_file.write("\n")
-                if self.logger:
-                    self.logger.debug("Added preamble to script")
+                self.logger.debug("Added preamble to script")
 
             # Write command to file
             script_file.write(self.cmd)
@@ -125,8 +122,7 @@ class TempScript:
         # Store path for cleanup
         self.script_path = Path(script_path_str)
 
-        if self.logger:
-            self.logger.debug(f"Created temp script at: {self.script_path}")
+        self.logger.debug(f"Created temp script at: {self.script_path}")
 
         # Make executable on Unix/macOS
         if not _IS_WINDOWS:
@@ -134,8 +130,7 @@ class TempScript:
                 self.script_path,
                 os.stat(self.script_path).st_mode | stat.S_IEXEC
             )
-            if self.logger:
-                self.logger.debug("Set executable permissions on script")
+            self.logger.debug("Set executable permissions on script")
 
         return self.script_path
 
@@ -164,12 +159,10 @@ class TempScript:
         if self.script_path:
             try:
                 os.unlink(self.script_path)
-                if self.logger:
-                    self.logger.debug(f"Cleaned up temp script: {self.script_path}")
+                self.logger.debug(f"Cleaned up temp script: {self.script_path}")
             except OSError as e:
                 # Log cleanup failure but don't raise to avoid masking exceptions
                 # from the context manager body
-                if self.logger:
-                    self.logger.warn(
-                        f"Failed to clean up temp script {self.script_path}: {e}"
-                    )
+                self.logger.warn(
+                    f"Failed to clean up temp script {self.script_path}: {e}"
+                )
