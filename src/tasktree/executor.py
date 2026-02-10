@@ -736,6 +736,20 @@ class Executor:
         return [t for t in (x.strip() for x in call_chain.split(",")) if t]
 
     @staticmethod
+    def _make_call_chain_entry(cache_key: str, task_name: str) -> str:
+        """
+        Create call chain entry in format 'cache_key:task_name'.
+
+        Args:
+            cache_key: Unique cache key for this task execution (hash of task + args)
+            task_name: Human-readable task name for error messages
+
+        Returns:
+            Formatted call chain entry
+        """
+        return f"{cache_key}:{task_name}"
+
+    @staticmethod
     def _resolve_container_path(host_path: Path, volumes: list[str]) -> Path:
         """
         Resolve the container path for a given host path based on volume mounts.

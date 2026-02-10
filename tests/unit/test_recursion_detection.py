@@ -13,6 +13,25 @@ from tasktree.process_runner import TaskOutputTypes, make_process_runner
 from tasktree.state import StateManager
 
 
+class TestCallChainEntryFormatting(unittest.TestCase):
+    """Tests for call chain entry formatting helper."""
+
+    def test_make_call_chain_entry_basic(self):
+        """Test basic call chain entry creation."""
+        entry = Executor._make_call_chain_entry("abc123", "my-task")
+        self.assertEqual(entry, "abc123:my-task")
+
+    def test_make_call_chain_entry_with_args_hash(self):
+        """Test call chain entry with cache key including args hash."""
+        entry = Executor._make_call_chain_entry("abc123__def456", "my-task")
+        self.assertEqual(entry, "abc123__def456:my-task")
+
+    def test_make_call_chain_entry_with_fqn(self):
+        """Test call chain entry with fully-qualified task name."""
+        entry = Executor._make_call_chain_entry("abc123", "other.build")
+        self.assertEqual(entry, "abc123:other.build")
+
+
 class TestCallChainParsing(unittest.TestCase):
     """Tests for TT_CALL_CHAIN parsing and validation."""
 
