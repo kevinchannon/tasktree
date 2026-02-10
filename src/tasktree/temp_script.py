@@ -35,7 +35,7 @@ class TempScript:
     to execute. On Unix/macOS, the script is made executable.
 
     Usage:
-        with TempScript(cmd="echo hello", preamble="set -e", shell="bash", logger=my_logger) as script_path:
+        with TempScript(logger=my_logger, cmd="echo hello", preamble="set -e", shell="bash") as script_path:
             # script_path is a Path object pointing to the temp script
             subprocess.run([str(script_path)], check=True)
         # Script is automatically cleaned up after the with block
@@ -45,19 +45,19 @@ class TempScript:
 
     def __init__(
         self,
+        logger: Logger,
         cmd: str,
         preamble: str = "",
         shell: str = "bash",
-        logger: Logger,
     ):
         """
         Initialize temp script manager.
 
         Args:
+            logger: Logger for debug/trace logging
             cmd: Command string to execute (can be multi-line)
             preamble: Optional preamble to prepend to command
             shell: Shell to use for shebang (default: bash)
-            logger: Logger for debug/trace logging
 
         @athena: method
         """
