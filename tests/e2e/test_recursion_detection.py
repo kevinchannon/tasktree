@@ -12,7 +12,6 @@ from . import run_tasktree_cli
 class TestRealSubprocessRecursion(unittest.TestCase):
     """E2E tests for recursion detection via real subprocess execution."""
 
-    @unittest.skip("Requires tt command in PATH for nested invocation")
     def test_real_subprocess_recursion_error(self):
         """Test that real subprocess execution detects recursion and shows error."""
         with TemporaryDirectory() as tmpdir:
@@ -22,8 +21,9 @@ class TestRealSubprocessRecursion(unittest.TestCase):
 tasks:
   recursive-task:
     cmd: |
+      set -e
       echo "Before recursive call"
-      tt recursive-task
+      uv run tt recursive-task
       echo "After recursive call (should never reach here)"
 """
             )

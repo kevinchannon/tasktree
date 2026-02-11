@@ -722,18 +722,30 @@ class Executor:
         return statuses
 
     @staticmethod
-    def _parse_call_chain(call_chain: str) -> list[str]:
+    def _parse_call_chain(call_chain: str) -> list[tuple[str, str]]:
         """
-        Parse TT_CALL_CHAIN environment variable into list of task names.
+        Parse TT_CALL_CHAIN environment variable into list of (cache_key, task_name) tuples.
 
         Args:
-        call_chain: Comma-separated task names from TT_CALL_CHAIN env var
+        call_chain: Comma-separated entries in 'cache_key:task_name' format
 
         Returns:
-        List of task names in the call chain (empty list if chain is empty)
+        List of (cache_key, task_name) tuples in the call chain (empty list if chain is empty)
         """
-        # Optimized to avoid double strip() - strip once in generator, filter non-empty
-        return [t for t in (x.strip() for x in call_chain.split(",")) if t]
+        if not call_chain.strip():
+            return []
+
+        entries = []
+        for entry in call_chain.split(","):
+            entry = entry.strip()
+            if not entry:
+                continue
+            # Split on first ':' to separate cache_key from task_name
+            parts = entry.split(":", 1)
+            if len(parts) == 2:
+                cache_key, task_name = parts
+                entries.append((cache_key, task_name))
+        return entries
 
     @staticmethod
     def _make_call_chain_entry(cache_key: str, task_name: str) -> str:
@@ -872,11 +884,17 @@ class Executor:
         # Use fully-qualified task name (includes import prefix if any)
         task_fqn = task.name  # Already includes import prefix from parser
 
-        # Check if this task is already in the call chain
-        if task_fqn in chain_list:
+        # Generate cache key for this task execution (includes args hash)
+        cache_key = self._cache_key(task, args_dict)
+
+        # Check if this task execution (same task + args) is already in the call chain
+        cache_keys_in_chain = [entry[0] for entry in chain_list]
+        if cache_key in cache_keys_in_chain:
             # Recursion detected - build cycle path for error message
-            cycle_start_idx = chain_list.index(task_fqn)
-            cycle_path = chain_list[cycle_start_idx:] + [task_fqn]
+            cycle_start_idx = cache_keys_in_chain.index(cache_key)
+            # Extract task names from tuples for display
+            task_names_in_cycle = [entry[1] for entry in chain_list[cycle_start_idx:]]
+            cycle_path = task_names_in_cycle + [task_fqn]
             cycle_str = " → ".join(cycle_path)
 
             raise ExecutionError(
@@ -887,7 +905,10 @@ class Executor:
             )
 
         # Add current task to chain for child processes
-        updated_chain = ",".join(chain_list + [task_fqn]) if chain_list else task_fqn
+        current_entry = self._make_call_chain_entry(cache_key, task_fqn)
+        # Build chain string from existing entries plus current
+        chain_entries = [f"{k}:{n}" for k, n in chain_list] + [current_entry]
+        updated_chain = ",".join(chain_entries) if chain_entries else current_entry
 
         # Check if we're already inside a containerized runner
         # Note: Only proceed if the variable is set AND non-empty
