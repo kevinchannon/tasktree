@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=9.0.2", "black>=26.1.0", "ruff>=0.14.14"]
+dev = ["pytest>=9.0.2", "pytest-cov>=6.0.0", "black>=26.1.0", "ruff>=0.14.14"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

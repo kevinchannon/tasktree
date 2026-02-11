@@ -23,7 +23,8 @@ tasks:
 
   coverage:
     desc: Run tests with coverage check
-    cmd: python3 -m pytest --cov=src/tasktree --cov-report=term-missing
+    inputs: [src/**/*.py, tests/**/*.py]
+    cmd: PYTHONPATH=tests uv run pytest --cov=src/tasktree --cov-report=term-missing
 
   check-format:
     inputs: [src/**/*.py, tests/**/*.py]
