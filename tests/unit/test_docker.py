@@ -1350,6 +1350,101 @@ class TestDockerManager(unittest.TestCase):
         build_call = [c for c in mock_run.call_args_list if len(c[0]) > 0 and "build" in c[0][0]]
         self.assertTrue(len(build_call) > 0, "Docker build should have been called")
 
+    @patch("tasktree.temp_script.tempfile.NamedTemporaryFile")
+    @patch("tasktree.docker.subprocess.run")
+    @patch("tasktree.docker.platform.system")
+    def test_error_on_script_creation_failure(self, mock_platform, mock_run, mock_tempfile):
+        """
+        Test that DockerError is raised when TempScript fails to create script file.
+        """
+        mock_platform.return_value = "Linux"
+
+        # Mock temp file creation to fail
+        mock_tempfile.side_effect = OSError("Disk full")
+
+        env = Runner(
+            name="builder",
+            dockerfile="./Dockerfile",
+            context=".",
+            shell="bash",
+        )
+
+        # Mock docker --version, docker build, docker inspect
+        def mock_run_side_effect(*args, **_kwargs):
+            cmd = args[0]
+            if "inspect" in cmd:
+                result = Mock()
+                result.stdout = "sha256:abc123def456\n"
+                return result
+            return Mock()
+
+        mock_run.side_effect = mock_run_side_effect
+
+        process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
+
+        # Should raise DockerError (not OSError) with clear message
+        from tasktree.docker import DockerError
+
+        with self.assertRaises(DockerError) as context:
+            self.manager.run_in_container(
+                env=env,
+                cmd="echo hello",
+                working_dir=Path("/fake/project"),
+                container_working_dir="/workspace",
+                process_runner=process_runner,
+            )
+
+        # Verify error message mentions script creation
+        self.assertIn("temporary script", str(context.exception).lower())
+
+    @patch("tasktree.docker.subprocess.run")
+    @patch("tasktree.docker.platform.system")
+    def test_error_on_docker_run_failure(self, mock_platform, mock_run):
+        """
+        Test that DockerError is raised when docker run fails.
+        """
+        mock_platform.return_value = "Linux"
+
+        env = Runner(
+            name="builder",
+            dockerfile="./Dockerfile",
+            context=".",
+            shell="bash",
+        )
+
+        # Mock docker --version, docker build, docker inspect, and failing docker run
+        def mock_run_side_effect(*args, **_kwargs):
+            cmd = args[0]
+            if "inspect" in cmd:
+                result = Mock()
+                result.stdout = "sha256:abc123def456\n"
+                return result
+            elif "docker" in cmd and "run" in cmd:
+                # Simulate docker run failure
+                import subprocess
+                raise subprocess.CalledProcessError(125, cmd, stderr="Container failed to start")
+            return Mock()
+
+        mock_run.side_effect = mock_run_side_effect
+
+        process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
+
+        # Should raise DockerError
+        from tasktree.docker import DockerError
+
+        with self.assertRaises(DockerError) as context:
+            self.manager.run_in_container(
+                env=env,
+                cmd="echo hello",
+                working_dir=Path("/fake/project"),
+                container_working_dir="/workspace",
+                process_runner=process_runner,
+            )
+
+        # Verify error message mentions container execution
+        self.assertIn("container execution failed", str(context.exception).lower())
+        self.assertIn("125", str(context.exception))
+
 
 if __name__ == "__main__":
     unittest.main()
