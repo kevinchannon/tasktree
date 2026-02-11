@@ -132,8 +132,6 @@ uv run tt clean         # Remove build artifacts
 
 - **Small, incremental changes**: Each commit should contain a small, focused change with accompanying tests
 - **Test-driven development**: Write tests first or alongside implementation
-- **No skipped tests**: Use `unittest.skipUnless` only for platform-specific cases (never `unittest.skip`)
-- **Efficient token usage**: Minimize AI token consumption by reading only necessary files
 
 ### Code Organization
 
