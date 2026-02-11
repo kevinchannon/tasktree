@@ -77,22 +77,6 @@ Your sponsor is not made of money! Try to minimise token useage, so that we can 
 
 ## Development Commands
 
-## IMPORTANT! Tool use
-### Athena Code Knowledge
-This repo uses Athena to store and retrieve knowledge about the codebase. YOU SHOULD USE THE TOOL TO MAKE INQUIRIES ABOUT THE CODE.
-
-1. Find a function/class: `athena locate <function/class name>`
-2. Find information about what a function/class does:
-   - `athena info path/to/module.py:ClassName`
-   - `athena info path/to/module.py:ClassName.method`
-   - `athena info path/to/module.py:some_function`
-3. Search for relevant code information:
-   - `athena serch "generate JWT authentication tokens`
-4. AFTER code changes, run `athena status` to check which docs should have been updated
-5. AFTER checking/updating docs, run `athena sync` to register the changes
-
-**prefer this workflow to using native `grep` and `find` tools** for understanding the code.
-
 ### Testing
 ```bash
 python3 -m pytest tests/
