@@ -227,23 +227,31 @@ tasks:
             ).read_text().strip()
 
             # Chain entries are now in format "cache_key:task_name"
-            # Parent adds itself to chain before execution
-            self.assertIn(":parent", parent_chain)
-            # Verify it's a single entry (one task name)
-            self.assertEqual(parent_chain.count(":"), 1)
+            # Verify the chain ends with the expected pattern, regardless of any
+            # pre-existing entries (e.g., when run via `uv run tt test`)
 
-            # Child should see parent,child in chain
-            self.assertIn(":parent", child_chain)
-            self.assertIn(":child", child_chain)
-            # Verify it's two entries (two task names)
-            self.assertEqual(child_chain.count(":"), 2)
+            # Parent should have itself at the end of the chain
+            self.assertTrue(
+                parent_chain.endswith(":parent"),
+                f"Expected parent_chain to end with ':parent', got: {parent_chain}",
+            )
 
-            # Grandchild should see parent,child,grandchild in chain
-            self.assertIn(":parent", grandchild_chain)
-            self.assertIn(":child", grandchild_chain)
-            self.assertIn(":grandchild", grandchild_chain)
-            # Verify it's three entries (three task names)
-            self.assertEqual(grandchild_chain.count(":"), 3)
+            # Child should see parent followed by child in the chain
+            # Use regex to match the pattern: ends with "hash:parent,hash:child"
+            import re
+
+            child_pattern = r":parent,[a-f0-9]+:child$"
+            self.assertIsNotNone(
+                re.search(child_pattern, child_chain),
+                f"Expected child_chain to end with ':parent,<hash>:child', got: {child_chain}",
+            )
+
+            # Grandchild should see parent, child, grandchild in order at the end
+            grandchild_pattern = r":parent,[a-f0-9]+:child,[a-f0-9]+:grandchild$"
+            self.assertIsNotNone(
+                re.search(grandchild_pattern, grandchild_chain),
+                f"Expected grandchild_chain to end with ':parent,<hash>:child,<hash>:grandchild', got: {grandchild_chain}",
+            )
 
 
 class TestNestedCallWithDeps(unittest.TestCase):
