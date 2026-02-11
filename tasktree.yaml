@@ -21,6 +21,10 @@ tasks:
       PYTHONPATH=tests uv run pytest tests/integration
       PYTHONPATH=tests uv run pytest tests/e2e
 
+  coverage:
+    desc: Run tests with coverage check
+    cmd: python3 -m pytest --cov=src/tasktree --cov-report=term-missing
+
   check-format:
     inputs: [src/**/*.py, tests/**/*.py]
     cmd: uv format --check

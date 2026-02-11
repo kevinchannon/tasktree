@@ -2,7 +2,7 @@
 name = "tasktree"
 version = "0.0.0.dev0+local"
 description = "A task automation tool with incremental execution"
-readme = "README.md"
+readme = "src/tasktree/README.md"
 requires-python = ">=3.11"
 dependencies = [
     "pyyaml>=6.0",
