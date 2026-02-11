@@ -4,11 +4,8 @@ from __future__ import annotations
 
 import io
 import os
-import platform
-import stat
 import subprocess
 import sys
-import tempfile
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -29,6 +26,7 @@ from tasktree.parser import Recipe, Task, Runner
 from tasktree.process_runner import ProcessRunner, TaskOutputTypes
 from tasktree.state import StateManager, TaskState
 from tasktree.hasher import hash_runner_definition
+from tasktree.temp_script import TempScript
 
 
 @dataclass
@@ -1061,39 +1059,8 @@ class Executor:
         # Prepare environment with exported args and call chain
         env = self._prepare_env_with_exports(exported_env_vars, call_chain)
 
-        # Determine file extension based on platform
-        is_windows = platform.system() == "Windows"
-        script_ext = ".bat" if is_windows else ".sh"
-
-        # Create temporary script file
-        with tempfile.NamedTemporaryFile(
-            mode="w",
-            suffix=script_ext,
-            delete=False,
-        ) as script_file:
-            script_path = script_file.name
-
-            # On Unix/macOS, add shebang if not present
-            if not is_windows and not cmd.startswith("#!"):
-                # Use the configured shell in shebang
-                shebang = f"#!/usr/bin/env {shell}\n"
-                script_file.write(shebang)
-
-            # Add preamble if provided
-            if preamble:
-                script_file.write(preamble)
-                if not preamble.endswith("\n"):
-                    script_file.write("\n")
-
-            # Write command to file
-            script_file.write(cmd)
-            script_file.flush()
-
-        try:
-            # Make executable on Unix/macOS
-            if not is_windows:
-                os.chmod(script_path, os.stat(script_path).st_mode | stat.S_IEXEC)
-
+        # Create temporary script using context manager
+        with TempScript(logger=self.logger, cmd=cmd, preamble=preamble, shell=shell) as script_path:
             # Execute script file
             try:
                 # Check if stdout/stderr support fileno() (real file descriptors)
@@ -1125,7 +1092,7 @@ class Executor:
                 ):
                     # CliRunner path: capture and write manually
                     result = process_runner.run(
-                        [script_path],
+                        [str(script_path)],
                         cwd=working_dir,
                         check=True,
                         capture_output=True,
@@ -1139,7 +1106,7 @@ class Executor:
                 else:
                     # Normal execution path: use target streams (including DEVNULL when suppressing)
                     process_runner.run(
-                        [script_path],
+                        [str(script_path)],
                         cwd=working_dir,
                         check=True,
                         stdout=stdout_target,
@@ -1166,12 +1133,6 @@ class Executor:
                 raise ExecutionError(
                     f"Task '{task_name}' failed with exit code {e.returncode}"
                 )
-        finally:
-            # Clean up temporary file
-            try:
-                os.unlink(script_path)
-            except OSError:
-                pass  # Ignore cleanup errors
 
     def _substitute_builtin_in_runner(
         self, env: Runner, builtin_vars: dict[str, str]
