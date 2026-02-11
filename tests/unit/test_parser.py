@@ -2286,6 +2286,57 @@ tasks:
                 del os.environ["REGION"]
 
 
+class TestVariableNameValidation(unittest.TestCase):
+    """
+    Test validation of variable names - dots are reserved for namespacing.
+    """
+
+    def test_variable_name_with_dots_rejected(self):
+        """
+        Test that variable names containing dots are rejected.
+        """
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+variables:
+  some.name: "value"
+
+tasks:
+  test:
+    cmd: echo test
+""")
+
+            with self.assertRaises(ValueError) as cm:
+                parse_recipe(recipe_path)
+
+            error_msg = str(cm.exception)
+            self.assertIn("some.name", error_msg)
+            self.assertIn("dot (.) character", error_msg)
+            self.assertIn("reserved for namespacing", error_msg)
+
+    def test_variable_name_without_dots_allowed(self):
+        """
+        Test that variable names with valid characters are allowed.
+        """
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+variables:
+  my_var: "value1"
+  VERSION: "value2"
+  build-123: "value3"
+
+tasks:
+  test:
+    cmd: echo test
+""")
+
+            recipe = parse_recipe(recipe_path)
+            self.assertIn("my_var", recipe.variables)
+            self.assertIn("VERSION", recipe.variables)
+            self.assertIn("build-123", recipe.variables)
+
+
 class TestFileReadVariables(unittest.TestCase):
     """
     Test parsing of variables section with file read support.

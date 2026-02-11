@@ -1493,6 +1493,14 @@ def _parse_file_with_env(
         # Variable evaluation will happen later in Recipe.evaluate_variables()
         if data and "variables" in data:
             raw_variables = data["variables"]
+            # Validate variable names - dots are reserved for namespacing
+            for var_name in raw_variables.keys():
+                if "." in var_name:
+                    raise ValueError(
+                        f"Variable name '{var_name}' contains a dot (.) character. "
+                        f"Dots are reserved for namespacing imported variables. "
+                        f"Please use only letters, numbers, hyphens, and underscores."
+                    )
 
         # SKIP variable substitution here - defer to lazy evaluation phase
         # Tasks and runners will contain {{ var.* }} placeholders until evaluation
