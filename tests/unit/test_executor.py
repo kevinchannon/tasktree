@@ -134,7 +134,7 @@ class TestExecutor(unittest.TestCase):
     @athena: 2b01be6f3e51
     """
 
-    @patch("os.chmod")
+    @patch("tasktree.temp_script.os.chmod")
     def test_execute_simple_task(self, _chmod_fake):
         """
         Test executing a simple task.
@@ -196,7 +196,7 @@ class TestExecutor(unittest.TestCase):
             # Verify both tasks were executed
             self.assertEqual(process_runner_spy.run.call_count, 2)
 
-    @patch("os.chmod")
+    @patch("tasktree.temp_script.os.chmod")
     def test_execute_with_args(self, _fake_chmod):
         """
         Test executing task with arguments.
@@ -236,8 +236,8 @@ class TestExecutor(unittest.TestCase):
             script_path = call_args[0][0][0]
             self.assertTrue(script_path.endswith(".sh") or script_path.endswith(".bat"))
 
-    @patch("os.chmod")
-    @patch("os.unlink")
+    @patch("tasktree.temp_script.os.chmod")
+    @patch("tasktree.temp_script.os.unlink")
     def test_run_command_as_script_single_line(self, mock_unlink, mock_chmod):
         """
         Test _run_command_as_script with single-line command.
@@ -279,8 +279,8 @@ class TestExecutor(unittest.TestCase):
             # Verify cleanup (unlink) was called
             mock_unlink.assert_called_once()
 
-    @patch("os.chmod")
-    @patch("os.unlink")
+    @patch("tasktree.temp_script.os.chmod")
+    @patch("tasktree.temp_script.os.unlink")
     def test_run_command_as_script_with_preamble(self, unlink_spy, chmod_spy):
         """
         Test _run_command_as_script with preamble.
@@ -313,8 +313,8 @@ class TestExecutor(unittest.TestCase):
             chmod_spy.assert_called_once()
             unlink_spy.assert_called_once()
 
-    @patch("os.chmod")
-    @patch("os.unlink")
+    @patch("tasktree.temp_script.os.chmod")
+    @patch("tasktree.temp_script.os.unlink")
     def test_run_command_as_script_multiline(self, unlink_spy, chmod_spy):
         """
         Test _run_command_as_script with multi-line command.
@@ -418,7 +418,7 @@ class TestExecutor(unittest.TestCase):
             process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
 
             # Apply patches
-            with patch("os.chmod", side_effect=mock_chmod_func):
+            with patch("tasktree.temp_script.os.chmod", side_effect=mock_chmod_func):
                 with patch("subprocess.run", side_effect=mock_subprocess_run):
                     executor._run_command_as_script(
                         cmd="echo hello\necho world",
@@ -1170,7 +1170,7 @@ class TestOnlyMode(unittest.TestCase):
     @athena: 9b470eafd594
     """
 
-    @patch("os.chmod")
+    @patch("tasktree.temp_script.os.chmod")
     def test_only_mode_skips_dependencies(self, _fake_chmod):
         """
         Test that only=True executes only the target task, not dependencies.
@@ -1210,7 +1210,7 @@ class TestOnlyMode(unittest.TestCase):
             self.assertIn("build", statuses)
             self.assertNotIn("lint", statuses)
 
-    @patch("os.chmod")
+    @patch("tasktree.temp_script.os.chmod")
     def test_only_mode_with_multiple_dependencies(self, _fake_chmod):
         """
         Test that only=True skips all dependencies in a chain.
@@ -1552,7 +1552,7 @@ class TestRunnerResolution(unittest.TestCase):
             self.assertEqual(shell, "cmd")
             self.assertEqual(preamble, "")
 
-    @patch("os.chmod")
+    @patch("tasktree.temp_script.os.chmod")
     def test_task_execution_uses_custom_shell(self, _fake_chmod):
         """
         Test that custom shell from runner is used for execution.
@@ -1622,7 +1622,7 @@ class TestRunnerResolution(unittest.TestCase):
         self.assertNotEqual(hash2, hash3)
         self.assertNotEqual(hash1, hash3)
 
-    @patch("os.chmod")
+    @patch("tasktree.temp_script.os.chmod")
     def test_run_task_substitutes_environment_variables(self, _fake_chmod):
         """
         Test that _run_task substitutes environment variables.
