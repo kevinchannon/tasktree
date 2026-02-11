@@ -1016,12 +1016,16 @@ class TestDockerManager(unittest.TestCase):
         # Find the docker run call (should be the 4th call)
         run_call_args = mock_run.call_args_list[3][0][0]
 
-        # Find the -v flag and its argument
-        volume_flag_index = run_call_args.index("-v")
-        volume_mount = run_call_args[volume_flag_index + 1]
+        # Find all -v flags and their arguments
+        # The first -v is for the temp script mount, the second is the user-defined volume
+        volume_indices = [i for i, arg in enumerate(run_call_args) if arg == "-v"]
+        self.assertEqual(2, len(volume_indices), "Expected 2 volume mounts: script and user-defined")
+
+        # Get the user-defined volume mount (second -v flag)
+        user_volume_mount = run_call_args[volume_indices[1] + 1]
 
         # Verify the volume mount uses the absolute path correctly
-        self.assertEqual("/fake/project:/workspace", volume_mount)
+        self.assertEqual("/fake/project:/workspace", user_volume_mount)
 
     @patch("tasktree.docker.subprocess.run")
     def test_error_when_dockerfile_not_found(self, mock_run):
