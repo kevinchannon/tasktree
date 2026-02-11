@@ -635,6 +635,105 @@ class TestDockerManager(unittest.TestCase):
 
     @patch("tasktree.docker.subprocess.run")
     @patch("tasktree.docker.platform.system")
+    def test_run_in_container_mounts_temp_script(self, mock_platform, mock_run):
+        """
+        Test that temp script is mounted into container.
+        @athena: to-be-generated
+        """
+        mock_platform.return_value = "Windows"  # Skip user flag for simplicity
+
+        env = Runner(
+            name="builder",
+            dockerfile="./Dockerfile",
+            context=".",
+            shell="sh",
+        )
+
+        # Mock docker --version, docker build, docker inspect, and docker run
+        def mock_run_side_effect(*args, **_kwargs):
+            cmd = args[0]
+            if "inspect" in cmd:
+                result = Mock()
+                result.stdout = "sha256:abc123def456\n"
+                return result
+            return Mock()
+
+        mock_run.side_effect = mock_run_side_effect
+
+        process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
+        self.manager.run_in_container(
+            env=env,
+            cmd="echo hello",
+            working_dir=Path("/fake/project"),
+            container_working_dir="/workspace",
+            process_runner=process_runner,
+        )
+
+        # Find the docker run call (should be the 4th call)
+        run_call_args = mock_run.call_args_list[3][0][0]
+
+        # Verify temp script volume mount is present
+        # Should have at least one -v flag for the temp script
+        self.assertIn("-v", run_call_args)
+
+        # Find the temp script volume mount
+        found_script_mount = False
+        for i, arg in enumerate(run_call_args):
+            if arg == "-v" and i + 1 < len(run_call_args):
+                mount = run_call_args[i + 1]
+                if ":/tmp/tt-script.sh:ro" in mount:
+                    found_script_mount = True
+                    break
+
+        self.assertTrue(found_script_mount, "Temp script mount not found in docker command")
+
+    @patch("tasktree.docker.subprocess.run")
+    @patch("tasktree.docker.platform.system")
+    def test_run_in_container_executes_script_not_dash_c(self, mock_platform, mock_run):
+        """
+        Test that docker container executes script file instead of -c command.
+        @athena: to-be-generated
+        """
+        mock_platform.return_value = "Windows"
+
+        env = Runner(
+            name="builder",
+            dockerfile="./Dockerfile",
+            context=".",
+            shell="bash",
+        )
+
+        # Mock docker --version, docker build, docker inspect, and docker run
+        def mock_run_side_effect(*args, **_kwargs):
+            cmd = args[0]
+            if "inspect" in cmd:
+                result = Mock()
+                result.stdout = "sha256:abc123def456\n"
+                return result
+            return Mock()
+
+        mock_run.side_effect = mock_run_side_effect
+
+        process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
+        self.manager.run_in_container(
+            env=env,
+            cmd="echo hello",
+            working_dir=Path("/fake/project"),
+            container_working_dir="/workspace",
+            process_runner=process_runner,
+        )
+
+        # Find the docker run call (should be the 4th call)
+        run_call_args = mock_run.call_args_list[3][0][0]
+
+        # Verify -c flag is NOT present
+        self.assertNotIn("-c", run_call_args)
+
+        # Verify script path is present as last argument
+        self.assertEqual(run_call_args[-1], "/tmp/tt-script.sh")
+
+    @patch("tasktree.docker.subprocess.run")
+    @patch("tasktree.docker.platform.system")
     def test_run_in_container_skips_user_flag_on_windows(self, mock_platform, mock_run):
         """
         Test that --user flag is NOT added on Windows.

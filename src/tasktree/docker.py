@@ -14,6 +14,8 @@ from typing import TYPE_CHECKING
 
 from pathspec import PathSpec
 
+from tasktree.temp_script import TempScript
+
 try:
     import pathspec
 except ImportError:
@@ -183,64 +185,71 @@ class DockerManager:
         # Ensure image is built (returns tag and ID)
         image_tag, image_id = self.ensure_image_built(env, process_runner)
 
-        # Build docker run command
-        docker_cmd = ["docker", "run", "--rm"]
-
-        # Add user mapping (run as current host user) unless explicitly disabled or on Windows
-        if not env.run_as_root and self._should_add_user_flag():
-            uid = os.getuid()
-            gid = os.getgid()
-            docker_cmd.extend(["--user", f"{uid}:{gid}"])
-
-        docker_cmd.extend(env.extra_args)
-
-        # Add volume mounts
-        for volume in env.volumes:
-            # Resolve volume paths
-            resolved_volume = self._resolve_volume_mount(volume)
-            docker_cmd.extend(["-v", resolved_volume])
-
-        # Add port mappings
-        for port in env.ports:
-            docker_cmd.extend(["-p", port])
-
-        # Add environment variables
-        for var_name, var_value in env.env_vars.items():
-            docker_cmd.extend(["-e", f"{var_name}={var_value}"])
-
-        # Add working directory
-        if container_working_dir:
-            docker_cmd.extend(["-w", container_working_dir])
-
-        # Add image tag
-        docker_cmd.append(image_tag)
-
-        # Add shell and command
+        # Determine shell and shell args
         shell = env.shell or "sh"
         # Only use args as shell args if it's a list; dict args are build args only
         shell_args = env.args if isinstance(env.args, list) else []
 
-        # Prepend preamble to command if specified
-        final_cmd = cmd
-        if env.preamble:
-            preamble_text = env.preamble if env.preamble.endswith("\n") else env.preamble + "\n"
-            final_cmd = preamble_text + cmd
+        # Create temp script on host with preamble and command
+        preamble = env.preamble or ""
+        with TempScript(
+            logger=self._logger,
+            cmd=cmd,
+            preamble=preamble,
+            shell=shell,
+        ) as script_path:
+            # Build docker run command
+            docker_cmd = ["docker", "run", "--rm"]
 
-        docker_cmd.extend([shell, *shell_args, "-c", final_cmd])
+            # Add user mapping (run as current host user) unless explicitly disabled or on Windows
+            if not env.run_as_root and self._should_add_user_flag():
+                uid = os.getuid()
+                gid = os.getgid()
+                docker_cmd.extend(["--user", f"{uid}:{gid}"])
 
-        # Execute
-        try:
-            result = process_runner.run(
-                docker_cmd,
-                cwd=working_dir,
-                check=True,
-                capture_output=False,  # Stream output to terminal
-            )
-            return result
-        except subprocess.CalledProcessError as e:
-            raise DockerError(
-                f"Docker container execution failed with exit code {e.returncode}"
-            ) from e
+            docker_cmd.extend(env.extra_args)
+
+            # Mount temp script into container's /tmp directory
+            container_script_path = "/tmp/tt-script.sh"
+            docker_cmd.extend(["-v", f"{script_path}:{container_script_path}:ro"])
+
+            # Add volume mounts
+            for volume in env.volumes:
+                # Resolve volume paths
+                resolved_volume = self._resolve_volume_mount(volume)
+                docker_cmd.extend(["-v", resolved_volume])
+
+            # Add port mappings
+            for port in env.ports:
+                docker_cmd.extend(["-p", port])
+
+            # Add environment variables
+            for var_name, var_value in env.env_vars.items():
+                docker_cmd.extend(["-e", f"{var_name}={var_value}"])
+
+            # Add working directory
+            if container_working_dir:
+                docker_cmd.extend(["-w", container_working_dir])
+
+            # Add image tag
+            docker_cmd.append(image_tag)
+
+            # Execute script with shell
+            docker_cmd.extend([shell, *shell_args, container_script_path])
+
+            # Execute
+            try:
+                result = process_runner.run(
+                    docker_cmd,
+                    cwd=working_dir,
+                    check=True,
+                    capture_output=False,  # Stream output to terminal
+                )
+                return result
+            except subprocess.CalledProcessError as e:
+                raise DockerError(
+                    f"Docker container execution failed with exit code {e.returncode}"
+                ) from e
 
     def _resolve_volume_mount(self, volume: str) -> str:
         """
