@@ -169,6 +169,7 @@ A task runs if:
 - Volume mounts and port mappings
 - Build arguments and environment variables
 - Nested task invocations with runner compatibility checks
+- Cross-platform support: Linux and Windows containers with appropriate script execution (`.sh`, `.bat`, `.ps1`)
 
 ### Template Substitution
 
