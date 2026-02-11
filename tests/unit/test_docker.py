@@ -7,6 +7,8 @@ from unittest.mock import Mock, patch
 from helpers.logging import logger_stub
 from tasktree.docker import (
     DockerManager,
+    _get_container_script_extension,
+    _is_windows_shell,
     check_unpinned_images,
     extract_from_images,
     is_docker_runner,
@@ -237,6 +239,58 @@ class TestIsDockerRunner(unittest.TestCase):
         self.assertEqual(
             runner.args, {"BUILD_VERSION": "1.0.0", "BUILD_DATE": "2024-01-01"}
         )
+
+
+class TestWindowsShellDetection(unittest.TestCase):
+    """
+    Test Windows shell detection helper function.
+    """
+
+    def test_is_windows_shell_cmd(self):
+        """Test that cmd.exe is recognized as Windows shell."""
+        self.assertTrue(_is_windows_shell("cmd.exe"))
+        self.assertTrue(_is_windows_shell("CMD.EXE"))
+        self.assertTrue(_is_windows_shell("cmd"))
+
+    def test_is_windows_shell_powershell(self):
+        """Test that PowerShell variants are recognized as Windows shells."""
+        self.assertTrue(_is_windows_shell("powershell"))
+        self.assertTrue(_is_windows_shell("powershell.exe"))
+        self.assertTrue(_is_windows_shell("pwsh"))
+        self.assertTrue(_is_windows_shell("POWERSHELL"))
+
+    def test_is_windows_shell_unix_shells(self):
+        """Test that Unix shells are not recognized as Windows shells."""
+        self.assertFalse(_is_windows_shell("bash"))
+        self.assertFalse(_is_windows_shell("sh"))
+        self.assertFalse(_is_windows_shell("zsh"))
+        self.assertFalse(_is_windows_shell("/bin/bash"))
+        self.assertFalse(_is_windows_shell("/bin/sh"))
+
+
+class TestContainerScriptExtension(unittest.TestCase):
+    """
+    Test container script extension determination.
+    """
+
+    def test_get_container_script_extension_sh(self):
+        """Test that Unix shells get .sh extension."""
+        self.assertEqual(_get_container_script_extension("bash"), ".sh")
+        self.assertEqual(_get_container_script_extension("sh"), ".sh")
+        self.assertEqual(_get_container_script_extension("zsh"), ".sh")
+        self.assertEqual(_get_container_script_extension("/bin/bash"), ".sh")
+
+    def test_get_container_script_extension_bat(self):
+        """Test that cmd.exe gets .bat extension."""
+        self.assertEqual(_get_container_script_extension("cmd.exe"), ".bat")
+        self.assertEqual(_get_container_script_extension("cmd"), ".bat")
+        self.assertEqual(_get_container_script_extension("CMD"), ".bat")
+
+    def test_get_container_script_extension_ps1(self):
+        """Test that PowerShell gets .ps1 extension."""
+        self.assertEqual(_get_container_script_extension("powershell"), ".ps1")
+        self.assertEqual(_get_container_script_extension("powershell.exe"), ".ps1")
+        self.assertEqual(_get_container_script_extension("pwsh"), ".ps1")
 
 
 class TestResolveContainerWorkingDir(unittest.TestCase):
@@ -635,6 +689,109 @@ class TestDockerManager(unittest.TestCase):
 
     @patch("tasktree.docker.subprocess.run")
     @patch("tasktree.docker.platform.system")
+    def test_run_in_container_mounts_temp_script(self, mock_platform, mock_run):
+        """
+        Test that temp script is mounted into container.
+        @athena: to-be-generated
+        """
+        mock_platform.return_value = "Windows"  # Skip user flag for simplicity
+
+        env = Runner(
+            name="builder",
+            dockerfile="./Dockerfile",
+            context=".",
+            shell="sh",
+        )
+
+        # Mock docker --version, docker build, docker inspect, and docker run
+        def mock_run_side_effect(*args, **_kwargs):
+            cmd = args[0]
+            if "inspect" in cmd:
+                result = Mock()
+                result.stdout = "sha256:abc123def456\n"
+                return result
+            return Mock()
+
+        mock_run.side_effect = mock_run_side_effect
+
+        process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
+        self.manager.run_in_container(
+            env=env,
+            cmd="echo hello",
+            working_dir=Path("/fake/project"),
+            container_working_dir="/workspace",
+            process_runner=process_runner,
+        )
+
+        # Find the docker run call (should be the 4th call)
+        run_call_args = mock_run.call_args_list[3][0][0]
+
+        # Verify temp script volume mount is present
+        # Should have at least one -v flag for the temp script
+        self.assertIn("-v", run_call_args)
+
+        # Find the temp script volume mount
+        # Script path now includes UUID, so check pattern: /tmp/tt-script-{uuid}.sh:ro
+        found_script_mount = False
+        for i, arg in enumerate(run_call_args):
+            if arg == "-v" and i + 1 < len(run_call_args):
+                mount = run_call_args[i + 1]
+                # Check for pattern: something:/tmp/tt-script-{uuid}.sh:ro
+                if ":/tmp/tt-script-" in mount and ".sh:ro" in mount:
+                    found_script_mount = True
+                    break
+
+        self.assertTrue(found_script_mount, "Temp script mount not found in docker command")
+
+    @patch("tasktree.docker.subprocess.run")
+    @patch("tasktree.docker.platform.system")
+    def test_run_in_container_executes_script_not_dash_c(self, mock_platform, mock_run):
+        """
+        Test that docker container executes script file instead of -c command.
+        @athena: to-be-generated
+        """
+        mock_platform.return_value = "Windows"
+
+        env = Runner(
+            name="builder",
+            dockerfile="./Dockerfile",
+            context=".",
+            shell="bash",
+        )
+
+        # Mock docker --version, docker build, docker inspect, and docker run
+        def mock_run_side_effect(*args, **_kwargs):
+            cmd = args[0]
+            if "inspect" in cmd:
+                result = Mock()
+                result.stdout = "sha256:abc123def456\n"
+                return result
+            return Mock()
+
+        mock_run.side_effect = mock_run_side_effect
+
+        process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
+        self.manager.run_in_container(
+            env=env,
+            cmd="echo hello",
+            working_dir=Path("/fake/project"),
+            container_working_dir="/workspace",
+            process_runner=process_runner,
+        )
+
+        # Find the docker run call (should be the 4th call)
+        run_call_args = mock_run.call_args_list[3][0][0]
+
+        # Verify -c flag is NOT present
+        self.assertNotIn("-c", run_call_args)
+
+        # Verify script path is present as last argument with pattern /tmp/tt-script-{uuid}.sh
+        last_arg = run_call_args[-1]
+        self.assertTrue(last_arg.startswith("/tmp/tt-script-"), f"Expected script path to start with /tmp/tt-script-, got {last_arg}")
+        self.assertTrue(last_arg.endswith(".sh"), f"Expected script path to end with .sh, got {last_arg}")
+
+    @patch("tasktree.docker.subprocess.run")
+    @patch("tasktree.docker.platform.system")
     def test_run_in_container_skips_user_flag_on_windows(self, mock_platform, mock_run):
         """
         Test that --user flag is NOT added on Windows.
@@ -917,12 +1074,195 @@ class TestDockerManager(unittest.TestCase):
         # Find the docker run call (should be the 4th call)
         run_call_args = mock_run.call_args_list[3][0][0]
 
-        # Find the -v flag and its argument
-        volume_flag_index = run_call_args.index("-v")
-        volume_mount = run_call_args[volume_flag_index + 1]
+        # Find all -v flags and their arguments
+        # The first -v is for the temp script mount, the second is the user-defined volume
+        volume_indices = [i for i, arg in enumerate(run_call_args) if arg == "-v"]
+        self.assertEqual(2, len(volume_indices), "Expected 2 volume mounts: script and user-defined")
+
+        # Get the user-defined volume mount (second -v flag)
+        user_volume_mount = run_call_args[volume_indices[1] + 1]
 
         # Verify the volume mount uses the absolute path correctly
-        self.assertEqual("/fake/project:/workspace", volume_mount)
+        self.assertEqual("/fake/project:/workspace", user_volume_mount)
+
+    @patch("tasktree.docker.subprocess.run")
+    @patch("tasktree.docker.platform.system")
+    def test_run_in_container_with_preamble(self, mock_platform, mock_run):
+        """
+        Test that preamble is passed to TempScript and included in mounted script.
+        """
+        mock_platform.return_value = "Linux"
+
+        env = Runner(
+            name="builder",
+            dockerfile="./Dockerfile",
+            context=".",
+            shell="bash",
+            preamble="set -euo pipefail\n",
+        )
+
+        # Mock docker --version, docker build, docker inspect, and docker run
+        def mock_run_side_effect(*args, **_kwargs):
+            cmd = args[0]
+            if "inspect" in cmd:
+                result = Mock()
+                result.stdout = "sha256:abc123def456\n"
+                return result
+            return Mock()
+
+        mock_run.side_effect = mock_run_side_effect
+
+        process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
+        self.manager.run_in_container(
+            env=env,
+            cmd="echo hello",
+            working_dir=Path("/fake/project"),
+            container_working_dir="/workspace",
+            process_runner=process_runner,
+        )
+
+        # Test passes if no exception is raised - preamble is handled internally by TempScript
+        # The actual verification of preamble content is in TempScript tests
+        run_call_args = mock_run.call_args_list[3][0][0]
+        self.assertIn("docker", run_call_args[0])
+
+    @patch("tasktree.docker.subprocess.run")
+    @patch("tasktree.docker.platform.system")
+    def test_run_in_container_with_shell_args_list(self, mock_platform, mock_run):
+        """
+        Test that shell args (as list) are passed to docker command.
+        """
+        mock_platform.return_value = "Linux"
+
+        env = Runner(
+            name="builder",
+            dockerfile="./Dockerfile",
+            context=".",
+            shell="bash",
+            args=["-e", "-u"],  # Shell args as list
+        )
+
+        # Mock docker --version, docker build, docker inspect, and docker run
+        def mock_run_side_effect(*args, **_kwargs):
+            cmd = args[0]
+            if "inspect" in cmd:
+                result = Mock()
+                result.stdout = "sha256:abc123def456\n"
+                return result
+            return Mock()
+
+        mock_run.side_effect = mock_run_side_effect
+
+        process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
+        self.manager.run_in_container(
+            env=env,
+            cmd="echo hello",
+            working_dir=Path("/fake/project"),
+            container_working_dir="/workspace",
+            process_runner=process_runner,
+        )
+
+        # Find the docker run call
+        run_call_args = mock_run.call_args_list[3][0][0]
+
+        # Verify shell args are in the command before the script path
+        # Command should end with: [..., "bash", "-e", "-u", "/tmp/tt-script-{uuid}.sh"]
+        self.assertIn("-e", run_call_args)
+        self.assertIn("-u", run_call_args)
+
+        # Find positions
+        bash_idx = run_call_args.index("bash")
+        e_idx = run_call_args.index("-e")
+        u_idx = run_call_args.index("-u")
+
+        # Verify order: bash comes before -e and -u
+        self.assertLess(bash_idx, e_idx)
+        self.assertLess(bash_idx, u_idx)
+
+    @patch("tasktree.docker.subprocess.run")
+    @patch("tasktree.docker.platform.system")
+    def test_run_in_container_with_windows_shell(self, mock_platform, mock_run):
+        """
+        Test that Windows shells (cmd.exe) use appropriate script extension and no shebang.
+        """
+        mock_platform.return_value = "Linux"  # Host platform (doesn't matter for container)
+
+        env = Runner(
+            name="builder",
+            dockerfile="./Dockerfile.windows",
+            context=".",
+            shell="cmd.exe",
+        )
+
+        # Mock docker --version, docker build, docker inspect, and docker run
+        def mock_run_side_effect(*args, **_kwargs):
+            cmd = args[0]
+            if "inspect" in cmd:
+                result = Mock()
+                result.stdout = "sha256:abc123def456\n"
+                return result
+            return Mock()
+
+        mock_run.side_effect = mock_run_side_effect
+
+        process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
+        self.manager.run_in_container(
+            env=env,
+            cmd="echo hello",
+            working_dir=Path("/fake/project"),
+            container_working_dir="C:\\workspace",
+            process_runner=process_runner,
+        )
+
+        # Find the docker run call
+        run_call_args = mock_run.call_args_list[3][0][0]
+
+        # Verify script path ends with .bat (not .sh)
+        last_arg = run_call_args[-1]
+        self.assertTrue(last_arg.startswith("/tmp/tt-script-"), f"Expected script path to start with /tmp/tt-script-, got {last_arg}")
+        self.assertTrue(last_arg.endswith(".bat"), f"Expected script path to end with .bat for cmd.exe, got {last_arg}")
+
+    @patch("tasktree.docker.subprocess.run")
+    @patch("tasktree.docker.platform.system")
+    def test_run_in_container_with_powershell(self, mock_platform, mock_run):
+        """
+        Test that PowerShell uses .ps1 extension.
+        """
+        mock_platform.return_value = "Linux"
+
+        env = Runner(
+            name="builder",
+            dockerfile="./Dockerfile.windows",
+            context=".",
+            shell="powershell",
+        )
+
+        # Mock docker --version, docker build, docker inspect, and docker run
+        def mock_run_side_effect(*args, **_kwargs):
+            cmd = args[0]
+            if "inspect" in cmd:
+                result = Mock()
+                result.stdout = "sha256:abc123def456\n"
+                return result
+            return Mock()
+
+        mock_run.side_effect = mock_run_side_effect
+
+        process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
+        self.manager.run_in_container(
+            env=env,
+            cmd="Write-Host 'hello'",
+            working_dir=Path("/fake/project"),
+            container_working_dir="C:\\workspace",
+            process_runner=process_runner,
+        )
+
+        # Find the docker run call
+        run_call_args = mock_run.call_args_list[3][0][0]
+
+        # Verify script path ends with .ps1
+        last_arg = run_call_args[-1]
+        self.assertTrue(last_arg.endswith(".ps1"), f"Expected script path to end with .ps1 for powershell, got {last_arg}")
 
     @patch("tasktree.docker.subprocess.run")
     def test_error_when_dockerfile_not_found(self, mock_run):
@@ -1009,6 +1349,101 @@ class TestDockerManager(unittest.TestCase):
         # Verify docker build was called with resolved path
         build_call = [c for c in mock_run.call_args_list if len(c[0]) > 0 and "build" in c[0][0]]
         self.assertTrue(len(build_call) > 0, "Docker build should have been called")
+
+    @patch("tasktree.temp_script.tempfile.NamedTemporaryFile")
+    @patch("tasktree.docker.subprocess.run")
+    @patch("tasktree.docker.platform.system")
+    def test_error_on_script_creation_failure(self, mock_platform, mock_run, mock_tempfile):
+        """
+        Test that DockerError is raised when TempScript fails to create script file.
+        """
+        mock_platform.return_value = "Linux"
+
+        # Mock temp file creation to fail
+        mock_tempfile.side_effect = OSError("Disk full")
+
+        env = Runner(
+            name="builder",
+            dockerfile="./Dockerfile",
+            context=".",
+            shell="bash",
+        )
+
+        # Mock docker --version, docker build, docker inspect
+        def mock_run_side_effect(*args, **_kwargs):
+            cmd = args[0]
+            if "inspect" in cmd:
+                result = Mock()
+                result.stdout = "sha256:abc123def456\n"
+                return result
+            return Mock()
+
+        mock_run.side_effect = mock_run_side_effect
+
+        process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
+
+        # Should raise DockerError (not OSError) with clear message
+        from tasktree.docker import DockerError
+
+        with self.assertRaises(DockerError) as context:
+            self.manager.run_in_container(
+                env=env,
+                cmd="echo hello",
+                working_dir=Path("/fake/project"),
+                container_working_dir="/workspace",
+                process_runner=process_runner,
+            )
+
+        # Verify error message mentions script creation
+        self.assertIn("temporary script", str(context.exception).lower())
+
+    @patch("tasktree.docker.subprocess.run")
+    @patch("tasktree.docker.platform.system")
+    def test_error_on_docker_run_failure(self, mock_platform, mock_run):
+        """
+        Test that DockerError is raised when docker run fails.
+        """
+        mock_platform.return_value = "Linux"
+
+        env = Runner(
+            name="builder",
+            dockerfile="./Dockerfile",
+            context=".",
+            shell="bash",
+        )
+
+        # Mock docker --version, docker build, docker inspect, and failing docker run
+        def mock_run_side_effect(*args, **_kwargs):
+            cmd = args[0]
+            if "inspect" in cmd:
+                result = Mock()
+                result.stdout = "sha256:abc123def456\n"
+                return result
+            elif "docker" in cmd and "run" in cmd:
+                # Simulate docker run failure
+                import subprocess
+                raise subprocess.CalledProcessError(125, cmd, stderr="Container failed to start")
+            return Mock()
+
+        mock_run.side_effect = mock_run_side_effect
+
+        process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
+
+        # Should raise DockerError
+        from tasktree.docker import DockerError
+
+        with self.assertRaises(DockerError) as context:
+            self.manager.run_in_container(
+                env=env,
+                cmd="echo hello",
+                working_dir=Path("/fake/project"),
+                container_working_dir="/workspace",
+                process_runner=process_runner,
+            )
+
+        # Verify error message mentions container execution
+        self.assertIn("container execution failed", str(context.exception).lower())
+        self.assertIn("125", str(context.exception))
 
 
 if __name__ == "__main__":

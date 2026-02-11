@@ -523,6 +523,77 @@ tasks:
 - Relative paths are combined with the runner's `working_dir` (if set)
 - The `working_dir` setting determines where commands execute, not where volume mounts map files
 
+#### Windows Containers and Shell Behavior
+
+Task Tree supports both Linux and Windows containers. The script file extension and behavior are determined by the `shell` configured for the runner, **not** the host platform:
+
+**Linux Containers (default):**
+```yaml
+runners:
+  linux-builder:
+    dockerfile: Dockerfile
+    context: .
+    shell: bash  # or sh, zsh - uses .sh extension with shebang
+```
+
+**Windows Containers:**
+```yaml
+runners:
+  windows-builder:
+    dockerfile: Dockerfile.windows
+    context: .
+    shell: cmd.exe  # Uses .bat extension, no shebang
+```
+
+**PowerShell Containers:**
+```yaml
+runners:
+  powershell-builder:
+    dockerfile: Dockerfile.windows
+    context: .
+    shell: powershell  # or pwsh - uses .ps1 extension, no shebang
+```
+
+**Script Execution Details:**
+
+When a task runs in a Docker container:
+1. Task Tree creates a temporary script file on the host
+2. The script extension is determined from the `shell` field:
+   - `bash`, `sh`, `zsh`, etc. → `.sh` (with `#!/usr/bin/env {shell}` shebang)
+   - `cmd.exe`, `cmd` → `.bat` (no shebang)
+   - `powershell`, `pwsh` → `.ps1` (no shebang)
+3. The script is mounted into the container at a unique path (e.g., `/tmp/tt-script-{uuid}.sh`)
+4. The container executes the script using the specified shell
+5. The script is automatically cleaned up after execution
+
+**Important Notes:**
+
+- The script type is determined by the **container's shell**, not the host OS
+- You can run Windows containers from a Linux host (and vice versa) - the script will use the appropriate format
+- Script paths are unique per execution (using UUIDs) to prevent collisions in concurrent runs
+- Scripts are mounted read-only for security
+
+**Example: Windows container on any host:**
+```yaml
+runners:
+  win-container:
+    dockerfile: Dockerfile.windows
+    context: .
+    shell: cmd.exe
+    volumes:
+      - .:/workspace
+
+tasks:
+  windows-task:
+    run_in: win-container
+    cmd: |
+      echo Building on Windows
+      dir C:\workspace
+      copy file.txt C:\output\file.txt
+```
+
+Even if running on a Linux or macOS host, this task will create a `.bat` script (no shebang) and execute it with `cmd.exe` inside the Windows container.
+
 ### Parameterised Tasks
 
 Tasks can accept arguments with optional type annotations and defaults:
