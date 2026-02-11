@@ -95,7 +95,6 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Install dependencies
 uv run tt dev-setup
-
 ```
 
 ## Development Workflow
@@ -114,7 +113,7 @@ The repository includes a `tasktree.yaml` with development tasks:
 
 ```bash
 uv run tt test          # Run tests
-uv run tt coverage         # Run tests with coverage
+uv run tt coverage      # Run tests with coverage
 uv run tt build         # Build wheel package
 uv run tt install-dev   # Install package in development mode
 uv run tt clean         # Remove build artifacts
