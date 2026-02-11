@@ -146,14 +146,13 @@ runners:
     # OR
     dockerfile: path/to/Dockerfile  # Docker runner
     context: build-context-dir
-    image: optional-image-name
     volumes:
       - host_path:container_path[:ro]
     ports:
       - "host:container"
-    build_args:
+    args:
       ARG_NAME: value
-    environment:
+    env_vars:
       ENV_VAR: value
 
 variables:
