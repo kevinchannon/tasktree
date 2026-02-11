@@ -1517,6 +1517,14 @@ def _parse_file_with_env(
                     if env_name == "default":
                         continue  # Skip the default key itself
 
+                    # Validate runner name - dots are reserved for namespacing
+                    if "." in env_name:
+                        raise ValueError(
+                            f"Runner name '{env_name}' contains a dot (.) character. "
+                            f"Dots are reserved for namespacing imported runners. "
+                            f"Please use only letters, numbers, hyphens, and underscores."
+                        )
+
                     if not isinstance(env_config, dict):
                         raise ValueError(f"Runner '{env_name}' must be a dictionary")
 

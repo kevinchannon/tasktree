@@ -2337,6 +2337,61 @@ tasks:
             self.assertIn("build-123", recipe.variables)
 
 
+class TestRunnerNameValidation(unittest.TestCase):
+    """
+    Test validation of runner names - dots are reserved for namespacing.
+    """
+
+    def test_runner_name_with_dots_rejected(self):
+        """
+        Test that runner names containing dots are rejected.
+        """
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+runners:
+  env.name:
+    shell: /bin/bash
+
+tasks:
+  test:
+    cmd: echo test
+""")
+
+            with self.assertRaises(ValueError) as cm:
+                parse_recipe(recipe_path)
+
+            error_msg = str(cm.exception)
+            self.assertIn("env.name", error_msg)
+            self.assertIn("dot (.) character", error_msg)
+            self.assertIn("reserved for namespacing", error_msg)
+
+    def test_runner_name_without_dots_allowed(self):
+        """
+        Test that runner names with valid characters are allowed.
+        """
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+runners:
+  my-env:
+    shell: /bin/bash
+  docker_python:
+    shell: /bin/sh
+  ENV123:
+    shell: /bin/zsh
+
+tasks:
+  test:
+    cmd: echo test
+""")
+
+            recipe = parse_recipe(recipe_path)
+            self.assertIn("my-env", recipe.runners)
+            self.assertIn("docker_python", recipe.runners)
+            self.assertIn("ENV123", recipe.runners)
+
+
 class TestFileReadVariables(unittest.TestCase):
     """
     Test parsing of variables section with file read support.
