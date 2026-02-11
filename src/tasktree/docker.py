@@ -9,6 +9,7 @@ import os
 import platform
 import re
 import subprocess
+import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -34,6 +35,43 @@ class DockerError(Exception):
     """
 
     pass
+
+
+def _is_windows_shell(shell: str) -> bool:
+    """
+    Determine if the specified shell is a Windows shell.
+
+    Args:
+        shell: Shell name or path (e.g., "bash", "sh", "cmd.exe", "powershell")
+
+    Returns:
+        True if shell is Windows-based (cmd.exe or powershell), False otherwise
+    """
+    shell_lower = shell.lower()
+    # Check for Windows shells (cmd.exe, cmd, powershell.exe, powershell, pwsh)
+    return any(
+        win_shell in shell_lower
+        for win_shell in ["cmd.exe", "cmd", "powershell", "pwsh"]
+    )
+
+
+def _get_container_script_extension(shell: str) -> str:
+    """
+    Get the appropriate script file extension for the container shell.
+
+    Args:
+        shell: Shell to use in container (e.g., "bash", "sh", "cmd.exe", "powershell")
+
+    Returns:
+        File extension including the dot (e.g., ".sh", ".bat", ".ps1")
+    """
+    if _is_windows_shell(shell):
+        shell_lower = shell.lower()
+        if "powershell" in shell_lower or "pwsh" in shell_lower:
+            return ".ps1"
+        else:
+            return ".bat"
+    return ".sh"
 
 
 class DockerManager:
@@ -190,66 +228,83 @@ class DockerManager:
         # Only use args as shell args if it's a list; dict args are build args only
         shell_args = env.args if isinstance(env.args, list) else []
 
-        # Create temp script on host with preamble and command
+        # Determine script extension and shebang behavior based on container shell
+        script_ext = _get_container_script_extension(shell)
+        use_shebang = not _is_windows_shell(shell)
+
+        # Generate unique container script path to avoid collisions between concurrent executions
+        script_id = uuid.uuid4()
+        script_filename = f"tt-script-{script_id}{script_ext}"
+        container_script_path = f"/tmp/{script_filename}"
+
+        # Create temp script on host with preamble and command, then mount into container.
+        # The script extension and shebang behavior are determined by the container shell type,
+        # not the host platform (e.g., Windows containers use .bat even on Linux hosts).
         preamble = env.preamble or ""
-        with TempScript(
-            logger=self._logger,
-            cmd=cmd,
-            preamble=preamble,
-            shell=shell,
-        ) as script_path:
-            # Build docker run command
-            docker_cmd = ["docker", "run", "--rm"]
+        try:
+            with TempScript(
+                logger=self._logger,
+                cmd=cmd,
+                preamble=preamble,
+                shell=shell,
+                script_extension=script_ext,
+                use_shebang=use_shebang,
+            ) as script_path:
+                # Build docker run command
+                docker_cmd = ["docker", "run", "--rm"]
 
-            # Add user mapping (run as current host user) unless explicitly disabled or on Windows
-            if not env.run_as_root and self._should_add_user_flag():
-                uid = os.getuid()
-                gid = os.getgid()
-                docker_cmd.extend(["--user", f"{uid}:{gid}"])
+                # Add user mapping (run as current host user) unless explicitly disabled or on Windows
+                if not env.run_as_root and self._should_add_user_flag():
+                    uid = os.getuid()
+                    gid = os.getgid()
+                    docker_cmd.extend(["--user", f"{uid}:{gid}"])
 
-            docker_cmd.extend(env.extra_args)
+                docker_cmd.extend(env.extra_args)
 
-            # Mount temp script into container's /tmp directory
-            container_script_path = "/tmp/tt-script.sh"
-            docker_cmd.extend(["-v", f"{script_path}:{container_script_path}:ro"])
+                # Mount temp script into container at unique path (read-only for security)
+                docker_cmd.extend(["-v", f"{script_path}:{container_script_path}:ro"])
 
-            # Add volume mounts
-            for volume in env.volumes:
-                # Resolve volume paths
-                resolved_volume = self._resolve_volume_mount(volume)
-                docker_cmd.extend(["-v", resolved_volume])
+                # Add volume mounts
+                for volume in env.volumes:
+                    # Resolve volume paths
+                    resolved_volume = self._resolve_volume_mount(volume)
+                    docker_cmd.extend(["-v", resolved_volume])
 
-            # Add port mappings
-            for port in env.ports:
-                docker_cmd.extend(["-p", port])
+                # Add port mappings
+                for port in env.ports:
+                    docker_cmd.extend(["-p", port])
 
-            # Add environment variables
-            for var_name, var_value in env.env_vars.items():
-                docker_cmd.extend(["-e", f"{var_name}={var_value}"])
+                # Add environment variables
+                for var_name, var_value in env.env_vars.items():
+                    docker_cmd.extend(["-e", f"{var_name}={var_value}"])
 
-            # Add working directory
-            if container_working_dir:
-                docker_cmd.extend(["-w", container_working_dir])
+                # Add working directory
+                if container_working_dir:
+                    docker_cmd.extend(["-w", container_working_dir])
 
-            # Add image tag
-            docker_cmd.append(image_tag)
+                # Add image tag
+                docker_cmd.append(image_tag)
 
-            # Execute script with shell
-            docker_cmd.extend([shell, *shell_args, container_script_path])
+                # Execute script with shell
+                docker_cmd.extend([shell, *shell_args, container_script_path])
 
-            # Execute
-            try:
-                result = process_runner.run(
-                    docker_cmd,
-                    cwd=working_dir,
-                    check=True,
-                    capture_output=False,  # Stream output to terminal
-                )
-                return result
-            except subprocess.CalledProcessError as e:
-                raise DockerError(
-                    f"Docker container execution failed with exit code {e.returncode}"
-                ) from e
+                # Execute
+                try:
+                    result = process_runner.run(
+                        docker_cmd,
+                        cwd=working_dir,
+                        check=True,
+                        capture_output=False,  # Stream output to terminal
+                    )
+                    return result
+                except subprocess.CalledProcessError as e:
+                    raise DockerError(
+                        f"Docker container execution failed with exit code {e.returncode}"
+                    ) from e
+        except OSError as e:
+            raise DockerError(
+                f"Failed to create temporary script for Docker execution: {e}"
+            ) from e
 
     def _resolve_volume_mount(self, volume: str) -> str:
         """

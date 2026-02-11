@@ -49,6 +49,8 @@ class TempScript:
         cmd: str,
         preamble: str = "",
         shell: str = "bash",
+        script_extension: str | None = None,
+        use_shebang: bool | None = None,
     ):
         """
         Initialize temp script manager.
@@ -58,6 +60,10 @@ class TempScript:
             cmd: Command string to execute (can be multi-line)
             preamble: Optional preamble to prepend to command
             shell: Shell to use for shebang (default: bash)
+            script_extension: Optional override for script file extension (e.g., ".sh", ".bat", ".ps1").
+                            If None, determined from platform.
+            use_shebang: Optional override for whether to add shebang.
+                        If None, determined from platform (True on Unix/macOS, False on Windows).
 
         @athena: method
         """
@@ -66,14 +72,16 @@ class TempScript:
         self.shell = shell
         self.logger = logger
         self.script_path: Path | None = None
+        self.script_extension = script_extension
+        self.use_shebang = use_shebang
 
     def __enter__(self) -> Path:
         """
         Create temp script and return path.
 
         Creates a temporary script file with platform-appropriate extension,
-        writes shebang (Unix/macOS only), preamble, and command. Makes the
-        script executable on Unix/macOS.
+        writes shebang (Unix/macOS only by default), preamble, and command.
+        Makes the script executable on Unix/macOS.
 
         Note: There is a small race condition window between file creation
         (with delete=False) and chmod on Unix/macOS. A malicious process could
@@ -86,8 +94,17 @@ class TempScript:
 
         @athena: method
         """
-        # Determine file extension based on platform
-        script_ext = ".bat" if _IS_WINDOWS else ".sh"
+        # Determine file extension (use override if provided, otherwise platform default)
+        if self.script_extension is not None:
+            script_ext = self.script_extension
+        else:
+            script_ext = ".bat" if _IS_WINDOWS else ".sh"
+
+        # Determine whether to use shebang (use override if provided, otherwise platform default)
+        if self.use_shebang is not None:
+            should_use_shebang = self.use_shebang
+        else:
+            should_use_shebang = not _IS_WINDOWS
 
         self.logger.debug(f"Creating temp script with extension {script_ext}")
 
@@ -100,8 +117,8 @@ class TempScript:
         ) as script_file:
             script_path_str = script_file.name
 
-            # On Unix/macOS, add shebang if not present in command
-            if not _IS_WINDOWS:
+            # Add shebang if enabled and not already present in command
+            if should_use_shebang:
                 if not self.cmd.startswith("#!"):
                     # Use the configured shell in shebang
                     shebang = f"#!/usr/bin/env {self.shell}\n"
@@ -124,8 +141,8 @@ class TempScript:
 
         self.logger.debug(f"Created temp script at: {self.script_path}")
 
-        # Make executable on Unix/macOS
-        if not _IS_WINDOWS:
+        # Make executable on Unix/macOS (only for non-Windows scripts)
+        if not _IS_WINDOWS and script_ext == ".sh":
             os.chmod(
                 self.script_path,
                 os.stat(self.script_path).st_mode | stat.S_IEXEC
