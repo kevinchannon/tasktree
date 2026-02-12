@@ -2336,6 +2336,28 @@ tasks:
             self.assertIn("VERSION", recipe.variables)
             self.assertIn("build-123", recipe.variables)
 
+    def test_variable_name_with_unicode_allowed(self):
+        """
+        Test that variable names with Unicode characters (including emojis) are allowed.
+        """
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+variables:
+  🙏🤷💩: "emoji value"
+  café: "accented value"
+  変数: "japanese value"
+
+tasks:
+  test:
+    cmd: echo test
+""")
+
+            recipe = parse_recipe(recipe_path)
+            self.assertIn("🙏🤷💩", recipe.variables)
+            self.assertIn("café", recipe.variables)
+            self.assertIn("変数", recipe.variables)
+
 
 class TestRunnerNameValidation(unittest.TestCase):
     """
@@ -2390,6 +2412,28 @@ tasks:
             self.assertIn("my-env", recipe.runners)
             self.assertIn("docker_python", recipe.runners)
             self.assertIn("ENV123", recipe.runners)
+
+    def test_runner_name_with_unicode_allowed(self):
+        """
+        Test that runner names with Unicode characters (including emojis) are allowed.
+        """
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+runners:
+  🚀:
+    shell: /bin/bash
+  環境:
+    shell: /bin/sh
+
+tasks:
+  test:
+    cmd: echo test
+""")
+
+            recipe = parse_recipe(recipe_path)
+            self.assertIn("🚀", recipe.runners)
+            self.assertIn("環境", recipe.runners)
 
 
 class TestFileReadVariables(unittest.TestCase):

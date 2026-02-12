@@ -662,19 +662,36 @@ def find_recipe_file(start_dir: Path | None = None) -> Path | None:
 
 def _validate_variable_name(name: str) -> None:
     """
-    Validate that a variable name is a valid identifier.
+    Validate that a variable name doesn't contain dots (reserved for namespacing).
 
     Args:
     name: Variable name to validate
 
     Raises:
-    ValueError: If name is not a valid identifier
+    ValueError: If name contains a dot character
     @athena: b768b37686da
     """
-    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_-]*$", name):
+    if "." in name:
         raise ValueError(
-            f"Variable name '{name}' is invalid. Names must start with "
-            f"letter/underscore and contain only alphanumerics, underscores, and hyphens."
+            f"Variable name '{name}' contains a dot (.) character. "
+            f"Dots are reserved for namespacing imported variables."
+        )
+
+
+def _validate_runner_name(name: str) -> None:
+    """
+    Validate that a runner name doesn't contain dots (reserved for namespacing).
+
+    Args:
+    name: Runner name to validate
+
+    Raises:
+    ValueError: If name contains a dot character
+    """
+    if "." in name:
+        raise ValueError(
+            f"Runner name '{name}' contains a dot (.) character. "
+            f"Dots are reserved for namespacing imported runners."
         )
 
 
@@ -1493,14 +1510,6 @@ def _parse_file_with_env(
         # Variable evaluation will happen later in Recipe.evaluate_variables()
         if data and "variables" in data:
             raw_variables = data["variables"]
-            # Validate variable names - dots are reserved for namespacing
-            for var_name in raw_variables.keys():
-                if "." in var_name:
-                    raise ValueError(
-                        f"Variable name '{var_name}' contains a dot (.) character. "
-                        f"Dots are reserved for namespacing imported variables. "
-                        f"Please use only letters, numbers, hyphens, and underscores."
-                    )
 
         # SKIP variable substitution here - defer to lazy evaluation phase
         # Tasks and runners will contain {{ var.* }} placeholders until evaluation
@@ -1516,14 +1525,6 @@ def _parse_file_with_env(
                 for env_name, env_config in env_data.items():
                     if env_name == "default":
                         continue  # Skip the default key itself
-
-                    # Validate runner name - dots are reserved for namespacing
-                    if "." in env_name:
-                        raise ValueError(
-                            f"Runner name '{env_name}' contains a dot (.) character. "
-                            f"Dots are reserved for namespacing imported runners. "
-                            f"Please use only letters, numbers, hyphens, and underscores."
-                        )
 
                     if not isinstance(env_config, dict):
                         raise ValueError(f"Runner '{env_name}' must be a dictionary")
@@ -1582,13 +1583,6 @@ def _parse_file_with_env(
                             raise ValueError(
                                 f"Runner '{env_name}': context must be a directory, got {context_path}"
                             )
-
-                    # Validate runner name (must be valid Docker tag)
-                    if not env_name.replace("-", "").replace("_", "").isalnum():
-                        raise ValueError(
-                            f"Runner name '{env_name}' must be alphanumeric "
-                            f"(with optional hyphens and underscores)"
-                        )
 
                     runners[env_name] = Runner(
                         name=env_name,
@@ -1776,6 +1770,8 @@ def collect_reachable_variables(
                                         variables.add(match.group(1))
 
         if task.run_in:
+            # Validate runner name when it's used by a reachable task
+            _validate_runner_name(task.run_in)
             if task.run_in in runners:
                 env = runners[task.run_in]
 
