@@ -671,10 +671,10 @@ def _validate_variable_name(name: str) -> None:
     ValueError: If name is not a valid identifier
     @athena: b768b37686da
     """
-    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", name):
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_-]*$", name):
         raise ValueError(
             f"Variable name '{name}' is invalid. Names must start with "
-            f"letter/underscore and contain only alphanumerics and underscores."
+            f"letter/underscore and contain only alphanumerics, underscores, and hyphens."
         )
 
 
