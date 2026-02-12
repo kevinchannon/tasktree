@@ -2294,6 +2294,8 @@ class TestVariableNameValidation(unittest.TestCase):
     def test_variable_name_with_dots_rejected(self):
         """
         Test that variable names containing dots are rejected.
+        Validation happens when variables are evaluated (during parse_recipe with root_task=None,
+        all variables are evaluated).
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
@@ -2358,6 +2360,30 @@ tasks:
             self.assertIn("café", recipe.variables)
             self.assertIn("変数", recipe.variables)
 
+    def test_variable_name_with_dots_not_rejected_when_unused(self):
+        """
+        Test that variable names with dots DON'T raise errors when unused.
+        This validates lazy evaluation: only used variables are validated.
+        """
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+variables:
+  bad.variable: "unused"
+  good_variable: "used"
+
+tasks:
+  test:
+    cmd: echo {{ var.good_variable }}
+""")
+
+            # Should NOT raise an error because bad.variable is not used
+            # Parse with root_task="test" to trigger lazy evaluation
+            recipe = parse_recipe(recipe_path, root_task="test")
+            self.assertIn("good_variable", recipe.evaluated_variables)
+            # bad.variable should not have been evaluated
+            self.assertNotIn("bad.variable", recipe.evaluated_variables)
+
 
 class TestRunnerNameValidation(unittest.TestCase):
     """
@@ -2366,7 +2392,8 @@ class TestRunnerNameValidation(unittest.TestCase):
 
     def test_runner_name_with_dots_rejected(self):
         """
-        Test that runner names containing dots are rejected.
+        Test that runner names containing dots are rejected when used.
+        Validation happens lazily - only when the runner is actually used.
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
@@ -2377,6 +2404,7 @@ runners:
 
 tasks:
   test:
+    run_in: env.name
     cmd: echo test
 """)
 
@@ -2434,6 +2462,31 @@ tasks:
             recipe = parse_recipe(recipe_path)
             self.assertIn("🚀", recipe.runners)
             self.assertIn("環境", recipe.runners)
+
+    def test_runner_name_with_dots_not_rejected_when_unused(self):
+        """
+        Test that runner names with dots DON'T raise errors when the runner is unused.
+        This validates the lazy validation principle: only validate when actually used.
+        """
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+runners:
+  bad.runner:
+    shell: /bin/bash
+  good_runner:
+    shell: /bin/sh
+
+tasks:
+  test:
+    run_in: good_runner
+    cmd: echo test
+""")
+
+            # Should NOT raise an error because bad.runner is not used
+            recipe = parse_recipe(recipe_path)
+            self.assertIn("bad.runner", recipe.runners)
+            self.assertIn("good_runner", recipe.runners)
 
 
 class TestFileReadVariables(unittest.TestCase):
