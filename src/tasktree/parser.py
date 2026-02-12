@@ -424,6 +424,12 @@ class Recipe:
             reachable_tasks = self.tasks.keys()
             variables_to_eval = set(self.raw_variables.keys())
 
+        # Validate runner names for all reachable tasks
+        for task_name in reachable_tasks:
+            task = self.tasks.get(task_name)
+            if task and task.run_in:
+                _validate_runner_name(task.run_in)
+
         # Evaluate the selected variables using helper function
         self.evaluated_variables = _evaluate_variable_subset(
             self.raw_variables,
