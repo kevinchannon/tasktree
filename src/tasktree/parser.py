@@ -424,6 +424,12 @@ class Recipe:
             reachable_tasks = self.tasks.keys()
             variables_to_eval = set(self.raw_variables.keys())
 
+        # Validate runner names for all reachable tasks
+        for task_name in reachable_tasks:
+            task = self.tasks.get(task_name)
+            if task and task.run_in:
+                _validate_runner_name(task.run_in)
+
         # Evaluate the selected variables using helper function
         self.evaluated_variables = _evaluate_variable_subset(
             self.raw_variables,
@@ -662,19 +668,36 @@ def find_recipe_file(start_dir: Path | None = None) -> Path | None:
 
 def _validate_variable_name(name: str) -> None:
     """
-    Validate that a variable name is a valid identifier.
+    Validate that a variable name doesn't contain dots (reserved for namespacing).
 
     Args:
     name: Variable name to validate
 
     Raises:
-    ValueError: If name is not a valid identifier
+    ValueError: If name contains a dot character
     @athena: b768b37686da
     """
-    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", name):
+    if "." in name:
         raise ValueError(
-            f"Variable name '{name}' is invalid. Names must start with "
-            f"letter/underscore and contain only alphanumerics and underscores."
+            f"Variable name '{name}' contains a dot (.) character. "
+            f"Dots are reserved for namespacing imported variables."
+        )
+
+
+def _validate_runner_name(name: str) -> None:
+    """
+    Validate that a runner name doesn't contain dots (reserved for namespacing).
+
+    Args:
+    name: Runner name to validate
+
+    Raises:
+    ValueError: If name contains a dot character
+    """
+    if "." in name:
+        raise ValueError(
+            f"Runner name '{name}' contains a dot (.) character. "
+            f"Dots are reserved for namespacing imported runners."
         )
 
 
@@ -1567,13 +1590,6 @@ def _parse_file_with_env(
                                 f"Runner '{env_name}': context must be a directory, got {context_path}"
                             )
 
-                    # Validate runner name (must be valid Docker tag)
-                    if not env_name.replace("-", "").replace("_", "").isalnum():
-                        raise ValueError(
-                            f"Runner name '{env_name}' must be alphanumeric "
-                            f"(with optional hyphens and underscores)"
-                        )
-
                     runners[env_name] = Runner(
                         name=env_name,
                         shell=shell,
@@ -1760,6 +1776,8 @@ def collect_reachable_variables(
                                         variables.add(match.group(1))
 
         if task.run_in:
+            # Validate runner name when it's used by a reachable task
+            _validate_runner_name(task.run_in)
             if task.run_in in runners:
                 env = runners[task.run_in]
 
