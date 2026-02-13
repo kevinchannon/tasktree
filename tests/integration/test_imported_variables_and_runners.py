@@ -166,3 +166,97 @@ class TestMultiLevelImportVariablesAndRunners(unittest.TestCase):
 
             finally:
                 os.chdir(original_cwd)
+
+    def test_diamond_import_variables_and_runners(self):
+        """Test diamond pattern: root -> {left, right} -> base with variables and runners."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Base: defines a variable and a runner
+            (project_root / "base.yaml").write_text(
+                "variables:\n"
+                "  msg: from base\n"
+                "runners:\n"
+                "  shell:\n"
+                "    shell: /bin/sh\n"
+                "tasks:\n"
+                "  hello:\n"
+                "    run_in: shell\n"
+                "    cmd: echo {{ var.msg }}\n"
+            )
+
+            # Left: imports base
+            (project_root / "left.yaml").write_text(
+                "imports:\n"
+                "  - file: base.yaml\n"
+                "    as: base\n"
+                "tasks:\n"
+                "  run:\n"
+                "    deps: [base.hello]\n"
+                "    cmd: echo left done\n"
+            )
+
+            # Right: imports base
+            (project_root / "right.yaml").write_text(
+                "imports:\n"
+                "  - file: base.yaml\n"
+                "    as: base\n"
+                "tasks:\n"
+                "  run:\n"
+                "    deps: [base.hello]\n"
+                "    cmd: echo right done\n"
+            )
+
+            # Root: imports both left and right
+            recipe_path = project_root / "tasktree.yaml"
+            recipe_path.write_text(
+                "imports:\n"
+                "  - file: left.yaml\n"
+                "    as: left\n"
+                "  - file: right.yaml\n"
+                "    as: right\n"
+                "tasks:\n"
+                "  all:\n"
+                "    deps: [left.run, right.run]\n"
+                "    cmd: echo all done\n"
+            )
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Run left side of the diamond
+                result = self.runner.invoke(
+                    app, ["left.base.hello"], env=self.env
+                )
+                stripped = strip_ansi_codes(result.stdout)
+                self.assertEqual(result.exit_code, 0, f"Task failed: {stripped}")
+                self.assertIn("from base", stripped)
+
+                # Clear state
+                state_file = project_root / ".tasktree-state"
+                if state_file.exists():
+                    state_file.unlink()
+
+                # Run right side of the diamond
+                result = self.runner.invoke(
+                    app, ["right.base.hello"], env=self.env
+                )
+                stripped = strip_ansi_codes(result.stdout)
+                self.assertEqual(result.exit_code, 0, f"Task failed: {stripped}")
+                self.assertIn("from base", stripped)
+
+                # Clear state
+                if state_file.exists():
+                    state_file.unlink()
+
+                # Run the root which depends on both sides
+                result = self.runner.invoke(app, ["all"], env=self.env)
+                stripped = strip_ansi_codes(result.stdout)
+                self.assertEqual(result.exit_code, 0, f"Task failed: {stripped}")
+                self.assertIn("left done", stripped)
+                self.assertIn("right done", stripped)
+                self.assertIn("all done", stripped)
+
+            finally:
+                os.chdir(original_cwd)
