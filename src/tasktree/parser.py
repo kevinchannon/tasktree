@@ -793,6 +793,23 @@ def _rewrite_task_variable_references(task: "Task", namespace: str) -> None:
     task.__post_init__()
 
 
+def _rewrite_runner_variable_references(runner: "Runner", namespace: str) -> None:
+    """
+    Rewrite {{ var.X }} references in all fields of a runner to {{ var.namespace.X }}.
+    Modifies the runner in place.
+    """
+    runner.preamble = _rewrite_variable_references(runner.preamble, namespace)
+    runner.dockerfile = _rewrite_variable_references(runner.dockerfile, namespace)
+    runner.context = _rewrite_variable_references(runner.context, namespace)
+    runner.working_dir = _rewrite_variable_references(runner.working_dir, namespace)
+    runner.volumes = [_rewrite_variable_references(v, namespace) for v in runner.volumes]
+    runner.ports = [_rewrite_variable_references(p, namespace) for p in runner.ports]
+    runner.env_vars = {
+        k: _rewrite_variable_references(v, namespace) for k, v in runner.env_vars.items()
+    }
+    runner.extra_args = [_rewrite_variable_references(a, namespace) for a in runner.extra_args]
+
+
 def _infer_variable_type(value: Any) -> str:
     """
     Infer type name from Python value.
@@ -2230,6 +2247,7 @@ def _parse_file(
         for runner_name, runner in local_runners.items():
             full_runner_name = f"{namespace}.{runner_name}"
             runner.name = full_runner_name
+            _rewrite_runner_variable_references(runner, namespace)
             runners[full_runner_name] = runner
 
         local_vars = data.get("variables", {})

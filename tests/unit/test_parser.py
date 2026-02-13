@@ -1431,6 +1431,38 @@ imports:
             self.assertIn("var.build.src_dir", task.inputs[0])
             self.assertIn("var.build.src_dir", task.outputs[0])
 
+    def test_import_rewrites_variable_references_in_runner_fields(self):
+        """Test that {{ var.* }} references in imported runner fields are rewritten."""
+        with TemporaryDirectory() as tmpdir:
+            # Create imported file with a runner using variable references
+            (Path(tmpdir) / "build.yaml").write_text(
+                "variables:\n"
+                "  setup_cmd: set -e\n"
+                "runners:\n"
+                "  shell:\n"
+                "    shell: /bin/bash\n"
+                "    preamble: '{{ var.setup_cmd }}'\n"
+                "tasks:\n"
+                "  compile:\n"
+                "    cmd: echo hello\n"
+            )
+
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text(
+                "imports:\n"
+                "  - file: build.yaml\n"
+                "    as: build\n"
+                "tasks:\n"
+                "  all:\n"
+                "    deps: [build.compile]\n"
+                "    cmd: echo done\n"
+            )
+
+            recipe = parse_recipe(recipe_path)
+
+            runner = recipe.runners["build.shell"]
+            self.assertIn("var.build.setup_cmd", runner.preamble)
+
 
 class TestParseMultilineCommands(unittest.TestCase):
     """
