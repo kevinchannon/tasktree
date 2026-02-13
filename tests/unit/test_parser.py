@@ -2285,6 +2285,50 @@ tasks:
             finally:
                 del os.environ["REGION"]
 
+    def test_variable_import_from_child_file(self):
+        """
+        Test that variables from imported files are namespaced correctly.
+        Step 1.1: Collect variables from imported files with namespace prefix.
+        """
+        with TemporaryDirectory() as tmpdir:
+            # Create imported file with variables
+            (Path(tmpdir) / "base.yaml").write_text("""
+variables:
+  version: "1.0.0"
+  region: "us-west-1"
+
+tasks:
+  setup:
+    cmd: echo "{{ var.version }}"
+""")
+
+            # Create main recipe that imports base
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+imports:
+  - file: base.yaml
+    as: base
+
+variables:
+  app_name: "myapp"
+
+tasks:
+  build:
+    cmd: echo "Building {{ var.app_name }} version {{ var.base.version }} in {{ var.base.region }}"
+""")
+
+            recipe = parse_recipe(recipe_path)
+
+            # Check that imported variables are namespaced
+            self.assertIn("base.version", recipe.variables)
+            self.assertIn("base.region", recipe.variables)
+            self.assertEqual(recipe.variables["base.version"], "1.0.0")
+            self.assertEqual(recipe.variables["base.region"], "us-west-1")
+
+            # Check that root variables are not namespaced
+            self.assertIn("app_name", recipe.variables)
+            self.assertEqual(recipe.variables["app_name"], "myapp")
+
 
 class TestVariableNameValidation(unittest.TestCase):
     """

@@ -1506,16 +1506,30 @@ def _parse_file_with_env(
     raw_variables: dict[str, Any] = {}
     yaml_data: dict[str, Any] = {}
 
-    # Only parse runners and variables from the root file (namespace is None)
-    if namespace is None:
-        with open(file_path, "r") as f:
-            data = yaml.safe_load(f)
-            yaml_data = data or {}
+    # Load YAML data
+    with open(file_path, "r") as f:
+        data = yaml.safe_load(f)
+        yaml_data = data or {}
 
-        # Store raw variable specs WITHOUT evaluating them (lazy evaluation)
-        # Variable evaluation will happen later in Recipe.evaluate_variables()
-        if data and "variables" in data:
+    # Store raw variable specs WITHOUT evaluating them (lazy evaluation)
+    # Variable evaluation will happen later in Recipe.evaluate_variables()
+    if data and "variables" in data:
+        # Validate variable names BEFORE applying namespace
+        for var_name in data["variables"].keys():
+            _validate_variable_name(var_name)
+
+        # Apply namespace to variable keys if importing
+        if namespace:
+            # Namespace all variables from imported files
+            raw_variables = {
+                f"{namespace}.{var_name}": var_spec
+                for var_name, var_spec in data["variables"].items()
+            }
+        else:
             raw_variables = data["variables"]
+
+    # Only parse runners from the root file (namespace is None)
+    if namespace is None:
 
         # SKIP variable substitution here - defer to lazy evaluation phase
         # Tasks and runners will contain {{ var.* }} placeholders until evaluation
