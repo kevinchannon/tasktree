@@ -1268,6 +1268,38 @@ imports:
             # Should be prefixed with the deploy namespace since "base" is a local import within deploy.yaml
             self.assertEqual(dep, "deploy.base.build(target=release)")
 
+    def test_import_extracts_runners_with_namespace(self):
+        """Test that runners from imported files are namespaced."""
+        with TemporaryDirectory() as tmpdir:
+            # Create imported file with a runner
+            (Path(tmpdir) / "build.yaml").write_text(
+                "runners:\n"
+                "  shell:\n"
+                "    shell: /bin/bash\n"
+                "tasks:\n"
+                "  compile:\n"
+                "    cmd: gcc main.c\n"
+            )
+
+            # Create main recipe that imports the file
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text(
+                "imports:\n"
+                "  - file: build.yaml\n"
+                "    as: build\n"
+                "tasks:\n"
+                "  all:\n"
+                "    deps: [build.compile]\n"
+                "    cmd: echo done\n"
+            )
+
+            recipe = parse_recipe(recipe_path)
+
+            # Runner should be namespaced as build.shell
+            self.assertIn("build.shell", recipe.runners)
+            self.assertEqual(recipe.runners["build.shell"].name, "build.shell")
+            self.assertEqual(recipe.runners["build.shell"].shell, "/bin/bash")
+
 
 class TestParseMultilineCommands(unittest.TestCase):
     """

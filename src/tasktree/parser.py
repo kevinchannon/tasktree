@@ -1642,6 +1642,9 @@ def _parse_file_with_env(
 
         runners, default_runner = _parse_runners_from_data(data, project_root)
 
+    # Merge runners from imported files
+    runners.update(parsed.runners)
+
     return tasks, runners, default_runner, raw_variables, yaml_data
 
 
@@ -1960,6 +1963,7 @@ def _parse_file(
         data = {}
 
     tasks: dict[str, Task] = {}
+    runners: dict[str, Runner] = {}
     # TODO: Understand why this is not used.
     # file_dir = file_path.parent
 
@@ -1999,6 +2003,7 @@ def _parse_file(
             )
 
             tasks.update(nested_result.tasks)
+            runners.update(nested_result.runners)
 
     # Validate top-level keys (only imports, runners, tasks, and variables are allowed)
     valid_top_level_keys = {"imports", "runners", "tasks", "variables"}
@@ -2129,10 +2134,19 @@ def _parse_file(
 
         tasks[full_name] = task
 
+    # Parse runners from imported files (namespace is set) and apply namespace prefix
+    # Root file runners are handled by _parse_file_with_env, not here
+    if namespace:
+        local_runners, _ = _parse_runners_from_data(data, project_root)
+        for runner_name, runner in local_runners.items():
+            full_runner_name = f"{namespace}.{runner_name}"
+            runner.name = full_runner_name
+            runners[full_runner_name] = runner
+
     # Remove current file from stack
     import_stack.pop()
 
-    return ParsedFileResult(tasks=tasks)
+    return ParsedFileResult(tasks=tasks, runners=runners)
 
 
 def _check_case_sensitive_arg_collisions(args: list[str], task_name: str) -> None:
