@@ -35,8 +35,8 @@
         }
       },
       "patternProperties": {
-        "^[^.]+$": {
-          "description": "Runner name (any valid YAML key except dots; dots are reserved for namespacing imported runners)",
+        "^.+$": {
+          "description": "Runner name",
           "type": "object",
           "properties": {
             "shell": {
@@ -125,8 +125,8 @@
       "description": "Variable definitions that can be referenced in tasks using {{ var.name }} syntax",
       "type": "object",
       "patternProperties": {
-        "^[^.]+$": {
-          "description": "Variable name (any valid YAML key except dots; dots are reserved for namespacing imported variables)",
+        "^.+$": {
+          "description": "Variable name",
           "oneOf": [
             {
               "type": "string",

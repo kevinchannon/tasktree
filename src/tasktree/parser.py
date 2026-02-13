@@ -435,12 +435,6 @@ class Recipe:
             reachable_tasks = self.tasks.keys()
             variables_to_eval = set(self.raw_variables.keys())
 
-        # Validate runner names for all reachable tasks
-        for task_name in reachable_tasks:
-            task = self.tasks.get(task_name)
-            if task and task.run_in:
-                _validate_runner_name(task.run_in)
-
         # Evaluate the selected variables using helper function
         self.evaluated_variables = _evaluate_variable_subset(
             self.raw_variables,
@@ -677,35 +671,53 @@ def find_recipe_file(start_dir: Path | None = None) -> Path | None:
     return None
 
 
-def _validate_variable_name(name: str) -> None:
+
+
+
+def _rewrite_variable_references(text: str, namespace: str) -> str:
     """
-    Validate that a variable name doesn't contain dots (reserved for namespacing).
+    Rewrite {{ var.X }} references in text to {{ var.namespace.X }}.
 
     Args:
-    name: Variable name to validate
+    text: Text containing {{ var.* }} placeholders
+    namespace: Namespace prefix to prepend to variable names
 
-    Raises:
-    ValueError: If name contains a dot character
-    @athena: b768b37686da
+    Returns:
+    Text with variable references rewritten
     """
-    if "." in name:
-        raise ValueError(
-            f"Variable name '{name}' contains a dot (.) character. "
-            f"Dots are reserved for namespacing imported variables."
-        )
+    return re.sub(
+        r"(\{\{\s*var\.)([a-zA-Z_][a-zA-Z0-9_]*)(\s*}})",
+        rf"\g<1>{namespace}.\2\3",
+        text,
+    )
 
 
-def _validate_runner_name(name: str) -> None:
+def _rewrite_variable_references_in_raw_value(
+    raw_value: Any, namespace: str
+) -> Any:
     """
-    Validate a runner name.
+    Rewrite {{ var.X }} references within a raw variable value.
 
-    Dots are allowed in runner names because they appear in fully-qualified
-    names from import namespacing (e.g. 'build.shell').
+    Handles string values, and dict values (env with default, read, eval).
 
     Args:
-    name: Runner name to validate
+    raw_value: Raw variable value from YAML
+    namespace: Namespace prefix to prepend to variable names
+
+    Returns:
+    Raw value with variable references rewritten
     """
-    pass
+    if isinstance(raw_value, str):
+        return _rewrite_variable_references(raw_value, namespace)
+    elif isinstance(raw_value, dict):
+        rewritten = {}
+        for key, val in raw_value.items():
+            if isinstance(val, str):
+                rewritten[key] = _rewrite_variable_references(val, namespace)
+            else:
+                rewritten[key] = val
+        return rewritten
+    return raw_value
 
 
 def _infer_variable_type(value: Any) -> str:
@@ -1338,7 +1350,6 @@ def _parse_variables_section(data: dict, file_path: Path) -> dict[str, str]:
     resolution_stack = []  # For circular detection
 
     for var_name, raw_value in vars_data.items():
-        _validate_variable_name(var_name)
         resolved[var_name] = _resolve_variable_value(
             var_name, raw_value, resolved, resolution_stack, file_path, data
         )
@@ -1476,7 +1487,6 @@ def _evaluate_variable_subset(
     # Evaluate variables in order (to handle references between variables)
     for var_name, raw_value in raw_variables.items():
         if var_name in variables_to_eval:
-            _validate_variable_name(var_name)
             resolved[var_name] = _resolve_variable_value(
                 var_name, raw_value, resolved, resolution_stack, file_path, data
             )
@@ -1638,8 +1648,9 @@ def _parse_file_with_env(
 
         runners, default_runner = _parse_runners_from_data(data, project_root)
 
-    # Merge runners from imported files
+    # Merge runners and variables from imported files
     runners.update(parsed.runners)
+    raw_variables.update(parsed.raw_variables)
 
     return tasks, runners, default_runner, raw_variables, yaml_data
 
@@ -1812,8 +1823,6 @@ def collect_reachable_variables(
                                         variables.add(match.group(1))
 
         if task.run_in:
-            # Validate runner name when it's used by a reachable task
-            _validate_runner_name(task.run_in)
             if task.run_in in runners:
                 env = runners[task.run_in]
 
@@ -1960,6 +1969,7 @@ def _parse_file(
 
     tasks: dict[str, Task] = {}
     runners: dict[str, Runner] = {}
+    raw_variables: dict[str, Any] = {}
     # TODO: Understand why this is not used.
     # file_dir = file_path.parent
 
@@ -2000,6 +2010,7 @@ def _parse_file(
 
             tasks.update(nested_result.tasks)
             runners.update(nested_result.runners)
+            raw_variables.update(nested_result.raw_variables)
 
     # Validate top-level keys (only imports, runners, tasks, and variables are allowed)
     valid_top_level_keys = {"imports", "runners", "tasks", "variables"}
@@ -2135,8 +2146,8 @@ def _parse_file(
 
         tasks[full_name] = task
 
-    # Parse runners from imported files (namespace is set) and apply namespace prefix
-    # Root file runners are handled by _parse_file_with_env, not here
+    # Parse runners and variables from imported files (namespace is set) and apply namespace prefix
+    # Root file runners/variables are handled by _parse_file_with_env, not here
     if namespace:
         local_runners, _ = _parse_runners_from_data(data, project_root)
         for runner_name, runner in local_runners.items():
@@ -2144,10 +2155,18 @@ def _parse_file(
             runner.name = full_runner_name
             runners[full_runner_name] = runner
 
+        local_vars = data.get("variables", {})
+        if isinstance(local_vars, dict):
+            for var_name, var_value in local_vars.items():
+                full_var_name = f"{namespace}.{var_name}"
+                raw_variables[full_var_name] = _rewrite_variable_references_in_raw_value(
+                    var_value, namespace
+                )
+
     # Remove current file from stack
     import_stack.pop()
 
-    return ParsedFileResult(tasks=tasks, runners=runners)
+    return ParsedFileResult(tasks=tasks, runners=runners, raw_variables=raw_variables)
 
 
 def _check_case_sensitive_arg_collisions(args: list[str], task_name: str) -> None:
