@@ -1300,6 +1300,38 @@ imports:
             self.assertEqual(recipe.runners["build.shell"].name, "build.shell")
             self.assertEqual(recipe.runners["build.shell"].shell, "/bin/bash")
 
+    def test_import_rewrites_run_in_with_namespace(self):
+        """Test that run_in in imported tasks is rewritten with namespace prefix."""
+        with TemporaryDirectory() as tmpdir:
+            # Create imported file with a runner and a task using it
+            (Path(tmpdir) / "build.yaml").write_text(
+                "runners:\n"
+                "  shell:\n"
+                "    shell: /bin/bash\n"
+                "tasks:\n"
+                "  compile:\n"
+                "    run_in: shell\n"
+                "    cmd: gcc main.c\n"
+            )
+
+            # Create main recipe that imports the file
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text(
+                "imports:\n"
+                "  - file: build.yaml\n"
+                "    as: build\n"
+                "tasks:\n"
+                "  all:\n"
+                "    deps: [build.compile]\n"
+                "    cmd: echo done\n"
+            )
+
+            recipe = parse_recipe(recipe_path)
+
+            # Task's run_in should be rewritten to build.shell
+            task = recipe.tasks["build.compile"]
+            self.assertEqual(task.run_in, "build.shell")
+
 
 class TestParseMultilineCommands(unittest.TestCase):
     """
@@ -2422,10 +2454,10 @@ class TestRunnerNameValidation(unittest.TestCase):
     Test validation of runner names - dots are reserved for namespacing.
     """
 
-    def test_runner_name_with_dots_rejected(self):
+    def test_runner_name_with_dots_allowed_for_namespacing(self):
         """
-        Test that runner names containing dots are rejected when used.
-        Validation happens lazily - only when the runner is actually used.
+        Test that runner names containing dots are allowed.
+        Dots appear in fully-qualified runner names from import namespacing.
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
@@ -2440,13 +2472,8 @@ tasks:
     cmd: echo test
 """)
 
-            with self.assertRaises(ValueError) as cm:
-                parse_recipe(recipe_path)
-
-            error_msg = str(cm.exception)
-            self.assertIn("env.name", error_msg)
-            self.assertIn("dot (.) character", error_msg)
-            self.assertIn("reserved for namespacing", error_msg)
+            recipe = parse_recipe(recipe_path)
+            self.assertIn("env.name", recipe.runners)
 
     def test_runner_name_without_dots_allowed(self):
         """

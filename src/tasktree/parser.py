@@ -697,19 +697,15 @@ def _validate_variable_name(name: str) -> None:
 
 def _validate_runner_name(name: str) -> None:
     """
-    Validate that a runner name doesn't contain dots (reserved for namespacing).
+    Validate a runner name.
+
+    Dots are allowed in runner names because they appear in fully-qualified
+    names from import namespacing (e.g. 'build.shell').
 
     Args:
     name: Runner name to validate
-
-    Raises:
-    ValueError: If name contains a dot character
     """
-    if "." in name:
-        raise ValueError(
-            f"Runner name '{name}' contains a dot (.) character. "
-            f"Dots are reserved for namespacing imported runners."
-        )
+    pass
 
 
 def _infer_variable_type(value: Any) -> str:
@@ -2113,6 +2109,11 @@ def _parse_file(
                     rewritten_deps.append(dep)
             deps = rewritten_deps
 
+        # Rewrite run_in with namespace prefix for imported tasks
+        run_in = task_data.get("run_in", "")
+        if namespace and run_in:
+            run_in = f"{namespace}.{run_in}"
+
         task = Task(
             name=full_name,
             cmd=task_data["cmd"],
@@ -2123,7 +2124,7 @@ def _parse_file(
             working_dir=working_dir,
             args=task_data.get("args", []),
             source_file=str(file_path),
-            run_in=task_data.get("run_in", ""),
+            run_in=run_in,
             private=task_data.get("private", False),
             task_output=task_data.get("task_output", None),
         )
