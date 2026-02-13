@@ -31,6 +31,17 @@ class CircularImportError(Exception):
 
 
 @dataclass
+class ParsedFileResult:
+    """
+    Result of parsing a single YAML file, including tasks, runners, and raw variables.
+    """
+
+    tasks: dict[str, Any] = field(default_factory=dict)
+    runners: dict[str, Any] = field(default_factory=dict)
+    raw_variables: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
 class Runner:
     """
     Represents an execution runner configuration.
@@ -1498,7 +1509,8 @@ def _parse_file_with_env(
     @athena: 8b00183e612d
     """
     # Parse tasks normally
-    tasks = _parse_file(file_path, namespace, project_root, import_stack)
+    parsed = _parse_file(file_path, namespace, project_root, import_stack)
+    tasks = parsed.tasks
 
     # Load YAML again to extract runners and variables (only from root file)
     runners: dict[str, Runner] = {}
@@ -1884,7 +1896,7 @@ def _parse_file(
     namespace: str | None,
     project_root: Path,
     import_stack: list[Path] | None = None,
-) -> dict[str, Task]:
+) -> ParsedFileResult:
     """
     Parse a single YAML file and return tasks, recursively processing imports.
 
@@ -1895,7 +1907,7 @@ def _parse_file(
     import_stack: Stack of files being imported (for circular detection)
 
     Returns:
-    Dictionary of task name to Task objects
+    ParsedFileResult containing tasks, runners, and raw variables
 
     Raises:
     CircularImportError: If a circular import is detected
@@ -1954,14 +1966,14 @@ def _parse_file(
                 raise FileNotFoundError(f"Import file not found: {child_path}")
 
             # Recursively process with namespace chain and import stack
-            nested_tasks = _parse_file(
+            nested_result = _parse_file(
                 child_path,
                 full_namespace,
                 project_root,
                 import_stack.copy(),  # Pass copy to avoid shared mutation
             )
 
-            tasks.update(nested_tasks)
+            tasks.update(nested_result.tasks)
 
     # Validate top-level keys (only imports, runners, tasks, and variables are allowed)
     valid_top_level_keys = {"imports", "runners", "tasks", "variables"}
@@ -2095,7 +2107,7 @@ def _parse_file(
     # Remove current file from stack
     import_stack.pop()
 
-    return tasks
+    return ParsedFileResult(tasks=tasks)
 
 
 def _check_case_sensitive_arg_collisions(args: list[str], task_name: str) -> None:
