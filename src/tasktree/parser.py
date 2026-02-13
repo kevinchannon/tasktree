@@ -1488,6 +1488,113 @@ def _evaluate_variable_subset(
     return resolved
 
 
+def _parse_runners_from_data(
+    data: dict[str, Any], project_root: Path
+) -> tuple[dict[str, Runner], str]:
+    """
+    Parse runner definitions from YAML data.
+
+    Args:
+    data: Parsed YAML data containing a 'runners' section
+    project_root: Root directory of the project (for validating Dockerfile/context paths)
+
+    Returns:
+    Tuple of (runners dict, default_runner_name)
+    """
+    runners: dict[str, Runner] = {}
+    default_runner = ""
+
+    if not data or "runners" not in data:
+        return runners, default_runner
+
+    env_data = data["runners"]
+    if not isinstance(env_data, dict):
+        return runners, default_runner
+
+    # Extract default environment name
+    default_runner = env_data.get("default", "")
+
+    # Parse each runner definition
+    for env_name, env_config in env_data.items():
+        if env_name == "default":
+            continue  # Skip the default key itself
+
+        if not isinstance(env_config, dict):
+            raise ValueError(f"Runner '{env_name}' must be a dictionary")
+
+        # Parse common runner configuration
+        shell = env_config.get("shell", "")
+        args = env_config.get("args", [])
+        preamble = env_config.get("preamble", "")
+        working_dir = env_config.get("working_dir", "")
+
+        # SKIP variable substitution in preamble - defer to lazy evaluation
+        # preamble may contain {{ var.* }} placeholders
+
+        # Parse Docker-specific fields
+        dockerfile = env_config.get("dockerfile", "")
+        context = env_config.get("context", "")
+        volumes = env_config.get("volumes", [])
+        ports = env_config.get("ports", [])
+        env_vars = env_config.get("env_vars", {})
+        extra_args = env_config.get("extra_args", [])
+        run_as_root = env_config.get("run_as_root", False)
+
+        # SKIP variable substitution in runner fields - defer to lazy evaluation
+        # Runner fields may contain {{ var.* }} placeholders
+
+        # Validate runner type
+        if not shell and not dockerfile:
+            raise ValueError(
+                f"Runner '{env_name}' must specify either 'shell' "
+                f"(for shell runners) or 'dockerfile' (for Docker runners)"
+            )
+
+        # Validate Docker runner requirements
+        if dockerfile and not context:
+            raise ValueError(
+                f"Docker runner '{env_name}' must specify 'context' "
+                f"when 'dockerfile' is specified"
+            )
+
+        # Validate that Dockerfile exists if specified
+        if dockerfile:
+            dockerfile_path = project_root / dockerfile
+            if not dockerfile_path.exists():
+                raise ValueError(
+                    f"Runner '{env_name}': Dockerfile not found at {dockerfile_path}"
+                )
+
+        # Validate that context directory exists if specified
+        if context:
+            context_path = project_root / context
+            if not context_path.exists():
+                raise ValueError(
+                    f"Runner '{env_name}': context directory not found at {context_path}"
+                )
+            if not context_path.is_dir():
+                raise ValueError(
+                    f"Runner '{env_name}': context must be a directory, got {context_path}"
+                )
+
+        runners[env_name] = Runner(
+            name=env_name,
+            shell=shell,
+            args=args,
+            preamble=preamble,
+            dockerfile=dockerfile,
+            context=context,
+            volumes=volumes,
+            ports=ports,
+            env_vars=env_vars,
+            working_dir=working_dir,
+            extra_args=extra_args,
+            run_as_root=run_as_root,
+        )
+
+    return runners, default_runner
+
+
 def _parse_file_with_env(
     file_path: Path,
     namespace: str | None,
@@ -1533,89 +1640,7 @@ def _parse_file_with_env(
         # Tasks and runners will contain {{ var.* }} placeholders until evaluation
         # This allows us to only evaluate variables that are actually reachable from the target task
 
-        if data and "runners" in data:
-            env_data = data["runners"]
-            if isinstance(env_data, dict):
-                # Extract default environment name
-                default_runner = env_data.get("default", "")
-
-                # Parse each runner definition
-                for env_name, env_config in env_data.items():
-                    if env_name == "default":
-                        continue  # Skip the default key itself
-
-                    if not isinstance(env_config, dict):
-                        raise ValueError(f"Runner '{env_name}' must be a dictionary")
-
-                    # Parse common runner configuration
-                    shell = env_config.get("shell", "")
-                    args = env_config.get("args", [])
-                    preamble = env_config.get("preamble", "")
-                    working_dir = env_config.get("working_dir", "")
-
-                    # SKIP variable substitution in preamble - defer to lazy evaluation
-                    # preamble may contain {{ var.* }} placeholders
-
-                    # Parse Docker-specific fields
-                    dockerfile = env_config.get("dockerfile", "")
-                    context = env_config.get("context", "")
-                    volumes = env_config.get("volumes", [])
-                    ports = env_config.get("ports", [])
-                    env_vars = env_config.get("env_vars", {})
-                    extra_args = env_config.get("extra_args", [])
-                    run_as_root = env_config.get("run_as_root", False)
-
-                    # SKIP variable substitution in runner fields - defer to lazy evaluation
-                    # Runner fields may contain {{ var.* }} placeholders
-
-                    # Validate runner type
-                    if not shell and not dockerfile:
-                        raise ValueError(
-                            f"Runner '{env_name}' must specify either 'shell' "
-                            f"(for shell runners) or 'dockerfile' (for Docker runners)"
-                        )
-
-                    # Validate Docker runner requirements
-                    if dockerfile and not context:
-                        raise ValueError(
-                            f"Docker runner '{env_name}' must specify 'context' "
-                            f"when 'dockerfile' is specified"
-                        )
-
-                    # Validate that Dockerfile exists if specified
-                    if dockerfile:
-                        dockerfile_path = project_root / dockerfile
-                        if not dockerfile_path.exists():
-                            raise ValueError(
-                                f"Runner '{env_name}': Dockerfile not found at {dockerfile_path}"
-                            )
-
-                    # Validate that context directory exists if specified
-                    if context:
-                        context_path = project_root / context
-                        if not context_path.exists():
-                            raise ValueError(
-                                f"Runner '{env_name}': context directory not found at {context_path}"
-                            )
-                        if not context_path.is_dir():
-                            raise ValueError(
-                                f"Runner '{env_name}': context must be a directory, got {context_path}"
-                            )
-
-                    runners[env_name] = Runner(
-                        name=env_name,
-                        shell=shell,
-                        args=args,
-                        preamble=preamble,
-                        dockerfile=dockerfile,
-                        context=context,
-                        volumes=volumes,
-                        ports=ports,
-                        env_vars=env_vars,
-                        working_dir=working_dir,
-                        extra_args=extra_args,
-                        run_as_root=run_as_root,
-                    )
+        runners, default_runner = _parse_runners_from_data(data, project_root)
 
     return tasks, runners, default_runner, raw_variables, yaml_data
 
