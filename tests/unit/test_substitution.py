@@ -87,17 +87,17 @@ class TestPlaceholderPattern(unittest.TestCase):
         Test pattern only matches valid identifier names.
         @athena: 555df31aac2f
         """
-        # Valid identifiers
-        valid = ["foo", "foo_bar", "foo123", "_private"]
+        # Valid identifiers (including dotted namespaced names)
+        valid = ["foo", "foo_bar", "foo123", "_private", "foo.bar", "a.b.c"]
         for name in valid:
             match = PLACEHOLDER_PATTERN.search(f"{{{{ var.{name} }}}}")
-            self.assertIsNotNone(match)
+            self.assertIsNotNone(match, f"Expected '{name}' to match")
 
         # Invalid identifiers (should not match)
-        invalid = ["123foo", "foo-bar", "foo.bar", "foo bar"]
+        invalid = ["123foo", "foo-bar", "foo bar"]
         for name in invalid:
             match = PLACEHOLDER_PATTERN.search(f"{{{{ var.{name} }}}}")
-            self.assertIsNone(match)
+            self.assertIsNone(match, f"Expected '{name}' to NOT match")
 
 
 class TestSubstituteVariables(unittest.TestCase):

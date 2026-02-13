@@ -10,9 +10,9 @@ import re
 from typing import Any
 
 # Pattern matches: {{ prefix.name }} with optional whitespace
-# Groups: (1) prefix (var|arg|env|tt), (2) name (identifier)
+# Groups: (1) prefix (var|arg|env|tt), (2) name (identifier, may contain dots for namespaced variables)
 PLACEHOLDER_PATTERN = re.compile(
-    r"\{\{\s*(var|arg|env|tt)\.([a-zA-Z_][a-zA-Z0-9_]*)\s*}}"
+    r"\{\{\s*(var|arg|env|tt)\.([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\s*}}"
 )
 
 # Pattern matches: {{ dep.task_name.outputs.output_name }} with optional whitespace

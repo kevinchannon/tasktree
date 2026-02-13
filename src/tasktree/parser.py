@@ -686,7 +686,7 @@ def _rewrite_variable_references(text: str, namespace: str) -> str:
     Text with variable references rewritten
     """
     return re.sub(
-        r"(\{\{\s*var\.)([a-zA-Z_][a-zA-Z0-9_]*)(\s*}})",
+        r"(\{\{\s*var\.)([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)(\s*}})",
         rf"\g<1>{namespace}.\2\3",
         text,
     )
@@ -1294,7 +1294,7 @@ def _resolve_variable_value(
                 # Check if the undefined variable is in the resolution stack (circular reference)
                 error_msg = str(e)
                 if "not defined" in error_msg:
-                    match = re.search(r"Variable '(\w+)' is not defined", error_msg)
+                    match = re.search(r"Variable '([\w.]+)' is not defined", error_msg)
                     if match:
                         undefined_var = match.group(1)
                         if undefined_var in resolution_stack:
@@ -1327,7 +1327,7 @@ def _resolve_variable_value(
                 # Check if the undefined variable is in the resolution stack (circular reference)
                 error_msg = str(e)
                 if "not defined" in error_msg:
-                    match = re.search(r"Variable '(\w+)' is not defined", error_msg)
+                    match = re.search(r"Variable '([\w.]+)' is not defined", error_msg)
                     if match:
                         undefined_var = match.group(1)
                         if undefined_var in resolution_stack:
@@ -1357,7 +1357,7 @@ def _resolve_variable_value(
                 # Check if the undefined variable is in the resolution stack (circular reference)
                 error_msg = str(e)
                 if "not defined" in error_msg:
-                    match = re.search(r"Variable '(\w+)' is not defined", error_msg)
+                    match = re.search(r"Variable '([\w.]+)' is not defined", error_msg)
                     if match:
                         undefined_var = match.group(1)
                         if undefined_var in resolution_stack:
@@ -1395,7 +1395,7 @@ def _resolve_variable_value(
             error_msg = str(e)
             if "not defined" in error_msg:
                 # Extract the variable name from the error message
-                match = re.search(r"Variable '(\w+)' is not defined", error_msg)
+                match = re.search(r"Variable '([\w.]+)' is not defined", error_msg)
                 if match:
                     undefined_var = match.group(1)
                     if undefined_var in resolution_stack:
@@ -1475,7 +1475,7 @@ def _expand_variable_dependencies(
     """
     expanded = set(variable_names)
     to_process = list(variable_names)
-    pattern = re.compile(r"\{\{\s*var\.(\w+)\s*}}")
+    pattern = re.compile(r"\{\{\s*var\.([\w]+(?:\.[\w]+)*)\s*}}")
 
     while to_process:
         var_name = to_process.pop(0)
@@ -1832,8 +1832,8 @@ def collect_reachable_variables(
     """
     import re
 
-    # Pattern to match {{ var.name }}
-    var_pattern = re.compile(r"\{\{\s*var\s*\.\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*}}")
+    # Pattern to match {{ var.name }} (supports dotted namespaced names like var.build.compiler)
+    var_pattern = re.compile(r"\{\{\s*var\s*\.\s*([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\s*}}")
 
     variables = set()
 

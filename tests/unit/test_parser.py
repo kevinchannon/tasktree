@@ -1393,7 +1393,7 @@ imports:
             self.assertIn("var.build.base", recipe.raw_variables["build.path"])
 
     def test_import_rewrites_variable_references_in_task_fields(self):
-        """Test that {{ var.* }} references in imported task fields are rewritten."""
+        """Test that {{ var.* }} references in imported task fields are rewritten and resolved."""
         with TemporaryDirectory() as tmpdir:
             # Create imported file with a task using variable references
             (Path(tmpdir) / "build.yaml").write_text(
@@ -1424,15 +1424,16 @@ imports:
 
             recipe = parse_recipe(recipe_path)
 
+            # Variables are rewritten to namespaced names and then resolved
             task = recipe.tasks["build.compile"]
-            self.assertIn("var.build.compiler", task.cmd)
-            self.assertIn("var.build.compiler", task.desc)
-            self.assertIn("var.build.src_dir", task.working_dir)
-            self.assertIn("var.build.src_dir", task.inputs[0])
-            self.assertIn("var.build.src_dir", task.outputs[0])
+            self.assertEqual(task.cmd, "echo gcc")
+            self.assertEqual(task.desc, "Build with gcc")
+            self.assertEqual(task.working_dir, "src")
+            self.assertEqual(task.inputs[0], "src/*.c")
+            self.assertEqual(task.outputs[0], "src/out.o")
 
     def test_import_rewrites_variable_references_in_runner_fields(self):
-        """Test that {{ var.* }} references in imported runner fields are rewritten."""
+        """Test that {{ var.* }} references in imported runner fields are rewritten and resolved."""
         with TemporaryDirectory() as tmpdir:
             # Create imported file with a runner using variable references
             (Path(tmpdir) / "build.yaml").write_text(
@@ -1444,6 +1445,7 @@ imports:
                 "    preamble: '{{ var.setup_cmd }}'\n"
                 "tasks:\n"
                 "  compile:\n"
+                "    run_in: shell\n"
                 "    cmd: echo hello\n"
             )
 
@@ -1460,8 +1462,9 @@ imports:
 
             recipe = parse_recipe(recipe_path)
 
+            # The variable reference was rewritten to build.setup_cmd and resolved
             runner = recipe.runners["build.shell"]
-            self.assertIn("var.build.setup_cmd", runner.preamble)
+            self.assertEqual(runner.preamble, "set -e")
 
 
 class TestParseMultilineCommands(unittest.TestCase):
