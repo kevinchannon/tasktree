@@ -1392,6 +1392,45 @@ imports:
             self.assertIn("build.path", recipe.raw_variables)
             self.assertIn("var.build.base", recipe.raw_variables["build.path"])
 
+    def test_import_rewrites_variable_references_in_task_fields(self):
+        """Test that {{ var.* }} references in imported task fields are rewritten."""
+        with TemporaryDirectory() as tmpdir:
+            # Create imported file with a task using variable references
+            (Path(tmpdir) / "build.yaml").write_text(
+                "variables:\n"
+                "  compiler: gcc\n"
+                "  src_dir: src\n"
+                "tasks:\n"
+                "  compile:\n"
+                "    cmd: echo {{ var.compiler }}\n"
+                "    desc: Build with {{ var.compiler }}\n"
+                "    working_dir: '{{ var.src_dir }}'\n"
+                "    inputs:\n"
+                "      - '{{ var.src_dir }}/*.c'\n"
+                "    outputs:\n"
+                "      - '{{ var.src_dir }}/out.o'\n"
+            )
+
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text(
+                "imports:\n"
+                "  - file: build.yaml\n"
+                "    as: build\n"
+                "tasks:\n"
+                "  all:\n"
+                "    deps: [build.compile]\n"
+                "    cmd: echo done\n"
+            )
+
+            recipe = parse_recipe(recipe_path)
+
+            task = recipe.tasks["build.compile"]
+            self.assertIn("var.build.compiler", task.cmd)
+            self.assertIn("var.build.compiler", task.desc)
+            self.assertIn("var.build.src_dir", task.working_dir)
+            self.assertIn("var.build.src_dir", task.inputs[0])
+            self.assertIn("var.build.src_dir", task.outputs[0])
+
 
 class TestParseMultilineCommands(unittest.TestCase):
     """

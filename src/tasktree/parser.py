@@ -720,6 +720,79 @@ def _rewrite_variable_references_in_raw_value(
     return raw_value
 
 
+def _rewrite_io_variable_references(
+    items: list[str | dict[str, str]], namespace: str
+) -> list[str | dict[str, str]]:
+    """
+    Rewrite {{ var.X }} references in a list of inputs or outputs.
+
+    Items can be strings (anonymous) or single-key dicts (named).
+    """
+    rewritten = []
+    for item in items:
+        if isinstance(item, str):
+            rewritten.append(_rewrite_variable_references(item, namespace))
+        elif isinstance(item, dict):
+            rewritten.append(
+                {k: _rewrite_variable_references(v, namespace) if isinstance(v, str) else v
+                 for k, v in item.items()}
+            )
+        else:
+            rewritten.append(item)
+    return rewritten
+
+
+def _rewrite_args_variable_references(
+    args: list[str | dict[str, Any]], namespace: str
+) -> list[str | dict[str, Any]]:
+    """
+    Rewrite {{ var.X }} references in a list of argument specs.
+
+    Args can be strings or single-key dicts with nested config dicts.
+    """
+    rewritten = []
+    for arg in args:
+        if isinstance(arg, str):
+            rewritten.append(_rewrite_variable_references(arg, namespace))
+        elif isinstance(arg, dict):
+            rewritten_arg = {}
+            for arg_name, config in arg.items():
+                if isinstance(config, dict):
+                    rewritten_config = {}
+                    for key, val in config.items():
+                        if isinstance(val, str):
+                            rewritten_config[key] = _rewrite_variable_references(val, namespace)
+                        elif isinstance(val, list) and key == "choices":
+                            rewritten_config[key] = [
+                                _rewrite_variable_references(c, namespace) if isinstance(c, str) else c
+                                for c in val
+                            ]
+                        else:
+                            rewritten_config[key] = val
+                    rewritten_arg[arg_name] = rewritten_config
+                else:
+                    rewritten_arg[arg_name] = config
+            rewritten.append(rewritten_arg)
+        else:
+            rewritten.append(arg)
+    return rewritten
+
+
+def _rewrite_task_variable_references(task: "Task", namespace: str) -> None:
+    """
+    Rewrite {{ var.X }} references in all fields of a task to {{ var.namespace.X }}.
+    Modifies the task in place.
+    """
+    task.cmd = _rewrite_variable_references(task.cmd, namespace)
+    task.desc = _rewrite_variable_references(task.desc, namespace)
+    task.working_dir = _rewrite_variable_references(task.working_dir, namespace)
+    task.inputs = _rewrite_io_variable_references(task.inputs, namespace)
+    task.outputs = _rewrite_io_variable_references(task.outputs, namespace)
+    task.args = _rewrite_args_variable_references(task.args, namespace)
+    # Rebuild internal maps after modifying inputs/outputs
+    task.__post_init__()
+
+
 def _infer_variable_type(value: Any) -> str:
     """
     Infer type name from Python value.
@@ -2139,6 +2212,10 @@ def _parse_file(
             private=task_data.get("private", False),
             task_output=task_data.get("task_output", None),
         )
+
+        # Rewrite {{ var.* }} references in imported tasks
+        if namespace:
+            _rewrite_task_variable_references(task, namespace)
 
         # Check for case-sensitive argument collisions
         if task.args:
