@@ -11,6 +11,7 @@ import re
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
+from collections.abc import KeysView
 from typing import Any, List, Optional
 
 import typer
@@ -39,6 +40,7 @@ class ParsedFileResult:
     tasks: dict[str, Any] = field(default_factory=dict)
     runners: dict[str, Any] = field(default_factory=dict)
     raw_variables: dict[str, Any] = field(default_factory=dict)
+    name_errors: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -350,6 +352,9 @@ class Recipe:
     _original_yaml_data: dict[str, Any] = field(
         default_factory=dict
     )  # Store original YAML data for lazy evaluation context
+    _name_errors: dict[str, str] = field(
+        default_factory=dict
+    )  # Deferred name validation errors (checked when items are reachable)
 
     def get_task(self, name: str) -> Task | None:
         """
@@ -434,6 +439,9 @@ class Recipe:
             # Eager path: evaluate all variables (for --list command)
             reachable_tasks = self.tasks.keys()
             variables_to_eval = set(self.raw_variables.keys())
+
+        # Check for deferred name errors on reachable items
+        self._check_reachable_name_errors(reachable_tasks, variables_to_eval)
 
         # Evaluate the selected variables using helper function
         self.evaluated_variables = _evaluate_variable_subset(
@@ -590,6 +598,31 @@ class Recipe:
         # Mark as evaluated
         self._variables_evaluated = True
 
+    def _check_reachable_name_errors(
+        self,
+        reachable_tasks: set[str] | KeysView,
+        reachable_variables: set[str],
+    ) -> None:
+        """Raise ValueError if any reachable variable or runner has a name error."""
+        if not self._name_errors:
+            return
+
+        errors = []
+        for var_name in reachable_variables:
+            if var_name in self._name_errors:
+                errors.append(self._name_errors[var_name])
+
+        reachable_runners = {
+            self.tasks[t].run_in for t in reachable_tasks
+            if t in self.tasks and self.tasks[t].run_in
+        }
+        for runner_name in reachable_runners:
+            if runner_name in self._name_errors:
+                errors.append(self._name_errors[runner_name])
+
+        if errors:
+            raise ValueError("; ".join(errors))
+
 
 def find_recipe_file(start_dir: Path | None = None) -> Path | None:
     """
@@ -672,6 +705,15 @@ def find_recipe_file(start_dir: Path | None = None) -> Path | None:
 
 
 
+
+
+def _validate_local_item_name(name: str, kind: str) -> str | None:
+    """Return an error message if the local name is invalid, None otherwise."""
+    if not name:
+        return f"{kind} name must not be empty"
+    if "." in name:
+        return f"{kind} name '{name}' must not contain dots (reserved for import namespacing)"
+    return None
 
 
 def _rewrite_variable_references(text: str, namespace: str) -> str:
@@ -1696,7 +1738,7 @@ def _parse_file_with_env(
     namespace: str | None,
     project_root: Path,
     import_stack: list[Path] | None = None,
-) -> tuple[dict[str, Task], dict[str, Runner], str, dict[str, Any], dict[str, Any]]:
+) -> tuple[dict[str, Task], dict[str, Runner], str, dict[str, Any], dict[str, Any], dict[str, str]]:
     """
     Parse file and extract tasks, runners, and variables.
 
@@ -1707,13 +1749,14 @@ def _parse_file_with_env(
     import_stack: Stack of files being imported (for circular detection)
 
     Returns:
-    Tuple of (tasks, runners, default_runner_name, raw_variables, YAML_data)
+    Tuple of (tasks, runners, default_runner_name, raw_variables, YAML_data, name_errors)
     Note: Variables are NOT evaluated here - they're stored as raw specs for lazy evaluation
     @athena: 8b00183e612d
     """
     # Parse tasks normally
     parsed = _parse_file(file_path, namespace, project_root, import_stack)
     tasks = parsed.tasks
+    name_errors: dict[str, str] = dict(parsed.name_errors)
 
     # Load YAML again to extract runners and variables (only from root file)
     runners: dict[str, Runner] = {}
@@ -1731,18 +1774,26 @@ def _parse_file_with_env(
         # Variable evaluation will happen later in Recipe.evaluate_variables()
         if data and "variables" in data:
             raw_variables = data["variables"]
+            for var_name in raw_variables:
+                error = _validate_local_item_name(var_name, "Variable")
+                if error:
+                    name_errors[var_name] = error
 
         # SKIP variable substitution here - defer to lazy evaluation phase
         # Tasks and runners will contain {{ var.* }} placeholders until evaluation
         # This allows us to only evaluate variables that are actually reachable from the target task
 
         runners, default_runner = _parse_runners_from_data(data, project_root)
+        for runner_name in runners:
+            error = _validate_local_item_name(runner_name, "Runner")
+            if error:
+                name_errors[runner_name] = error
 
     # Merge runners and variables from imported files
     runners.update(parsed.runners)
     raw_variables.update(parsed.raw_variables)
 
-    return tasks, runners, default_runner, raw_variables, yaml_data
+    return tasks, runners, default_runner, raw_variables, yaml_data, name_errors
 
 
 def collect_reachable_tasks(tasks: dict[str, Task], root_task: str) -> set[str]:
@@ -1988,7 +2039,7 @@ def parse_recipe(
 
     # Parse main file - it will recursively handle all imports
     # Variables are NOT evaluated here (lazy evaluation)
-    tasks, runners, default_runner, raw_variables, yaml_data = _parse_file_with_env(
+    tasks, runners, default_runner, raw_variables, yaml_data, name_errors = _parse_file_with_env(
         recipe_path, namespace=None, project_root=project_root
     )
 
@@ -2004,6 +2055,7 @@ def parse_recipe(
         evaluated_variables={},  # Empty initially
         _variables_evaluated=False,
         _original_yaml_data=yaml_data,
+        _name_errors=name_errors,
     )
 
     # Trigger lazy variable evaluation
@@ -2060,6 +2112,7 @@ def _parse_file(
     tasks: dict[str, Task] = {}
     runners: dict[str, Runner] = {}
     raw_variables: dict[str, Any] = {}
+    name_errors: dict[str, str] = {}
     # TODO: Understand why this is not used.
     # file_dir = file_path.parent
 
@@ -2101,6 +2154,7 @@ def _parse_file(
             tasks.update(nested_result.tasks)
             runners.update(nested_result.runners)
             raw_variables.update(nested_result.raw_variables)
+            name_errors.update(nested_result.name_errors)
 
     # Validate top-level keys (only imports, runners, tasks, and variables are allowed)
     valid_top_level_keys = {"imports", "runners", "tasks", "variables"}
@@ -2149,10 +2203,9 @@ def _parse_file(
         if not isinstance(task_data, dict):
             raise ValueError(f"Task '{task_name}' must be a dictionary")
 
-        if "." in task_name:
-            raise ValueError(
-                f"Task name '{task_name}' cannot contain dots (reserved for namespacing)"
-            )
+        task_name_error = _validate_local_item_name(task_name, "Task")
+        if task_name_error:
+            raise ValueError(task_name_error)
 
         if "cmd" not in task_data:
             raise ValueError(f"Task '{task_name}' missing required 'cmd' field")
@@ -2246,6 +2299,9 @@ def _parse_file(
         local_runners, _ = _parse_runners_from_data(data, project_root)
         for runner_name, runner in local_runners.items():
             full_runner_name = f"{namespace}.{runner_name}"
+            error = _validate_local_item_name(runner_name, "Runner")
+            if error:
+                name_errors[full_runner_name] = error
             runner.name = full_runner_name
             _rewrite_runner_variable_references(runner, namespace)
             runners[full_runner_name] = runner
@@ -2254,6 +2310,9 @@ def _parse_file(
         if isinstance(local_vars, dict):
             for var_name, var_value in local_vars.items():
                 full_var_name = f"{namespace}.{var_name}"
+                error = _validate_local_item_name(var_name, "Variable")
+                if error:
+                    name_errors[full_var_name] = error
                 raw_variables[full_var_name] = _rewrite_variable_references_in_raw_value(
                     var_value, namespace
                 )
@@ -2261,7 +2320,7 @@ def _parse_file(
     # Remove current file from stack
     import_stack.pop()
 
-    return ParsedFileResult(tasks=tasks, runners=runners, raw_variables=raw_variables)
+    return ParsedFileResult(tasks=tasks, runners=runners, raw_variables=raw_variables, name_errors=name_errors)
 
 
 def _check_case_sensitive_arg_collisions(args: list[str], task_name: str) -> None:

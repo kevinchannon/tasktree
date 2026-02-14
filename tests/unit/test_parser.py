@@ -1679,7 +1679,7 @@ tasks:
 
             with self.assertRaises(ValueError) as cm:
                 parse_recipe(recipe_path)
-            self.assertIn("cannot contain dots", str(cm.exception))
+            self.assertIn("must not contain dots", str(cm.exception))
             self.assertIn("build.release", str(cm.exception))
 
 
@@ -2610,6 +2610,83 @@ tasks:
             recipe = parse_recipe(recipe_path)
             self.assertIn("bad.runner", recipe.runners)
             self.assertIn("good_runner", recipe.runners)
+
+    def test_variable_name_with_dots_not_rejected_when_unused(self):
+        """Dotted variable names are collected as errors but don't raise at parse time."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+variables:
+  bad.var: hello
+  good_var: world
+
+tasks:
+  test:
+    cmd: echo {{ var.good_var }}
+""")
+
+            # Should NOT raise — bad.var is unreachable from "test"
+            recipe = parse_recipe(recipe_path, root_task="test")
+            self.assertIn("bad.var", recipe.raw_variables)
+            self.assertIn("good_var", recipe.raw_variables)
+
+    def test_variable_name_with_dots_rejected_when_reachable(self):
+        """Dotted variable names raise ValueError when reachable from root task."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+variables:
+  bad.var: hello
+
+tasks:
+  test:
+    cmd: echo {{ var.bad.var }}
+""")
+
+            with self.assertRaises(ValueError) as cm:
+                parse_recipe(recipe_path, root_task="test")
+            self.assertIn("must not contain dots", str(cm.exception))
+            self.assertIn("bad.var", str(cm.exception))
+
+    def test_runner_name_with_dots_rejected_when_reachable(self):
+        """Dotted runner names raise ValueError when used by a reachable task."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+runners:
+  bad.runner:
+    shell: /bin/bash
+
+tasks:
+  test:
+    run_in: bad.runner
+    cmd: echo test
+""")
+
+            with self.assertRaises(ValueError) as cm:
+                parse_recipe(recipe_path, root_task="test")
+            self.assertIn("must not contain dots", str(cm.exception))
+            self.assertIn("bad.runner", str(cm.exception))
+
+    def test_empty_variable_name_error_collected(self):
+        """Empty variable names are collected as name errors at parse time."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+variables:
+  "": hello
+  good_var: world
+
+tasks:
+  test:
+    cmd: echo {{ var.good_var }}
+""")
+
+            # Empty name is unreferenceable so never reachable,
+            # but the error should be recorded in _name_errors
+            recipe = parse_recipe(recipe_path, root_task="test")
+            self.assertIn("", recipe._name_errors)
+            self.assertIn("must not be empty", recipe._name_errors[""])
 
 
 class TestFileReadVariables(unittest.TestCase):

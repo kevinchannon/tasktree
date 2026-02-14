@@ -35,7 +35,7 @@
         }
       },
       "patternProperties": {
-        "^.+$": {
+        "^[^.]+$": {
           "description": "Runner name",
           "type": "object",
           "properties": {
@@ -125,7 +125,7 @@
       "description": "Variable definitions that can be referenced in tasks using {{ var.name }} syntax",
       "type": "object",
       "patternProperties": {
-        "^.+$": {
+        "^[^.]+$": {
           "description": "Variable name",
           "oneOf": [
             {
