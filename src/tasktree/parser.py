@@ -742,7 +742,7 @@ def _rewrite_variable_references(text: str, namespace: str) -> str:
     Text with variable references rewritten
     """
     return re.sub(
-        r"(\{\{\s*var\.)([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)(\s*}})",
+        r"(\{\{\s*var\.)([^\s}]+)(\s*}})",
         rf"\g<1>{namespace}.\2\3",
         text,
     )
@@ -1531,7 +1531,7 @@ def _expand_variable_dependencies(
     """
     expanded = set(variable_names)
     to_process = list(variable_names)
-    pattern = re.compile(r"\{\{\s*var\.([\w]+(?:\.[\w]+)*)\s*}}")
+    pattern = re.compile(r"\{\{\s*var\.([^\s}]+)\s*}}")
 
     while to_process:
         var_name = to_process.pop(0)
@@ -1897,8 +1897,8 @@ def collect_reachable_variables(
     """
     import re
 
-    # Pattern to match {{ var.name }} (supports dotted namespaced names like var.build.compiler)
-    var_pattern = re.compile(r"\{\{\s*var\s*\.\s*([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\s*}}")
+    # Pattern to match {{ var.name }} (supports arbitrary Unicode characters including emojis)
+    var_pattern = re.compile(r"\{\{\s*var\s*\.\s*([^\s}]+)\s*}}")
 
     variables = set()
 
