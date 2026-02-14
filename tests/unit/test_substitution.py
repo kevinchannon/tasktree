@@ -84,17 +84,17 @@ class TestPlaceholderPattern(unittest.TestCase):
 
     def test_pattern_requires_valid_identifier(self):
         """
-        Test pattern only matches valid identifier names.
+        Test pattern matches arbitrary non-whitespace characters including emojis.
         @athena: 555df31aac2f
         """
-        # Valid identifiers (including dotted namespaced names)
-        valid = ["foo", "foo_bar", "foo123", "_private", "foo.bar", "a.b.c"]
+        # Valid names (any non-whitespace, including dots for namespaces, emojis, etc.)
+        valid = ["foo", "foo_bar", "foo123", "_private", "foo.bar", "a.b.c", "123foo", "foo-bar", "🎄🥶👊"]
         for name in valid:
             match = PLACEHOLDER_PATTERN.search(f"{{{{ var.{name} }}}}")
             self.assertIsNotNone(match, f"Expected '{name}' to match")
 
-        # Invalid identifiers (should not match)
-        invalid = ["123foo", "foo-bar", "foo bar"]
+        # Invalid names (containing whitespace)
+        invalid = ["foo bar", "foo\tbar", "foo\nbar"]
         for name in invalid:
             match = PLACEHOLDER_PATTERN.search(f"{{{{ var.{name} }}}}")
             self.assertIsNone(match, f"Expected '{name}' to NOT match")
