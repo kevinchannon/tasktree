@@ -2688,6 +2688,49 @@ tasks:
             self.assertIn("", recipe._name_errors)
             self.assertIn("must not be empty", recipe._name_errors[""])
 
+    def test_nonexistent_runner_rejected_when_reachable(self):
+        """Task with non-existent runner raises ValueError when reachable from root task."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+runners:
+  my-runner:
+    shell: /bin/bash
+
+tasks:
+  test:
+    run_in: nonexistent-runner
+    cmd: echo hello
+""")
+
+            with self.assertRaises(ValueError) as cm:
+                parse_recipe(recipe_path, root_task="test")
+            self.assertIn("run_in", str(cm.exception))
+            self.assertIn("nonexistent-runner", str(cm.exception))
+            self.assertIn("test", str(cm.exception))
+
+    def test_nonexistent_runner_not_rejected_when_unreachable(self):
+        """Task with non-existent runner is allowed when unreachable from root task."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+runners:
+  my-runner:
+    shell: /bin/bash
+
+tasks:
+  unreachable:
+    run_in: nonexistent-runner
+    cmd: echo hello
+
+  reachable:
+    cmd: echo world
+""")
+
+            # Should succeed - unreachable task's invalid runner is not validated
+            recipe = parse_recipe(recipe_path, root_task="reachable")
+            self.assertIsNotNone(recipe.get_task("unreachable"))
+
 
 class TestFileReadVariables(unittest.TestCase):
     """

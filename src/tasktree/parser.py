@@ -603,22 +603,36 @@ class Recipe:
         reachable_tasks: set[str] | KeysView,
         reachable_variables: set[str],
     ) -> None:
-        """Raise ValueError if any reachable variable or runner has a name error."""
-        if not self._name_errors:
-            return
-
+        """Raise ValueError if any reachable variable or runner has a name error, or if any reachable task references a non-existent runner."""
         errors = []
-        for var_name in reachable_variables:
-            if var_name in self._name_errors:
-                errors.append(self._name_errors[var_name])
 
+        # Check for name errors on reachable variables
+        if self._name_errors:
+            for var_name in reachable_variables:
+                if var_name in self._name_errors:
+                    errors.append(self._name_errors[var_name])
+
+        # Check for name errors on reachable runners AND non-existent runners
         reachable_runners = {
             self.tasks[t].run_in for t in reachable_tasks
             if t in self.tasks and self.tasks[t].run_in
         }
+
         for runner_name in reachable_runners:
-            if runner_name in self._name_errors:
+            # Check for name errors (dots, empty names)
+            if self._name_errors and runner_name in self._name_errors:
                 errors.append(self._name_errors[runner_name])
+            # Check for non-existent runners
+            elif runner_name not in self.runners:
+                # Find which task(s) reference this non-existent runner
+                referencing_tasks = [
+                    t for t in reachable_tasks
+                    if t in self.tasks and self.tasks[t].run_in == runner_name
+                ]
+                for task_name in referencing_tasks:
+                    errors.append(
+                        f"Task '{task_name}' specifies run_in with invalid runner: '{runner_name}'"
+                    )
 
         if errors:
             raise ValueError("; ".join(errors))
