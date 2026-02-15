@@ -251,7 +251,7 @@ def main(
         raise typer.Exit()
 
     if show:
-        show_task(logger, show, tasks_file)
+        show_task(logger, show, tasks_file, runner_override=runner)
         raise typer.Exit()
 
     if tree:
