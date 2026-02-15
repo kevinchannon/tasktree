@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch, call
 
 from helpers.logging import logger_stub
 from tasktree.executor import Executor
-from tasktree.parser import Recipe, Task
+from tasktree.parser import Recipe, Task, parse_recipe
 from tasktree.process_runner import ProcessRunner, TaskOutputTypes, make_process_runner
 from tasktree.state import StateManager, TaskState
 
@@ -2828,6 +2828,28 @@ class TestPinnedRunnerValidation(unittest.TestCase):
             runner_name = executor._get_effective_runner_name(task)
             # Default runner name is platform default
             self.assertEqual(runner_name, "__platform_default__")
+
+    def test_pinned_task_with_nonexistent_runner_caught_at_parse_time(self):
+        """Test that pinned task with non-existent runner is caught during parsing."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            recipe_path = project_root / "tasktree.yaml"
+
+            # Create recipe file with pinned task referencing non-existent runner
+            recipe_path.write_text("""
+tasks:
+  build:
+    cmd: make
+    run_in: nonexistent_runner
+    pin_runner: true
+""")
+
+            # Should raise ValueError during parsing
+            with self.assertRaises(ValueError) as context:
+                parse_recipe(recipe_path)
+
+            self.assertIn("nonexistent_runner", str(context.exception))
+            self.assertIn("invalid runner", str(context.exception))
 
 
 if __name__ == "__main__":
