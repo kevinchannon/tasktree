@@ -609,7 +609,15 @@ class Recipe:
     def _collect_variable_name_errors(
         self, reachable_variables: set[str]
     ) -> list[str]:
-        """Collect name errors for reachable variables."""
+        """
+        Collect name errors for reachable variables.
+
+        Args:
+            reachable_variables: Set of variable names that are reachable from target tasks
+
+        Returns:
+            List of error messages for variables with invalid names
+        """
         errors = []
         if self._name_errors:
             for var_name in reachable_variables:
@@ -620,7 +628,15 @@ class Recipe:
     def _collect_reachable_runners(
         self, reachable_tasks: set[str] | KeysView
     ) -> set[str]:
-        """Collect all runner names referenced by reachable tasks."""
+        """
+        Collect all runner names referenced by reachable tasks.
+
+        Args:
+            reachable_tasks: Set or KeysView of task names that are reachable from target tasks
+
+        Returns:
+            Set of runner names that are referenced by the reachable tasks
+        """
         return {
             self.tasks[t].run_in
             for t in reachable_tasks
@@ -630,7 +646,16 @@ class Recipe:
     def _collect_runner_errors(
         self, reachable_runners: set[str], reachable_tasks: set[str] | KeysView
     ) -> list[str]:
-        """Collect name errors and non-existent runner errors for reachable runners."""
+        """
+        Collect name errors and non-existent runner errors for reachable runners.
+
+        Args:
+            reachable_runners: Set of runner names referenced by reachable tasks
+            reachable_tasks: Set or KeysView of task names that are reachable from target tasks
+
+        Returns:
+            List of error messages for runners with invalid names or that don't exist
+        """
         errors = []
         for runner_name in reachable_runners:
             # Check for name errors (dots, empty names)
