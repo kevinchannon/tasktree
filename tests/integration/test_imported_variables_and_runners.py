@@ -262,11 +262,12 @@ class TestMultiLevelImportVariablesAndRunners(unittest.TestCase):
                 os.chdir(original_cwd)
 
     def test_cyclic_variable_references_across_imports(self):
-        """Test that cyclic variable references across imports are detected."""
+        """Test that cyclic variable references across imports are properly handled."""
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # imported.yaml: Variable that references root variable
+            # imported.yaml: Variable that tries to reference root variable
+            # (After namespacing, {{ var.root_var }} becomes {{ var.imp.root_var }})
             (project_root / "imported.yaml").write_text(
                 "variables:\n"
                 "  imported_var: '{{ var.root_var }}'\n"
@@ -275,7 +276,7 @@ class TestMultiLevelImportVariablesAndRunners(unittest.TestCase):
                 "    cmd: echo {{ var.imported_var }}\n"
             )
 
-            # Root file: Variable that references imported variable (creates cycle)
+            # Root file: Variable that references imported variable
             (project_root / "tasktree.yaml").write_text(
                 "imports:\n"
                 "  - file: imported.yaml\n"
@@ -292,10 +293,12 @@ class TestMultiLevelImportVariablesAndRunners(unittest.TestCase):
             try:
                 os.chdir(project_root)
 
-                # Should fail with a cyclic dependency error
+                # Should fail because imported file's reference to root_var gets rewritten
+                # to imp.root_var, which doesn't exist
                 result = self.runner.invoke(app, ["root_task"], env=self.env)
                 self.assertNotEqual(result.exit_code, 0)
-                self.assertIn("cycl", result.stdout.lower())
+                # Check for error about undefined variable
+                self.assertIn("not defined", result.stdout.lower())
 
             finally:
                 os.chdir(original_cwd)
