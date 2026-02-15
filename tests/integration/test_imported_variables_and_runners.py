@@ -39,6 +39,7 @@ class TestMultiLevelImportVariablesAndRunners(unittest.TestCase):
                 "tasks:\n"
                 "  greet:\n"
                 "    run_in: shell\n"
+                "    pin_runner: true\n"
                 "    cmd: echo {{ var.greeting }}\n"
             )
 
@@ -182,6 +183,7 @@ class TestMultiLevelImportVariablesAndRunners(unittest.TestCase):
                 "tasks:\n"
                 "  hello:\n"
                 "    run_in: shell\n"
+                "    pin_runner: true\n"
                 "    cmd: echo {{ var.msg }}\n"
             )
 
@@ -334,6 +336,7 @@ class TestMultiLevelImportVariablesAndRunners(unittest.TestCase):
                 "tasks:\n"
                 "  docker_task:\n"
                 "    run_in: docker_runner\n"
+                "    pin_runner: true\n"
                 "    cmd: echo 'Running in Docker'\n"
             )
 
