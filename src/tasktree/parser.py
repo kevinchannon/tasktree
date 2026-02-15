@@ -2241,6 +2241,7 @@ def _parse_file(
         for import_spec in imports:
             child_file = import_spec["file"]
             child_namespace = import_spec["as"]
+            child_run_in = import_spec.get("run_in", "")
 
             # Track this namespace as a local import
             local_import_namespaces.add(child_namespace)

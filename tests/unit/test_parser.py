@@ -4631,5 +4631,44 @@ tasks:
             self.assertTrue(task.pin_runner)
 
 
+class TestImportWithRunIn(unittest.TestCase):
+    """
+    Tests for run_in field in import specifications.
+    """
+
+    def test_import_with_run_in_field_parses_successfully(self):
+        """
+        Test that import specification with run_in field parses without error.
+        """
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            imported_path = Path(tmpdir) / "imported.yaml"
+
+            # Create imported file
+            imported_path.write_text("""
+tasks:
+  build:
+    cmd: echo "imported"
+""")
+
+            # Create root file with import that has run_in
+            recipe_path.write_text("""
+imports:
+  - file: imported.yaml
+    as: imported
+    run_in: docker
+
+tasks:
+  main:
+    cmd: echo "main"
+""")
+
+            # Should parse without error
+            recipe = parse_recipe(recipe_path)
+
+            # Verify imported task exists
+            self.assertIn("imported.build", recipe.tasks)
+
+
 if __name__ == "__main__":
     unittest.main()
