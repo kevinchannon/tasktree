@@ -84,20 +84,38 @@ class TestPlaceholderPattern(unittest.TestCase):
 
     def test_pattern_requires_valid_identifier(self):
         """
-        Test pattern only matches valid identifier names.
+        Test pattern matches arbitrary non-whitespace characters including emojis.
         @athena: 555df31aac2f
         """
-        # Valid identifiers
-        valid = ["foo", "foo_bar", "foo123", "_private"]
+        # Valid names (any non-whitespace, including dots for namespaces, emojis, etc.)
+        valid = ["foo", "foo_bar", "foo123", "_private", "foo.bar", "a.b.c", "123foo", "foo-bar", "🎄🥶👊"]
         for name in valid:
             match = PLACEHOLDER_PATTERN.search(f"{{{{ var.{name} }}}}")
-            self.assertIsNotNone(match)
+            self.assertIsNotNone(match, f"Expected '{name}' to match")
 
-        # Invalid identifiers (should not match)
-        invalid = ["123foo", "foo-bar", "foo.bar", "foo bar"]
+        # Invalid names (containing whitespace)
+        invalid = ["foo bar", "foo\tbar", "foo\nbar"]
         for name in invalid:
             match = PLACEHOLDER_PATTERN.search(f"{{{{ var.{name} }}}}")
-            self.assertIsNone(match)
+            self.assertIsNone(match, f"Expected '{name}' to NOT match")
+
+    def test_pattern_with_excessive_whitespace(self):
+        """
+        Test pattern handles excessive whitespace around variable references.
+        """
+        # Multiple spaces before and after should still match
+        test_cases = [
+            ("{{  var.name  }}", "var", "name"),
+            ("{{   var.name   }}", "var", "name"),
+            ("{{ var.name  }}", "var", "name"),
+            ("{{  var.name }}", "var", "name"),
+            ("{{    var.name    }}", "var", "name"),
+        ]
+        for text, expected_prefix, expected_name in test_cases:
+            match = PLACEHOLDER_PATTERN.search(text)
+            self.assertIsNotNone(match, f"Expected pattern to match: {text}")
+            self.assertEqual(match.group(1), expected_prefix)
+            self.assertEqual(match.group(2), expected_name)
 
 
 class TestSubstituteVariables(unittest.TestCase):

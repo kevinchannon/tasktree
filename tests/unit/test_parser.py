@@ -1268,6 +1268,204 @@ imports:
             # Should be prefixed with the deploy namespace since "base" is a local import within deploy.yaml
             self.assertEqual(dep, "deploy.base.build(target=release)")
 
+    def test_import_extracts_runners_with_namespace(self):
+        """Test that runners from imported files are namespaced."""
+        with TemporaryDirectory() as tmpdir:
+            # Create imported file with a runner
+            (Path(tmpdir) / "build.yaml").write_text(
+                "runners:\n"
+                "  shell:\n"
+                "    shell: /bin/bash\n"
+                "tasks:\n"
+                "  compile:\n"
+                "    cmd: gcc main.c\n"
+            )
+
+            # Create main recipe that imports the file
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text(
+                "imports:\n"
+                "  - file: build.yaml\n"
+                "    as: build\n"
+                "tasks:\n"
+                "  all:\n"
+                "    deps: [build.compile]\n"
+                "    cmd: echo done\n"
+            )
+
+            recipe = parse_recipe(recipe_path)
+
+            # Runner should be namespaced as build.shell
+            self.assertIn("build.shell", recipe.runners)
+            self.assertEqual(recipe.runners["build.shell"].name, "build.shell")
+            self.assertEqual(recipe.runners["build.shell"].shell, "/bin/bash")
+
+    def test_import_rewrites_run_in_with_namespace(self):
+        """Test that run_in in imported tasks is rewritten with namespace prefix."""
+        with TemporaryDirectory() as tmpdir:
+            # Create imported file with a runner and a task using it
+            (Path(tmpdir) / "build.yaml").write_text(
+                "runners:\n"
+                "  shell:\n"
+                "    shell: /bin/bash\n"
+                "tasks:\n"
+                "  compile:\n"
+                "    run_in: shell\n"
+                "    cmd: gcc main.c\n"
+            )
+
+            # Create main recipe that imports the file
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text(
+                "imports:\n"
+                "  - file: build.yaml\n"
+                "    as: build\n"
+                "tasks:\n"
+                "  all:\n"
+                "    deps: [build.compile]\n"
+                "    cmd: echo done\n"
+            )
+
+            recipe = parse_recipe(recipe_path)
+
+            # Task's run_in should be rewritten to build.shell
+            task = recipe.tasks["build.compile"]
+            self.assertEqual(task.run_in, "build.shell")
+
+    def test_import_extracts_variables_with_namespace(self):
+        """Test that variables from imported files are namespaced."""
+        with TemporaryDirectory() as tmpdir:
+            # Create imported file with a variable
+            (Path(tmpdir) / "build.yaml").write_text(
+                "variables:\n"
+                "  compiler: gcc\n"
+                "tasks:\n"
+                "  compile:\n"
+                "    cmd: echo hello\n"
+            )
+
+            # Create main recipe that imports the file
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text(
+                "imports:\n"
+                "  - file: build.yaml\n"
+                "    as: build\n"
+                "tasks:\n"
+                "  all:\n"
+                "    deps: [build.compile]\n"
+                "    cmd: echo done\n"
+            )
+
+            recipe = parse_recipe(recipe_path)
+
+            # Variable should be namespaced as build.compiler
+            self.assertIn("build.compiler", recipe.raw_variables)
+            self.assertEqual(recipe.raw_variables["build.compiler"], "gcc")
+
+    def test_import_rewrites_variable_references_in_variable_values(self):
+        """Test that {{ var.* }} references within variable values are rewritten."""
+        with TemporaryDirectory() as tmpdir:
+            # Create imported file with chained variables
+            (Path(tmpdir) / "build.yaml").write_text(
+                "variables:\n"
+                "  base: /usr/local\n"
+                '  path: "{{ var.base }}/bin"\n'
+                "tasks:\n"
+                "  compile:\n"
+                "    cmd: echo hello\n"
+            )
+
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text(
+                "imports:\n"
+                "  - file: build.yaml\n"
+                "    as: build\n"
+                "tasks:\n"
+                "  all:\n"
+                "    deps: [build.compile]\n"
+                "    cmd: echo done\n"
+            )
+
+            recipe = parse_recipe(recipe_path)
+
+            # Chained reference should be rewritten
+            self.assertIn("build.path", recipe.raw_variables)
+            self.assertIn("var.build.base", recipe.raw_variables["build.path"])
+
+    def test_import_rewrites_variable_references_in_task_fields(self):
+        """Test that {{ var.* }} references in imported task fields are rewritten and resolved."""
+        with TemporaryDirectory() as tmpdir:
+            # Create imported file with a task using variable references
+            (Path(tmpdir) / "build.yaml").write_text(
+                "variables:\n"
+                "  compiler: gcc\n"
+                "  src_dir: src\n"
+                "tasks:\n"
+                "  compile:\n"
+                "    cmd: echo {{ var.compiler }}\n"
+                "    desc: Build with {{ var.compiler }}\n"
+                "    working_dir: '{{ var.src_dir }}'\n"
+                "    inputs:\n"
+                "      - '{{ var.src_dir }}/*.c'\n"
+                "    outputs:\n"
+                "      - '{{ var.src_dir }}/out.o'\n"
+            )
+
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text(
+                "imports:\n"
+                "  - file: build.yaml\n"
+                "    as: build\n"
+                "tasks:\n"
+                "  all:\n"
+                "    deps: [build.compile]\n"
+                "    cmd: echo done\n"
+            )
+
+            recipe = parse_recipe(recipe_path)
+
+            # Variables are rewritten to namespaced names and then resolved
+            task = recipe.tasks["build.compile"]
+            self.assertEqual(task.cmd, "echo gcc")
+            self.assertEqual(task.desc, "Build with gcc")
+            self.assertEqual(task.working_dir, "src")
+            self.assertEqual(task.inputs[0], "src/*.c")
+            self.assertEqual(task.outputs[0], "src/out.o")
+
+    def test_import_rewrites_variable_references_in_runner_fields(self):
+        """Test that {{ var.* }} references in imported runner fields are rewritten and resolved."""
+        with TemporaryDirectory() as tmpdir:
+            # Create imported file with a runner using variable references
+            (Path(tmpdir) / "build.yaml").write_text(
+                "variables:\n"
+                "  setup_cmd: set -e\n"
+                "runners:\n"
+                "  shell:\n"
+                "    shell: /bin/bash\n"
+                "    preamble: '{{ var.setup_cmd }}'\n"
+                "tasks:\n"
+                "  compile:\n"
+                "    run_in: shell\n"
+                "    cmd: echo hello\n"
+            )
+
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text(
+                "imports:\n"
+                "  - file: build.yaml\n"
+                "    as: build\n"
+                "tasks:\n"
+                "  all:\n"
+                "    deps: [build.compile]\n"
+                "    cmd: echo done\n"
+            )
+
+            recipe = parse_recipe(recipe_path)
+
+            # The variable reference was rewritten to build.setup_cmd and resolved
+            runner = recipe.runners["build.shell"]
+            self.assertEqual(runner.preamble, "set -e")
+
 
 class TestParseMultilineCommands(unittest.TestCase):
     """
@@ -1481,7 +1679,7 @@ tasks:
 
             with self.assertRaises(ValueError) as cm:
                 parse_recipe(recipe_path)
-            self.assertIn("cannot contain dots", str(cm.exception))
+            self.assertIn("must not contain dots", str(cm.exception))
             self.assertIn("build.release", str(cm.exception))
 
 
@@ -2291,31 +2489,6 @@ class TestVariableNameValidation(unittest.TestCase):
     Test validation of variable names - dots are reserved for namespacing.
     """
 
-    def test_variable_name_with_dots_rejected(self):
-        """
-        Test that variable names containing dots are rejected.
-        Validation happens when variables are evaluated (during parse_recipe with root_task=None,
-        all variables are evaluated).
-        """
-        with TemporaryDirectory() as tmpdir:
-            recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text("""
-variables:
-  some.name: "value"
-
-tasks:
-  test:
-    cmd: echo test
-""")
-
-            with self.assertRaises(ValueError) as cm:
-                parse_recipe(recipe_path)
-
-            error_msg = str(cm.exception)
-            self.assertIn("some.name", error_msg)
-            self.assertIn("dot (.) character", error_msg)
-            self.assertIn("reserved for namespacing", error_msg)
-
     def test_variable_name_without_dots_allowed(self):
         """
         Test that variable names with valid characters are allowed.
@@ -2360,61 +2533,11 @@ tasks:
             self.assertIn("café", recipe.variables)
             self.assertIn("変数", recipe.variables)
 
-    def test_variable_name_with_dots_not_rejected_when_unused(self):
-        """
-        Test that variable names with dots DON'T raise errors when unused.
-        This validates lazy evaluation: only used variables are validated.
-        """
-        with TemporaryDirectory() as tmpdir:
-            recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text("""
-variables:
-  bad.variable: "unused"
-  good_variable: "used"
-
-tasks:
-  test:
-    cmd: echo {{ var.good_variable }}
-""")
-
-            # Should NOT raise an error because bad.variable is not used
-            # Parse with root_task="test" to trigger lazy evaluation
-            recipe = parse_recipe(recipe_path, root_task="test")
-            self.assertIn("good_variable", recipe.evaluated_variables)
-            # bad.variable should not have been evaluated
-            self.assertNotIn("bad.variable", recipe.evaluated_variables)
-
 
 class TestRunnerNameValidation(unittest.TestCase):
     """
     Test validation of runner names - dots are reserved for namespacing.
     """
-
-    def test_runner_name_with_dots_rejected(self):
-        """
-        Test that runner names containing dots are rejected when used.
-        Validation happens lazily - only when the runner is actually used.
-        """
-        with TemporaryDirectory() as tmpdir:
-            recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text("""
-runners:
-  env.name:
-    shell: /bin/bash
-
-tasks:
-  test:
-    run_in: env.name
-    cmd: echo test
-""")
-
-            with self.assertRaises(ValueError) as cm:
-                parse_recipe(recipe_path)
-
-            error_msg = str(cm.exception)
-            self.assertIn("env.name", error_msg)
-            self.assertIn("dot (.) character", error_msg)
-            self.assertIn("reserved for namespacing", error_msg)
 
     def test_runner_name_without_dots_allowed(self):
         """
@@ -2487,6 +2610,126 @@ tasks:
             recipe = parse_recipe(recipe_path)
             self.assertIn("bad.runner", recipe.runners)
             self.assertIn("good_runner", recipe.runners)
+
+    def test_variable_name_with_dots_not_rejected_when_unused(self):
+        """Dotted variable names are collected as errors but don't raise at parse time."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+variables:
+  bad.var: hello
+  good_var: world
+
+tasks:
+  test:
+    cmd: echo {{ var.good_var }}
+""")
+
+            # Should NOT raise — bad.var is unreachable from "test"
+            recipe = parse_recipe(recipe_path, root_task="test")
+            self.assertIn("bad.var", recipe.raw_variables)
+            self.assertIn("good_var", recipe.raw_variables)
+
+    def test_variable_name_with_dots_rejected_when_reachable(self):
+        """Dotted variable names raise ValueError when reachable from root task."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+variables:
+  bad.var: hello
+
+tasks:
+  test:
+    cmd: echo {{ var.bad.var }}
+""")
+
+            with self.assertRaises(ValueError) as cm:
+                parse_recipe(recipe_path, root_task="test")
+            self.assertIn("must not contain dots", str(cm.exception))
+            self.assertIn("bad.var", str(cm.exception))
+
+    def test_runner_name_with_dots_rejected_when_reachable(self):
+        """Dotted runner names raise ValueError when used by a reachable task."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+runners:
+  bad.runner:
+    shell: /bin/bash
+
+tasks:
+  test:
+    run_in: bad.runner
+    cmd: echo test
+""")
+
+            with self.assertRaises(ValueError) as cm:
+                parse_recipe(recipe_path, root_task="test")
+            self.assertIn("must not contain dots", str(cm.exception))
+            self.assertIn("bad.runner", str(cm.exception))
+
+    def test_empty_variable_name_error_collected(self):
+        """Empty variable names are collected as name errors at parse time."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+variables:
+  "": hello
+  good_var: world
+
+tasks:
+  test:
+    cmd: echo {{ var.good_var }}
+""")
+
+            # Empty name is unreferenceable so never reachable,
+            # but the error should be recorded in _name_errors
+            recipe = parse_recipe(recipe_path, root_task="test")
+            self.assertIn("", recipe._name_errors)
+            self.assertIn("must not be empty", recipe._name_errors[""])
+
+    def test_nonexistent_runner_rejected_when_reachable(self):
+        """Task with non-existent runner raises ValueError when reachable from root task."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+runners:
+  my-runner:
+    shell: /bin/bash
+
+tasks:
+  test:
+    run_in: nonexistent-runner
+    cmd: echo hello
+""")
+
+            with self.assertRaises(ValueError) as cm:
+                parse_recipe(recipe_path, root_task="test")
+            self.assertIn("run_in", str(cm.exception))
+            self.assertIn("nonexistent-runner", str(cm.exception))
+            self.assertIn("test", str(cm.exception))
+
+    def test_nonexistent_runner_not_rejected_when_unreachable(self):
+        """Task with non-existent runner is allowed when unreachable from root task."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+runners:
+  my-runner:
+    shell: /bin/bash
+
+tasks:
+  unreachable:
+    run_in: nonexistent-runner
+    cmd: echo hello
+
+  reachable:
+    cmd: echo world
+""")
+
+            # Should succeed - unreachable task's invalid runner is not validated
+            recipe = parse_recipe(recipe_path, root_task="reachable")
+            self.assertIsNotNone(recipe.get_task("unreachable"))
 
 
 class TestFileReadVariables(unittest.TestCase):

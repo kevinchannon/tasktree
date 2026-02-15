@@ -183,8 +183,8 @@ tasks:
 
                 # Error message should explain why dots are not allowed
                 output = strip_ansi_codes(result.stdout)
-                self.assertIn("cannot contain dots", output)
-                # Check for "reserved" and "namespacing" separately (may be split across lines)
+                self.assertIn("must not contain dots", output)
+                # Check for "reserved" and "namespacing" separately (they may be split across lines)
                 self.assertIn("reserved", output)
                 self.assertIn("namespacing", output)
 

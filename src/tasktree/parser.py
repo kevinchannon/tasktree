@@ -11,6 +11,7 @@ import re
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
+from collections.abc import KeysView
 from typing import Any, List, Optional
 
 import typer
@@ -21,6 +22,14 @@ from tasktree.types import get_click_type
 from tasktree.process_runner import TaskOutputTypes
 
 
+# Regex patterns for variable references
+# Pattern for rewriting variable references (captures groups for substitution)
+VAR_REFERENCE_REWRITE_PATTERN = re.compile(r"(\{\{\s*var\.)([^\s}]+)(\s*}})")
+
+# Pattern for extracting variable names from references (single capture group)
+VAR_REFERENCE_EXTRACT_PATTERN = re.compile(r"\{\{\s*var\s*\.\s*([^\s}]+)\s*}}")
+
+
 class CircularImportError(Exception):
     """
     Raised when a circular import is detected.
@@ -28,6 +37,18 @@ class CircularImportError(Exception):
     """
 
     pass
+
+
+@dataclass
+class ParsedFileResult:
+    """
+    Result of parsing a single YAML file, including tasks, runners, and raw variables.
+    """
+
+    tasks: dict[str, Any] = field(default_factory=dict)
+    runners: dict[str, Any] = field(default_factory=dict)
+    raw_variables: dict[str, Any] = field(default_factory=dict)
+    name_errors: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -339,6 +360,9 @@ class Recipe:
     _original_yaml_data: dict[str, Any] = field(
         default_factory=dict
     )  # Store original YAML data for lazy evaluation context
+    _name_errors: dict[str, str] = field(
+        default_factory=dict
+    )  # Deferred name validation errors (checked when items are reachable)
 
     def get_task(self, name: str) -> Task | None:
         """
@@ -424,11 +448,8 @@ class Recipe:
             reachable_tasks = self.tasks.keys()
             variables_to_eval = set(self.raw_variables.keys())
 
-        # Validate runner names for all reachable tasks
-        for task_name in reachable_tasks:
-            task = self.tasks.get(task_name)
-            if task and task.run_in:
-                _validate_runner_name(task.run_in)
+        # Check for deferred name errors on reachable items
+        self._check_reachable_name_errors(reachable_tasks, variables_to_eval)
 
         # Evaluate the selected variables using helper function
         self.evaluated_variables = _evaluate_variable_subset(
@@ -585,6 +606,93 @@ class Recipe:
         # Mark as evaluated
         self._variables_evaluated = True
 
+    def _collect_variable_name_errors(
+        self, reachable_variables: set[str]
+    ) -> list[str]:
+        """
+        Collect name errors for reachable variables.
+
+        Args:
+            reachable_variables: Set of variable names that are reachable from target tasks
+
+        Returns:
+            List of error messages for variables with invalid names
+        """
+        errors = []
+        if self._name_errors:
+            for var_name in reachable_variables:
+                if var_name in self._name_errors:
+                    errors.append(self._name_errors[var_name])
+        return errors
+
+    def _collect_reachable_runners(
+        self, reachable_tasks: set[str] | KeysView
+    ) -> set[str]:
+        """
+        Collect all runner names referenced by reachable tasks.
+
+        Args:
+            reachable_tasks: Set or KeysView of task names that are reachable from target tasks
+
+        Returns:
+            Set of runner names that are referenced by the reachable tasks
+        """
+        return {
+            self.tasks[t].run_in
+            for t in reachable_tasks
+            if t in self.tasks and self.tasks[t].run_in
+        }
+
+    def _collect_runner_errors(
+        self, reachable_runners: set[str], reachable_tasks: set[str] | KeysView
+    ) -> list[str]:
+        """
+        Collect name errors and non-existent runner errors for reachable runners.
+
+        Args:
+            reachable_runners: Set of runner names referenced by reachable tasks
+            reachable_tasks: Set or KeysView of task names that are reachable from target tasks
+
+        Returns:
+            List of error messages for runners with invalid names or that don't exist
+        """
+        errors = []
+        for runner_name in reachable_runners:
+            # Check for name errors (dots, empty names)
+            if self._name_errors and runner_name in self._name_errors:
+                errors.append(self._name_errors[runner_name])
+            # Check for non-existent runners
+            elif runner_name not in self.runners:
+                # Find which task(s) reference this non-existent runner
+                referencing_tasks = [
+                    t
+                    for t in reachable_tasks
+                    if t in self.tasks and self.tasks[t].run_in == runner_name
+                ]
+                for task_name in referencing_tasks:
+                    errors.append(
+                        f"Task '{task_name}' specifies run_in with invalid runner: '{runner_name}'"
+                    )
+        return errors
+
+    def _check_reachable_name_errors(
+        self,
+        reachable_tasks: set[str] | KeysView,
+        reachable_variables: set[str],
+    ) -> None:
+        """Raise ValueError if any reachable variable or runner has a name error, or if any reachable task references a non-existent runner."""
+        errors = []
+
+        # Check for name errors on reachable variables
+        errors.extend(self._collect_variable_name_errors(reachable_variables))
+
+        # Check for name errors on reachable runners AND non-existent runners
+        reachable_runners = self._collect_reachable_runners(reachable_tasks)
+        errors.extend(self._collect_runner_errors(reachable_runners, reachable_tasks))
+
+        if errors:
+            raise ValueError("; ".join(errors))
+
 
 def find_recipe_file(start_dir: Path | None = None) -> Path | None:
     """
@@ -666,39 +774,157 @@ def find_recipe_file(start_dir: Path | None = None) -> Path | None:
     return None
 
 
-def _validate_variable_name(name: str) -> None:
+
+
+
+def _validate_local_item_name(name: str, kind: str) -> str | None:
+    """Return an error message if the local name is invalid, None otherwise."""
+    if not name:
+        return f"{kind} name must not be empty"
+    if "." in name:
+        return f"{kind} name '{name}' must not contain dots (reserved for import namespacing)"
+    return None
+
+
+def _rewrite_variable_references(text: str, namespace: str) -> str:
     """
-    Validate that a variable name doesn't contain dots (reserved for namespacing).
+    Rewrite {{ var.X }} references in text to {{ var.namespace.X }}.
 
     Args:
-    name: Variable name to validate
+    text: Text containing {{ var.* }} placeholders
+    namespace: Namespace prefix to prepend to variable names
 
-    Raises:
-    ValueError: If name contains a dot character
-    @athena: b768b37686da
+    Returns:
+    Text with variable references rewritten
     """
-    if "." in name:
-        raise ValueError(
-            f"Variable name '{name}' contains a dot (.) character. "
-            f"Dots are reserved for namespacing imported variables."
-        )
+    assert namespace, "namespace must not be empty"
+    return VAR_REFERENCE_REWRITE_PATTERN.sub(
+        rf"\g<1>{namespace}.\2\3",
+        text,
+    )
 
 
-def _validate_runner_name(name: str) -> None:
+def _rewrite_variable_references_in_raw_value(
+    raw_value: Any, namespace: str
+) -> Any:
     """
-    Validate that a runner name doesn't contain dots (reserved for namespacing).
+    Rewrite {{ var.X }} references within a raw variable value.
+
+    Handles string values, and dict values (env with default, read, eval).
 
     Args:
-    name: Runner name to validate
+    raw_value: Raw variable value from YAML
+    namespace: Namespace prefix to prepend to variable names
 
-    Raises:
-    ValueError: If name contains a dot character
+    Returns:
+    Raw value with variable references rewritten
     """
-    if "." in name:
-        raise ValueError(
-            f"Runner name '{name}' contains a dot (.) character. "
-            f"Dots are reserved for namespacing imported runners."
-        )
+    assert namespace, "namespace must not be empty"
+    if isinstance(raw_value, str):
+        return _rewrite_variable_references(raw_value, namespace)
+    elif isinstance(raw_value, dict):
+        rewritten = {}
+        for key, val in raw_value.items():
+            if isinstance(val, str):
+                rewritten[key] = _rewrite_variable_references(val, namespace)
+            else:
+                rewritten[key] = val
+        return rewritten
+    return raw_value
+
+
+def _rewrite_io_variable_references(
+    items: list[str | dict[str, str]], namespace: str
+) -> list[str | dict[str, str]]:
+    """
+    Rewrite {{ var.X }} references in a list of inputs or outputs.
+
+    Items can be strings (anonymous) or single-key dicts (named).
+    """
+    assert namespace, "namespace must not be empty"
+    rewritten = []
+    for item in items:
+        if isinstance(item, str):
+            rewritten.append(_rewrite_variable_references(item, namespace))
+        elif isinstance(item, dict):
+            rewritten.append(
+                {k: _rewrite_variable_references(v, namespace) if isinstance(v, str) else v
+                 for k, v in item.items()}
+            )
+        else:
+            rewritten.append(item)
+    return rewritten
+
+
+def _rewrite_args_variable_references(
+    args: list[str | dict[str, Any]], namespace: str
+) -> list[str | dict[str, Any]]:
+    """
+    Rewrite {{ var.X }} references in a list of argument specs.
+
+    Args can be strings or single-key dicts with nested config dicts.
+    """
+    assert namespace, "namespace must not be empty"
+    rewritten = []
+    for arg in args:
+        if isinstance(arg, str):
+            rewritten.append(_rewrite_variable_references(arg, namespace))
+        elif isinstance(arg, dict):
+            rewritten_arg = {}
+            for arg_name, config in arg.items():
+                if isinstance(config, dict):
+                    rewritten_config = {}
+                    for key, val in config.items():
+                        if isinstance(val, str):
+                            rewritten_config[key] = _rewrite_variable_references(val, namespace)
+                        elif isinstance(val, list) and key == "choices":
+                            rewritten_config[key] = [
+                                _rewrite_variable_references(c, namespace) if isinstance(c, str) else c
+                                for c in val
+                            ]
+                        else:
+                            rewritten_config[key] = val
+                    rewritten_arg[arg_name] = rewritten_config
+                else:
+                    rewritten_arg[arg_name] = config
+            rewritten.append(rewritten_arg)
+        else:
+            rewritten.append(arg)
+    return rewritten
+
+
+def _rewrite_task_variable_references(task: "Task", namespace: str) -> None:
+    """
+    Rewrite {{ var.X }} references in all fields of a task to {{ var.namespace.X }}.
+    Modifies the task in place.
+    """
+    assert namespace, "namespace must not be empty"
+    task.cmd = _rewrite_variable_references(task.cmd, namespace)
+    task.desc = _rewrite_variable_references(task.desc, namespace)
+    task.working_dir = _rewrite_variable_references(task.working_dir, namespace)
+    task.inputs = _rewrite_io_variable_references(task.inputs, namespace)
+    task.outputs = _rewrite_io_variable_references(task.outputs, namespace)
+    task.args = _rewrite_args_variable_references(task.args, namespace)
+    # Rebuild internal maps after modifying inputs/outputs
+    task.__post_init__()
+
+
+def _rewrite_runner_variable_references(runner: "Runner", namespace: str) -> None:
+    """
+    Rewrite {{ var.X }} references in all fields of a runner to {{ var.namespace.X }}.
+    Modifies the runner in place.
+    """
+    assert namespace, "namespace must not be empty"
+    runner.preamble = _rewrite_variable_references(runner.preamble, namespace)
+    runner.dockerfile = _rewrite_variable_references(runner.dockerfile, namespace)
+    runner.context = _rewrite_variable_references(runner.context, namespace)
+    runner.working_dir = _rewrite_variable_references(runner.working_dir, namespace)
+    runner.volumes = [_rewrite_variable_references(v, namespace) for v in runner.volumes]
+    runner.ports = [_rewrite_variable_references(p, namespace) for p in runner.ports]
+    runner.env_vars = {
+        k: _rewrite_variable_references(v, namespace) for k, v in runner.env_vars.items()
+    }
+    runner.extra_args = [_rewrite_variable_references(a, namespace) for a in runner.extra_args]
 
 
 def _infer_variable_type(value: Any) -> str:
@@ -1185,7 +1411,7 @@ def _resolve_variable_value(
                 # Check if the undefined variable is in the resolution stack (circular reference)
                 error_msg = str(e)
                 if "not defined" in error_msg:
-                    match = re.search(r"Variable '(\w+)' is not defined", error_msg)
+                    match = re.search(r"Variable '([\w.]+)' is not defined", error_msg)
                     if match:
                         undefined_var = match.group(1)
                         if undefined_var in resolution_stack:
@@ -1218,7 +1444,7 @@ def _resolve_variable_value(
                 # Check if the undefined variable is in the resolution stack (circular reference)
                 error_msg = str(e)
                 if "not defined" in error_msg:
-                    match = re.search(r"Variable '(\w+)' is not defined", error_msg)
+                    match = re.search(r"Variable '([\w.]+)' is not defined", error_msg)
                     if match:
                         undefined_var = match.group(1)
                         if undefined_var in resolution_stack:
@@ -1248,7 +1474,7 @@ def _resolve_variable_value(
                 # Check if the undefined variable is in the resolution stack (circular reference)
                 error_msg = str(e)
                 if "not defined" in error_msg:
-                    match = re.search(r"Variable '(\w+)' is not defined", error_msg)
+                    match = re.search(r"Variable '([\w.]+)' is not defined", error_msg)
                     if match:
                         undefined_var = match.group(1)
                         if undefined_var in resolution_stack:
@@ -1286,7 +1512,7 @@ def _resolve_variable_value(
             error_msg = str(e)
             if "not defined" in error_msg:
                 # Extract the variable name from the error message
-                match = re.search(r"Variable '(\w+)' is not defined", error_msg)
+                match = re.search(r"Variable '([\w.]+)' is not defined", error_msg)
                 if match:
                     undefined_var = match.group(1)
                     if undefined_var in resolution_stack:
@@ -1331,7 +1557,6 @@ def _parse_variables_section(data: dict, file_path: Path) -> dict[str, str]:
     resolution_stack = []  # For circular detection
 
     for var_name, raw_value in vars_data.items():
-        _validate_variable_name(var_name)
         resolved[var_name] = _resolve_variable_value(
             var_name, raw_value, resolved, resolution_stack, file_path, data
         )
@@ -1367,7 +1592,6 @@ def _expand_variable_dependencies(
     """
     expanded = set(variable_names)
     to_process = list(variable_names)
-    pattern = re.compile(r"\{\{\s*var\.(\w+)\s*}}")
 
     while to_process:
         var_name = to_process.pop(0)
@@ -1380,7 +1604,7 @@ def _expand_variable_dependencies(
         # Extract referenced variables from the raw value
         # Handle string values with {{ var.* }} patterns
         if isinstance(raw_value, str):
-            for match in pattern.finditer(raw_value):
+            for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(raw_value):
                 referenced_var = match.group(1)
                 if referenced_var not in expanded:
                     expanded.add(referenced_var)
@@ -1399,7 +1623,7 @@ def _expand_variable_dependencies(
                     if Path(filepath).exists():
                         file_content = Path(filepath).read_text()
                         # Extract variable references from file content
-                        for match in pattern.finditer(file_content):
+                        for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(file_content):
                             referenced_var = match.group(1)
                             if referenced_var not in expanded:
                                 expanded.add(referenced_var)
@@ -1417,7 +1641,7 @@ def _expand_variable_dependencies(
             default_value = raw_value["default"]
             # Check if default value contains variable references
             if isinstance(default_value, str):
-                for match in pattern.finditer(default_value):
+                for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(default_value):
                     referenced_var = match.group(1)
                     if referenced_var not in expanded:
                         expanded.add(referenced_var)
@@ -1469,7 +1693,6 @@ def _evaluate_variable_subset(
     # Evaluate variables in order (to handle references between variables)
     for var_name, raw_value in raw_variables.items():
         if var_name in variables_to_eval:
-            _validate_variable_name(var_name)
             resolved[var_name] = _resolve_variable_value(
                 var_name, raw_value, resolved, resolution_stack, file_path, data
             )
@@ -1477,12 +1700,168 @@ def _evaluate_variable_subset(
     return resolved
 
 
+def _parse_runners_from_data(
+    data: dict[str, Any], project_root: Path
+) -> tuple[dict[str, Runner], str]:
+    """
+    Parse runner definitions from YAML data.
+
+    Args:
+    data: Parsed YAML data containing a 'runners' section
+    project_root: Root directory of the project (for validating Dockerfile/context paths)
+
+    Returns:
+    Tuple of (runners dict, default_runner_name)
+    """
+    runners: dict[str, Runner] = {}
+    default_runner = ""
+
+    if not data or "runners" not in data:
+        return runners, default_runner
+
+    env_data = data["runners"]
+    if not isinstance(env_data, dict):
+        return runners, default_runner
+
+    # Extract default environment name
+    default_runner = env_data.get("default", "")
+
+    # Parse each runner definition
+    for env_name, env_config in env_data.items():
+        if env_name == "default":
+            continue  # Skip the default key itself
+
+        if not isinstance(env_config, dict):
+            raise ValueError(f"Runner '{env_name}' must be a dictionary")
+
+        # Parse common runner configuration
+        shell = env_config.get("shell", "")
+        args = env_config.get("args", [])
+        preamble = env_config.get("preamble", "")
+        working_dir = env_config.get("working_dir", "")
+
+        # SKIP variable substitution in preamble - defer to lazy evaluation
+        # preamble may contain {{ var.* }} placeholders
+
+        # Parse Docker-specific fields
+        dockerfile = env_config.get("dockerfile", "")
+        context = env_config.get("context", "")
+        volumes = env_config.get("volumes", [])
+        ports = env_config.get("ports", [])
+        env_vars = env_config.get("env_vars", {})
+        extra_args = env_config.get("extra_args", [])
+        run_as_root = env_config.get("run_as_root", False)
+
+        # SKIP variable substitution in runner fields - defer to lazy evaluation
+        # Runner fields may contain {{ var.* }} placeholders
+
+        # Validate runner type
+        if not shell and not dockerfile:
+            raise ValueError(
+                f"Runner '{env_name}' must specify either 'shell' "
+                f"(for shell runners) or 'dockerfile' (for Docker runners)"
+            )
+
+        # Validate Docker runner requirements
+        if dockerfile and not context:
+            raise ValueError(
+                f"Docker runner '{env_name}' must specify 'context' "
+                f"when 'dockerfile' is specified"
+            )
+
+        # Validate that Dockerfile exists if specified
+        if dockerfile:
+            dockerfile_path = project_root / dockerfile
+            if not dockerfile_path.exists():
+                raise ValueError(
+                    f"Runner '{env_name}': Dockerfile not found at {dockerfile_path}"
+                )
+
+        # Validate that context directory exists if specified
+        if context:
+            context_path = project_root / context
+            if not context_path.exists():
+                raise ValueError(
+                    f"Runner '{env_name}': context directory not found at {context_path}"
+                )
+            if not context_path.is_dir():
+                raise ValueError(
+                    f"Runner '{env_name}': context must be a directory, got {context_path}"
+                )
+
+        runners[env_name] = Runner(
+            name=env_name,
+            shell=shell,
+            args=args,
+            preamble=preamble,
+            dockerfile=dockerfile,
+            context=context,
+            volumes=volumes,
+            ports=ports,
+            env_vars=env_vars,
+            working_dir=working_dir,
+            extra_args=extra_args,
+            run_as_root=run_as_root,
+        )
+
+    return runners, default_runner
+
+
+def _extract_and_validate_variables(
+    data: dict[str, Any] | None,
+) -> tuple[dict[str, Any], dict[str, str]]:
+    """
+    Extract raw variables from YAML data and validate their names.
+
+    Args:
+        data: Parsed YAML data
+
+    Returns:
+        Tuple of (raw_variables, name_errors)
+    """
+    raw_variables: dict[str, Any] = {}
+    name_errors: dict[str, str] = {}
+
+    if data and "variables" in data:
+        raw_variables = data["variables"]
+        for var_name in raw_variables:
+            error = _validate_local_item_name(var_name, "Variable")
+            if error:
+                name_errors[var_name] = error
+
+    return raw_variables, name_errors
+
+
+def _extract_and_validate_runners(
+    data: dict[str, Any] | None, project_root: Path
+) -> tuple[dict[str, Runner], str, dict[str, str]]:
+    """
+    Extract runners from YAML data and validate their names.
+
+    Args:
+        data: Parsed YAML data
+        project_root: Root directory of the project
+
+    Returns:
+        Tuple of (runners, default_runner_name, name_errors)
+    """
+    name_errors: dict[str, str] = {}
+    runners, default_runner = _parse_runners_from_data(data, project_root)
+
+    for runner_name in runners:
+        error = _validate_local_item_name(runner_name, "Runner")
+        if error:
+            name_errors[runner_name] = error
+
+    return runners, default_runner, name_errors
+
+
 def _parse_file_with_env(
     file_path: Path,
     namespace: str | None,
     project_root: Path,
     import_stack: list[Path] | None = None,
-) -> tuple[dict[str, Task], dict[str, Runner], str, dict[str, Any], dict[str, Any]]:
+) -> tuple[dict[str, Task], dict[str, Runner], str, dict[str, Any], dict[str, Any], dict[str, str]]:
     """
     Parse file and extract tasks, runners, and variables.
 
@@ -1493,12 +1872,14 @@ def _parse_file_with_env(
     import_stack: Stack of files being imported (for circular detection)
 
     Returns:
-    Tuple of (tasks, runners, default_runner_name, raw_variables, YAML_data)
+    Tuple of (tasks, runners, default_runner_name, raw_variables, YAML_data, name_errors)
     Note: Variables are NOT evaluated here - they're stored as raw specs for lazy evaluation
     @athena: 8b00183e612d
     """
     # Parse tasks normally
-    tasks = _parse_file(file_path, namespace, project_root, import_stack)
+    parsed = _parse_file(file_path, namespace, project_root, import_stack)
+    tasks = parsed.tasks
+    name_errors: dict[str, str] = dict(parsed.name_errors)
 
     # Load YAML again to extract runners and variables (only from root file)
     runners: dict[str, Runner] = {}
@@ -1512,100 +1893,21 @@ def _parse_file_with_env(
             data = yaml.safe_load(f)
             yaml_data = data or {}
 
-        # Store raw variable specs WITHOUT evaluating them (lazy evaluation)
-        # Variable evaluation will happen later in Recipe.evaluate_variables()
-        if data and "variables" in data:
-            raw_variables = data["variables"]
+        # Extract and validate variables
+        raw_variables, var_errors = _extract_and_validate_variables(data)
+        name_errors.update(var_errors)
 
-        # SKIP variable substitution here - defer to lazy evaluation phase
-        # Tasks and runners will contain {{ var.* }} placeholders until evaluation
-        # This allows us to only evaluate variables that are actually reachable from the target task
+        # Extract and validate runners
+        runners, default_runner, runner_errors = _extract_and_validate_runners(
+            data, project_root
+        )
+        name_errors.update(runner_errors)
 
-        if data and "runners" in data:
-            env_data = data["runners"]
-            if isinstance(env_data, dict):
-                # Extract default environment name
-                default_runner = env_data.get("default", "")
+    # Merge runners and variables from imported files
+    runners.update(parsed.runners)
+    raw_variables.update(parsed.raw_variables)
 
-                # Parse each runner definition
-                for env_name, env_config in env_data.items():
-                    if env_name == "default":
-                        continue  # Skip the default key itself
-
-                    if not isinstance(env_config, dict):
-                        raise ValueError(f"Runner '{env_name}' must be a dictionary")
-
-                    # Parse common runner configuration
-                    shell = env_config.get("shell", "")
-                    args = env_config.get("args", [])
-                    preamble = env_config.get("preamble", "")
-                    working_dir = env_config.get("working_dir", "")
-
-                    # SKIP variable substitution in preamble - defer to lazy evaluation
-                    # preamble may contain {{ var.* }} placeholders
-
-                    # Parse Docker-specific fields
-                    dockerfile = env_config.get("dockerfile", "")
-                    context = env_config.get("context", "")
-                    volumes = env_config.get("volumes", [])
-                    ports = env_config.get("ports", [])
-                    env_vars = env_config.get("env_vars", {})
-                    extra_args = env_config.get("extra_args", [])
-                    run_as_root = env_config.get("run_as_root", False)
-
-                    # SKIP variable substitution in runner fields - defer to lazy evaluation
-                    # Runner fields may contain {{ var.* }} placeholders
-
-                    # Validate runner type
-                    if not shell and not dockerfile:
-                        raise ValueError(
-                            f"Runner '{env_name}' must specify either 'shell' "
-                            f"(for shell runners) or 'dockerfile' (for Docker runners)"
-                        )
-
-                    # Validate Docker runner requirements
-                    if dockerfile and not context:
-                        raise ValueError(
-                            f"Docker runner '{env_name}' must specify 'context' "
-                            f"when 'dockerfile' is specified"
-                        )
-
-                    # Validate that Dockerfile exists if specified
-                    if dockerfile:
-                        dockerfile_path = project_root / dockerfile
-                        if not dockerfile_path.exists():
-                            raise ValueError(
-                                f"Runner '{env_name}': Dockerfile not found at {dockerfile_path}"
-                            )
-
-                    # Validate that context directory exists if specified
-                    if context:
-                        context_path = project_root / context
-                        if not context_path.exists():
-                            raise ValueError(
-                                f"Runner '{env_name}': context directory not found at {context_path}"
-                            )
-                        if not context_path.is_dir():
-                            raise ValueError(
-                                f"Runner '{env_name}': context must be a directory, got {context_path}"
-                            )
-
-                    runners[env_name] = Runner(
-                        name=env_name,
-                        shell=shell,
-                        args=args,
-                        preamble=preamble,
-                        dockerfile=dockerfile,
-                        context=context,
-                        volumes=volumes,
-                        ports=ports,
-                        env_vars=env_vars,
-                        working_dir=working_dir,
-                        extra_args=extra_args,
-                        run_as_root=run_as_root,
-                    )
-
-    return tasks, runners, default_runner, raw_variables, yaml_data
+    return tasks, runners, default_runner, raw_variables, yaml_data, name_errors
 
 
 def collect_reachable_tasks(tasks: dict[str, Task], root_task: str) -> set[str]:
@@ -1695,9 +1997,6 @@ def collect_reachable_variables(
     """
     import re
 
-    # Pattern to match {{ var.name }}
-    var_pattern = re.compile(r"\{\{\s*var\s*\.\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*}}")
-
     variables = set()
 
     for task_name in reachable_task_names:
@@ -1707,43 +2006,43 @@ def collect_reachable_variables(
 
         # Search in command
         if task.cmd:
-            for match in var_pattern.finditer(task.cmd):
+            for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(task.cmd):
                 variables.add(match.group(1))
 
         # Search in description
         if task.desc:
-            for match in var_pattern.finditer(task.desc):
+            for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(task.desc):
                 variables.add(match.group(1))
 
         # Search in working_dir
         if task.working_dir:
-            for match in var_pattern.finditer(task.working_dir):
+            for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(task.working_dir):
                 variables.add(match.group(1))
 
         # Search in inputs
         if task.inputs:
             for input_pattern in task.inputs:
                 if isinstance(input_pattern, str):
-                    for match in var_pattern.finditer(input_pattern):
+                    for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(input_pattern):
                         variables.add(match.group(1))
                 elif isinstance(input_pattern, dict):
                     # Named input - check the path value
                     for input_path in input_pattern.values():
                         if isinstance(input_path, str):
-                            for match in var_pattern.finditer(input_path):
+                            for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(input_path):
                                 variables.add(match.group(1))
 
         # Search in outputs
         if task.outputs:
             for output_pattern in task.outputs:
                 if isinstance(output_pattern, str):
-                    for match in var_pattern.finditer(output_pattern):
+                    for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(output_pattern):
                         variables.add(match.group(1))
                 elif isinstance(output_pattern, dict):
                     # Named output - check the path value
                     for output_path in output_pattern.values():
                         if isinstance(output_path, str):
-                            for match in var_pattern.finditer(output_path):
+                            for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(output_path):
                                 variables.add(match.group(1))
 
         # Search in argument defaults
@@ -1754,7 +2053,7 @@ def collect_reachable_variables(
                         if isinstance(arg_dict, dict) and "default" in arg_dict:
                             default = arg_dict["default"]
                             if isinstance(default, str):
-                                for match in var_pattern.finditer(default):
+                                for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(default):
                                     variables.add(match.group(1))
 
         # Search in dependency argument templates
@@ -1766,51 +2065,49 @@ def collect_reachable_variables(
                         if isinstance(arg_spec, list):
                             for val in arg_spec:
                                 if isinstance(val, str):
-                                    for match in var_pattern.finditer(val):
+                                    for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(val):
                                         variables.add(match.group(1))
                         # Named args (dict)
                         elif isinstance(arg_spec, dict):
                             for val in arg_spec.values():
                                 if isinstance(val, str):
-                                    for match in var_pattern.finditer(val):
+                                    for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(val):
                                         variables.add(match.group(1))
 
         if task.run_in:
-            # Validate runner name when it's used by a reachable task
-            _validate_runner_name(task.run_in)
             if task.run_in in runners:
                 env = runners[task.run_in]
 
                 if env.dockerfile and env.dockerfile != "":
-                    for match in var_pattern.finditer(env.dockerfile):
+                    for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(env.dockerfile):
                         variables.add(match.group(1))
 
                     if env.context != "":
-                        for match in var_pattern.finditer(env.context):
+                        for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(env.context):
                             variables.add(match.group(1))
 
                     if 0 != len(env.volumes):
                         for v in env.volumes:
-                            for match in var_pattern.finditer(v):
+                            for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(v):
                                 variables.add(match.group(1))
 
                     if 0 != len(env.ports):
                         for p in env.ports:
-                            for match in var_pattern.finditer(p):
+                            for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(p):
                                 variables.add(match.group(1))
 
                     if 0 != len(env.env_vars):
                         for k, v in env.env_vars.items():
-                            for match in var_pattern.finditer(v):
+                            for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(v):
                                 variables.add(match.group(1))
 
                     if env.working_dir != "":
-                        for match in var_pattern.finditer(env.working_dir):
+                        for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(env.working_dir):
                             variables.add(match.group(1))
 
                     if 0 != len(env.extra_args):
                         for e in env.extra_args:
-                            for match in var_pattern.finditer(e):
+                            for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(e):
                                 variables.add(match.group(1))
 
     return variables
@@ -1853,7 +2150,7 @@ def parse_recipe(
 
     # Parse main file - it will recursively handle all imports
     # Variables are NOT evaluated here (lazy evaluation)
-    tasks, runners, default_runner, raw_variables, yaml_data = _parse_file_with_env(
+    tasks, runners, default_runner, raw_variables, yaml_data, name_errors = _parse_file_with_env(
         recipe_path, namespace=None, project_root=project_root
     )
 
@@ -1869,6 +2166,7 @@ def parse_recipe(
         evaluated_variables={},  # Empty initially
         _variables_evaluated=False,
         _original_yaml_data=yaml_data,
+        _name_errors=name_errors,
     )
 
     # Trigger lazy variable evaluation
@@ -1884,7 +2182,7 @@ def _parse_file(
     namespace: str | None,
     project_root: Path,
     import_stack: list[Path] | None = None,
-) -> dict[str, Task]:
+) -> ParsedFileResult:
     """
     Parse a single YAML file and return tasks, recursively processing imports.
 
@@ -1895,7 +2193,7 @@ def _parse_file(
     import_stack: Stack of files being imported (for circular detection)
 
     Returns:
-    Dictionary of task name to Task objects
+    ParsedFileResult containing tasks, runners, and raw variables
 
     Raises:
     CircularImportError: If a circular import is detected
@@ -1923,6 +2221,9 @@ def _parse_file(
         data = {}
 
     tasks: dict[str, Task] = {}
+    runners: dict[str, Runner] = {}
+    raw_variables: dict[str, Any] = {}
+    name_errors: dict[str, str] = {}
     # TODO: Understand why this is not used.
     # file_dir = file_path.parent
 
@@ -1954,14 +2255,17 @@ def _parse_file(
                 raise FileNotFoundError(f"Import file not found: {child_path}")
 
             # Recursively process with namespace chain and import stack
-            nested_tasks = _parse_file(
+            nested_result = _parse_file(
                 child_path,
                 full_namespace,
                 project_root,
                 import_stack.copy(),  # Pass copy to avoid shared mutation
             )
 
-            tasks.update(nested_tasks)
+            tasks.update(nested_result.tasks)
+            runners.update(nested_result.runners)
+            raw_variables.update(nested_result.raw_variables)
+            name_errors.update(nested_result.name_errors)
 
     # Validate top-level keys (only imports, runners, tasks, and variables are allowed)
     valid_top_level_keys = {"imports", "runners", "tasks", "variables"}
@@ -2010,10 +2314,9 @@ def _parse_file(
         if not isinstance(task_data, dict):
             raise ValueError(f"Task '{task_name}' must be a dictionary")
 
-        if "." in task_name:
-            raise ValueError(
-                f"Task name '{task_name}' cannot contain dots (reserved for namespacing)"
-            )
+        task_name_error = _validate_local_item_name(task_name, "Task")
+        if task_name_error:
+            raise ValueError(task_name_error)
 
         if "cmd" not in task_data:
             raise ValueError(f"Task '{task_name}' missing required 'cmd' field")
@@ -2071,6 +2374,11 @@ def _parse_file(
                     rewritten_deps.append(dep)
             deps = rewritten_deps
 
+        # Rewrite run_in with namespace prefix for imported tasks
+        run_in = task_data.get("run_in", "")
+        if namespace and run_in:
+            run_in = f"{namespace}.{run_in}"
+
         task = Task(
             name=full_name,
             cmd=task_data["cmd"],
@@ -2081,10 +2389,14 @@ def _parse_file(
             working_dir=working_dir,
             args=task_data.get("args", []),
             source_file=str(file_path),
-            run_in=task_data.get("run_in", ""),
+            run_in=run_in,
             private=task_data.get("private", False),
             task_output=task_data.get("task_output", None),
         )
+
+        # Rewrite {{ var.* }} references in imported tasks
+        if namespace:
+            _rewrite_task_variable_references(task, namespace)
 
         # Check for case-sensitive argument collisions
         if task.args:
@@ -2092,10 +2404,34 @@ def _parse_file(
 
         tasks[full_name] = task
 
+    # Parse runners and variables from imported files (namespace is set) and apply namespace prefix
+    # Root file runners/variables are handled by _parse_file_with_env, not here
+    if namespace:
+        local_runners, _ = _parse_runners_from_data(data, project_root)
+        for runner_name, runner in local_runners.items():
+            full_runner_name = f"{namespace}.{runner_name}"
+            error = _validate_local_item_name(runner_name, "Runner")
+            if error:
+                name_errors[full_runner_name] = error
+            runner.name = full_runner_name
+            _rewrite_runner_variable_references(runner, namespace)
+            runners[full_runner_name] = runner
+
+        local_vars = data.get("variables", {})
+        if isinstance(local_vars, dict):
+            for var_name, var_value in local_vars.items():
+                full_var_name = f"{namespace}.{var_name}"
+                error = _validate_local_item_name(var_name, "Variable")
+                if error:
+                    name_errors[full_var_name] = error
+                raw_variables[full_var_name] = _rewrite_variable_references_in_raw_value(
+                    var_value, namespace
+                )
+
     # Remove current file from stack
     import_stack.pop()
 
-    return tasks
+    return ParsedFileResult(tasks=tasks, runners=runners, raw_variables=raw_variables, name_errors=name_errors)
 
 
 def _check_case_sensitive_arg_collisions(args: list[str], task_name: str) -> None:
