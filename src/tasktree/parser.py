@@ -22,6 +22,14 @@ from tasktree.types import get_click_type
 from tasktree.process_runner import TaskOutputTypes
 
 
+# Regex patterns for variable references
+# Pattern for rewriting variable references (captures groups for substitution)
+VAR_REFERENCE_REWRITE_PATTERN = re.compile(r"(\{\{\s*var\.)([^\s}]+)(\s*}})")
+
+# Pattern for extracting variable names from references (single capture group)
+VAR_REFERENCE_EXTRACT_PATTERN = re.compile(r"\{\{\s*var\s*\.\s*([^\s}]+)\s*}}")
+
+
 class CircularImportError(Exception):
     """
     Raised when a circular import is detected.
@@ -765,8 +773,7 @@ def _rewrite_variable_references(text: str, namespace: str) -> str:
     Text with variable references rewritten
     """
     assert namespace, "namespace must not be empty"
-    return re.sub(
-        r"(\{\{\s*var\.)([^\s}]+)(\s*}})",
+    return VAR_REFERENCE_REWRITE_PATTERN.sub(
         rf"\g<1>{namespace}.\2\3",
         text,
     )
@@ -1560,7 +1567,6 @@ def _expand_variable_dependencies(
     """
     expanded = set(variable_names)
     to_process = list(variable_names)
-    pattern = re.compile(r"\{\{\s*var\.([^\s}]+)\s*}}")
 
     while to_process:
         var_name = to_process.pop(0)
@@ -1573,7 +1579,7 @@ def _expand_variable_dependencies(
         # Extract referenced variables from the raw value
         # Handle string values with {{ var.* }} patterns
         if isinstance(raw_value, str):
-            for match in pattern.finditer(raw_value):
+            for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(raw_value):
                 referenced_var = match.group(1)
                 if referenced_var not in expanded:
                     expanded.add(referenced_var)
@@ -1592,7 +1598,7 @@ def _expand_variable_dependencies(
                     if Path(filepath).exists():
                         file_content = Path(filepath).read_text()
                         # Extract variable references from file content
-                        for match in pattern.finditer(file_content):
+                        for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(file_content):
                             referenced_var = match.group(1)
                             if referenced_var not in expanded:
                                 expanded.add(referenced_var)
@@ -1610,7 +1616,7 @@ def _expand_variable_dependencies(
             default_value = raw_value["default"]
             # Check if default value contains variable references
             if isinstance(default_value, str):
-                for match in pattern.finditer(default_value):
+                for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(default_value):
                     referenced_var = match.group(1)
                     if referenced_var not in expanded:
                         expanded.add(referenced_var)
@@ -1966,9 +1972,6 @@ def collect_reachable_variables(
     """
     import re
 
-    # Pattern to match {{ var.name }} (supports arbitrary Unicode characters including emojis)
-    var_pattern = re.compile(r"\{\{\s*var\s*\.\s*([^\s}]+)\s*}}")
-
     variables = set()
 
     for task_name in reachable_task_names:
@@ -1978,43 +1981,43 @@ def collect_reachable_variables(
 
         # Search in command
         if task.cmd:
-            for match in var_pattern.finditer(task.cmd):
+            for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(task.cmd):
                 variables.add(match.group(1))
 
         # Search in description
         if task.desc:
-            for match in var_pattern.finditer(task.desc):
+            for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(task.desc):
                 variables.add(match.group(1))
 
         # Search in working_dir
         if task.working_dir:
-            for match in var_pattern.finditer(task.working_dir):
+            for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(task.working_dir):
                 variables.add(match.group(1))
 
         # Search in inputs
         if task.inputs:
             for input_pattern in task.inputs:
                 if isinstance(input_pattern, str):
-                    for match in var_pattern.finditer(input_pattern):
+                    for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(input_pattern):
                         variables.add(match.group(1))
                 elif isinstance(input_pattern, dict):
                     # Named input - check the path value
                     for input_path in input_pattern.values():
                         if isinstance(input_path, str):
-                            for match in var_pattern.finditer(input_path):
+                            for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(input_path):
                                 variables.add(match.group(1))
 
         # Search in outputs
         if task.outputs:
             for output_pattern in task.outputs:
                 if isinstance(output_pattern, str):
-                    for match in var_pattern.finditer(output_pattern):
+                    for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(output_pattern):
                         variables.add(match.group(1))
                 elif isinstance(output_pattern, dict):
                     # Named output - check the path value
                     for output_path in output_pattern.values():
                         if isinstance(output_path, str):
-                            for match in var_pattern.finditer(output_path):
+                            for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(output_path):
                                 variables.add(match.group(1))
 
         # Search in argument defaults
@@ -2025,7 +2028,7 @@ def collect_reachable_variables(
                         if isinstance(arg_dict, dict) and "default" in arg_dict:
                             default = arg_dict["default"]
                             if isinstance(default, str):
-                                for match in var_pattern.finditer(default):
+                                for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(default):
                                     variables.add(match.group(1))
 
         # Search in dependency argument templates
@@ -2037,13 +2040,13 @@ def collect_reachable_variables(
                         if isinstance(arg_spec, list):
                             for val in arg_spec:
                                 if isinstance(val, str):
-                                    for match in var_pattern.finditer(val):
+                                    for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(val):
                                         variables.add(match.group(1))
                         # Named args (dict)
                         elif isinstance(arg_spec, dict):
                             for val in arg_spec.values():
                                 if isinstance(val, str):
-                                    for match in var_pattern.finditer(val):
+                                    for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(val):
                                         variables.add(match.group(1))
 
         if task.run_in:
@@ -2051,35 +2054,35 @@ def collect_reachable_variables(
                 env = runners[task.run_in]
 
                 if env.dockerfile and env.dockerfile != "":
-                    for match in var_pattern.finditer(env.dockerfile):
+                    for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(env.dockerfile):
                         variables.add(match.group(1))
 
                     if env.context != "":
-                        for match in var_pattern.finditer(env.context):
+                        for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(env.context):
                             variables.add(match.group(1))
 
                     if 0 != len(env.volumes):
                         for v in env.volumes:
-                            for match in var_pattern.finditer(v):
+                            for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(v):
                                 variables.add(match.group(1))
 
                     if 0 != len(env.ports):
                         for p in env.ports:
-                            for match in var_pattern.finditer(p):
+                            for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(p):
                                 variables.add(match.group(1))
 
                     if 0 != len(env.env_vars):
                         for k, v in env.env_vars.items():
-                            for match in var_pattern.finditer(v):
+                            for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(v):
                                 variables.add(match.group(1))
 
                     if env.working_dir != "":
-                        for match in var_pattern.finditer(env.working_dir):
+                        for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(env.working_dir):
                             variables.add(match.group(1))
 
                     if 0 != len(env.extra_args):
                         for e in env.extra_args:
-                            for match in var_pattern.finditer(e):
+                            for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(e):
                                 variables.add(match.group(1))
 
     return variables
