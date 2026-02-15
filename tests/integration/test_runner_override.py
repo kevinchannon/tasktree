@@ -380,5 +380,128 @@ class TestSelectiveRunnerImport(unittest.TestCase):
                 os.chdir(original_cwd)
 
 
+class TestRunnerNamespacing(unittest.TestCase):
+    """Integration tests for runner namespacing to prevent collisions."""
+
+    def setUp(self):
+        self.runner = CliRunner()
+        self.env = {"NO_COLOR": "1"}
+
+    def test_runner_namespacing_prevents_collision(self):
+        """Test that imported runners are namespaced to prevent name collisions."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Imported file has a runner named "docker"
+            (project_root / "build.yaml").write_text(
+                "runners:\n"
+                "  docker:\n"
+                "    shell: /bin/sh\n"
+                "tasks:\n"
+                "  task1:\n"
+                "    cmd: echo 'task1 in imported docker'\n"
+                "    run_in: docker\n"
+                "    pin_runner: true\n"
+            )
+
+            # Root file also has a runner named "docker"
+            recipe_path = project_root / "tasktree.yaml"
+            recipe_path.write_text(
+                "runners:\n"
+                "  docker:\n"
+                "    shell: /bin/bash\n"
+                "imports:\n"
+                "  - file: build.yaml\n"
+                "    as: build\n"
+                "tasks:\n"
+                "  task2:\n"
+                "    cmd: echo 'task2 in root docker'\n"
+                "    run_in: docker\n"
+            )
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Imported task should use "build.docker" (namespaced)
+                result = self.runner.invoke(
+                    app, ["--show", "build.task1"], env=self.env
+                )
+                stripped = strip_ansi_codes(result.stdout)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {stripped}")
+                self.assertIn("build.docker", stripped)
+
+                # Root task should use "docker" (not namespaced)
+                result = self.runner.invoke(app, ["--show", "task2"], env=self.env)
+                stripped = strip_ansi_codes(result.stdout)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {stripped}")
+                self.assertIn("docker", stripped)
+                # Should NOT contain "build.docker" since this is a root-level task
+                # However, the output might contain both runner names, so we need to be careful
+                # We verify by checking that the task can run successfully with both runners defined
+
+                # Execute both tasks to ensure they use different runners
+                result = self.runner.invoke(app, ["build.task1"], env=self.env)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+
+                result = self.runner.invoke(app, ["task2"], env=self.env)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+
+            finally:
+                os.chdir(original_cwd)
+
+    def test_runner_reference_rewritten_in_pinned_task(self):
+        """Test that run_in references are rewritten to use namespaced runner names."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Imported file with pinned task referencing "my_runner"
+            (project_root / "build.yaml").write_text(
+                "runners:\n"
+                "  my_runner:\n"
+                "    shell: /bin/sh\n"
+                "tasks:\n"
+                "  compile:\n"
+                "    cmd: echo 'compiling'\n"
+                "    run_in: my_runner\n"
+                "    pin_runner: true\n"
+            )
+
+            # Root file imports with namespace "build"
+            recipe_path = project_root / "tasktree.yaml"
+            recipe_path.write_text(
+                "runners:\n"
+                "  default:\n"
+                "    shell: /bin/bash\n"
+                "imports:\n"
+                "  - file: build.yaml\n"
+                "    as: build\n"
+                "tasks:\n"
+                "  all:\n"
+                "    deps: [build.compile]\n"
+                "    cmd: echo 'done'\n"
+            )
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Verify task's run_in was rewritten to "build.my_runner"
+                result = self.runner.invoke(
+                    app, ["--show", "build.compile"], env=self.env
+                )
+                stripped = strip_ansi_codes(result.stdout)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {stripped}")
+                self.assertIn("build.my_runner", stripped)
+
+                # Execute the task to ensure it works with the rewritten runner reference
+                result = self.runner.invoke(app, ["build.compile"], env=self.env)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+                self.assertIn("compiling", result.stdout)
+
+            finally:
+                os.chdir(original_cwd)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -2290,12 +2290,23 @@ def _parse_file(
                 for task in nested_result.tasks.values()
                 if task.pin_runner and task.run_in
             }
+            # Apply namespace prefix to imported runner names (Step 3.2)
+            # Example: runner "docker" imported with namespace "build" becomes "build.docker"
             runners_to_import = {
-                name: runner
+                f"{child_namespace}.{name}": runner
                 for name, runner in nested_result.runners.items()
                 if name in pinned_runner_names
             }
             runners.update(runners_to_import)
+
+            # Rewrite runner references in pinned tasks (Step 3.3)
+            # Pinned tasks that reference a runner need that reference updated to use
+            # the namespaced runner name.
+            # Example: task with run_in="docker" becomes run_in="build.docker"
+            for task in nested_result.tasks.values():
+                if task.pin_runner and task.run_in:
+                    # Rewrite run_in to use namespaced runner name
+                    task.run_in = f"{child_namespace}.{task.run_in}"
 
             raw_variables.update(nested_result.raw_variables)
             name_errors.update(nested_result.name_errors)
