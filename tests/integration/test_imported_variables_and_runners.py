@@ -302,3 +302,65 @@ class TestMultiLevelImportVariablesAndRunners(unittest.TestCase):
 
             finally:
                 os.chdir(original_cwd)
+
+    def test_dockerfile_path_resolution_in_imported_files(self):
+        """Test that Dockerfile paths in imported runners are resolved relative to the imported file."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create subdirectory for imported file
+            subdir = project_root / "subdir"
+            subdir.mkdir()
+
+            # Create Dockerfile in the subdirectory
+            dockerfile = subdir / "Dockerfile"
+            dockerfile.write_text(
+                "FROM alpine:latest\n"
+                "RUN echo 'Docker image built'\n"
+            )
+
+            # Create imported file with runner that references local Dockerfile
+            (subdir / "docker.yaml").write_text(
+                "runners:\n"
+                "  docker_runner:\n"
+                "    dockerfile: Dockerfile\n"
+                "    context: .\n"
+                "tasks:\n"
+                "  docker_task:\n"
+                "    run_in: docker_runner\n"
+                "    cmd: echo 'Running in Docker'\n"
+            )
+
+            # Root file imports the docker runner
+            (project_root / "tasktree.yaml").write_text(
+                "imports:\n"
+                "  - file: subdir/docker.yaml\n"
+                "    as: docker\n"
+                "tasks:\n"
+                "  main:\n"
+                "    deps: [docker.docker_task]\n"
+                "    cmd: echo 'Main task done'\n"
+            )
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # This test verifies that the Dockerfile path is resolved correctly
+                # relative to the imported file's location (subdir/Dockerfile)
+                # If it were resolved relative to root, it would fail
+                result = self.runner.invoke(app, ["main"], env=self.env)
+
+                # The test should either pass (if Docker is available) or fail with
+                # a Docker-related error (not a file-not-found error)
+                if result.exit_code != 0:
+                    # If it fails, it should be due to Docker not being available,
+                    # not due to Dockerfile path resolution issues
+                    self.assertNotIn("no such file", result.stdout.lower())
+                    self.assertNotIn("dockerfile not found", result.stdout.lower())
+                else:
+                    # If Docker is available, the task should succeed
+                    self.assertIn("Main task done", result.stdout)
+
+            finally:
+                os.chdir(original_cwd)
