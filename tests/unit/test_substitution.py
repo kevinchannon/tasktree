@@ -99,6 +99,25 @@ class TestPlaceholderPattern(unittest.TestCase):
             match = PLACEHOLDER_PATTERN.search(f"{{{{ var.{name} }}}}")
             self.assertIsNone(match, f"Expected '{name}' to NOT match")
 
+    def test_pattern_with_excessive_whitespace(self):
+        """
+        Test pattern handles excessive whitespace around variable references.
+        """
+        # Multiple spaces should still match
+        test_cases = [
+            ("{{  var.name  }}", "var", "name"),
+            ("{{   var.name   }}", "var", "name"),
+            ("{{ var.name  }}", "var", "name"),
+            ("{{  var.name }}", "var", "name"),
+            # Whitespace between var and . should work
+            ("{{ var  .  name }}", "var", "name"),
+        ]
+        for text, expected_prefix, expected_name in test_cases:
+            match = PLACEHOLDER_PATTERN.search(text)
+            self.assertIsNotNone(match, f"Expected pattern to match: {text}")
+            self.assertEqual(match.group(1), expected_prefix)
+            self.assertEqual(match.group(2), expected_name)
+
 
 class TestSubstituteVariables(unittest.TestCase):
     """
