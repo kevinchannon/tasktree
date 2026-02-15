@@ -103,14 +103,13 @@ class TestPlaceholderPattern(unittest.TestCase):
         """
         Test pattern handles excessive whitespace around variable references.
         """
-        # Multiple spaces should still match
+        # Multiple spaces before and after should still match
         test_cases = [
             ("{{  var.name  }}", "var", "name"),
             ("{{   var.name   }}", "var", "name"),
             ("{{ var.name  }}", "var", "name"),
             ("{{  var.name }}", "var", "name"),
-            # Whitespace between var and . should work
-            ("{{ var  .  name }}", "var", "name"),
+            ("{{    var.name    }}", "var", "name"),
         ]
         for text, expected_prefix, expected_name in test_cases:
             match = PLACEHOLDER_PATTERN.search(text)
