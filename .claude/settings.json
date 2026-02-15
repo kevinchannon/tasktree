@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m pytest:*)",
+      "Bash(python3 -m pytest:*)",
+      "Bash(uv run pytest:*)",
+      "Bash(grep:*)",
+      "Bash(python3:*)",
+      "Bash(docker --version:*)",
+      "Bash(python -m tasktree:*)",
+      "Bash(python -m tasktree.cli:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(tt --help:*)",
+      "Bash(head:*)",
+      "Bash(wc:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}
+
