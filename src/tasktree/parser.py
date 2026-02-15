@@ -2400,6 +2400,10 @@ def _parse_file(
             task_output=task_data.get("task_output", None),
         )
 
+        # Apply blanket runner to non-pinned tasks from imports
+        if blanket_runner and not task.pin_runner and not task.run_in:
+            task.run_in = blanket_runner
+
         # Rewrite {{ var.* }} references in imported tasks
         if namespace:
             _rewrite_task_variable_references(task, namespace)
