@@ -674,9 +674,9 @@ class TestRunnerPrecedenceOrder(unittest.TestCase):
             recipe_path = project_root / "tasktree.yaml"
             recipe_path.write_text(
                 "runners:\n"
+                "  default: default_runner\n"
                 "  default_runner:\n"
                 "    shell: /bin/bash\n"
-                "    default: true\n"
                 "  cli_runner:\n"
                 "    shell: /bin/zsh\n"
                 "imports:\n"
@@ -793,9 +793,9 @@ class TestRunnerPrecedenceOrder(unittest.TestCase):
             recipe_path = project_root / "tasktree.yaml"
             recipe_path.write_text(
                 "runners:\n"
+                "  default: default_runner\n"
                 "  default_runner:\n"
                 "    shell: /bin/bash\n"
-                "    default: true\n"
                 "  blanket_runner:\n"
                 "    shell: /bin/sh\n"
                 "imports:\n"
@@ -828,9 +828,9 @@ class TestRunnerPrecedenceOrder(unittest.TestCase):
             recipe_path = project_root / "tasktree.yaml"
             recipe_path.write_text(
                 "runners:\n"
+                "  default: default_runner\n"
                 "  default_runner:\n"
                 "    shell: /bin/bash\n"
-                "    default: true\n"
                 "  task_runner:\n"
                 "    shell: /bin/sh\n"
                 "tasks:\n"
@@ -887,9 +887,9 @@ class TestRunnerPrecedenceOrder(unittest.TestCase):
             recipe_path = project_root / "tasktree.yaml"
             recipe_path.write_text(
                 "runners:\n"
+                "  default: default_runner\n"
                 "  default_runner:\n"
                 "    shell: /bin/bash\n"
-                "    default: true\n"
                 "  blanket_runner:\n"
                 "    shell: /bin/zsh\n"
                 "  cli_runner:\n"
