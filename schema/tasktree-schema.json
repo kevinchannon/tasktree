@@ -36,7 +36,7 @@
       },
       "patternProperties": {
         "^[^.]+$": {
-          "description": "Runner name",
+          "description": "Runner name (dots not allowed in local definitions but will be present in imported runners due to namespace prefixing)",
           "type": "object",
           "properties": {
             "shell": {
@@ -126,7 +126,7 @@
       "type": "object",
       "patternProperties": {
         "^[^.]+$": {
-          "description": "Variable name",
+          "description": "Variable name (dots not allowed in local definitions but will be present in imported variables due to namespace prefixing)",
           "oneOf": [
             {
               "type": "string",
@@ -199,6 +199,7 @@
       "type": "object",
       "patternProperties": {
         "^[^.]+$": {
+          "description": "Task name (dots not allowed in local definitions but will be present in imported tasks due to namespace prefixing)",
           "type": "object",
           "properties": {
             "desc": {
