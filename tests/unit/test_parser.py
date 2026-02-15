@@ -2714,10 +2714,10 @@ tasks:
             self.assertIn("🚀", recipe.runners)
             self.assertIn("環境", recipe.runners)
 
-    def test_runner_name_with_dots_not_rejected_when_unused(self):
+    def test_runner_name_with_dots_rejected_at_definition(self):
         """
-        Test that runner names with dots DON'T raise errors when the runner is unused.
-        This validates the lazy validation principle: only validate when actually used.
+        Test that runner names with dots are rejected at definition time.
+        Dots are reserved for namespacing imported runners.
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
@@ -2734,10 +2734,12 @@ tasks:
     cmd: echo test
 """)
 
-            # Should NOT raise an error because bad.runner is not used
-            recipe = parse_recipe(recipe_path)
-            self.assertIn("bad.runner", recipe.runners)
-            self.assertIn("good_runner", recipe.runners)
+            # Should raise an error because runner name contains dots
+            with self.assertRaises(ValueError) as context:
+                parse_recipe(recipe_path)
+
+            self.assertIn("bad.runner", str(context.exception))
+            self.assertIn("cannot contain dots", str(context.exception))
 
     def test_variable_name_with_dots_not_rejected_when_unused(self):
         """Dotted variable names are collected as errors but don't raise at parse time."""
