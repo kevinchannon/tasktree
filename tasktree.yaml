@@ -1,4 +1,9 @@
 # yaml-language-server: $schema=schema/tasktree-schema.json
+runners:
+  default: bash-strict
+  bash-strict:
+    shell: /usr/bin/bash
+    preamble: set -euo pipefail
 
 tasks:
   dev-setup:
