@@ -29,7 +29,7 @@ When prompting the user to move to the next stage, estimate the size of the work
 When working locally on a user's machine, Claude Code should NEVER make commits - only stop and ask the user to review and commit, before carrying on with the next incremental change.
 
 #### GitHub Claude Code integration work
-When working as a GitHub agent, claude should still BREAK DOWN THE TASK into small, incremental commits, but commit those changes to the feature branch as they are made. GitHub integration Claude Code does not need to ask for permission to commit each change.
+When working as a GitHub agent, claude should BREAK DOWN THE TASK into small, incremental commits, AND THEN COMMIT THOSE CHANGES to the feature branch as they are made. GitHub integration Claude Code DOES NOT need to ask for permission to commit each change.
 
 ### Write tests, not ad hoc test scripts
 If you are checking that a feature you are implementing has been implemented correctly, DO NOT write a bespoke test script to check the output of the app with the new functionality. INSTEAD, write a unit/integration/end-to-end test that will confirm you have correctly implemented the feature and RUN JUST THAT TEST. If it passes, you have implemented things correctly; and you can either carry on with additional parts of the feature, or run all the tests to ensure no regressions.
