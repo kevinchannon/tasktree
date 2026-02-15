@@ -258,6 +258,127 @@ class TestSelectiveRunnerImport(unittest.TestCase):
             finally:
                 os.chdir(original_cwd)
 
+    def test_no_pinned_tasks_no_runners_imported(self):
+        """Test that no runners are imported when no tasks are pinned."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Imported file has runners but no pinned tasks
+            (project_root / "build.yaml").write_text(
+                "runners:\n"
+                "  runner_a:\n"
+                "    shell: /bin/sh\n"
+                "  runner_b:\n"
+                "    shell: /bin/bash\n"
+                "tasks:\n"
+                "  task1:\n"
+                "    cmd: echo 'task1'\n"
+                "  task2:\n"
+                "    cmd: echo 'task2'\n"
+            )
+
+            # Root file imports with blanket runner override
+            recipe_path = project_root / "tasktree.yaml"
+            recipe_path.write_text(
+                "runners:\n"
+                "  docker:\n"
+                "    shell: /bin/bash\n"
+                "imports:\n"
+                "  - file: build.yaml\n"
+                "    as: build\n"
+                "    run_in: docker\n"
+                "tasks:\n"
+                "  all:\n"
+                "    deps: [build.task1, build.task2]\n"
+                "    cmd: echo 'done'\n"
+            )
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Both tasks should use the blanket override (docker)
+                result = self.runner.invoke(
+                    app, ["--show", "build.task1"], env=self.env
+                )
+                stripped = strip_ansi_codes(result.stdout)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {stripped}")
+                self.assertIn("docker", stripped)
+
+                result = self.runner.invoke(
+                    app, ["--show", "build.task2"], env=self.env
+                )
+                stripped = strip_ansi_codes(result.stdout)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {stripped}")
+                self.assertIn("docker", stripped)
+
+            finally:
+                os.chdir(original_cwd)
+
+    def test_all_pinned_tasks_all_runners_imported(self):
+        """Test that all runners are imported when all tasks are pinned."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Imported file has 2 runners, both tasks are pinned
+            (project_root / "build.yaml").write_text(
+                "runners:\n"
+                "  runner_a:\n"
+                "    shell: /bin/sh\n"
+                "  runner_b:\n"
+                "    shell: /bin/bash\n"
+                "tasks:\n"
+                "  task1:\n"
+                "    cmd: echo 'task1'\n"
+                "    run_in: runner_a\n"
+                "    pin_runner: true\n"
+                "  task2:\n"
+                "    cmd: echo 'task2'\n"
+                "    run_in: runner_b\n"
+                "    pin_runner: true\n"
+            )
+
+            # Root file imports with blanket runner override (should be ignored)
+            recipe_path = project_root / "tasktree.yaml"
+            recipe_path.write_text(
+                "runners:\n"
+                "  docker:\n"
+                "    shell: /bin/bash\n"
+                "imports:\n"
+                "  - file: build.yaml\n"
+                "    as: build\n"
+                "    run_in: docker\n"
+                "tasks:\n"
+                "  all:\n"
+                "    deps: [build.task1, build.task2]\n"
+                "    cmd: echo 'done'\n"
+            )
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # task1 should use build.runner_a (pinned)
+                result = self.runner.invoke(
+                    app, ["--show", "build.task1"], env=self.env
+                )
+                stripped = strip_ansi_codes(result.stdout)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {stripped}")
+                self.assertIn("build.runner_a", stripped)
+                self.assertNotIn("docker", stripped)
+
+                # task2 should use build.runner_b (pinned)
+                result = self.runner.invoke(
+                    app, ["--show", "build.task2"], env=self.env
+                )
+                stripped = strip_ansi_codes(result.stdout)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {stripped}")
+                self.assertIn("build.runner_b", stripped)
+                self.assertNotIn("docker", stripped)
+
+            finally:
+                os.chdir(original_cwd)
+
 
 if __name__ == "__main__":
     unittest.main()
