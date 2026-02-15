@@ -4630,6 +4630,25 @@ tasks:
 
             self.assertTrue(task.pin_runner)
 
+    def test_pin_runner_invalid_non_boolean_value(self):
+        """
+        Test that pin_runner field with non-boolean value raises appropriate error.
+        """
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+tasks:
+  build:
+    cmd: echo "test"
+    pin_runner: "invalid"
+""")
+
+            with self.assertRaises(Exception) as context:
+                parse_recipe(recipe_path)
+
+            # Verify error message mentions the invalid value
+            self.assertIn("pin_runner", str(context.exception).lower())
+
 
 class TestImportWithRunIn(unittest.TestCase):
     """
@@ -4668,6 +4687,39 @@ tasks:
 
             # Verify imported task exists
             self.assertIn("imported.build", recipe.tasks)
+
+    def test_import_with_invalid_run_in_non_string_value(self):
+        """
+        Test that import specification with non-string run_in value raises appropriate error.
+        """
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            imported_path = Path(tmpdir) / "imported.yaml"
+
+            # Create imported file
+            imported_path.write_text("""
+tasks:
+  build:
+    cmd: echo "imported"
+""")
+
+            # Create root file with import that has non-string run_in
+            recipe_path.write_text("""
+imports:
+  - file: imported.yaml
+    as: imported
+    run_in: 123
+
+tasks:
+  main:
+    cmd: echo "main"
+""")
+
+            with self.assertRaises(Exception) as context:
+                parse_recipe(recipe_path)
+
+            # Verify error message mentions the invalid value
+            self.assertIn("run_in", str(context.exception).lower())
 
 
 class TestBlanketRunnerThreading(unittest.TestCase):
