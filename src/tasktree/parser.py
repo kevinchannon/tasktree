@@ -1852,7 +1852,7 @@ def _extract_and_validate_runners(
     for runner_name in runners:
         error = _validate_local_item_name(runner_name, "Runner")
         if error:
-            raise ValueError(error)
+            name_errors[runner_name] = error
 
     return runners, default_runner, name_errors
 

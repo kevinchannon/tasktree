@@ -2714,9 +2714,9 @@ tasks:
             self.assertIn("🚀", recipe.runners)
             self.assertIn("環境", recipe.runners)
 
-    def test_runner_name_with_dots_rejected_at_definition(self):
+    def test_runner_name_with_dots_not_rejected_when_unused(self):
         """
-        Test that runner names with dots are rejected at definition time.
+        Dotted runner names are collected as errors but don't raise at parse time.
         Dots are reserved for namespacing imported runners.
         """
         with TemporaryDirectory() as tmpdir:
@@ -2734,12 +2734,10 @@ tasks:
     cmd: echo test
 """)
 
-            # Should raise an error because runner name contains dots
-            with self.assertRaises(ValueError) as context:
-                parse_recipe(recipe_path)
-
-            self.assertIn("bad.runner", str(context.exception))
-            self.assertIn("must not contain dots (reserved for import namespacing)", str(context.exception))
+            # Should NOT raise — bad.runner is unreachable from "test"
+            recipe = parse_recipe(recipe_path, root_task="test")
+            self.assertIn("bad.runner", recipe.runners)
+            self.assertIn("good_runner", recipe.runners)
 
     def test_variable_name_with_dots_not_rejected_when_unused(self):
         """Dotted variable names are collected as errors but don't raise at parse time."""
