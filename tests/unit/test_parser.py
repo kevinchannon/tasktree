@@ -1271,7 +1271,8 @@ imports:
     def test_import_extracts_runners_with_namespace(self):
         """Test that runners from imported files are namespaced."""
         with TemporaryDirectory() as tmpdir:
-            # Create imported file with a runner
+            # Create imported file with a runner and a pinned task using it
+            # Only pinned task runners are imported (Step 3.1)
             (Path(tmpdir) / "build.yaml").write_text(
                 "runners:\n"
                 "  shell:\n"
@@ -1279,6 +1280,8 @@ imports:
                 "tasks:\n"
                 "  compile:\n"
                 "    cmd: gcc main.c\n"
+                "    run_in: shell\n"
+                "    pin_runner: true\n"
             )
 
             # Create main recipe that imports the file
@@ -1311,6 +1314,7 @@ imports:
                 "tasks:\n"
                 "  compile:\n"
                 "    run_in: shell\n"
+                "    pin_runner: true\n"
                 "    cmd: gcc main.c\n"
             )
 
@@ -1446,6 +1450,7 @@ imports:
                 "tasks:\n"
                 "  compile:\n"
                 "    run_in: shell\n"
+                "    pin_runner: true\n"
                 "    cmd: echo hello\n"
             )
 
@@ -1465,6 +1470,45 @@ imports:
             # The variable reference was rewritten to build.setup_cmd and resolved
             runner = recipe.runners["build.shell"]
             self.assertEqual(runner.preamble, "set -e")
+
+    def test_only_pinned_runner_imported(self):
+        """Test that only runners from pinned tasks are imported."""
+        with TemporaryDirectory() as tmpdir:
+            # Create imported file with 2 runners
+            # Only runner_a is used by a pinned task
+            (Path(tmpdir) / "build.yaml").write_text(
+                "runners:\n"
+                "  runner_a:\n"
+                "    shell: /bin/sh\n"
+                "  runner_b:\n"
+                "    shell: /bin/bash\n"
+                "tasks:\n"
+                "  task1:\n"
+                "    run_in: runner_a\n"
+                "    pin_runner: true\n"
+                "    cmd: echo task1\n"
+                "  task2:\n"
+                "    cmd: echo task2\n"
+            )
+
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text(
+                "imports:\n"
+                "  - file: build.yaml\n"
+                "    as: build\n"
+                "tasks:\n"
+                "  all:\n"
+                "    deps: [build.task1]\n"
+                "    cmd: echo done\n"
+            )
+
+            recipe = parse_recipe(recipe_path)
+
+            # runner_a should be imported (used by pinned task)
+            self.assertIn("build.runner_a", recipe.runners)
+
+            # runner_b should NOT be imported (not used by pinned task)
+            self.assertNotIn("build.runner_b", recipe.runners)
 
 
 class TestParseMultilineCommands(unittest.TestCase):

@@ -2196,6 +2196,78 @@ tasks:
 
 Imported tasks are namespaced and can be referenced as dependencies. Each imported file is self-contained—it cannot depend on tasks in the importing file.
 
+### Runner Overrides with Imports
+
+You can override the runner for all non-pinned tasks in an imported file using the `run_in` option:
+
+```yaml
+# tasktree.yaml
+runners:
+  docker:
+    dockerfile: Dockerfile
+    context: .
+
+imports:
+  - file: build/tasks.yml
+    as: build
+    run_in: docker  # Override runner for all non-pinned tasks
+
+tasks:
+  deploy:
+    deps: [build.compile]
+    cmd: ./deploy.sh
+```
+
+**Runner selection for imported tasks:**
+
+1. **Pinned tasks** (`pin_runner: true`) always use their explicitly specified runner
+2. **Non-pinned tasks** use the `run_in` blanket override from the import statement
+3. **Tasks without explicit runners** and no import override use the default runner
+
+**Selective runner import:**
+
+Only runners referenced by pinned tasks are imported from the file. This prevents namespace pollution and allows you to provide blanket overrides for non-pinned tasks:
+
+```yaml
+# build.yaml
+runners:
+  native:
+    shell: /bin/bash
+  cross-compile:
+    shell: /bin/bash
+
+tasks:
+  compile:
+    run_in: native
+    pin_runner: true  # Brings native runner with it
+    cmd: gcc -o app main.c
+
+  test:
+    cmd: ./app  # No explicit runner, will use blanket override
+```
+
+```yaml
+# tasktree.yaml
+runners:
+  docker:
+    dockerfile: Dockerfile
+
+imports:
+  - file: build.yaml
+    as: build
+    run_in: docker  # Override for non-pinned tasks
+
+tasks:
+  ci:
+    deps: [build.compile, build.test]
+    cmd: echo done
+```
+
+In this example:
+- `build.compile` uses `build.native` (pinned, so native runner is imported)
+- `build.test` uses `docker` (not pinned, uses blanket override)
+- `build.cross-compile` runner is NOT imported (not used by any pinned task)
+
 ## Glob Patterns
 
 Input and output patterns support standard glob syntax:
