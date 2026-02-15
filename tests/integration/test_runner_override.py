@@ -877,9 +877,6 @@ class TestRunnerPrecedenceOrder(unittest.TestCase):
 
             # Imported file with tasks - one with explicit run_in, one without
             (project_root / "build.yaml").write_text(
-                "runners:\n"
-                "  task_runner:\n"
-                "    shell: /bin/sh\n"
                 "tasks:\n"
                 "  task_with_explicit_runner:\n"
                 "    cmd: echo 'has explicit runner'\n"
@@ -888,12 +885,14 @@ class TestRunnerPrecedenceOrder(unittest.TestCase):
                 "    cmd: echo 'no explicit runner'\n"
             )
 
-            # Root file with blanket runner override
+            # Root file with both blanket runner and task_runner
             recipe_path = project_root / "tasktree.yaml"
             recipe_path.write_text(
                 "runners:\n"
                 "  blanket_runner:\n"
                 "    shell: /bin/bash\n"
+                "  task_runner:\n"
+                "    shell: /bin/sh\n"
                 "imports:\n"
                 "  - file: build.yaml\n"
                 "    as: build\n"
@@ -911,7 +910,7 @@ class TestRunnerPrecedenceOrder(unittest.TestCase):
                 stripped = strip_ansi_codes(result.stdout)
                 self.assertEqual(result.exit_code, 0, f"Command failed: {stripped}")
                 effective_runner = extract_effective_runner(stripped)
-                self.assertEqual(effective_runner, "build.task_runner")
+                self.assertEqual(effective_runner, "task_runner")
 
                 # Task without explicit run_in should use blanket runner
                 result = self.runner.invoke(
