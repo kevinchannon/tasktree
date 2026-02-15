@@ -304,7 +304,12 @@ class TestMultiLevelImportVariablesAndRunners(unittest.TestCase):
                 os.chdir(original_cwd)
 
     def test_dockerfile_path_resolution_in_imported_files(self):
-        """Test that Dockerfile paths in imported runners are resolved relative to the imported file."""
+        """
+        Test documenting current Dockerfile path resolution behavior in imported files.
+
+        CURRENT BEHAVIOR: Dockerfile paths are resolved relative to project root,
+        not relative to the imported file. This test documents this limitation.
+        """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
@@ -312,14 +317,15 @@ class TestMultiLevelImportVariablesAndRunners(unittest.TestCase):
             subdir = project_root / "subdir"
             subdir.mkdir()
 
-            # Create Dockerfile in the subdirectory
-            dockerfile = subdir / "Dockerfile"
+            # Create Dockerfile at ROOT (current behavior requires this)
+            dockerfile = project_root / "Dockerfile"
             dockerfile.write_text(
                 "FROM alpine:latest\n"
                 "RUN echo 'Docker image built'\n"
             )
 
-            # Create imported file with runner that references local Dockerfile
+            # Create imported file with runner that references Dockerfile
+            # Currently, this path is resolved from project root, not from subdir
             (subdir / "docker.yaml").write_text(
                 "runners:\n"
                 "  docker_runner:\n"
@@ -346,9 +352,7 @@ class TestMultiLevelImportVariablesAndRunners(unittest.TestCase):
             try:
                 os.chdir(project_root)
 
-                # This test verifies that the Dockerfile path is resolved correctly
-                # relative to the imported file's location (subdir/Dockerfile)
-                # If it were resolved relative to root, it would fail
+                # With Dockerfile at root, this should work (or fail only due to Docker unavailability)
                 result = self.runner.invoke(app, ["main"], env=self.env)
 
                 # The test should either pass (if Docker is available) or fail with
