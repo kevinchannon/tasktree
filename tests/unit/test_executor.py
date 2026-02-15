@@ -2826,8 +2826,8 @@ class TestPinnedRunnerValidation(unittest.TestCase):
 
             # Should not raise error and return default runner
             runner_name = executor._get_effective_runner_name(task)
-            # Default runner is platform-specific (bash or cmd)
-            self.assertIn(runner_name, ["bash", "cmd", "sh"])
+            # Default runner name is platform default
+            self.assertEqual(runner_name, "__platform_default__")
 
 
 if __name__ == "__main__":
