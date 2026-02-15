@@ -4654,6 +4654,10 @@ tasks:
 
             # Create root file with import that has run_in
             recipe_path.write_text("""
+runners:
+  docker:
+    shell: /bin/bash
+
 imports:
   - file: imported.yaml
     as: imported
@@ -4695,6 +4699,10 @@ tasks:
 
             # Create level 1 (imports level 2 with different runner)
             level1_path.write_text("""
+runners:
+  level1_runner:
+    shell: /bin/bash
+
 imports:
   - file: level2.yaml
     as: level2
@@ -4707,6 +4715,12 @@ tasks:
 
             # Create root (imports level 1 with runner)
             recipe_path.write_text("""
+runners:
+  root_runner:
+    shell: /bin/bash
+  level1_runner:
+    shell: /bin/bash
+
 imports:
   - file: level1.yaml
     as: level1

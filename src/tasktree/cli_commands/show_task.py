@@ -41,6 +41,7 @@ def show_task(logger: Logger, task_name: str, tasks_file: Optional[str] = None):
             "inputs": task.inputs,
             "outputs": task.outputs,
             "working_dir": task.working_dir,
+            "run_in": task.run_in,
             "args": task.args,
             "cmd": task.cmd,
         }

@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch, call
 
 from helpers.logging import logger_stub
 from tasktree.executor import Executor
-from tasktree.parser import Recipe, Task
+from tasktree.parser import Recipe, Task, parse_recipe
 from tasktree.process_runner import ProcessRunner, TaskOutputTypes, make_process_runner
 from tasktree.state import StateManager, TaskState
 
@@ -2757,6 +2757,99 @@ class TestPlatformdirs(unittest.TestCase):
             self.assertTrue(callable(platformdirs.site_config_dir))
         except ImportError as e:
             self.fail(f"platformdirs import failed: {e}")
+
+
+class TestPinnedRunnerValidation(unittest.TestCase):
+    """Tests for pinned runner validation."""
+
+    def test_pinned_task_without_run_in_raises_error(self):
+        """Test that pinned task without run_in raises ValueError."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+
+            # Create task with pin_runner but no run_in
+            task = Task(name="build", cmd="make", pin_runner=True, run_in="")
+
+            recipe = Recipe(
+                tasks={"build": task},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+
+            # Should raise ValueError when trying to get effective runner
+            with self.assertRaises(ValueError) as context:
+                executor._get_effective_runner_name(task)
+
+            self.assertIn("pin_runner=true", str(context.exception))
+            self.assertIn("no run_in specified", str(context.exception))
+
+    def test_pinned_task_with_run_in_succeeds(self):
+        """Test that pinned task with run_in does not raise error."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+
+            # Create task with both pin_runner and run_in
+            task = Task(name="build", cmd="make", pin_runner=True, run_in="docker")
+
+            recipe = Recipe(
+                tasks={"build": task},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+
+            # Should not raise error
+            runner_name = executor._get_effective_runner_name(task)
+            self.assertEqual(runner_name, "docker")
+
+    def test_non_pinned_task_without_run_in_succeeds(self):
+        """Test that non-pinned task without run_in uses default runner."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+
+            # Create task without pin_runner or run_in
+            task = Task(name="build", cmd="make", pin_runner=False, run_in="")
+
+            recipe = Recipe(
+                tasks={"build": task},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+
+            # Should not raise error and return default runner
+            runner_name = executor._get_effective_runner_name(task)
+            # Default runner name is platform default
+            self.assertEqual(runner_name, "__platform_default__")
+
+    def test_pinned_task_with_nonexistent_runner_caught_at_parse_time(self):
+        """Test that pinned task with non-existent runner is caught during parsing."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            recipe_path = project_root / "tasktree.yaml"
+
+            # Create recipe file with pinned task referencing non-existent runner
+            recipe_path.write_text("""
+tasks:
+  build:
+    cmd: make
+    run_in: nonexistent_runner
+    pin_runner: true
+""")
+
+            # Should raise ValueError during parsing
+            with self.assertRaises(ValueError) as context:
+                parse_recipe(recipe_path)
+
+            self.assertIn("nonexistent_runner", str(context.exception))
+            self.assertIn("invalid runner", str(context.exception))
 
 
 if __name__ == "__main__":

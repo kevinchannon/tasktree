@@ -406,18 +406,27 @@ class Executor:
         Get the effective runner name for a task.
 
         Resolution order:
-        1. Recipe's global_env_override (from CLI --env)
-        2. Task's explicit env field
-        3. Recipe's default_env
+        1. Recipe's global_runner_override (from CLI --runner)
+        2. Task's explicit run_in field (includes blanket runner if applied)
+        3. Recipe's default_runner
         4. Session default runner name (from get_session_default_runner)
 
+        Note: Pinned tasks (pin_runner=true) must have run_in specified.
+
         Args:
-        task: Task to get environment name for
+        task: Task to get runner name for
 
         Returns:
         Runner name (session default runner name if no other override)
         @athena: e5bface8a3a2
         """
+        # Validate pinned tasks have a runner specified
+        if task.pin_runner and not task.run_in:
+            raise ValueError(
+                f"Task '{task.name}' has pin_runner=true but no run_in specified. "
+                f"Pinned tasks must explicitly declare their runner."
+            )
+
         # Check for global override first
         if self.recipe.global_runner_override:
             return self.recipe.global_runner_override
