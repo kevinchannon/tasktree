@@ -2290,6 +2290,11 @@ def _parse_file(
                 for task in nested_result.tasks.values()
                 if task.pin_runner and task.run_in
             }
+            # Selective import of runners (Step 3.2)
+            # Import only runners that are referenced by pinned tasks.
+            # Note: Runners in nested_result are already namespaced by the recursive parse,
+            # so we don't add another namespace prefix here.
+            # Example: runner "shell" in build.yaml is already "build.shell" in nested_result
             runners_to_import = {
                 name: runner
                 for name, runner in nested_result.runners.items()

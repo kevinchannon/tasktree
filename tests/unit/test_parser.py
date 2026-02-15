@@ -1510,6 +1510,90 @@ imports:
             # runner_b should NOT be imported (not used by pinned task)
             self.assertNotIn("build.runner_b", recipe.runners)
 
+    def test_nested_import_runner_namespacing(self):
+        """Test that runners are correctly namespaced through multiple import levels."""
+        with TemporaryDirectory() as tmpdir:
+            # Create deepest file with a runner
+            (Path(tmpdir) / "common.yaml").write_text(
+                "runners:\n"
+                "  shell:\n"
+                "    shell: /bin/sh\n"
+                "tasks:\n"
+                "  util:\n"
+                "    cmd: echo common\n"
+                "    run_in: shell\n"
+                "    pin_runner: true\n"
+            )
+
+            # Create middle file that imports common
+            (Path(tmpdir) / "build.yaml").write_text(
+                "imports:\n"
+                "  - file: common.yaml\n"
+                "    as: common\n"
+                "tasks:\n"
+                "  compile:\n"
+                "    deps: [common.util]\n"
+                "    cmd: gcc main.c\n"
+            )
+
+            # Create root file that imports build
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text(
+                "imports:\n"
+                "  - file: build.yaml\n"
+                "    as: build\n"
+                "tasks:\n"
+                "  all:\n"
+                "    deps: [build.compile]\n"
+                "    cmd: echo done\n"
+            )
+
+            recipe = parse_recipe(recipe_path)
+
+            # Runner should be namespaced with full chain: build.common.shell
+            self.assertIn("build.common.shell", recipe.runners)
+            self.assertEqual(recipe.runners["build.common.shell"].name, "build.common.shell")
+
+            # Task should reference the fully namespaced runner
+            task = recipe.tasks["build.common.util"]
+            self.assertEqual(task.run_in, "build.common.shell")
+
+    def test_pinned_task_without_run_in_field(self):
+        """Test that pinned task without run_in field doesn't cause errors."""
+        with TemporaryDirectory() as tmpdir:
+            # Create imported file with pinned task but no run_in
+            (Path(tmpdir) / "build.yaml").write_text(
+                "runners:\n"
+                "  shell:\n"
+                "    shell: /bin/bash\n"
+                "tasks:\n"
+                "  task1:\n"
+                "    cmd: echo test\n"
+                "    pin_runner: true\n"  # Pinned but no run_in
+            )
+
+            # Create main recipe
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text(
+                "imports:\n"
+                "  - file: build.yaml\n"
+                "    as: build\n"
+                "tasks:\n"
+                "  all:\n"
+                "    deps: [build.task1]\n"
+                "    cmd: echo done\n"
+            )
+
+            # Should parse without errors
+            recipe = parse_recipe(recipe_path)
+
+            # Task should exist and have no run_in
+            self.assertIn("build.task1", recipe.tasks)
+            self.assertEqual(recipe.tasks["build.task1"].run_in, "")
+
+            # No runners should be imported since task has no run_in
+            self.assertEqual(len([k for k in recipe.runners.keys() if k.startswith("build.")]), 0)
+
 
 class TestParseMultilineCommands(unittest.TestCase):
     """
