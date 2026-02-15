@@ -1735,13 +1735,6 @@ def _parse_runners_from_data(
         if not isinstance(env_config, dict):
             raise ValueError(f"Runner '{env_name}' must be a dictionary")
 
-        # Validate that runner name does not contain dots (prevents namespace collision)
-        if "." in env_name:
-            raise ValueError(
-                f"Runner name '{env_name}' cannot contain dots. "
-                f"Dots are reserved for namespacing imported runners."
-            )
-
         # Parse common runner configuration
         shell = env_config.get("shell", "")
         args = env_config.get("args", [])

@@ -2739,7 +2739,7 @@ tasks:
                 parse_recipe(recipe_path)
 
             self.assertIn("bad.runner", str(context.exception))
-            self.assertIn("cannot contain dots", str(context.exception))
+            self.assertIn("must not contain dots (reserved for import namespacing)", str(context.exception))
 
     def test_variable_name_with_dots_not_rejected_when_unused(self):
         """Dotted variable names are collected as errors but don't raise at parse time."""
