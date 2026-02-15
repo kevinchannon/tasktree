@@ -1776,6 +1776,55 @@ def _parse_runners_from_data(
     return runners, default_runner
 
 
+def _extract_and_validate_variables(
+    data: dict[str, Any] | None,
+) -> tuple[dict[str, Any], dict[str, str]]:
+    """
+    Extract raw variables from YAML data and validate their names.
+
+    Args:
+        data: Parsed YAML data
+
+    Returns:
+        Tuple of (raw_variables, name_errors)
+    """
+    raw_variables: dict[str, Any] = {}
+    name_errors: dict[str, str] = {}
+
+    if data and "variables" in data:
+        raw_variables = data["variables"]
+        for var_name in raw_variables:
+            error = _validate_local_item_name(var_name, "Variable")
+            if error:
+                name_errors[var_name] = error
+
+    return raw_variables, name_errors
+
+
+def _extract_and_validate_runners(
+    data: dict[str, Any] | None, project_root: Path
+) -> tuple[dict[str, Runner], str, dict[str, str]]:
+    """
+    Extract runners from YAML data and validate their names.
+
+    Args:
+        data: Parsed YAML data
+        project_root: Root directory of the project
+
+    Returns:
+        Tuple of (runners, default_runner_name, name_errors)
+    """
+    name_errors: dict[str, str] = {}
+    runners, default_runner = _parse_runners_from_data(data, project_root)
+
+    for runner_name in runners:
+        error = _validate_local_item_name(runner_name, "Runner")
+        if error:
+            name_errors[runner_name] = error
+
+    return runners, default_runner, name_errors
+
+
 def _parse_file_with_env(
     file_path: Path,
     namespace: str | None,
@@ -1813,24 +1862,15 @@ def _parse_file_with_env(
             data = yaml.safe_load(f)
             yaml_data = data or {}
 
-        # Store raw variable specs WITHOUT evaluating them (lazy evaluation)
-        # Variable evaluation will happen later in Recipe.evaluate_variables()
-        if data and "variables" in data:
-            raw_variables = data["variables"]
-            for var_name in raw_variables:
-                error = _validate_local_item_name(var_name, "Variable")
-                if error:
-                    name_errors[var_name] = error
+        # Extract and validate variables
+        raw_variables, var_errors = _extract_and_validate_variables(data)
+        name_errors.update(var_errors)
 
-        # SKIP variable substitution here - defer to lazy evaluation phase
-        # Tasks and runners will contain {{ var.* }} placeholders until evaluation
-        # This allows us to only evaluate variables that are actually reachable from the target task
-
-        runners, default_runner = _parse_runners_from_data(data, project_root)
-        for runner_name in runners:
-            error = _validate_local_item_name(runner_name, "Runner")
-            if error:
-                name_errors[runner_name] = error
+        # Extract and validate runners
+        runners, default_runner, runner_errors = _extract_and_validate_runners(
+            data, project_root
+        )
+        name_errors.update(runner_errors)
 
     # Merge runners and variables from imported files
     runners.update(parsed.runners)
