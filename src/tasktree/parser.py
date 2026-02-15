@@ -741,6 +741,7 @@ def _rewrite_variable_references(text: str, namespace: str) -> str:
     Returns:
     Text with variable references rewritten
     """
+    assert namespace, "namespace must not be empty"
     return re.sub(
         r"(\{\{\s*var\.)([^\s}]+)(\s*}})",
         rf"\g<1>{namespace}.\2\3",
@@ -763,6 +764,7 @@ def _rewrite_variable_references_in_raw_value(
     Returns:
     Raw value with variable references rewritten
     """
+    assert namespace, "namespace must not be empty"
     if isinstance(raw_value, str):
         return _rewrite_variable_references(raw_value, namespace)
     elif isinstance(raw_value, dict):
@@ -784,6 +786,7 @@ def _rewrite_io_variable_references(
 
     Items can be strings (anonymous) or single-key dicts (named).
     """
+    assert namespace, "namespace must not be empty"
     rewritten = []
     for item in items:
         if isinstance(item, str):
@@ -806,6 +809,7 @@ def _rewrite_args_variable_references(
 
     Args can be strings or single-key dicts with nested config dicts.
     """
+    assert namespace, "namespace must not be empty"
     rewritten = []
     for arg in args:
         if isinstance(arg, str):
@@ -839,6 +843,7 @@ def _rewrite_task_variable_references(task: "Task", namespace: str) -> None:
     Rewrite {{ var.X }} references in all fields of a task to {{ var.namespace.X }}.
     Modifies the task in place.
     """
+    assert namespace, "namespace must not be empty"
     task.cmd = _rewrite_variable_references(task.cmd, namespace)
     task.desc = _rewrite_variable_references(task.desc, namespace)
     task.working_dir = _rewrite_variable_references(task.working_dir, namespace)
@@ -854,6 +859,7 @@ def _rewrite_runner_variable_references(runner: "Runner", namespace: str) -> Non
     Rewrite {{ var.X }} references in all fields of a runner to {{ var.namespace.X }}.
     Modifies the runner in place.
     """
+    assert namespace, "namespace must not be empty"
     runner.preamble = _rewrite_variable_references(runner.preamble, namespace)
     runner.dockerfile = _rewrite_variable_references(runner.dockerfile, namespace)
     runner.context = _rewrite_variable_references(runner.context, namespace)
