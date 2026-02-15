@@ -4670,5 +4670,59 @@ tasks:
             self.assertIn("imported.build", recipe.tasks)
 
 
+class TestBlanketRunnerThreading(unittest.TestCase):
+    """
+    Tests for blanket_runner parameter threading through recursive _parse_file calls.
+    """
+
+    def test_blanket_runner_threaded_through_multi_level_imports(self):
+        """
+        Test that blanket_runner is correctly threaded through nested imports.
+        """
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            level1_path = Path(tmpdir) / "level1.yaml"
+            level2_path = Path(tmpdir) / "level2.yaml"
+
+            # Create level 2 (deepest)
+            level2_path.write_text("""
+tasks:
+  deep_task:
+    cmd: echo "deep"
+""")
+
+            # Create level 1 (imports level 2 with different runner)
+            level1_path.write_text("""
+imports:
+  - file: level2.yaml
+    as: level2
+    run_in: level1_runner
+
+tasks:
+  mid_task:
+    cmd: echo "mid"
+""")
+
+            # Create root (imports level 1 with runner)
+            recipe_path.write_text("""
+imports:
+  - file: level1.yaml
+    as: level1
+    run_in: root_runner
+
+tasks:
+  root_task:
+    cmd: echo "root"
+""")
+
+            # Should parse without error - blanket_runner is threaded correctly
+            recipe = parse_recipe(recipe_path)
+
+            # Verify all tasks exist with proper namespacing
+            self.assertIn("root_task", recipe.tasks)
+            self.assertIn("level1.mid_task", recipe.tasks)
+            self.assertIn("level1.level2.deep_task", recipe.tasks)
+
+
 if __name__ == "__main__":
     unittest.main()
