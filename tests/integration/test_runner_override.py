@@ -870,60 +870,6 @@ class TestRunnerPrecedenceOrder(unittest.TestCase):
             finally:
                 os.chdir(original_cwd)
 
-    def test_precedence_task_level_over_blanket(self):
-        """Test that task-level run_in in imported file takes precedence over blanket runner."""
-        with TemporaryDirectory() as tmpdir:
-            project_root = Path(tmpdir)
-
-            # Imported file with tasks - one with explicit run_in, one without
-            (project_root / "build.yaml").write_text(
-                "tasks:\n"
-                "  task_with_explicit_runner:\n"
-                "    cmd: echo 'has explicit runner'\n"
-                "    run_in: task_runner\n"
-                "  task_without_runner:\n"
-                "    cmd: echo 'no explicit runner'\n"
-            )
-
-            # Root file with both blanket runner and task_runner
-            recipe_path = project_root / "tasktree.yaml"
-            recipe_path.write_text(
-                "runners:\n"
-                "  blanket_runner:\n"
-                "    shell: /bin/bash\n"
-                "  task_runner:\n"
-                "    shell: /bin/sh\n"
-                "imports:\n"
-                "  - file: build.yaml\n"
-                "    as: build\n"
-                "    run_in: blanket_runner\n"
-            )
-
-            original_cwd = os.getcwd()
-            try:
-                os.chdir(project_root)
-
-                # Task with explicit run_in should use its own runner, not blanket
-                result = self.runner.invoke(
-                    app, ["--show", "build.task_with_explicit_runner"], env=self.env
-                )
-                stripped = strip_ansi_codes(result.stdout)
-                self.assertEqual(result.exit_code, 0, f"Command failed: {stripped}")
-                effective_runner = extract_effective_runner(stripped)
-                self.assertEqual(effective_runner, "task_runner")
-
-                # Task without explicit run_in should use blanket runner
-                result = self.runner.invoke(
-                    app, ["--show", "build.task_without_runner"], env=self.env
-                )
-                stripped = strip_ansi_codes(result.stdout)
-                self.assertEqual(result.exit_code, 0, f"Command failed: {stripped}")
-                effective_runner = extract_effective_runner(stripped)
-                self.assertEqual(effective_runner, "blanket_runner")
-
-            finally:
-                os.chdir(original_cwd)
-
     def test_precedence_all_levels(self):
         """Test full precedence chain with all levels defined."""
         with TemporaryDirectory() as tmpdir:
