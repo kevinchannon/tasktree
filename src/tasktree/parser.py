@@ -2268,7 +2268,21 @@ def _parse_file(
             )
 
             tasks.update(nested_result.tasks)
-            runners.update(nested_result.runners)
+
+            # Only import runners that are referenced by pinned tasks
+            # Pinned tasks bring their runners with them
+            pinned_runner_names = {
+                task.run_in
+                for task in nested_result.tasks.values()
+                if task.pin_runner and task.run_in
+            }
+            runners_to_import = {
+                name: runner
+                for name, runner in nested_result.runners.items()
+                if name in pinned_runner_names
+            }
+            runners.update(runners_to_import)
+
             raw_variables.update(nested_result.raw_variables)
             name_errors.update(nested_result.name_errors)
 

@@ -1271,7 +1271,8 @@ imports:
     def test_import_extracts_runners_with_namespace(self):
         """Test that runners from imported files are namespaced."""
         with TemporaryDirectory() as tmpdir:
-            # Create imported file with a runner
+            # Create imported file with a runner and a pinned task using it
+            # Only pinned task runners are imported (Step 3.1)
             (Path(tmpdir) / "build.yaml").write_text(
                 "runners:\n"
                 "  shell:\n"
@@ -1279,6 +1280,8 @@ imports:
                 "tasks:\n"
                 "  compile:\n"
                 "    cmd: gcc main.c\n"
+                "    run_in: shell\n"
+                "    pin_runner: true\n"
             )
 
             # Create main recipe that imports the file
