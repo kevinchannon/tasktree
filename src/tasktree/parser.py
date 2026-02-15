@@ -2269,8 +2269,22 @@ def _parse_file(
 
             tasks.update(nested_result.tasks)
 
-            # Only import runners that are referenced by pinned tasks
-            # Pinned tasks bring their runners with them
+            # Selective runner import: Only import runners referenced by pinned tasks
+            #
+            # Rationale: This allows root files to provide blanket runner overrides
+            # for non-pinned imported tasks without namespace pollution. Tasks with
+            # pin_runner=true explicitly opt-in to bringing their runners along.
+            # Non-pinned tasks will use the blanket runner specified in run_in import option.
+            #
+            # Example:
+            #   imports:
+            #     - file: build.yaml
+            #       as: build
+            #       run_in: docker  # Blanket override for non-pinned tasks
+            #
+            # If build.yaml has:
+            #   - task1 with run_in: shell, pin_runner: true  -> Uses build.shell (imported)
+            #   - task2 with no run_in                        -> Uses docker (blanket override)
             pinned_runner_names = {
                 task.run_in
                 for task in nested_result.tasks.values()
