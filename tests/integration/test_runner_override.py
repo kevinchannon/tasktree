@@ -17,6 +17,12 @@ def strip_ansi_codes(text: str) -> str:
     return ansi_escape.sub("", text)
 
 
+def extract_effective_runner(output: str) -> str | None:
+    """Extract the effective runner name from --show output."""
+    match = re.search(r"Effective runner:\s+(\S+)", output)
+    return match.group(1) if match else None
+
+
 class TestBlanketRunnerOverride(unittest.TestCase):
     """Integration tests for blanket runner override at import level."""
 
@@ -639,6 +645,308 @@ class TestRunnerNamespacing(unittest.TestCase):
                 self.assertIn("common", result.stdout)
                 self.assertIn("build", result.stdout)
                 self.assertIn("all", result.stdout)
+
+            finally:
+                os.chdir(original_cwd)
+
+
+class TestRunnerPrecedenceOrder(unittest.TestCase):
+    """Integration tests for runner precedence order."""
+
+    def setUp(self):
+        self.runner = CliRunner()
+        self.env = {"NO_COLOR": "1"}
+
+    def test_precedence_cli_flag_overrides_all(self):
+        """Test that CLI --runner flag takes precedence over all other settings."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Imported file with pinned task
+            (project_root / "build.yaml").write_text(
+                "runners:\n"
+                "  pinned_runner:\n"
+                "    shell: /bin/sh\n"
+                "tasks:\n"
+                "  pinned_task:\n"
+                "    cmd: echo 'pinned task'\n"
+                "    run_in: pinned_runner\n"
+                "    pin_runner: true\n"
+                "  normal_task:\n"
+                "    cmd: echo 'normal task'\n"
+            )
+
+            # Root file with default runner and blanket override
+            recipe_path = project_root / "tasktree.yaml"
+            recipe_path.write_text(
+                "runners:\n"
+                "  default: default_runner\n"
+                "  default_runner:\n"
+                "    shell: /bin/bash\n"
+                "  cli_runner:\n"
+                "    shell: /bin/zsh\n"
+                "imports:\n"
+                "  - file: build.yaml\n"
+                "    as: build\n"
+                "    run_in: default_runner\n"
+                "tasks:\n"
+                "  root_task:\n"
+                "    cmd: echo 'root task'\n"
+            )
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Verify CLI --runner overrides pinned task runner
+                result = self.runner.invoke(
+                    app, ["--runner", "cli_runner", "--show", "build.pinned_task"],
+                    env=self.env
+                )
+                stripped = strip_ansi_codes(result.stdout)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {stripped}")
+                self.assertIn("cli_runner", stripped)
+
+                # Verify CLI --runner overrides blanket runner for normal task
+                result = self.runner.invoke(
+                    app, ["--runner", "cli_runner", "--show", "build.normal_task"],
+                    env=self.env
+                )
+                stripped = strip_ansi_codes(result.stdout)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {stripped}")
+                self.assertIn("cli_runner", stripped)
+
+                # Verify CLI --runner overrides default runner for root task
+                result = self.runner.invoke(
+                    app, ["--runner", "cli_runner", "--show", "root_task"],
+                    env=self.env
+                )
+                stripped = strip_ansi_codes(result.stdout)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {stripped}")
+                self.assertIn("cli_runner", stripped)
+
+            finally:
+                os.chdir(original_cwd)
+
+    def test_precedence_pinned_runner_over_blanket(self):
+        """Test that pinned task runner takes precedence over blanket override."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Imported file with pinned and non-pinned tasks
+            (project_root / "build.yaml").write_text(
+                "runners:\n"
+                "  pinned_runner:\n"
+                "    shell: /bin/sh\n"
+                "tasks:\n"
+                "  pinned_task:\n"
+                "    cmd: echo 'pinned task'\n"
+                "    run_in: pinned_runner\n"
+                "    pin_runner: true\n"
+                "  normal_task:\n"
+                "    cmd: echo 'normal task'\n"
+            )
+
+            # Root file with blanket runner override
+            recipe_path = project_root / "tasktree.yaml"
+            recipe_path.write_text(
+                "runners:\n"
+                "  blanket_runner:\n"
+                "    shell: /bin/bash\n"
+                "imports:\n"
+                "  - file: build.yaml\n"
+                "    as: build\n"
+                "    run_in: blanket_runner\n"
+            )
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Pinned task should use its pinned runner, not blanket
+                result = self.runner.invoke(
+                    app, ["--show", "build.pinned_task"], env=self.env
+                )
+                stripped = strip_ansi_codes(result.stdout)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {stripped}")
+                self.assertIn("build.pinned_runner", stripped)
+                self.assertNotIn("blanket_runner", stripped)
+
+                # Normal task should use blanket runner
+                result = self.runner.invoke(
+                    app, ["--show", "build.normal_task"], env=self.env
+                )
+                stripped = strip_ansi_codes(result.stdout)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {stripped}")
+                self.assertIn("blanket_runner", stripped)
+
+            finally:
+                os.chdir(original_cwd)
+
+    def test_precedence_blanket_over_default(self):
+        """Test that blanket runner override takes precedence over default runner."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Imported file with no task-level runners
+            (project_root / "build.yaml").write_text(
+                "tasks:\n"
+                "  task1:\n"
+                "    cmd: echo 'task1'\n"
+            )
+
+            # Root file with default runner and blanket override
+            recipe_path = project_root / "tasktree.yaml"
+            recipe_path.write_text(
+                "runners:\n"
+                "  default: default_runner\n"
+                "  default_runner:\n"
+                "    shell: /bin/bash\n"
+                "  blanket_runner:\n"
+                "    shell: /bin/sh\n"
+                "imports:\n"
+                "  - file: build.yaml\n"
+                "    as: build\n"
+                "    run_in: blanket_runner\n"
+            )
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Imported task should use blanket runner, not default
+                result = self.runner.invoke(
+                    app, ["--show", "build.task1"], env=self.env
+                )
+                stripped = strip_ansi_codes(result.stdout)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {stripped}")
+                self.assertIn("blanket_runner", stripped)
+
+            finally:
+                os.chdir(original_cwd)
+
+    def test_precedence_task_level_over_default(self):
+        """Test that task-level run_in takes precedence over default runner."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # File with task-level run_in and default runner
+            recipe_path = project_root / "tasktree.yaml"
+            recipe_path.write_text(
+                "runners:\n"
+                "  default: default_runner\n"
+                "  default_runner:\n"
+                "    shell: /bin/bash\n"
+                "  task_runner:\n"
+                "    shell: /bin/sh\n"
+                "tasks:\n"
+                "  task_with_runner:\n"
+                "    cmd: echo 'task with runner'\n"
+                "    run_in: task_runner\n"
+                "  task_without_runner:\n"
+                "    cmd: echo 'task without runner'\n"
+            )
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Task with run_in should use its own runner
+                result = self.runner.invoke(
+                    app, ["--show", "task_with_runner"], env=self.env
+                )
+                stripped = strip_ansi_codes(result.stdout)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {stripped}")
+                self.assertIn("task_runner", stripped)
+
+                # Task without run_in should use default
+                result = self.runner.invoke(
+                    app, ["--show", "task_without_runner"], env=self.env
+                )
+                stripped = strip_ansi_codes(result.stdout)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {stripped}")
+                self.assertIn("default_runner", stripped)
+
+            finally:
+                os.chdir(original_cwd)
+
+    def test_precedence_all_levels(self):
+        """Test full precedence chain with all levels defined."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Imported file with pinned task
+            (project_root / "build.yaml").write_text(
+                "runners:\n"
+                "  pinned_runner:\n"
+                "    shell: /bin/sh\n"
+                "tasks:\n"
+                "  pinned_task:\n"
+                "    cmd: echo 'pinned'\n"
+                "    run_in: pinned_runner\n"
+                "    pin_runner: true\n"
+                "  blanket_task:\n"
+                "    cmd: echo 'blanket'\n"
+            )
+
+            # Root file with all runner types
+            recipe_path = project_root / "tasktree.yaml"
+            recipe_path.write_text(
+                "runners:\n"
+                "  default: default_runner\n"
+                "  default_runner:\n"
+                "    shell: /bin/bash\n"
+                "  blanket_runner:\n"
+                "    shell: /bin/zsh\n"
+                "  cli_runner:\n"
+                "    shell: /bin/dash\n"
+                "imports:\n"
+                "  - file: build.yaml\n"
+                "    as: build\n"
+                "    run_in: blanket_runner\n"
+                "tasks:\n"
+                "  default_task:\n"
+                "    cmd: echo 'default'\n"
+            )
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Without CLI flag:
+                # 1. Pinned task uses pinned runner
+                result = self.runner.invoke(
+                    app, ["--show", "build.pinned_task"], env=self.env
+                )
+                stripped = strip_ansi_codes(result.stdout)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {stripped}")
+                self.assertIn("build.pinned_runner", stripped)
+
+                # 2. Non-pinned task uses blanket runner
+                result = self.runner.invoke(
+                    app, ["--show", "build.blanket_task"], env=self.env
+                )
+                stripped = strip_ansi_codes(result.stdout)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {stripped}")
+                self.assertIn("blanket_runner", stripped)
+
+                # 3. Root task uses default runner
+                result = self.runner.invoke(
+                    app, ["--show", "default_task"], env=self.env
+                )
+                stripped = strip_ansi_codes(result.stdout)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {stripped}")
+                self.assertIn("default_runner", stripped)
+
+                # With CLI flag, everything uses cli_runner (even pinned tasks)
+                # This demonstrates that --runner has highest precedence over all other mechanisms
+                result = self.runner.invoke(
+                    app, ["--runner", "cli_runner", "--show", "build.pinned_task"],
+                    env=self.env
+                )
+                stripped = strip_ansi_codes(result.stdout)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {stripped}")
+                self.assertIn("cli_runner", stripped)
 
             finally:
                 os.chdir(original_cwd)
