@@ -17,6 +17,12 @@ def strip_ansi_codes(text: str) -> str:
     return ansi_escape.sub("", text)
 
 
+def extract_effective_runner(output: str) -> str | None:
+    """Extract the effective runner name from --show output."""
+    match = re.search(r"Effective runner:\s+(\S+)", output)
+    return match.group(1) if match else None
+
+
 class TestBlanketRunnerOverride(unittest.TestCase):
     """Integration tests for blanket runner override at import level."""
 
@@ -904,8 +910,8 @@ class TestRunnerPrecedenceOrder(unittest.TestCase):
                 )
                 stripped = strip_ansi_codes(result.stdout)
                 self.assertEqual(result.exit_code, 0, f"Command failed: {stripped}")
-                self.assertIn("build.task_runner", stripped)
-                self.assertNotIn("blanket_runner", stripped)
+                effective_runner = extract_effective_runner(stripped)
+                self.assertEqual(effective_runner, "build.task_runner")
 
                 # Task without explicit run_in should use blanket runner
                 result = self.runner.invoke(
@@ -913,7 +919,8 @@ class TestRunnerPrecedenceOrder(unittest.TestCase):
                 )
                 stripped = strip_ansi_codes(result.stdout)
                 self.assertEqual(result.exit_code, 0, f"Command failed: {stripped}")
-                self.assertIn("blanket_runner", stripped)
+                effective_runner = extract_effective_runner(stripped)
+                self.assertEqual(effective_runner, "blanket_runner")
 
             finally:
                 os.chdir(original_cwd)
