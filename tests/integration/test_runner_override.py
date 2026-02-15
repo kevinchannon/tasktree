@@ -502,6 +502,147 @@ class TestRunnerNamespacing(unittest.TestCase):
             finally:
                 os.chdir(original_cwd)
 
+    def test_nested_import_runner_namespacing_three_levels(self):
+        """Test runner namespacing through three levels of imports."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Deepest level: common.yaml with a runner and pinned task
+            (project_root / "common.yaml").write_text(
+                "runners:\n"
+                "  util_runner:\n"
+                "    shell: /bin/sh\n"
+                "tasks:\n"
+                "  helper:\n"
+                "    cmd: echo 'common helper'\n"
+                "    run_in: util_runner\n"
+                "    pin_runner: true\n"
+            )
+
+            # Middle level: build.yaml imports common.yaml
+            (project_root / "build.yaml").write_text(
+                "imports:\n"
+                "  - file: common.yaml\n"
+                "    as: common\n"
+                "tasks:\n"
+                "  compile:\n"
+                "    deps: [common.helper]\n"
+                "    cmd: echo 'compiling'\n"
+            )
+
+            # Root level: tasktree.yaml imports build.yaml
+            recipe_path = project_root / "tasktree.yaml"
+            recipe_path.write_text(
+                "imports:\n"
+                "  - file: build.yaml\n"
+                "    as: build\n"
+                "tasks:\n"
+                "  all:\n"
+                "    deps: [build.compile]\n"
+                "    cmd: echo 'done'\n"
+            )
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Verify runner is namespaced with full chain: build.common.util_runner
+                result = self.runner.invoke(
+                    app, ["--show", "build.common.helper"], env=self.env
+                )
+                stripped = strip_ansi_codes(result.stdout)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {stripped}")
+                self.assertIn("build.common.util_runner", stripped)
+
+                # Execute the nested task to verify it works
+                result = self.runner.invoke(app, ["build.common.helper"], env=self.env)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+                self.assertIn("common helper", result.stdout)
+
+                # Execute the full dependency chain
+                result = self.runner.invoke(app, ["all"], env=self.env)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+                self.assertIn("common helper", result.stdout)
+                self.assertIn("compiling", result.stdout)
+                self.assertIn("done", result.stdout)
+
+            finally:
+                os.chdir(original_cwd)
+
+    def test_four_level_nested_imports(self):
+        """Test runner namespacing through four levels of imports."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Level 4 (deepest): utils.yaml
+            (project_root / "utils.yaml").write_text(
+                "runners:\n"
+                "  base:\n"
+                "    shell: /bin/sh\n"
+                "tasks:\n"
+                "  base_task:\n"
+                "    cmd: echo 'base'\n"
+                "    run_in: base\n"
+                "    pin_runner: true\n"
+            )
+
+            # Level 3: common.yaml imports utils.yaml
+            (project_root / "common.yaml").write_text(
+                "imports:\n"
+                "  - file: utils.yaml\n"
+                "    as: utils\n"
+                "tasks:\n"
+                "  common_task:\n"
+                "    deps: [utils.base_task]\n"
+                "    cmd: echo 'common'\n"
+            )
+
+            # Level 2: build.yaml imports common.yaml
+            (project_root / "build.yaml").write_text(
+                "imports:\n"
+                "  - file: common.yaml\n"
+                "    as: common\n"
+                "tasks:\n"
+                "  build_task:\n"
+                "    deps: [common.common_task]\n"
+                "    cmd: echo 'build'\n"
+            )
+
+            # Level 1 (root): tasktree.yaml imports build.yaml
+            recipe_path = project_root / "tasktree.yaml"
+            recipe_path.write_text(
+                "imports:\n"
+                "  - file: build.yaml\n"
+                "    as: build\n"
+                "tasks:\n"
+                "  all:\n"
+                "    deps: [build.build_task]\n"
+                "    cmd: echo 'all'\n"
+            )
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Verify runner has full namespace chain: build.common.utils.base
+                result = self.runner.invoke(
+                    app, ["--show", "build.common.utils.base_task"], env=self.env
+                )
+                stripped = strip_ansi_codes(result.stdout)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {stripped}")
+                self.assertIn("build.common.utils.base", stripped)
+
+                # Execute full chain to verify all levels work
+                result = self.runner.invoke(app, ["all"], env=self.env)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+                self.assertIn("base", result.stdout)
+                self.assertIn("common", result.stdout)
+                self.assertIn("build", result.stdout)
+                self.assertIn("all", result.stdout)
+
+            finally:
+                os.chdir(original_cwd)
+
 
 if __name__ == "__main__":
     unittest.main()
