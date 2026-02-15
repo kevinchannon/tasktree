@@ -4590,5 +4590,46 @@ tasks:
             self.assertEqual(len(task._indexed_outputs), 0)
 
 
+class TestPinRunner(unittest.TestCase):
+    """
+    Tests for pin_runner field in Task.
+    """
+
+    def test_pin_runner_defaults_to_false(self):
+        """
+        Test that pin_runner field defaults to False.
+        """
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+tasks:
+  build:
+    cmd: echo "test"
+""")
+
+            recipe = parse_recipe(recipe_path)
+            task = recipe.tasks["build"]
+
+            self.assertFalse(task.pin_runner)
+
+    def test_pin_runner_can_be_set_to_true(self):
+        """
+        Test that pin_runner field can be set to True in YAML.
+        """
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+tasks:
+  build:
+    cmd: echo "test"
+    pin_runner: true
+""")
+
+            recipe = parse_recipe(recipe_path)
+            task = recipe.tasks["build"]
+
+            self.assertTrue(task.pin_runner)
+
+
 if __name__ == "__main__":
     unittest.main()

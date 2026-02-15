@@ -115,6 +115,7 @@ class Task:
     source_file: str = ""  # Track which file defined this task
     run_in: str = ""  # Runner name to use for execution
     private: bool = False  # If True, task is hidden from --list output
+    pin_runner: bool = False  # If True, task's runner cannot be overridden
     task_output: TaskOutputTypes | None = None
 
     # Internal fields for efficient output lookup (built in __post_init__)
@@ -2391,6 +2392,7 @@ def _parse_file(
             source_file=str(file_path),
             run_in=run_in,
             private=task_data.get("private", False),
+            pin_runner=task_data.get("pin_runner", False),
             task_output=task_data.get("task_output", None),
         )
 
