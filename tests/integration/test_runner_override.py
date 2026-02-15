@@ -993,7 +993,8 @@ class TestRunnerPrecedenceOrder(unittest.TestCase):
                 self.assertEqual(result.exit_code, 0, f"Command failed: {stripped}")
                 self.assertIn("default_runner", stripped)
 
-                # With CLI flag, everything uses cli_runner
+                # With CLI flag, everything uses cli_runner (even pinned tasks)
+                # This demonstrates that --runner has highest precedence over all other mechanisms
                 result = self.runner.invoke(
                     app, ["--runner", "cli_runner", "--show", "build.pinned_task"],
                     env=self.env
