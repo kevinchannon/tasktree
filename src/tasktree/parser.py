@@ -115,6 +115,7 @@ class Task:
     source_file: str = ""  # Track which file defined this task
     run_in: str = ""  # Runner name to use for execution
     private: bool = False  # If True, task is hidden from --list output
+    pin_runner: bool = False  # If True, task's runner cannot be overridden
     task_output: TaskOutputTypes | None = None
 
     # Internal fields for efficient output lookup (built in __post_init__)
@@ -2182,6 +2183,7 @@ def _parse_file(
     namespace: str | None,
     project_root: Path,
     import_stack: list[Path] | None = None,
+    blanket_runner: str = "",
 ) -> ParsedFileResult:
     """
     Parse a single YAML file and return tasks, recursively processing imports.
@@ -2191,6 +2193,7 @@ def _parse_file(
     namespace: Optional namespace prefix for tasks
     project_root: Root directory of the project
     import_stack: Stack of files being imported (for circular detection)
+    blanket_runner: Optional runner name to apply to all non-pinned tasks in this file
 
     Returns:
     ParsedFileResult containing tasks, runners, and raw variables
@@ -2240,6 +2243,7 @@ def _parse_file(
         for import_spec in imports:
             child_file = import_spec["file"]
             child_namespace = import_spec["as"]
+            child_run_in = import_spec.get("run_in", "")
 
             # Track this namespace as a local import
             local_import_namespaces.add(child_namespace)
@@ -2260,6 +2264,7 @@ def _parse_file(
                 full_namespace,
                 project_root,
                 import_stack.copy(),  # Pass copy to avoid shared mutation
+                child_run_in,  # Pass blanket runner to imported file
             )
 
             tasks.update(nested_result.tasks)
@@ -2391,6 +2396,7 @@ def _parse_file(
             source_file=str(file_path),
             run_in=run_in,
             private=task_data.get("private", False),
+            pin_runner=task_data.get("pin_runner", False),
             task_output=task_data.get("task_output", None),
         )
 

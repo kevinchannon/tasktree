@@ -4590,5 +4590,141 @@ tasks:
             self.assertEqual(len(task._indexed_outputs), 0)
 
 
+class TestPinRunner(unittest.TestCase):
+    """
+    Tests for pin_runner field in Task.
+    """
+
+    def test_pin_runner_defaults_to_false(self):
+        """
+        Test that pin_runner field defaults to False.
+        """
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+tasks:
+  build:
+    cmd: echo "test"
+""")
+
+            recipe = parse_recipe(recipe_path)
+            task = recipe.tasks["build"]
+
+            self.assertFalse(task.pin_runner)
+
+    def test_pin_runner_can_be_set_to_true(self):
+        """
+        Test that pin_runner field can be set to True in YAML.
+        """
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+tasks:
+  build:
+    cmd: echo "test"
+    pin_runner: true
+""")
+
+            recipe = parse_recipe(recipe_path)
+            task = recipe.tasks["build"]
+
+            self.assertTrue(task.pin_runner)
+
+
+
+class TestImportWithRunIn(unittest.TestCase):
+    """
+    Tests for run_in field in import specifications.
+    """
+
+    def test_import_with_run_in_field_parses_successfully(self):
+        """
+        Test that import specification with run_in field parses without error.
+        """
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            imported_path = Path(tmpdir) / "imported.yaml"
+
+            # Create imported file
+            imported_path.write_text("""
+tasks:
+  build:
+    cmd: echo "imported"
+""")
+
+            # Create root file with import that has run_in
+            recipe_path.write_text("""
+imports:
+  - file: imported.yaml
+    as: imported
+    run_in: docker
+
+tasks:
+  main:
+    cmd: echo "main"
+""")
+
+            # Should parse without error
+            recipe = parse_recipe(recipe_path)
+
+            # Verify imported task exists
+            self.assertIn("imported.build", recipe.tasks)
+
+
+
+class TestBlanketRunnerThreading(unittest.TestCase):
+    """
+    Tests for blanket_runner parameter threading through recursive _parse_file calls.
+    """
+
+    def test_blanket_runner_threaded_through_multi_level_imports(self):
+        """
+        Test that blanket_runner is correctly threaded through nested imports.
+        """
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            level1_path = Path(tmpdir) / "level1.yaml"
+            level2_path = Path(tmpdir) / "level2.yaml"
+
+            # Create level 2 (deepest)
+            level2_path.write_text("""
+tasks:
+  deep_task:
+    cmd: echo "deep"
+""")
+
+            # Create level 1 (imports level 2 with different runner)
+            level1_path.write_text("""
+imports:
+  - file: level2.yaml
+    as: level2
+    run_in: level1_runner
+
+tasks:
+  mid_task:
+    cmd: echo "mid"
+""")
+
+            # Create root (imports level 1 with runner)
+            recipe_path.write_text("""
+imports:
+  - file: level1.yaml
+    as: level1
+    run_in: root_runner
+
+tasks:
+  root_task:
+    cmd: echo "root"
+""")
+
+            # Should parse without error - blanket_runner is threaded correctly
+            recipe = parse_recipe(recipe_path)
+
+            # Verify all tasks exist with proper namespacing
+            self.assertIn("root_task", recipe.tasks)
+            self.assertIn("level1.mid_task", recipe.tasks)
+            self.assertIn("level1.level2.deep_task", recipe.tasks)
+
+
 if __name__ == "__main__":
     unittest.main()
