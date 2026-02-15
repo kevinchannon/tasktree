@@ -418,6 +418,13 @@ class Executor:
         Runner name (session default runner name if no other override)
         @athena: e5bface8a3a2
         """
+        # Validate pinned tasks have a runner specified
+        if task.pin_runner and not task.run_in:
+            raise ValueError(
+                f"Task '{task.name}' has pin_runner=true but no run_in specified. "
+                f"Pinned tasks must explicitly declare their runner."
+            )
+
         # Check for global override first
         if self.recipe.global_runner_override:
             return self.recipe.global_runner_override
