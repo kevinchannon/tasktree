@@ -1314,6 +1314,7 @@ imports:
                 "tasks:\n"
                 "  compile:\n"
                 "    run_in: shell\n"
+                "    pin_runner: true\n"
                 "    cmd: gcc main.c\n"
             )
 
@@ -1449,6 +1450,7 @@ imports:
                 "tasks:\n"
                 "  compile:\n"
                 "    run_in: shell\n"
+                "    pin_runner: true\n"
                 "    cmd: echo hello\n"
             )
 
