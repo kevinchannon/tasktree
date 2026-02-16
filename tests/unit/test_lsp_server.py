@@ -364,7 +364,7 @@ class TestCreateServer(unittest.TestCase):
         # Request completion at the end of "{{ var."
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
-            position=Position(line=4, character=26),  # After "{{ var."
+            position=Position(line=5, character=26),  # After "{{ var."
         )
 
         result = completion_handler(completion_params)
@@ -394,7 +394,7 @@ class TestCreateServer(unittest.TestCase):
         # Request completion after "{{ var.foo"
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
-            position=Position(line=4, character=29),  # After "{{ var.foo"
+            position=Position(line=6, character=29),  # After "{{ var.foo"
         )
 
         result = completion_handler(completion_params)
@@ -452,7 +452,7 @@ class TestCreateServer(unittest.TestCase):
         # Request completion
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
-            position=Position(line=6, character=26),  # After "{{ var."
+            position=Position(line=8, character=26),  # After "{{ var."
         )
 
         result = completion_handler(completion_params)
