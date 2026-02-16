@@ -53,7 +53,15 @@ def create_server() -> TasktreeLanguageServer:
 
     @server.feature("initialize")
     def initialize(params: InitializeParams) -> InitializeResult:
-        """Handle LSP initialize request."""
+        """Handle LSP initialize request.
+
+        Args:
+            params: Client initialization parameters including process ID, root URI, and capabilities
+
+        Returns:
+            InitializeResult with server capabilities including text document sync
+            (full mode) and completion provider with '.' as trigger character
+        """
         return InitializeResult(
             capabilities=ServerCapabilities(
                 text_document_sync=TextDocumentSyncKind.Full,
@@ -75,14 +83,27 @@ def create_server() -> TasktreeLanguageServer:
 
     @server.feature("textDocument/didOpen")
     def did_open(params: DidOpenTextDocumentParams) -> None:
-        """Handle document open notification."""
+        """Handle document open notification.
+
+        Stores the document text in memory for later processing.
+
+        Args:
+            params: Document open parameters containing URI and initial text content
+        """
         uri = params.text_document.uri
         text = params.text_document.text
         server.documents[uri] = text
 
     @server.feature("textDocument/didChange")
     def did_change(params: DidChangeTextDocumentParams) -> None:
-        """Handle document change notification."""
+        """Handle document change notification.
+
+        Updates the stored document text when changes occur. Operates in
+        full sync mode where the entire document content is sent.
+
+        Args:
+            params: Document change parameters containing URI and content changes
+        """
         uri = params.text_document.uri
         # In full sync mode, we get the entire document in the first change
         if params.content_changes:
@@ -90,7 +111,18 @@ def create_server() -> TasktreeLanguageServer:
 
     @server.feature("textDocument/completion")
     def completion(params: CompletionParams) -> CompletionList:
-        """Handle completion request."""
+        """Handle completion request.
+
+        Provides context-aware completions for tasktree YAML files.
+        Currently supports tt.* built-in variable completion anywhere
+        in the document where {{ tt. is typed.
+
+        Args:
+            params: Completion request parameters containing document URI and cursor position
+
+        Returns:
+            CompletionList containing matching completion items, or empty list if no matches
+        """
         uri = params.text_document.uri
         position = params.position
 
