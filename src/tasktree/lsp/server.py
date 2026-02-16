@@ -192,19 +192,17 @@ def create_server() -> TasktreeLanguageServer:
         prefix = get_prefix_at_position(text, position)
 
         # Try tt.* built-in variable completion
-        result = _complete_template_variables(
-            prefix, "{{ tt.", BUILTIN_VARIABLES, "Built-in"
-        )
-        if result.items:
-            return result
+        if "{{ tt." in prefix:
+            return _complete_template_variables(
+                prefix, "{{ tt.", BUILTIN_VARIABLES, "Built-in"
+            )
 
         # Try var.* user-defined variable completion
-        variables = extract_variables(text)
-        result = _complete_template_variables(
-            prefix, "{{ var.", variables, "User"
-        )
-        if result.items:
-            return result
+        if "{{ var." in prefix:
+            variables = extract_variables(text)
+            return _complete_template_variables(
+                prefix, "{{ var.", variables, "User"
+            )
 
         return CompletionList(is_incomplete=False, items=[])
 
