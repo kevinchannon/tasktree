@@ -462,6 +462,36 @@ class TestCreateServer(unittest.TestCase):
         var_names = {item.label for item in result.items}
         self.assertEqual(var_names, {"simple", "from_env", "from_eval"})
 
+    def test_completion_var_with_trailing_braces(self):
+        """Test completion with partial var name and trailing }} (common typo pattern)."""
+        server = create_server()
+        open_handler = server.handlers["textDocument/didOpen"]
+        completion_handler = server.handlers["textDocument/completion"]
+
+        # Open document with partial variable name followed by }}
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="variables:\n  my_var: value\n  my_other: test\ntasks:\n  build:\n    cmd: echo {{ var.my_ }}",
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion at "my_" (before closing }})
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
+            position=Position(line=5, character=29),  # After "my_", before }}
+        )
+
+        result = completion_handler(completion_params)
+
+        # Should get both my_* variables
+        self.assertEqual(len(result.items), 2)
+        var_names = {item.label for item in result.items}
+        self.assertEqual(var_names, {"my_var", "my_other"})
+
 
 class TestMain(unittest.TestCase):
     """Tests for main entry point."""
