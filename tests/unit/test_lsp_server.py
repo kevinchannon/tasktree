@@ -10,7 +10,10 @@ from pygls.lsp.types import (
     InitializeParams,
     CompletionOptions,
     DidOpenTextDocumentParams,
+    DidChangeTextDocumentParams,
     TextDocumentItem,
+    VersionedTextDocumentIdentifier,
+    TextDocumentContentChangeEvent,
 )
 
 
@@ -112,6 +115,47 @@ class TestCreateServer(unittest.TestCase):
         self.assertEqual(
             server.documents["file:///test/tasktree.yaml"],
             "tasks:\n  hello:\n    cmd: echo hello",
+        )
+
+    def test_did_change_handler_registered(self):
+        """Test that the did_change handler is registered."""
+        server = create_server()
+        self.assertIn("textDocument/didChange", server.lsp._features)
+
+    def test_did_change_updates_document(self):
+        """Test that did_change updates document contents."""
+        server = create_server()
+        open_handler = server.lsp._features["textDocument/didOpen"]
+        change_handler = server.lsp._features["textDocument/didChange"]
+
+        # First open a document
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  hello:\n    cmd: echo hello",
+            )
+        )
+        open_handler(open_params)
+
+        # Now change it
+        change_params = DidChangeTextDocumentParams(
+            text_document=VersionedTextDocumentIdentifier(
+                uri="file:///test/tasktree.yaml", version=2
+            ),
+            content_changes=[
+                TextDocumentContentChangeEvent(
+                    text="tasks:\n  hello:\n    cmd: echo world"
+                )
+            ],
+        )
+        change_handler(change_params)
+
+        # Verify the document was updated
+        self.assertEqual(
+            server.documents["file:///test/tasktree.yaml"],
+            "tasks:\n  hello:\n    cmd: echo world",
         )
 
 

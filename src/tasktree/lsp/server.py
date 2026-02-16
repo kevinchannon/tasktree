@@ -7,6 +7,7 @@ from pygls.lsp.types import (
     ServerCapabilities,
     CompletionOptions,
     DidOpenTextDocumentParams,
+    DidChangeTextDocumentParams,
 )
 
 import tasktree
@@ -68,6 +69,14 @@ def create_server() -> TasktreeLanguageServer:
         uri = params.text_document.uri
         text = params.text_document.text
         server.documents[uri] = text
+
+    @server.feature("textDocument/didChange")
+    def did_change(params: DidChangeTextDocumentParams) -> None:
+        """Handle document change notification."""
+        uri = params.text_document.uri
+        # In full sync mode, we get the entire document in the first change
+        if params.content_changes:
+            server.documents[uri] = params.content_changes[0].text
 
     return server
 
