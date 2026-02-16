@@ -1,9 +1,9 @@
 """Tasktree LSP server main entry point."""
 
-from pygls import LanguageServer
+from pygls.server import Server
 
 
-class TasktreeLanguageServer(LanguageServer):
+class TasktreeLanguageServer(Server):
     """Language server for tasktree files."""
 
     pass
