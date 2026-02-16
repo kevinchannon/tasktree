@@ -42,6 +42,16 @@ class TestMain(unittest.TestCase):
         mock_server_class.assert_called_once_with("tasktree-lsp", tasktree.__version__)
         mock_server.start_io.assert_called_once()
 
+    @patch("tasktree.lsp.server.main")
+    def test_main_execution_path(self, mock_main):
+        """Test that __name__ == '__main__' execution path calls main()."""
+        # Import and execute the module's __main__ block
+        import runpy
+
+        mock_main.reset_mock()
+        runpy.run_module("tasktree.lsp.server", run_name="__main__")
+        mock_main.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()
