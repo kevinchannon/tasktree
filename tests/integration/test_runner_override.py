@@ -952,5 +952,124 @@ class TestRunnerPrecedenceOrder(unittest.TestCase):
                 os.chdir(original_cwd)
 
 
+class TestEdgeCases(unittest.TestCase):
+    """Integration tests for edge cases in runner override feature."""
+
+    def setUp(self):
+        self.runner = CliRunner()
+        self.env = {"NO_COLOR": "1"}
+
+    def test_multiple_imports_same_file_different_overrides(self):
+        """Test importing the same file multiple times with different blanket overrides."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Shared task file with no runner specified
+            (project_root / "shared.yaml").write_text(
+                "tasks:\n"
+                "  task1:\n"
+                "    cmd: echo 'task1'\n"
+            )
+
+            # Root file imports the same file twice with different blanket overrides
+            recipe_path = project_root / "tasktree.yaml"
+            recipe_path.write_text(
+                "runners:\n"
+                "  runner_a:\n"
+                "    shell: /bin/bash\n"
+                "  runner_b:\n"
+                "    shell: /bin/sh\n"
+                "imports:\n"
+                "  - file: shared.yaml\n"
+                "    as: set_a\n"
+                "    run_in: runner_a\n"
+                "  - file: shared.yaml\n"
+                "    as: set_b\n"
+                "    run_in: runner_b\n"
+                "tasks:\n"
+                "  all:\n"
+                "    deps: [set_a.task1, set_b.task1]\n"
+                "    cmd: echo 'done'\n"
+            )
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Verify set_a.task1 uses runner_a
+                result = self.runner.invoke(
+                    app, ["--show", "set_a.task1"], env=self.env
+                )
+                stripped = strip_ansi_codes(result.stdout)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {stripped}")
+                self.assertIn("runner_a", stripped)
+
+                # Verify set_b.task1 uses runner_b
+                result = self.runner.invoke(
+                    app, ["--show", "set_b.task1"], env=self.env
+                )
+                stripped = strip_ansi_codes(result.stdout)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {stripped}")
+                self.assertIn("runner_b", stripped)
+
+                # Execute both to verify they work independently
+                result = self.runner.invoke(app, ["all"], env=self.env)
+                self.assertEqual(result.exit_code, 0, f"Command failed: {result.stdout}")
+                # Both task1 instances should run (verified by exit code)
+
+            finally:
+                os.chdir(original_cwd)
+
+    def test_pinned_task_with_nonexistent_runner_fails_at_invocation(self):
+        """Test that pinned task referencing non-existent runner fails only when that task is invoked."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Imported file with pinned task referencing non-existent runner
+            (project_root / "build.yaml").write_text(
+                "tasks:\n"
+                "  broken_task:\n"
+                "    cmd: echo 'this will fail'\n"
+                "    run_in: nonexistent_runner\n"
+                "    pin_runner: true\n"
+                "  good_task:\n"
+                "    cmd: echo 'this works'\n"
+            )
+
+            # Root file imports the broken task
+            recipe_path = project_root / "tasktree.yaml"
+            recipe_path.write_text(
+                "runners:\n"
+                "  default_runner:\n"
+                "    shell: /bin/bash\n"
+                "    default: true\n"
+                "imports:\n"
+                "  - file: build.yaml\n"
+                "    as: build\n"
+                "tasks:\n"
+                "  root:\n"
+                "    deps: [build.good_task]\n"
+                "    cmd: echo 'done'\n"
+            )
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # Running a task that doesn't depend on broken_task should work
+                result = self.runner.invoke(app, ["root"], env=self.env)
+                self.assertEqual(result.exit_code, 0, "Tasks not using broken_task should work")
+                self.assertIn("done", result.stdout)
+
+                # But invoking the broken task should fail with clear error
+                result = self.runner.invoke(app, ["build.broken_task"], env=self.env)
+                self.assertNotEqual(result.exit_code, 0, "Task with nonexistent runner should fail")
+                # Error should mention the missing runner
+                self.assertIn("nonexistent_runner", result.stdout.lower() + result.stderr.lower())
+
+            finally:
+                os.chdir(original_cwd)
+
+
 if __name__ == "__main__":
     unittest.main()
