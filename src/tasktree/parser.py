@@ -732,9 +732,11 @@ def find_recipe_file(start_dir: Path | None = None) -> Path | None:
         # Only check for *.tasks files if no standard recipe files found
         # (*.tasks files are typically imports, not main recipes)
         tasks_files = []
-        for tasks_file in current.glob("*.tasks"):
-            if tasks_file.is_file():
-                tasks_files.append(tasks_file)
+        globs = ["*.tasks", "*.tt"]
+        for g in globs:
+            for tasks_file in current.glob(g):
+                if tasks_file.is_file():
+                    tasks_files.append(tasks_file)
 
         if len(tasks_files) > 1:
             # Multiple *.tasks files found - ambiguous
