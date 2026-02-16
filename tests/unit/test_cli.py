@@ -6,7 +6,7 @@ from unittest.mock import patch
 import click
 import typer
 
-from tasktree.cli import (
+from tasktree.cli_commands import (
     _supports_unicode,
     get_action_failure_string,
     get_action_success_string,
@@ -269,9 +269,9 @@ class TestUnicodeSupport(unittest.TestCase):
     @athena: 8f0158c7f379
     """
 
-    @patch("tasktree.cli.os.environ", {})
-    @patch("tasktree.cli.os.name", "posix")
-    @patch("tasktree.cli.sys.stdout")
+    @patch("tasktree.cli_commands.os.environ", {})
+    @patch("tasktree.cli_commands.os.name", "posix")
+    @patch("tasktree.cli_commands.sys.stdout")
     def test_supports_unicode_with_utf8_encoding(self, mock_stdout):
         """
         Test that UTF-8 encoding returns True.
@@ -280,9 +280,9 @@ class TestUnicodeSupport(unittest.TestCase):
         mock_stdout.encoding = "utf-8"
         self.assertTrue(_supports_unicode())
 
-    @patch("tasktree.cli.os.environ", {})
-    @patch("tasktree.cli.os.name", "posix")
-    @patch("tasktree.cli.sys.stdout")
+    @patch("tasktree.cli_commands.os.environ", {})
+    @patch("tasktree.cli_commands.os.name", "posix")
+    @patch("tasktree.cli_commands.sys.stdout")
     def test_supports_unicode_with_utf8_uppercase(self, mock_stdout):
         """
         Test that UTF-8 (uppercase) encoding returns True.
@@ -291,9 +291,9 @@ class TestUnicodeSupport(unittest.TestCase):
         mock_stdout.encoding = "UTF-8"
         self.assertTrue(_supports_unicode())
 
-    @patch("tasktree.cli.os.environ", {})
-    @patch("tasktree.cli.os.name", "nt")
-    @patch("tasktree.cli.sys.stdout")
+    @patch("tasktree.cli_commands.os.environ", {})
+    @patch("tasktree.cli_commands.os.name", "nt")
+    @patch("tasktree.cli_commands.sys.stdout")
     def test_supports_unicode_on_classic_windows_console(self, mock_stdout):
         """
         Test that classic Windows console (conhost) returns False.
@@ -303,9 +303,9 @@ class TestUnicodeSupport(unittest.TestCase):
         # No WT_SESSION in environ means classic console
         self.assertFalse(_supports_unicode())
 
-    @patch("tasktree.cli.os.environ", {"WT_SESSION": "some-value"})
-    @patch("tasktree.cli.os.name", "nt")
-    @patch("tasktree.cli.sys.stdout")
+    @patch("tasktree.cli_commands.os.environ", {"WT_SESSION": "some-value"})
+    @patch("tasktree.cli_commands.os.name", "nt")
+    @patch("tasktree.cli_commands.sys.stdout")
     def test_supports_unicode_on_windows_terminal(self, mock_stdout):
         """
         Test that Windows Terminal with UTF-8 returns True.
@@ -315,9 +315,9 @@ class TestUnicodeSupport(unittest.TestCase):
         # WT_SESSION present means Windows Terminal
         self.assertTrue(_supports_unicode())
 
-    @patch("tasktree.cli.os.environ", {})
-    @patch("tasktree.cli.os.name", "posix")
-    @patch("tasktree.cli.sys.stdout")
+    @patch("tasktree.cli_commands.os.environ", {})
+    @patch("tasktree.cli_commands.os.name", "posix")
+    @patch("tasktree.cli_commands.sys.stdout")
     def test_supports_unicode_with_encoding_that_fails_encode(self, mock_stdout):
         """
         Test that encoding that can't encode symbols returns False.
@@ -327,9 +327,9 @@ class TestUnicodeSupport(unittest.TestCase):
         mock_stdout.encoding = "ascii"
         self.assertFalse(_supports_unicode())
 
-    @patch("tasktree.cli.os.environ", {})
-    @patch("tasktree.cli.os.name", "posix")
-    @patch("tasktree.cli.sys.stdout")
+    @patch("tasktree.cli_commands.os.environ", {})
+    @patch("tasktree.cli_commands.os.name", "posix")
+    @patch("tasktree.cli_commands.sys.stdout")
     def test_supports_unicode_with_none_encoding(self, mock_stdout):
         """
         Test that None encoding returns False.
@@ -338,9 +338,9 @@ class TestUnicodeSupport(unittest.TestCase):
         mock_stdout.encoding = None
         self.assertFalse(_supports_unicode())
 
-    @patch("tasktree.cli.os.environ", {})
-    @patch("tasktree.cli.os.name", "posix")
-    @patch("tasktree.cli.sys.stdout")
+    @patch("tasktree.cli_commands.os.environ", {})
+    @patch("tasktree.cli_commands.os.name", "posix")
+    @patch("tasktree.cli_commands.sys.stdout")
     def test_supports_unicode_with_latin1_encoding(self, mock_stdout):
         """
         Test that Latin-1 encoding returns False (can't encode symbols).
@@ -349,7 +349,7 @@ class TestUnicodeSupport(unittest.TestCase):
         mock_stdout.encoding = "latin-1"
         self.assertFalse(_supports_unicode())
 
-    @patch("tasktree.cli._supports_unicode")
+    @patch("tasktree.cli_commands._supports_unicode")
     def test_get_action_success_string_with_unicode(self, mock_supports):
         """
         Test success string returns Unicode symbol when supported.
@@ -358,7 +358,7 @@ class TestUnicodeSupport(unittest.TestCase):
         mock_supports.return_value = True
         self.assertEqual(get_action_success_string(), "✓")
 
-    @patch("tasktree.cli._supports_unicode")
+    @patch("tasktree.cli_commands._supports_unicode")
     def test_get_action_success_string_without_unicode(self, mock_supports):
         """
         Test success string returns ASCII when Unicode not supported.
@@ -367,7 +367,7 @@ class TestUnicodeSupport(unittest.TestCase):
         mock_supports.return_value = False
         self.assertEqual(get_action_success_string(), "[ OK ]")
 
-    @patch("tasktree.cli._supports_unicode")
+    @patch("tasktree.cli_commands._supports_unicode")
     def test_get_action_failure_string_with_unicode(self, mock_supports):
         """
         Test failure string returns Unicode symbol when supported.
@@ -376,7 +376,7 @@ class TestUnicodeSupport(unittest.TestCase):
         mock_supports.return_value = True
         self.assertEqual(get_action_failure_string(), "✗")
 
-    @patch("tasktree.cli._supports_unicode")
+    @patch("tasktree.cli_commands._supports_unicode")
     def test_get_action_failure_string_without_unicode(self, mock_supports):
         """
         Test failure string returns ASCII when Unicode not supported.
