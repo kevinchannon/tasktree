@@ -208,7 +208,7 @@ class TestLSPCompletionIntegration(unittest.TestCase):
             text_document=TextDocumentIdentifier(
                 uri="file:///test/project/tasktree.yaml"
             ),
-            position=Position(line=2, character=29),  # After "{{ tt.user" (before closing quote)
+            position=Position(line=2, character=26),  # After "{{ tt.user" (at 'r' in user)
         )
         result = completion_handler(completion_params)
 
