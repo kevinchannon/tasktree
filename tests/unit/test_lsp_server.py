@@ -336,7 +336,7 @@ class TestCreateServer(unittest.TestCase):
         # Request completion at "proj" (before closing }})
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
-            position=Position(line=2, character=29),  # At "proj" before }}
+            position=Position(line=2, character=24),  # After "proj", before }}
         )
         result = completion_handler(completion_params)
 
