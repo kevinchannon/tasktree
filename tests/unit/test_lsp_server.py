@@ -186,6 +186,104 @@ class TestCreateServer(unittest.TestCase):
         self.assertFalse(result.is_incomplete)
         self.assertIsInstance(result.items, list)
 
+    def test_completion_tt_builtin_variables(self):
+        """Test that completion returns tt.* built-in variables."""
+        server = create_server()
+        open_handler = server.lsp._features["textDocument/didOpen"]
+        completion_handler = server.lsp._features["textDocument/completion"]
+
+        # Open a document with a cmd field
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  hello:\n    cmd: echo {{ tt.",
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion at the end of "{{ tt."
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
+            position=Position(line=2, character=25),  # After "{{ tt."
+        )
+
+        result = completion_handler(completion_params)
+
+        # Verify we get all 8 built-in variables
+        self.assertEqual(len(result.items), 8)
+        var_names = {item.label for item in result.items}
+        expected_vars = {
+            "project_root",
+            "recipe_dir",
+            "task_name",
+            "working_dir",
+            "timestamp",
+            "timestamp_unix",
+            "user_home",
+            "user_name",
+        }
+        self.assertEqual(var_names, expected_vars)
+
+    def test_completion_tt_filtered_by_prefix(self):
+        """Test that completion filters tt.* variables by prefix."""
+        server = create_server()
+        open_handler = server.lsp._features["textDocument/didOpen"]
+        completion_handler = server.lsp._features["textDocument/completion"]
+
+        # Open a document with a partial variable name
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  hello:\n    cmd: echo {{ tt.time",
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion after "{{ tt.time"
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
+            position=Position(line=2, character=29),  # After "{{ tt.time"
+        )
+
+        result = completion_handler(completion_params)
+
+        # Verify we only get timestamp variables
+        self.assertEqual(len(result.items), 2)
+        var_names = {item.label for item in result.items}
+        self.assertEqual(var_names, {"timestamp", "timestamp_unix"})
+
+    def test_completion_not_in_cmd_field(self):
+        """Test that completion returns empty when not in cmd field."""
+        server = create_server()
+        open_handler = server.lsp._features["textDocument/didOpen"]
+        completion_handler = server.lsp._features["textDocument/completion"]
+
+        # Open a document where we're not in a cmd field
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  hello:\n    deps: [build]",
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion in deps field
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
+            position=Position(line=2, character=15),
+        )
+
+        result = completion_handler(completion_params)
+
+        # Verify we get no completions
+        self.assertEqual(len(result.items), 0)
+
 
 class TestMain(unittest.TestCase):
     """Tests for main entry point."""

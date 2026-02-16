@@ -10,9 +10,13 @@ from pygls.lsp.types import (
     DidChangeTextDocumentParams,
     CompletionParams,
     CompletionList,
+    CompletionItem,
+    CompletionItemKind,
 )
 
 import tasktree
+from tasktree.lsp.builtin_variables import BUILTIN_VARIABLES
+from tasktree.lsp.position_utils import is_in_cmd_field, get_prefix_at_position
 
 __all__ = ["TasktreeLanguageServer", "main"]
 
@@ -83,7 +87,43 @@ def create_server() -> TasktreeLanguageServer:
     @server.feature("textDocument/completion")
     def completion(params: CompletionParams) -> CompletionList:
         """Handle completion request."""
-        # Return empty list for now - will implement completion logic in next commit
+        uri = params.text_document.uri
+        position = params.position
+
+        # Get the document text
+        if uri not in server.documents:
+            return CompletionList(is_incomplete=False, items=[])
+
+        text = server.documents[uri]
+
+        # Check if we're in a cmd field
+        if not is_in_cmd_field(text, position):
+            return CompletionList(is_incomplete=False, items=[])
+
+        # Get the prefix up to the cursor
+        prefix = get_prefix_at_position(text, position)
+
+        # Check if we're completing tt. variables
+        if "{{ tt." in prefix:
+            # Extract the partial variable name after "{{ tt."
+            tt_start = prefix.rfind("{{ tt.")
+            partial = prefix[tt_start + 6 :]  # 6 = len("{{ tt.")
+
+            # Filter builtin variables by partial match
+            items = []
+            for var_name in BUILTIN_VARIABLES:
+                if var_name.startswith(partial):
+                    items.append(
+                        CompletionItem(
+                            label=var_name,
+                            kind=CompletionItemKind.Variable,
+                            detail=f"Built-in variable: {{ tt.{var_name} }}",
+                            insert_text=var_name,
+                        )
+                    )
+
+            return CompletionList(is_incomplete=False, items=items)
+
         return CompletionList(is_incomplete=False, items=[])
 
     return server
