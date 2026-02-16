@@ -9,6 +9,7 @@ from tasktree.lsp.server import TasktreeLanguageServer, create_server, main
 from pygls.lsp.types import (
     InitializeParams,
     CompletionOptions,
+    TextDocumentSyncKind,
     DidOpenTextDocumentParams,
     DidChangeTextDocumentParams,
     TextDocumentItem,
@@ -59,8 +60,11 @@ class TestCreateServer(unittest.TestCase):
         handler = server.lsp._features["initialize"]
         result = handler(params)
 
-        # Verify the result contains completion capabilities
+        # Verify the result contains text sync capability
         self.assertIsNotNone(result.capabilities)
+        self.assertEqual(result.capabilities.text_document_sync, TextDocumentSyncKind.Full)
+
+        # Verify the result contains completion capabilities
         self.assertIsNotNone(result.capabilities.completion_provider)
         self.assertIsInstance(result.capabilities.completion_provider, CompletionOptions)
         self.assertEqual(result.capabilities.completion_provider.trigger_characters, ["."])

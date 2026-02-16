@@ -6,6 +6,7 @@ from pygls.lsp.types import (
     InitializeResult,
     ServerCapabilities,
     CompletionOptions,
+    TextDocumentSyncKind,
     DidOpenTextDocumentParams,
     DidChangeTextDocumentParams,
     CompletionParams,
@@ -53,6 +54,7 @@ def create_server() -> TasktreeLanguageServer:
         """Handle LSP initialize request."""
         return InitializeResult(
             capabilities=ServerCapabilities(
+                text_document_sync=TextDocumentSyncKind.Full,
                 completion_provider=CompletionOptions(
                     trigger_characters=["."],
                 )
