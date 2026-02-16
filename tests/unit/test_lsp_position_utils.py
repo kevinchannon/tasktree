@@ -11,8 +11,8 @@ class TestIsInCmdField(unittest.TestCase):
     def test_position_in_cmd_field(self):
         """Test that position inside cmd field value returns True."""
         text = "tasks:\n  hello:\n    cmd: echo {{ tt."
-        # Position at the end of the cmd line
-        position = Position(line=2, character=25)
+        # Position at the end of the cmd line (after the space following 'cmd:')
+        position = Position(line=2, character=9)
         self.assertTrue(is_in_cmd_field(text, position))
 
     def test_position_not_in_cmd_field(self):
@@ -59,7 +59,7 @@ class TestGetPrefixAtPosition(unittest.TestCase):
         text = "tasks:\n  hello:\n    cmd: echo {{ tt.project"
         position = Position(line=2, character=24)
         prefix = get_prefix_at_position(text, position)
-        self.assertEqual(prefix, "    cmd: echo {{ tt.")
+        self.assertEqual(prefix, "    cmd: echo {{ tt.proj")
 
     def test_get_prefix_at_end(self):
         """Test getting prefix at end of line."""

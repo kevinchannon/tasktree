@@ -148,15 +148,16 @@ class TestCreateServer(unittest.TestCase):
         open_handler(open_params)
 
         # Now change it
+        # In lsprotocol 2025.0.0+, for full sync mode we use a simple object with text attribute
+        class ChangeEvent:
+            def __init__(self, text):
+                self.text = text
+
         change_params = DidChangeTextDocumentParams(
             text_document=VersionedTextDocumentIdentifier(
                 uri="file:///test/tasktree.yaml", version=2
             ),
-            content_changes=[
-                TextDocumentContentChangeEvent(
-                    text="tasks:\n  hello:\n    cmd: echo world"
-                )
-            ],
+            content_changes=[ChangeEvent(text="tasks:\n  hello:\n    cmd: echo world")],
         )
         change_handler(change_params)
 
