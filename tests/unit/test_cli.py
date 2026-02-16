@@ -6,7 +6,7 @@ from unittest.mock import patch
 import click
 import typer
 
-from tasktree.cli import (
+from tasktree.cli_commands import (
     _supports_unicode,
     get_action_failure_string,
     get_action_success_string,
@@ -349,7 +349,7 @@ class TestUnicodeSupport(unittest.TestCase):
         mock_stdout.encoding = "latin-1"
         self.assertFalse(_supports_unicode())
 
-    @patch("tasktree.cli._supports_unicode")
+    @patch("tasktree.cli_commands._supports_unicode")
     def test_get_action_success_string_with_unicode(self, mock_supports):
         """
         Test success string returns Unicode symbol when supported.
@@ -358,7 +358,7 @@ class TestUnicodeSupport(unittest.TestCase):
         mock_supports.return_value = True
         self.assertEqual(get_action_success_string(), "✓")
 
-    @patch("tasktree.cli._supports_unicode")
+    @patch("tasktree.cli_commands._supports_unicode")
     def test_get_action_success_string_without_unicode(self, mock_supports):
         """
         Test success string returns ASCII when Unicode not supported.
@@ -367,7 +367,7 @@ class TestUnicodeSupport(unittest.TestCase):
         mock_supports.return_value = False
         self.assertEqual(get_action_success_string(), "[ OK ]")
 
-    @patch("tasktree.cli._supports_unicode")
+    @patch("tasktree.cli_commands._supports_unicode")
     def test_get_action_failure_string_with_unicode(self, mock_supports):
         """
         Test failure string returns Unicode symbol when supported.
@@ -376,7 +376,7 @@ class TestUnicodeSupport(unittest.TestCase):
         mock_supports.return_value = True
         self.assertEqual(get_action_failure_string(), "✗")
 
-    @patch("tasktree.cli._supports_unicode")
+    @patch("tasktree.cli_commands._supports_unicode")
     def test_get_action_failure_string_without_unicode(self, mock_supports):
         """
         Test failure string returns ASCII when Unicode not supported.
