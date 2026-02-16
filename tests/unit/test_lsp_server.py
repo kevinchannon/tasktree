@@ -3,6 +3,7 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
+import tasktree
 from tasktree.lsp.server import TasktreeLanguageServer, main
 
 
@@ -22,8 +23,13 @@ class TestMain(unittest.TestCase):
 
     def test_main_server_name(self):
         """Test that the server name is set to 'tasktree-lsp'."""
-        server = TasktreeLanguageServer("tasktree-lsp", "v0.1")
+        server = TasktreeLanguageServer("tasktree-lsp", tasktree.__version__)
         self.assertEqual(server.name, "tasktree-lsp")
+
+    def test_main_server_version(self):
+        """Test that the server version is set to tasktree.__version__."""
+        server = TasktreeLanguageServer("tasktree-lsp", tasktree.__version__)
+        self.assertEqual(server.version, tasktree.__version__)
 
     @patch("tasktree.lsp.server.TasktreeLanguageServer")
     def test_main_starts_server(self, mock_server_class):
@@ -33,7 +39,7 @@ class TestMain(unittest.TestCase):
 
         main()
 
-        mock_server_class.assert_called_once_with("tasktree-lsp", "v0.1")
+        mock_server_class.assert_called_once_with("tasktree-lsp", tasktree.__version__)
         mock_server.start_io.assert_called_once()
 
 

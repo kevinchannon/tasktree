@@ -2,6 +2,8 @@
 
 from pygls.lsp.server import LanguageServer
 
+import tasktree
+
 
 class TasktreeLanguageServer(LanguageServer):
     """Language server for tasktree files."""
@@ -11,7 +13,7 @@ class TasktreeLanguageServer(LanguageServer):
 
 def main() -> None:
     """Start the tasktree LSP server."""
-    server = TasktreeLanguageServer("tasktree-lsp", "v0.1")
+    server = TasktreeLanguageServer("tasktree-lsp", tasktree.__version__)
     server.start_io()
 
 
