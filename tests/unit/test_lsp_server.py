@@ -492,6 +492,36 @@ class TestCreateServer(unittest.TestCase):
         var_names = {item.label for item in result.items}
         self.assertEqual(var_names, {"my_var", "my_other"})
 
+    def test_completion_multiple_templates_on_line(self):
+        """Test completion with multiple templates on the same line."""
+        server = create_server()
+        open_handler = server.handlers["textDocument/didOpen"]
+        completion_handler = server.handlers["textDocument/completion"]
+
+        # Open document with multiple templates on one line
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="variables:\n  foo: bar\n  baz: qux\ntasks:\n  test:\n    cmd: echo {{ var.foo }} and {{ var.",
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion at the second {{ var. on the same line
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
+            position=Position(line=5, character=42),  # After second "{{ var."
+        )
+
+        result = completion_handler(completion_params)
+
+        # Should get all variables (not affected by the first completed template)
+        self.assertEqual(len(result.items), 2)
+        var_names = {item.label for item in result.items}
+        self.assertEqual(var_names, {"baz", "foo"})
+
 
 class TestMain(unittest.TestCase):
     """Tests for main entry point."""
