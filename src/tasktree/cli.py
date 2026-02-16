@@ -17,6 +17,7 @@ import typer
 from rich.console import Console
 
 from tasktree import __version__
+from tasktree.cli_commands.init_recipe import init_recipe
 from tasktree.cli_commands.list_tasks import list_tasks
 from tasktree.cli_commands.show_task import show_task
 from tasktree.cli_commands.show_tree import show_tree
@@ -87,48 +88,6 @@ def get_action_failure_string() -> str:
     return "✗" if _supports_unicode() else "[ FAIL ]"
 
 
-def _init_recipe(logger: Logger):
-    """
-    Create a blank recipe file with commented examples.
-    @athena: f05c0eb014d4
-    """
-    recipe_path = Path("tasktree.yaml")
-    if recipe_path.exists():
-        logger.error("[red]tasktree.yaml already exists[/red]")
-        raise typer.Exit(1)
-
-    template = """# Task Tree Recipe
-# See https://github.com/kevinchannon/tasktree for documentation
-
-# Example task definitions:
-
-tasks:
-  # build:
-  #   desc: Compile the application
-  #   outputs: [target/release/bin]
-  #   cmd: cargo build --release
-
-  # test:
-  #   desc: Run tests
-  #   deps: [build]
-  #   cmd: cargo test
-
-  # deploy:
-  #   desc: Deploy to environment
-  #   deps: [build]
-  #   args:
-  #     - environment
-  #     - region: { default: eu-west-1 }
-  #   cmd: |
-  #     echo "Deploying to {{ arg.environment }} in {{ arg.region }}"
-  #     ./deploy.sh {{ arg.environment }} {{ arg.region }}
-
-# Uncomment and modify the examples above to define your tasks
-"""
-
-    recipe_path.write_text(template)
-    logger.info(f"[green]Created {recipe_path}[/green]")
-    logger.info("Edit the file to define your tasks")
 
 
 def _version_callback(value: bool):
@@ -259,7 +218,7 @@ def main(
         raise typer.Exit()
 
     if init:
-        _init_recipe(logger)
+        init_recipe(logger)
         raise typer.Exit()
 
     if clean:
