@@ -104,10 +104,24 @@ def create_server() -> TasktreeLanguageServer:
         prefix = get_prefix_at_position(text, position)
 
         # Check if we're completing tt. variables
-        if "{{ tt." in prefix:
+        TT_PREFIX = "{{ tt."
+        if TT_PREFIX in prefix:
             # Extract the partial variable name after "{{ tt."
-            tt_start = prefix.rfind("{{ tt.")
-            partial = prefix[tt_start + 6 :]  # 6 = len("{{ tt.")
+            tt_start = prefix.rfind(TT_PREFIX)
+            template_rest = prefix[tt_start:]
+
+            # Check we haven't closed the template yet
+            if "}}" in template_rest:
+                close_index = template_rest.index("}}")
+                # If }} is before or at the tt. prefix end, we're outside the template
+                if close_index <= len(TT_PREFIX):
+                    return CompletionList(is_incomplete=False, items=[])
+
+            partial = prefix[tt_start + len(TT_PREFIX):]
+
+            # Strip any trailing }} from partial if present
+            if "}}" in partial:
+                partial = partial[:partial.index("}}")]
 
             # Filter builtin variables by partial match
             items = []

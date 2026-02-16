@@ -289,6 +289,61 @@ class TestCreateServer(unittest.TestCase):
         # Verify we get no completions
         self.assertEqual(len(result.items), 0)
 
+    def test_completion_outside_template_braces(self):
+        """Test no completion when cursor is after closing }}."""
+        server = create_server()
+        open_handler = server.handlers["textDocument/didOpen"]
+        completion_handler = server.handlers["textDocument/completion"]
+
+        # Open document with completed template followed by tt.
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  hello:\n    cmd: echo {{ tt.user_name }} tt.",
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion after the second "tt." (outside template)
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
+            position=Position(line=2, character=42),  # After "}} tt."
+        )
+        result = completion_handler(completion_params)
+
+        # Should get no completions (cursor is outside {{ }})
+        self.assertEqual(len(result.items), 0)
+
+    def test_completion_with_trailing_braces(self):
+        """Test completion strips trailing }} from partial match."""
+        server = create_server()
+        open_handler = server.handlers["textDocument/didOpen"]
+        completion_handler = server.handlers["textDocument/completion"]
+
+        # Open document and insert cursor in middle of variable with closing braces
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  hello:\n    cmd: echo {{ tt.proj }}",
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion at "proj" (before closing }})
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
+            position=Position(line=2, character=29),  # At "proj" before }}
+        )
+        result = completion_handler(completion_params)
+
+        # Should get project_root completion
+        self.assertEqual(len(result.items), 1)
+        self.assertEqual(result.items[0].label, "project_root")
+
 
 class TestMain(unittest.TestCase):
     """Tests for main entry point."""
