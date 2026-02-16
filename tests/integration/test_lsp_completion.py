@@ -341,7 +341,7 @@ class TestLSPCompletionIntegration(unittest.TestCase):
                 uri="file:///test/project/tasktree.yaml",
                 language_id="yaml",
                 version=1,
-                text='variables:\n  simple: value\n  from_env:\n    env: HOME\n  from_eval:\n    eval: "echo test"\ntasks:\n  build:\n    cmd: {{ var.',
+                text='variables:\n  simple: value\n  from_env:\n    env: HOME\n  from_eval:\n    eval: "echo test"\ntasks:\n  build:\n    cmd: echo {{ var.',
             )
         )
         open_handler(open_params)
