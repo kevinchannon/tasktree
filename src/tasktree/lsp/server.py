@@ -16,7 +16,7 @@ from pygls.lsp.types import (
 
 import tasktree
 from tasktree.lsp.builtin_variables import BUILTIN_VARIABLES
-from tasktree.lsp.position_utils import is_in_cmd_field, get_prefix_at_position
+from tasktree.lsp.position_utils import get_prefix_at_position
 
 __all__ = ["TasktreeLanguageServer", "main"]
 
@@ -95,10 +95,6 @@ def create_server() -> TasktreeLanguageServer:
             return CompletionList(is_incomplete=False, items=[])
 
         text = server.documents[uri]
-
-        # Check if we're in a cmd field
-        if not is_in_cmd_field(text, position):
-            return CompletionList(is_incomplete=False, items=[])
 
         # Get the prefix up to the cursor
         prefix = get_prefix_at_position(text, position)

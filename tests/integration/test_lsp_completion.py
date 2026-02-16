@@ -112,8 +112,8 @@ class TestLSPCompletionIntegration(unittest.TestCase):
         self.assertEqual(len(result.items), 1)
         self.assertEqual(result.items[0].label, "project_root")
 
-    def test_no_completion_outside_cmd_field(self):
-        """Test that no completions are provided outside cmd fields."""
+    def test_completion_in_working_dir_field(self):
+        """Test that completions work in working_dir and other fields."""
         # Open document
         open_handler = self.server.lsp._features["textDocument/didOpen"]
         open_params = DidOpenTextDocumentParams(
@@ -121,23 +121,24 @@ class TestLSPCompletionIntegration(unittest.TestCase):
                 uri="file:///test/project/tasktree.yaml",
                 language_id="yaml",
                 version=1,
-                text="tasks:\n  build:\n    deps: [clean]\n    cmd: echo done",
+                text="tasks:\n  build:\n    working_dir: {{ tt.proj",
             )
         )
         open_handler(open_params)
 
-        # Request completion in deps field (not cmd)
+        # Request completion in working_dir field
         completion_handler = self.server.lsp._features["textDocument/completion"]
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(
                 uri="file:///test/project/tasktree.yaml"
             ),
-            position=Position(line=2, character=15),  # Inside deps
+            position=Position(line=2, character=31),  # After "{{ tt.proj"
         )
         result = completion_handler(completion_params)
 
-        # Verify no completions
-        self.assertEqual(len(result.items), 0)
+        # Verify we get project_root completion
+        self.assertEqual(len(result.items), 1)
+        self.assertEqual(result.items[0].label, "project_root")
 
     def test_server_lifecycle_with_completion(self):
         """Test full LSP lifecycle including completion."""
@@ -184,6 +185,63 @@ class TestLSPCompletionIntegration(unittest.TestCase):
         exit_handler = self.server.lsp._features["exit"]
         exit_result = exit_handler()
         self.assertIsNone(exit_result)
+
+    def test_completion_in_variable_definition(self):
+        """Test that completions work in variable definitions."""
+        # Open document with variable using tt. in eval
+        open_handler = self.server.lsp._features["textDocument/didOpen"]
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/project/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text='variables:\n  my_var:\n    eval: "echo {{ tt.user"',
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion
+        completion_handler = self.server.lsp._features["textDocument/completion"]
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(
+                uri="file:///test/project/tasktree.yaml"
+            ),
+            position=Position(line=2, character=30),  # After "{{ tt.user"
+        )
+        result = completion_handler(completion_params)
+
+        # Verify we get user_home and user_name
+        self.assertEqual(len(result.items), 2)
+        var_names = {item.label for item in result.items}
+        self.assertEqual(var_names, {"user_home", "user_name"})
+
+    def test_completion_in_inputs_field(self):
+        """Test that completions work in inputs field."""
+        # Open document with inputs using tt.
+        open_handler = self.server.lsp._features["textDocument/didOpen"]
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/project/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  build:\n    inputs:\n      - {{ tt.recipe",
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion
+        completion_handler = self.server.lsp._features["textDocument/completion"]
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(
+                uri="file:///test/project/tasktree.yaml"
+            ),
+            position=Position(line=3, character=22),  # After "{{ tt.recipe"
+        )
+        result = completion_handler(completion_params)
+
+        # Verify we get recipe_dir
+        self.assertEqual(len(result.items), 1)
+        self.assertEqual(result.items[0].label, "recipe_dir")
 
 
 if __name__ == "__main__":
