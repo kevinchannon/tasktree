@@ -1,7 +1,6 @@
 """Parser wrapper for LSP to extract identifiers from tasktree YAML files."""
 
 import yaml
-from typing import Any
 
 
 def extract_variables(text: str) -> list[str]:
@@ -11,7 +10,7 @@ def extract_variables(text: str) -> list[str]:
         text: The YAML document text
 
     Returns:
-        List of variable names defined in the document
+        Alphabetically sorted list of variable names defined in the document
     """
     try:
         data = yaml.safe_load(text)
@@ -22,7 +21,7 @@ def extract_variables(text: str) -> list[str]:
         if not isinstance(variables, dict):
             return []
 
-        return list(variables.keys())
+        return sorted(variables.keys())
     except (yaml.YAMLError, AttributeError):
         # If YAML parsing fails, return empty list (graceful degradation)
         return []
