@@ -245,6 +245,149 @@ class TestLSPCompletionIntegration(unittest.TestCase):
         self.assertEqual(len(result.items), 1)
         self.assertEqual(result.items[0].label, "recipe_dir")
 
+    def test_full_workflow_var_completion(self):
+        """Test complete workflow for var.* user variable completion."""
+        # Initialize
+        init_handler = self.server.handlers["initialize"]
+        init_params = InitializeParams(
+            process_id=12345, root_uri="file:///test/project", capabilities={}
+        )
+        init_result = init_handler(init_params)
+        self.assertIsNotNone(init_result.capabilities.completion_provider)
+
+        # Open document with variables
+        open_handler = self.server.handlers["textDocument/didOpen"]
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/project/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="variables:\n  my_var: value\n  another_var: test\ntasks:\n  build:\n    cmd: echo {{ var.",
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion
+        completion_handler = self.server.handlers["textDocument/completion"]
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(
+                uri="file:///test/project/tasktree.yaml"
+            ),
+            position=Position(line=4, character=26),  # After "{{ var."
+        )
+        result = completion_handler(completion_params)
+
+        # Verify completions
+        self.assertEqual(len(result.items), 2)
+        var_names = {item.label for item in result.items}
+        self.assertEqual(var_names, {"my_var", "another_var"})
+
+    def test_var_completion_after_document_change(self):
+        """Test that var.* completion works after document changes."""
+        # Open document with variables
+        open_handler = self.server.handlers["textDocument/didOpen"]
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/project/build.tt",
+                language_id="yaml",
+                version=1,
+                text="variables:\n  foo: bar\ntasks:\n  test:\n    cmd: echo hello",
+            )
+        )
+        open_handler(open_params)
+
+        # Change document to add var. prefix
+        from lsprotocol.types import (
+            DidChangeTextDocumentParams,
+            VersionedTextDocumentIdentifier,
+        )
+
+        class ChangeEvent:
+            def __init__(self, text):
+                self.text = text
+
+        change_handler = self.server.handlers["textDocument/didChange"]
+        change_params = DidChangeTextDocumentParams(
+            text_document=VersionedTextDocumentIdentifier(
+                uri="file:///test/project/build.tt", version=2
+            ),
+            content_changes=[
+                ChangeEvent(
+                    text="variables:\n  foo: bar\n  foobar: baz\ntasks:\n  test:\n    cmd: echo {{ var.foo"
+                )
+            ],
+        )
+        change_handler(change_params)
+
+        # Request completion
+        completion_handler = self.server.handlers["textDocument/completion"]
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/project/build.tt"),
+            position=Position(line=4, character=29),  # After "{{ var.foo"
+        )
+        result = completion_handler(completion_params)
+
+        # Verify we get only foo-prefixed variables
+        self.assertEqual(len(result.items), 2)
+        var_names = {item.label for item in result.items}
+        self.assertEqual(var_names, {"foo", "foobar"})
+
+    def test_var_completion_with_complex_variables(self):
+        """Test that var.* completion works with complex variable specs."""
+        # Open document with env/eval/read variables
+        open_handler = self.server.handlers["textDocument/didOpen"]
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/project/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text='variables:\n  simple: value\n  from_env:\n    env: HOME\n  from_eval:\n    eval: "echo test"\ntasks:\n  build:\n    cmd: {{ var.',
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion
+        completion_handler = self.server.handlers["textDocument/completion"]
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(
+                uri="file:///test/project/tasktree.yaml"
+            ),
+            position=Position(line=6, character=21),  # After "{{ var."
+        )
+        result = completion_handler(completion_params)
+
+        # Verify we get all three variable names
+        self.assertEqual(len(result.items), 3)
+        var_names = {item.label for item in result.items}
+        self.assertEqual(var_names, {"simple", "from_env", "from_eval"})
+
+    def test_var_completion_no_variables_section(self):
+        """Test that var.* completion returns empty when no variables defined."""
+        # Open document without variables section
+        open_handler = self.server.handlers["textDocument/didOpen"]
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/project/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  build:\n    cmd: echo {{ var.",
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion
+        completion_handler = self.server.handlers["textDocument/completion"]
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(
+                uri="file:///test/project/tasktree.yaml"
+            ),
+            position=Position(line=2, character=26),  # After "{{ var."
+        )
+        result = completion_handler(completion_params)
+
+        # Verify we get no completions
+        self.assertEqual(len(result.items), 0)
+
 
 if __name__ == "__main__":
     unittest.main()
