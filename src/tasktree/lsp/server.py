@@ -43,6 +43,8 @@ class TasktreeLanguageServer(LanguageServer):
         super().__init__(name, version)
         # Store document contents in memory
         self.documents: dict[str, str] = {}
+        # Store handler references for testing
+        self.handlers: dict[str, callable] = {}
 
 
 def create_server() -> TasktreeLanguageServer:
@@ -123,6 +125,14 @@ def create_server() -> TasktreeLanguageServer:
             return CompletionList(is_incomplete=False, items=items)
 
         return CompletionList(is_incomplete=False, items=[])
+
+    # Store handler references for testing
+    server.handlers["initialize"] = initialize
+    server.handlers["shutdown"] = shutdown
+    server.handlers["exit"] = exit
+    server.handlers["textDocument/didOpen"] = did_open
+    server.handlers["textDocument/didChange"] = did_change
+    server.handlers["textDocument/completion"] = completion
 
     return server
 

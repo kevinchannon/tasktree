@@ -22,7 +22,7 @@ class TestLSPCompletionIntegration(unittest.TestCase):
     def test_full_workflow_tt_completion(self):
         """Test complete workflow: initialize -> open -> complete."""
         # Initialize
-        init_handler = self.server.lsp._features["initialize"]
+        init_handler = self.server.handlers["initialize"]
         init_params = InitializeParams(
             process_id=12345, root_uri="file:///test/project", capabilities={}
         )
@@ -30,7 +30,7 @@ class TestLSPCompletionIntegration(unittest.TestCase):
         self.assertIsNotNone(init_result.capabilities.completion_provider)
 
         # Open document
-        open_handler = self.server.lsp._features["textDocument/didOpen"]
+        open_handler = self.server.handlers["textDocument/didOpen"]
         open_params = DidOpenTextDocumentParams(
             text_document=TextDocumentItem(
                 uri="file:///test/project/tasktree.yaml",
@@ -42,7 +42,7 @@ class TestLSPCompletionIntegration(unittest.TestCase):
         open_handler(open_params)
 
         # Request completion
-        completion_handler = self.server.lsp._features["textDocument/completion"]
+        completion_handler = self.server.handlers["textDocument/completion"]
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(
                 uri="file:///test/project/tasktree.yaml"
@@ -69,7 +69,7 @@ class TestLSPCompletionIntegration(unittest.TestCase):
     def test_completion_after_document_change(self):
         """Test that completion works after document changes."""
         # Open document
-        open_handler = self.server.lsp._features["textDocument/didOpen"]
+        open_handler = self.server.handlers["textDocument/didOpen"]
         open_params = DidOpenTextDocumentParams(
             text_document=TextDocumentItem(
                 uri="file:///test/project/build.tt",
@@ -87,7 +87,7 @@ class TestLSPCompletionIntegration(unittest.TestCase):
             TextDocumentContentChangeEvent,
         )
 
-        change_handler = self.server.lsp._features["textDocument/didChange"]
+        change_handler = self.server.handlers["textDocument/didChange"]
         change_params = DidChangeTextDocumentParams(
             text_document=VersionedTextDocumentIdentifier(
                 uri="file:///test/project/build.tt", version=2
@@ -101,7 +101,7 @@ class TestLSPCompletionIntegration(unittest.TestCase):
         change_handler(change_params)
 
         # Request completion
-        completion_handler = self.server.lsp._features["textDocument/completion"]
+        completion_handler = self.server.handlers["textDocument/completion"]
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test/project/build.tt"),
             position=Position(line=2, character=29),  # After "{{ tt.proj"
@@ -115,7 +115,7 @@ class TestLSPCompletionIntegration(unittest.TestCase):
     def test_completion_in_working_dir_field(self):
         """Test that completions work in working_dir and other fields."""
         # Open document
-        open_handler = self.server.lsp._features["textDocument/didOpen"]
+        open_handler = self.server.handlers["textDocument/didOpen"]
         open_params = DidOpenTextDocumentParams(
             text_document=TextDocumentItem(
                 uri="file:///test/project/tasktree.yaml",
@@ -127,7 +127,7 @@ class TestLSPCompletionIntegration(unittest.TestCase):
         open_handler(open_params)
 
         # Request completion in working_dir field
-        completion_handler = self.server.lsp._features["textDocument/completion"]
+        completion_handler = self.server.handlers["textDocument/completion"]
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(
                 uri="file:///test/project/tasktree.yaml"
@@ -143,7 +143,7 @@ class TestLSPCompletionIntegration(unittest.TestCase):
     def test_server_lifecycle_with_completion(self):
         """Test full LSP lifecycle including completion."""
         # Initialize
-        init_handler = self.server.lsp._features["initialize"]
+        init_handler = self.server.handlers["initialize"]
         init_params = InitializeParams(
             process_id=12345, root_uri="file:///test/project", capabilities={}
         )
@@ -151,7 +151,7 @@ class TestLSPCompletionIntegration(unittest.TestCase):
         self.assertIsNotNone(init_result)
 
         # Open and complete
-        open_handler = self.server.lsp._features["textDocument/didOpen"]
+        open_handler = self.server.handlers["textDocument/didOpen"]
         open_handler(
             DidOpenTextDocumentParams(
                 text_document=TextDocumentItem(
@@ -163,7 +163,7 @@ class TestLSPCompletionIntegration(unittest.TestCase):
             )
         )
 
-        completion_handler = self.server.lsp._features["textDocument/completion"]
+        completion_handler = self.server.handlers["textDocument/completion"]
         result = completion_handler(
             CompletionParams(
                 text_document=TextDocumentIdentifier(uri="file:///test/task.tt"),
@@ -177,19 +177,19 @@ class TestLSPCompletionIntegration(unittest.TestCase):
         self.assertEqual(var_names, {"user_home", "user_name"})
 
         # Shutdown
-        shutdown_handler = self.server.lsp._features["shutdown"]
+        shutdown_handler = self.server.handlers["shutdown"]
         shutdown_result = shutdown_handler()
         self.assertIsNone(shutdown_result)
 
         # Exit
-        exit_handler = self.server.lsp._features["exit"]
+        exit_handler = self.server.handlers["exit"]
         exit_result = exit_handler()
         self.assertIsNone(exit_result)
 
     def test_completion_in_variable_definition(self):
         """Test that completions work in variable definitions."""
         # Open document with variable using tt. in eval
-        open_handler = self.server.lsp._features["textDocument/didOpen"]
+        open_handler = self.server.handlers["textDocument/didOpen"]
         open_params = DidOpenTextDocumentParams(
             text_document=TextDocumentItem(
                 uri="file:///test/project/tasktree.yaml",
@@ -201,7 +201,7 @@ class TestLSPCompletionIntegration(unittest.TestCase):
         open_handler(open_params)
 
         # Request completion
-        completion_handler = self.server.lsp._features["textDocument/completion"]
+        completion_handler = self.server.handlers["textDocument/completion"]
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(
                 uri="file:///test/project/tasktree.yaml"
@@ -218,7 +218,7 @@ class TestLSPCompletionIntegration(unittest.TestCase):
     def test_completion_in_inputs_field(self):
         """Test that completions work in inputs field."""
         # Open document with inputs using tt.
-        open_handler = self.server.lsp._features["textDocument/didOpen"]
+        open_handler = self.server.handlers["textDocument/didOpen"]
         open_params = DidOpenTextDocumentParams(
             text_document=TextDocumentItem(
                 uri="file:///test/project/tasktree.yaml",
@@ -230,7 +230,7 @@ class TestLSPCompletionIntegration(unittest.TestCase):
         open_handler(open_params)
 
         # Request completion
-        completion_handler = self.server.lsp._features["textDocument/completion"]
+        completion_handler = self.server.handlers["textDocument/completion"]
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(
                 uri="file:///test/project/tasktree.yaml"

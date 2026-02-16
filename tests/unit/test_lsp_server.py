@@ -47,7 +47,7 @@ class TestCreateServer(unittest.TestCase):
         """Test that the initialize handler is registered."""
         server = create_server()
         # Verify that the server has an initialize handler registered
-        self.assertIn("initialize", server.lsp._features)
+        self.assertIn("initialize", server.handlers)
 
     def test_initialize_returns_capabilities(self):
         """Test that initialize handler returns server capabilities."""
@@ -57,7 +57,7 @@ class TestCreateServer(unittest.TestCase):
         )
 
         # Get the initialize handler and call it
-        handler = server.lsp._features["initialize"]
+        handler = server.handlers["initialize"]
         result = handler(params)
 
         # Verify the result contains text sync capability
@@ -72,17 +72,17 @@ class TestCreateServer(unittest.TestCase):
     def test_shutdown_handler_registered(self):
         """Test that the shutdown handler is registered."""
         server = create_server()
-        self.assertIn("shutdown", server.lsp._features)
+        self.assertIn("shutdown", server.handlers)
 
     def test_exit_handler_registered(self):
         """Test that the exit handler is registered."""
         server = create_server()
-        self.assertIn("exit", server.lsp._features)
+        self.assertIn("exit", server.handlers)
 
     def test_shutdown_handler_callable(self):
         """Test that the shutdown handler can be called."""
         server = create_server()
-        handler = server.lsp._features["shutdown"]
+        handler = server.handlers["shutdown"]
         # Should not raise an exception
         result = handler()
         self.assertIsNone(result)
@@ -90,7 +90,7 @@ class TestCreateServer(unittest.TestCase):
     def test_exit_handler_callable(self):
         """Test that the exit handler can be called."""
         server = create_server()
-        handler = server.lsp._features["exit"]
+        handler = server.handlers["exit"]
         # Should not raise an exception
         result = handler()
         self.assertIsNone(result)
@@ -98,12 +98,12 @@ class TestCreateServer(unittest.TestCase):
     def test_did_open_handler_registered(self):
         """Test that the did_open handler is registered."""
         server = create_server()
-        self.assertIn("textDocument/didOpen", server.lsp._features)
+        self.assertIn("textDocument/didOpen", server.handlers)
 
     def test_did_open_stores_document(self):
         """Test that did_open stores document contents."""
         server = create_server()
-        handler = server.lsp._features["textDocument/didOpen"]
+        handler = server.handlers["textDocument/didOpen"]
 
         # Create a document open notification
         params = DidOpenTextDocumentParams(
@@ -128,13 +128,13 @@ class TestCreateServer(unittest.TestCase):
     def test_did_change_handler_registered(self):
         """Test that the did_change handler is registered."""
         server = create_server()
-        self.assertIn("textDocument/didChange", server.lsp._features)
+        self.assertIn("textDocument/didChange", server.handlers)
 
     def test_did_change_updates_document(self):
         """Test that did_change updates document contents."""
         server = create_server()
-        open_handler = server.lsp._features["textDocument/didOpen"]
-        change_handler = server.lsp._features["textDocument/didChange"]
+        open_handler = server.handlers["textDocument/didOpen"]
+        change_handler = server.handlers["textDocument/didChange"]
 
         # First open a document
         open_params = DidOpenTextDocumentParams(
@@ -169,12 +169,12 @@ class TestCreateServer(unittest.TestCase):
     def test_completion_handler_registered(self):
         """Test that the completion handler is registered."""
         server = create_server()
-        self.assertIn("textDocument/completion", server.lsp._features)
+        self.assertIn("textDocument/completion", server.handlers)
 
     def test_completion_returns_list(self):
         """Test that completion handler returns a CompletionList."""
         server = create_server()
-        handler = server.lsp._features["textDocument/completion"]
+        handler = server.handlers["textDocument/completion"]
 
         # Create a completion request
         params = CompletionParams(
@@ -193,8 +193,8 @@ class TestCreateServer(unittest.TestCase):
     def test_completion_tt_builtin_variables(self):
         """Test that completion returns tt.* built-in variables."""
         server = create_server()
-        open_handler = server.lsp._features["textDocument/didOpen"]
-        completion_handler = server.lsp._features["textDocument/completion"]
+        open_handler = server.handlers["textDocument/didOpen"]
+        completion_handler = server.handlers["textDocument/completion"]
 
         # Open a document with a cmd field
         open_params = DidOpenTextDocumentParams(
@@ -233,8 +233,8 @@ class TestCreateServer(unittest.TestCase):
     def test_completion_tt_filtered_by_prefix(self):
         """Test that completion filters tt.* variables by prefix."""
         server = create_server()
-        open_handler = server.lsp._features["textDocument/didOpen"]
-        completion_handler = server.lsp._features["textDocument/completion"]
+        open_handler = server.handlers["textDocument/didOpen"]
+        completion_handler = server.handlers["textDocument/completion"]
 
         # Open a document with a partial variable name
         open_params = DidOpenTextDocumentParams(
@@ -263,8 +263,8 @@ class TestCreateServer(unittest.TestCase):
     def test_completion_not_in_cmd_field(self):
         """Test that completion returns empty when not in cmd field."""
         server = create_server()
-        open_handler = server.lsp._features["textDocument/didOpen"]
-        completion_handler = server.lsp._features["textDocument/completion"]
+        open_handler = server.handlers["textDocument/didOpen"]
+        completion_handler = server.handlers["textDocument/completion"]
 
         # Open a document where we're not in a cmd field
         open_params = DidOpenTextDocumentParams(
