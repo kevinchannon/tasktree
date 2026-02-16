@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import tasktree
 import tasktree.lsp.server
 from tasktree.lsp.server import TasktreeLanguageServer, create_server, main
-from pygls.lsp.types import (
+from lsprotocol.types import (
     InitializeParams,
     CompletionOptions,
     TextDocumentSyncKind,

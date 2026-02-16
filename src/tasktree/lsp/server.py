@@ -1,7 +1,7 @@
 """Tasktree LSP server main entry point."""
 
 from pygls.lsp.server import LanguageServer
-from pygls.lsp.types import (
+from lsprotocol.types import (
     InitializeParams,
     InitializeResult,
     ServerCapabilities,

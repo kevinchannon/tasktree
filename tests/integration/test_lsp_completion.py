@@ -1,7 +1,7 @@
 """Integration tests for LSP completion feature."""
 
 import unittest
-from pygls.lsp.types import (
+from lsprotocol.types import (
     InitializeParams,
     DidOpenTextDocumentParams,
     CompletionParams,
@@ -81,7 +81,7 @@ class TestLSPCompletionIntegration(unittest.TestCase):
         open_handler(open_params)
 
         # Change document to add tt. prefix
-        from pygls.lsp.types import (
+        from lsprotocol.types import (
             DidChangeTextDocumentParams,
             VersionedTextDocumentIdentifier,
             TextDocumentContentChangeEvent,

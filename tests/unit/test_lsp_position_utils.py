@@ -1,7 +1,7 @@
 """Tests for LSP position utilities."""
 
 import unittest
-from pygls.lsp.types import Position
+from lsprotocol.types import Position
 from tasktree.lsp.position_utils import is_in_cmd_field, get_prefix_at_position
 
 

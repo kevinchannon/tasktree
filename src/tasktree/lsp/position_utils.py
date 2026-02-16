@@ -1,7 +1,7 @@
 """Utilities for working with LSP positions in YAML documents."""
 
 import re
-from pygls.lsp.types import Position
+from lsprotocol.types import Position
 
 
 def is_in_cmd_field(text: str, position: Position) -> bool:
