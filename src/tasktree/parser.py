@@ -711,7 +711,7 @@ def find_recipe_file(start_dir: Path | None = None) -> Path | None:
         candidates = []
 
         # Check for exact filenames first (these are preferred)
-        for filename in ["tasktree.yaml", "tasktree.yml", "tt.yaml"]:
+        for filename in ["tasktree.yaml", "tasktree.yml", "tt.yaml", "tt.yml"]:
             recipe_path = current / filename
             if recipe_path.exists():
                 candidates.append(recipe_path)

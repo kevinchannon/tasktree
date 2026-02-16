@@ -1,6 +1,6 @@
 # Task Tree YAML Schema
 
-This directory contains the JSON Schema for Task Tree recipe files (`tasktree.yaml` or `tt.yaml`).
+This directory contains the JSON Schema for Task Tree recipe files.
 
 ## What is a YAML Schema?
 
@@ -44,7 +44,11 @@ tasks:
    - **Name**: Task Tree
    - **Schema file**: Point to `schema/tasktree-schema.json`
    - **Schema version**: JSON Schema version 7
-   - **File path pattern**: `*.tasks`, `*.tt`, `tasktree.yaml`, `tt.yaml`, `tasktree.yml` or `tt.yml`
+   - **File path pattern**:
+     - `*.tasks`
+     - `*.tt`, 
+     - `tasktree.(yml|yaml)`, 
+     - `tt.(yml|yaml)`
 
 ### Command Line Validation
 
