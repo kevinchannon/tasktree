@@ -474,7 +474,7 @@ class TestCreateServer(unittest.TestCase):
                 uri="file:///test/tasktree.yaml",
                 language_id="yaml",
                 version=1,
-                text="variables:\n  my_var: value\n  my_other: test\ntasks:\n  build:\n    cmd: echo {{ var.my_ }}",
+                text="variables:\n  my_var: value\n  my_other: test\ntasks:\n  build:\n    cmd: echo {{ var.my_}}",
             )
         )
         open_handler(open_params)
@@ -482,7 +482,7 @@ class TestCreateServer(unittest.TestCase):
         # Request completion at "my_" (before closing }})
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
-            position=Position(line=5, character=29),  # After "my_", before }}
+            position=Position(line=5, character=24),  # After "my_", before }}
         )
 
         result = completion_handler(completion_params)
