@@ -1,6 +1,12 @@
 """Tasktree LSP server main entry point."""
 
 from pygls.lsp.server import LanguageServer
+from pygls.lsp.types import (
+    InitializeParams,
+    InitializeResult,
+    ServerCapabilities,
+    CompletionOptions,
+)
 
 import tasktree
 
@@ -26,9 +32,27 @@ class TasktreeLanguageServer(LanguageServer):
     pass
 
 
+def create_server() -> TasktreeLanguageServer:
+    """Create and configure the tasktree LSP server."""
+    server = TasktreeLanguageServer("tasktree-lsp", tasktree.__version__)
+
+    @server.feature("initialize")
+    def initialize(params: InitializeParams) -> InitializeResult:
+        """Handle LSP initialize request."""
+        return InitializeResult(
+            capabilities=ServerCapabilities(
+                completion_provider=CompletionOptions(
+                    trigger_characters=["."],
+                )
+            )
+        )
+
+    return server
+
+
 def main() -> None:
     """Start the tasktree LSP server."""
-    server = TasktreeLanguageServer("tasktree-lsp", tasktree.__version__)
+    server = create_server()
     server.start_io()
 
 
