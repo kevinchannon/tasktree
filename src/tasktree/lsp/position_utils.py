@@ -21,7 +21,8 @@ def is_in_cmd_field(text: str, position: Position) -> bool:
         return False
 
     line = lines[position.line]
-    if position.character >= len(line):
+    # Allow position at end of line (cursor after last character)
+    if position.character > len(line):
         return False
 
     # Simple heuristic: if we're on a line that contains "cmd:" followed by text,
@@ -58,31 +59,27 @@ def get_task_at_position(text: str, position: Position) -> str | None:
     if position.line >= len(lines):
         return None
 
-    # Walk backwards from current line to find the task definition
-    # We're looking for a line like "  task-name:" at the task level
+    # First, find "tasks:" to know the base indentation
+    tasks_indent = None
+    for line in lines:
+        if re.match(r'^tasks:\s*$', line):
+            tasks_indent = 0
+            break
+
+    if tasks_indent is None:
+        return None
+
+    # Now walk backwards from current line to find the task definition
+    # We're looking for a line with exactly 2 spaces indentation (one level under "tasks:")
     for line_num in range(position.line, -1, -1):
         line = lines[line_num]
 
-        # Check if this is a task definition
-        # Pattern: "  task-name:" or "    task-name:" (under tasks:)
-        # We need to detect the indentation level
-        task_match = re.match(r'^(\s{2,})([a-zA-Z0-9_-]+):\s*$', line)
+        # Check if this is a task definition at exactly 2 spaces indent
+        # Pattern: "  task-name:" (exactly 2 spaces, then identifier, then colon)
+        task_match = re.match(r'^  ([a-zA-Z0-9_-]+):\s*$', line)
         if task_match:
-            indent = task_match.group(1)
-            task_name = task_match.group(2)
-
-            # Check if this is a top-level task (under tasks:)
-            # by looking backwards for "tasks:" at lower indent
-            for check_line_num in range(line_num - 1, -1, -1):
-                check_line = lines[check_line_num]
-
-                # If we find "tasks:" with less indent, this is a task definition
-                if re.match(r'^tasks:\s*$', check_line):
-                    return task_name
-
-                # If we find another section at same or lower indent, stop searching
-                if re.match(r'^[a-zA-Z]', check_line):
-                    break
+            task_name = task_match.group(1)
+            return task_name
 
     return None
 

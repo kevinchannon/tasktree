@@ -17,8 +17,12 @@ from lsprotocol.types import (
 
 import tasktree
 from tasktree.lsp.builtin_variables import BUILTIN_VARIABLES
-from tasktree.lsp.position_utils import get_prefix_at_position
-from tasktree.lsp.parser_wrapper import extract_variables
+from tasktree.lsp.position_utils import (
+    get_prefix_at_position,
+    is_in_cmd_field,
+    get_task_at_position,
+)
+from tasktree.lsp.parser_wrapper import extract_variables, extract_task_args
 
 __all__ = ["TasktreeLanguageServer", "main"]
 
@@ -172,11 +176,13 @@ def create_server() -> TasktreeLanguageServer:
         Currently supports:
         - tt.* built-in variable completion
         - var.* user-defined variable completion
+        - arg.* task argument completion (only inside task cmd fields)
 
         Completion behavior:
         - Completions filter by partial match after the prefix (e.g., "{{ var.my" → only "my*" variables)
         - Returns empty list if template is already closed (cursor after }})
         - Trailing }} in partial names are automatically stripped for matching
+        - arg.* completions are only provided when cursor is inside a task's cmd field
 
         Args:
             params: Completion request parameters containing document URI and cursor position
@@ -207,6 +213,23 @@ def create_server() -> TasktreeLanguageServer:
             variables = extract_variables(text)
             return _complete_template_variables(
                 prefix, "{{ var.", variables, "User"
+            )
+
+        # Try arg.* task argument completion (only in cmd fields)
+        if "{{ arg." in prefix:
+            # arg.* is only valid inside a task's cmd field
+            if not is_in_cmd_field(text, position):
+                return CompletionList(is_incomplete=False, items=[])
+
+            # Get the task name at this position
+            task_name = get_task_at_position(text, position)
+            if task_name is None:
+                return CompletionList(is_incomplete=False, items=[])
+
+            # Extract args for this task
+            args = extract_task_args(text, task_name)
+            return _complete_template_variables(
+                prefix, "{{ arg.", args, "Task argument"
             )
 
         return CompletionList(is_incomplete=False, items=[])
