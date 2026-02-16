@@ -273,7 +273,7 @@ class TestLSPCompletionIntegration(unittest.TestCase):
             text_document=TextDocumentIdentifier(
                 uri="file:///test/project/tasktree.yaml"
             ),
-            position=Position(line=4, character=26),  # After "{{ var."
+            position=Position(line=5, character=26),  # After "{{ var."
         )
         result = completion_handler(completion_params)
 
@@ -323,7 +323,7 @@ class TestLSPCompletionIntegration(unittest.TestCase):
         completion_handler = self.server.handlers["textDocument/completion"]
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test/project/build.tt"),
-            position=Position(line=4, character=29),  # After "{{ var.foo"
+            position=Position(line=5, character=29),  # After "{{ var.foo"
         )
         result = completion_handler(completion_params)
 
@@ -352,7 +352,7 @@ class TestLSPCompletionIntegration(unittest.TestCase):
             text_document=TextDocumentIdentifier(
                 uri="file:///test/project/tasktree.yaml"
             ),
-            position=Position(line=6, character=21),  # After "{{ var."
+            position=Position(line=8, character=21),  # After "{{ var."
         )
         result = completion_handler(completion_params)
 
