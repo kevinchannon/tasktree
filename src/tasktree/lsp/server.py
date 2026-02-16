@@ -173,6 +173,11 @@ def create_server() -> TasktreeLanguageServer:
         - tt.* built-in variable completion
         - var.* user-defined variable completion
 
+        Completion behavior:
+        - Completions filter by partial match after the prefix (e.g., "{{ var.my" → only "my*" variables)
+        - Returns empty list if template is already closed (cursor after }})
+        - Trailing }} in partial names are automatically stripped for matching
+
         Args:
             params: Completion request parameters containing document URI and cursor position
 
