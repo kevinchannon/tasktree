@@ -53,6 +53,32 @@ class TestCreateServer(unittest.TestCase):
         self.assertIsInstance(result.capabilities.completion_provider, CompletionOptions)
         self.assertEqual(result.capabilities.completion_provider.trigger_characters, ["."])
 
+    def test_shutdown_handler_registered(self):
+        """Test that the shutdown handler is registered."""
+        server = create_server()
+        self.assertIn("shutdown", server.lsp._features)
+
+    def test_exit_handler_registered(self):
+        """Test that the exit handler is registered."""
+        server = create_server()
+        self.assertIn("exit", server.lsp._features)
+
+    def test_shutdown_handler_callable(self):
+        """Test that the shutdown handler can be called."""
+        server = create_server()
+        handler = server.lsp._features["shutdown"]
+        # Should not raise an exception
+        result = handler()
+        self.assertIsNone(result)
+
+    def test_exit_handler_callable(self):
+        """Test that the exit handler can be called."""
+        server = create_server()
+        handler = server.lsp._features["exit"]
+        # Should not raise an exception
+        result = handler()
+        self.assertIsNone(result)
+
 
 class TestMain(unittest.TestCase):
     """Tests for main entry point."""

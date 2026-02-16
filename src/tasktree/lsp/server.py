@@ -47,6 +47,16 @@ def create_server() -> TasktreeLanguageServer:
             )
         )
 
+    @server.feature("shutdown")
+    def shutdown() -> None:
+        """Handle LSP shutdown request."""
+        pass
+
+    @server.feature("exit")
+    def exit() -> None:
+        """Handle LSP exit notification."""
+        pass
+
     return server
 
 
