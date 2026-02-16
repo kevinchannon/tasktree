@@ -18,6 +18,7 @@ from lsprotocol.types import (
 import tasktree
 from tasktree.lsp.builtin_variables import BUILTIN_VARIABLES
 from tasktree.lsp.position_utils import get_prefix_at_position
+from tasktree.lsp.parser_wrapper import extract_variables
 
 __all__ = ["TasktreeLanguageServer", "main"]
 
@@ -114,8 +115,9 @@ def create_server() -> TasktreeLanguageServer:
         """Handle completion request.
 
         Provides context-aware completions for tasktree YAML files.
-        Currently supports tt.* built-in variable completion anywhere
-        in the document where {{ tt. is typed.
+        Currently supports:
+        - tt.* built-in variable completion
+        - var.* user-defined variable completion
 
         Args:
             params: Completion request parameters containing document URI and cursor position
@@ -164,6 +166,44 @@ def create_server() -> TasktreeLanguageServer:
                             label=var_name,
                             kind=CompletionItemKind.Variable,
                             detail=f"Built-in variable: {{ tt.{var_name} }}",
+                            insert_text=var_name,
+                        )
+                    )
+
+            return CompletionList(is_incomplete=False, items=items)
+
+        # Check if we're completing var. variables
+        VAR_PREFIX = "{{ var."
+        if VAR_PREFIX in prefix:
+            # Extract the partial variable name after "{{ var."
+            var_start = prefix.rfind(VAR_PREFIX)
+            template_rest = prefix[var_start:]
+
+            # Check we haven't closed the template yet
+            if "}}" in template_rest:
+                close_index = template_rest.index("}}")
+                # If }} is before or at the var. prefix end, we're outside the template
+                if close_index <= len(VAR_PREFIX):
+                    return CompletionList(is_incomplete=False, items=[])
+
+            partial = prefix[var_start + len(VAR_PREFIX):]
+
+            # Strip any trailing }} from partial if present
+            if "}}" in partial:
+                partial = partial[:partial.index("}}")]
+
+            # Extract variables from the document
+            variables = extract_variables(text)
+
+            # Filter variables by partial match
+            items = []
+            for var_name in variables:
+                if var_name.startswith(partial):
+                    items.append(
+                        CompletionItem(
+                            label=var_name,
+                            kind=CompletionItemKind.Variable,
+                            detail=f"User variable: {{ var.{var_name} }}",
                             insert_text=var_name,
                         )
                     )
