@@ -1,7 +1,6 @@
 """Tasktree LSP server main entry point."""
 
-from lsprotocol.types import TEXT_DOCUMENT_DID_OPEN
-from pygls.server import LanguageServer
+from pygls.lsp.server import LanguageServer
 
 
 class TasktreeLanguageServer(LanguageServer):
