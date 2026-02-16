@@ -6,6 +6,7 @@ from pygls.lsp.types import (
     InitializeResult,
     ServerCapabilities,
     CompletionOptions,
+    DidOpenTextDocumentParams,
 )
 
 import tasktree
@@ -29,7 +30,11 @@ class TasktreeLanguageServer(LanguageServer):
     - Code actions for common refactoring operations
     """
 
-    pass
+    def __init__(self, name: str, version: str):
+        """Initialize the language server."""
+        super().__init__(name, version)
+        # Store document contents in memory
+        self.documents: dict[str, str] = {}
 
 
 def create_server() -> TasktreeLanguageServer:
@@ -56,6 +61,13 @@ def create_server() -> TasktreeLanguageServer:
     def exit() -> None:
         """Handle LSP exit notification."""
         pass
+
+    @server.feature("textDocument/didOpen")
+    def did_open(params: DidOpenTextDocumentParams) -> None:
+        """Handle document open notification."""
+        uri = params.text_document.uri
+        text = params.text_document.text
+        server.documents[uri] = text
 
     return server
 

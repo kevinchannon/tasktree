@@ -6,7 +6,12 @@ from unittest.mock import MagicMock, patch
 import tasktree
 import tasktree.lsp.server
 from tasktree.lsp.server import TasktreeLanguageServer, create_server, main
-from pygls.lsp.types import InitializeParams, CompletionOptions
+from pygls.lsp.types import (
+    InitializeParams,
+    CompletionOptions,
+    DidOpenTextDocumentParams,
+    TextDocumentItem,
+)
 
 
 class TestTasktreeLanguageServer(unittest.TestCase):
@@ -78,6 +83,36 @@ class TestCreateServer(unittest.TestCase):
         # Should not raise an exception
         result = handler()
         self.assertIsNone(result)
+
+    def test_did_open_handler_registered(self):
+        """Test that the did_open handler is registered."""
+        server = create_server()
+        self.assertIn("textDocument/didOpen", server.lsp._features)
+
+    def test_did_open_stores_document(self):
+        """Test that did_open stores document contents."""
+        server = create_server()
+        handler = server.lsp._features["textDocument/didOpen"]
+
+        # Create a document open notification
+        params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  hello:\n    cmd: echo hello",
+            )
+        )
+
+        # Call the handler
+        handler(params)
+
+        # Verify the document was stored
+        self.assertIn("file:///test/tasktree.yaml", server.documents)
+        self.assertEqual(
+            server.documents["file:///test/tasktree.yaml"],
+            "tasks:\n  hello:\n    cmd: echo hello",
+        )
 
 
 class TestMain(unittest.TestCase):
