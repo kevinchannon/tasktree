@@ -20,6 +20,11 @@ class TestTasktreeLanguageServer(unittest.TestCase):
 class TestMain(unittest.TestCase):
     """Tests for main entry point."""
 
+    def test_main_server_name(self):
+        """Test that the server name is set to 'tasktree-lsp'."""
+        server = TasktreeLanguageServer("tasktree-lsp", "v0.1")
+        self.assertEqual(server.name, "tasktree-lsp")
+
     @patch("tasktree.lsp.server.TasktreeLanguageServer")
     def test_main_starts_server(self, mock_server_class):
         """Test that main() creates and starts the server."""
