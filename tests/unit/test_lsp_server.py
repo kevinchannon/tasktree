@@ -344,6 +344,184 @@ class TestCreateServer(unittest.TestCase):
         self.assertEqual(len(result.items), 1)
         self.assertEqual(result.items[0].label, "project_root")
 
+    def test_completion_var_user_variables(self):
+        """Test that completion returns var.* user-defined variables."""
+        server = create_server()
+        open_handler = server.handlers["textDocument/didOpen"]
+        completion_handler = server.handlers["textDocument/completion"]
+
+        # Open a document with variables defined
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="variables:\n  foo: bar\n  baz: qux\ntasks:\n  hello:\n    cmd: echo {{ var.",
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion at the end of "{{ var."
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
+            position=Position(line=5, character=26),  # After "{{ var."
+        )
+
+        result = completion_handler(completion_params)
+
+        # Verify we get both user variables
+        self.assertEqual(len(result.items), 2)
+        var_names = {item.label for item in result.items}
+        self.assertEqual(var_names, {"foo", "baz"})
+
+    def test_completion_var_filtered_by_prefix(self):
+        """Test that completion filters var.* variables by prefix."""
+        server = create_server()
+        open_handler = server.handlers["textDocument/didOpen"]
+        completion_handler = server.handlers["textDocument/completion"]
+
+        # Open a document with variables
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="variables:\n  foo: bar\n  foobar: baz\n  qux: test\ntasks:\n  hello:\n    cmd: echo {{ var.foo",
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion after "{{ var.foo"
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
+            position=Position(line=6, character=29),  # After "{{ var.foo"
+        )
+
+        result = completion_handler(completion_params)
+
+        # Verify we only get foo-prefixed variables
+        self.assertEqual(len(result.items), 2)
+        var_names = {item.label for item in result.items}
+        self.assertEqual(var_names, {"foo", "foobar"})
+
+    def test_completion_var_no_variables_defined(self):
+        """Test that completion returns empty when no variables are defined."""
+        server = create_server()
+        open_handler = server.handlers["textDocument/didOpen"]
+        completion_handler = server.handlers["textDocument/completion"]
+
+        # Open a document with no variables section
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  hello:\n    cmd: echo {{ var.",
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion at the end of "{{ var."
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
+            position=Position(line=2, character=26),  # After "{{ var."
+        )
+
+        result = completion_handler(completion_params)
+
+        # Verify we get no completions
+        self.assertEqual(len(result.items), 0)
+
+    def test_completion_var_complex_variables(self):
+        """Test that completion works with complex variable specs (env, eval, read)."""
+        server = create_server()
+        open_handler = server.handlers["textDocument/didOpen"]
+        completion_handler = server.handlers["textDocument/completion"]
+
+        # Open a document with complex variable definitions
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text='variables:\n  simple: value\n  from_env:\n    env: HOME\n  from_eval:\n    eval: "echo test"\ntasks:\n  hello:\n    cmd: echo {{ var.',
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
+            position=Position(line=8, character=26),  # After "{{ var."
+        )
+
+        result = completion_handler(completion_params)
+
+        # Verify we get all three variable names
+        self.assertEqual(len(result.items), 3)
+        var_names = {item.label for item in result.items}
+        self.assertEqual(var_names, {"simple", "from_env", "from_eval"})
+
+    def test_completion_var_with_trailing_braces(self):
+        """Test completion with partial var name and trailing }} (common typo pattern)."""
+        server = create_server()
+        open_handler = server.handlers["textDocument/didOpen"]
+        completion_handler = server.handlers["textDocument/completion"]
+
+        # Open document with partial variable name followed by }}
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="variables:\n  my_var: value\n  my_other: test\ntasks:\n  build:\n    cmd: echo {{ var.my_}}",
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion at "my_" (before closing }})
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
+            position=Position(line=5, character=24),  # After "my_", before }}
+        )
+
+        result = completion_handler(completion_params)
+
+        # Should get both my_* variables
+        self.assertEqual(len(result.items), 2)
+        var_names = {item.label for item in result.items}
+        self.assertEqual(var_names, {"my_var", "my_other"})
+
+    def test_completion_multiple_templates_on_line(self):
+        """Test completion with multiple templates on the same line."""
+        server = create_server()
+        open_handler = server.handlers["textDocument/didOpen"]
+        completion_handler = server.handlers["textDocument/completion"]
+
+        # Open document with multiple templates on one line
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="variables:\n  foo: bar\n  baz: qux\ntasks:\n  test:\n    cmd: echo {{ var.foo }} and {{ var.",
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion at the second {{ var. on the same line
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
+            position=Position(line=5, character=42),  # After second "{{ var."
+        )
+
+        result = completion_handler(completion_params)
+
+        # Should get all variables (not affected by the first completed template)
+        self.assertEqual(len(result.items), 2)
+        var_names = {item.label for item in result.items}
+        self.assertEqual(var_names, {"baz", "foo"})
+
 
 class TestMain(unittest.TestCase):
     """Tests for main entry point."""

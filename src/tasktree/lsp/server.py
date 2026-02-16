@@ -18,6 +18,7 @@ from lsprotocol.types import (
 import tasktree
 from tasktree.lsp.builtin_variables import BUILTIN_VARIABLES
 from tasktree.lsp.position_utils import get_prefix_at_position
+from tasktree.lsp.parser_wrapper import extract_variables
 
 __all__ = ["TasktreeLanguageServer", "main"]
 
@@ -109,13 +110,73 @@ def create_server() -> TasktreeLanguageServer:
         if params.content_changes:
             server.documents[uri] = params.content_changes[0].text
 
+    def _complete_template_variables(
+        prefix: str,
+        template_prefix: str,
+        variable_names: list[str],
+        variable_kind: str,
+    ) -> CompletionList:
+        """Shared logic for template variable completion.
+
+        Args:
+            prefix: The text prefix up to the cursor position
+            template_prefix: The template prefix to match (e.g., "{{ tt." or "{{ var.")
+            variable_names: List of available variable names
+            variable_kind: Description of variable type (e.g., "Built-in" or "User")
+
+        Returns:
+            CompletionList containing matching completion items, or empty list if no matches
+        """
+        if template_prefix not in prefix:
+            return CompletionList(is_incomplete=False, items=[])
+
+        # Extract the partial variable name after the template prefix
+        prefix_start = prefix.rfind(template_prefix)
+        template_rest = prefix[prefix_start:]
+
+        # Check we haven't closed the template yet
+        if "}}" in template_rest:
+            close_index = template_rest.index("}}")
+            # If }} is before or at the prefix end, we're outside the template
+            if close_index <= len(template_prefix):
+                return CompletionList(is_incomplete=False, items=[])
+
+        partial = prefix[prefix_start + len(template_prefix):]
+
+        # Strip any trailing }} from partial if present
+        if "}}" in partial:
+            partial = partial[:partial.index("}}")]
+
+        # Filter variables by partial match
+        items = []
+        for var_name in variable_names:
+            if var_name.startswith(partial):
+                # Extract the variable prefix for the detail (e.g., "tt" or "var")
+                var_prefix = template_prefix.replace("{{ ", "").replace(".", "")
+                items.append(
+                    CompletionItem(
+                        label=var_name,
+                        kind=CompletionItemKind.Variable,
+                        detail=f"{variable_kind} variable: {{{{ {var_prefix}.{var_name} }}}}",
+                        insert_text=var_name,
+                    )
+                )
+
+        return CompletionList(is_incomplete=False, items=items)
+
     @server.feature("textDocument/completion")
     def completion(params: CompletionParams) -> CompletionList:
         """Handle completion request.
 
         Provides context-aware completions for tasktree YAML files.
-        Currently supports tt.* built-in variable completion anywhere
-        in the document where {{ tt. is typed.
+        Currently supports:
+        - tt.* built-in variable completion
+        - var.* user-defined variable completion
+
+        Completion behavior:
+        - Completions filter by partial match after the prefix (e.g., "{{ var.my" → only "my*" variables)
+        - Returns empty list if template is already closed (cursor after }})
+        - Trailing }} in partial names are automatically stripped for matching
 
         Args:
             params: Completion request parameters containing document URI and cursor position
@@ -135,40 +196,18 @@ def create_server() -> TasktreeLanguageServer:
         # Get the prefix up to the cursor
         prefix = get_prefix_at_position(text, position)
 
-        # Check if we're completing tt. variables
-        TT_PREFIX = "{{ tt."
-        if TT_PREFIX in prefix:
-            # Extract the partial variable name after "{{ tt."
-            tt_start = prefix.rfind(TT_PREFIX)
-            template_rest = prefix[tt_start:]
+        # Try tt.* built-in variable completion
+        if "{{ tt." in prefix:
+            return _complete_template_variables(
+                prefix, "{{ tt.", BUILTIN_VARIABLES, "Built-in"
+            )
 
-            # Check we haven't closed the template yet
-            if "}}" in template_rest:
-                close_index = template_rest.index("}}")
-                # If }} is before or at the tt. prefix end, we're outside the template
-                if close_index <= len(TT_PREFIX):
-                    return CompletionList(is_incomplete=False, items=[])
-
-            partial = prefix[tt_start + len(TT_PREFIX):]
-
-            # Strip any trailing }} from partial if present
-            if "}}" in partial:
-                partial = partial[:partial.index("}}")]
-
-            # Filter builtin variables by partial match
-            items = []
-            for var_name in BUILTIN_VARIABLES:
-                if var_name.startswith(partial):
-                    items.append(
-                        CompletionItem(
-                            label=var_name,
-                            kind=CompletionItemKind.Variable,
-                            detail=f"Built-in variable: {{ tt.{var_name} }}",
-                            insert_text=var_name,
-                        )
-                    )
-
-            return CompletionList(is_incomplete=False, items=items)
+        # Try var.* user-defined variable completion
+        if "{{ var." in prefix:
+            variables = extract_variables(text)
+            return _complete_template_variables(
+                prefix, "{{ var.", variables, "User"
+            )
 
         return CompletionList(is_incomplete=False, items=[])
 
