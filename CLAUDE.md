@@ -136,6 +136,7 @@ tasks:
         exported: true  # Export as $ARG_NAME environment variable
     cmd: shell-command  # Can use {{ var.name }}, {{ arg.name }}, {{ env.NAME }}, {{ tt.* }}, {{ dep.task.outputs.name }}, {{ self.inputs.name }}
     private: true  # Hide from --list but still executable
+    pin_runner: true  # Lock this task's runner, immune to import-level overrides
 
 runners:
   runner-name:
@@ -160,6 +161,11 @@ variables:
   var-from-env: { env: ENV_VAR, default: fallback }  # From environment
   var-from-eval: { eval: "command to run" }  # Runtime command evaluation
   var-from-file: { read: path/to/file }  # Read file contents
+
+imports:
+  - file: path/to/tasks.yaml  # Import tasks from another file
+    as: namespace  # Namespace prefix for imported tasks and runners
+    run_in: runner-name  # Blanket runner override for all non-pinned tasks in import
 ```
 
 ## Built-in Variables
@@ -203,6 +209,44 @@ Full Docker support with:
 - User mapping (run as non-root on Unix/macOS)
 - Build arguments separate from shell arguments
 - Environment variable injection
+
+### Runner Override for Imported Tasks
+When importing task files, the importing file can control which runner imported tasks use:
+
+**Blanket Runner Override**: Apply a default runner to all non-pinned tasks in an import:
+```yaml
+imports:
+  - file: "build.tasks"
+    as: build
+    run_in: docker  # All non-pinned tasks from build.tasks use docker runner
+```
+
+**Runner Pinning**: Tasks can lock their runner to be immune to blanket overrides:
+```yaml
+tasks:
+  special_task:
+    cmd: "echo special"
+    run_in: special_container
+    pin_runner: true  # Ignores import-level run_in override
+```
+
+**Runner Namespacing**: Runners referenced by pinned tasks are imported and namespaced:
+- If importing with `as: build`, runner `docker` becomes `build.docker`
+- Prevents collisions between root and imported runner names
+- Internal references in pinned tasks are automatically rewritten
+
+**Precedence Order** (highest to lowest):
+1. CLI `--runner` flag (overrides everything, including pinned runners)
+2. Pinned task runner (`pin_runner: true` with `run_in`)
+3. Import-level blanket runner (`imports[].run_in`)
+4. Task-level `run_in` (unpinned)
+5. Default runner (`default: true` in runner definition)
+6. Session default runner
+
+**Validation Rules**:
+- Runner names cannot contain dots (reserved for namespacing)
+- Pinned tasks must have `run_in` specified
+- Pinned runner validation is lazy (occurs at task invocation, not parse time)
 
 ### Schema Validation
 The project includes JSON Schema definitions in `schema/` for validating recipe YAML files.
