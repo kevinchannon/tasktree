@@ -22,13 +22,11 @@ from tasktree.process_runner import TaskOutputTypes, make_process_runner
 class TestExtractFromImages(unittest.TestCase):
     """
     Test FROM line parsing from Dockerfiles.
-    @athena: 072447d5ae17
     """
 
     def test_simple_image(self):
         """
         Test simple FROM image.
-        @athena: ecbc84ea0794
         """
         dockerfile = "FROM python:3.11"
         images = extract_from_images(dockerfile)
@@ -37,7 +35,6 @@ class TestExtractFromImages(unittest.TestCase):
     def test_pinned_image(self):
         """
         Test FROM image with digest.
-        @athena: ef177cb0bcdb
         """
         dockerfile = "FROM rust:1.75@sha256:abc123def456"
         images = extract_from_images(dockerfile)
@@ -46,7 +43,6 @@ class TestExtractFromImages(unittest.TestCase):
     def test_image_with_platform(self):
         """
         Test FROM with platform flag.
-        @athena: 314e1cf3df4f
         """
         dockerfile = "FROM --platform=linux/amd64 python:3.11"
         images = extract_from_images(dockerfile)
@@ -55,7 +51,6 @@ class TestExtractFromImages(unittest.TestCase):
     def test_image_with_alias(self):
         """
         Test FROM with AS alias.
-        @athena: 50ce42efa647
         """
         dockerfile = "FROM rust:1.75 AS builder"
         images = extract_from_images(dockerfile)
@@ -64,7 +59,6 @@ class TestExtractFromImages(unittest.TestCase):
     def test_multi_stage_build(self):
         """
         Test multi-stage Dockerfile.
-        @athena: 12e62781c16f
         """
         dockerfile = """
 FROM rust:1.75@sha256:abc123 AS builder
@@ -82,7 +76,6 @@ FROM debian:slim
     def test_case_insensitive(self):
         """
         Test that FROM is case-insensitive.
-        @athena: 1a6541f888d3
         """
         dockerfile = "from python:3.11"
         images = extract_from_images(dockerfile)
@@ -92,13 +85,11 @@ FROM debian:slim
 class TestCheckUnpinnedImages(unittest.TestCase):
     """
     Test unpinned image detection.
-    @athena: f1bd0d6c05d1
     """
 
     def test_all_pinned(self):
         """
         Test Dockerfile with all pinned images.
-        @athena: 458b34f2a190
         """
         dockerfile = """
 FROM rust:1.75@sha256:abc123 AS builder
@@ -110,7 +101,6 @@ FROM debian:slim@sha256:def456
     def test_all_unpinned(self):
         """
         Test Dockerfile with all unpinned images.
-        @athena: 4888d3f282ed
         """
         dockerfile = """
 FROM python:3.11
@@ -122,7 +112,6 @@ FROM node:18
     def test_mixed(self):
         """
         Test Dockerfile with mixed pinned/unpinned.
-        @athena: 1310c9319165
         """
         dockerfile = """
 FROM rust:1.75@sha256:abc123 AS builder
@@ -135,13 +124,11 @@ FROM python:3.11
 class TestParseBaseImageDigests(unittest.TestCase):
     """
     Test base image digest parsing.
-    @athena: 5994f929ffba
     """
 
     def test_no_digests(self):
         """
         Test Dockerfile with no pinned digests.
-        @athena: 5d0582b6cb79
         """
         dockerfile = "FROM python:3.11"
         digests = parse_base_image_digests(dockerfile)
@@ -150,7 +137,6 @@ class TestParseBaseImageDigests(unittest.TestCase):
     def test_single_digest(self):
         """
         Test Dockerfile with single digest.
-        @athena: 8d555f3e9b7a
         """
         dockerfile = "FROM python:3.11@sha256:abc123def456"
         digests = parse_base_image_digests(dockerfile)
@@ -159,7 +145,6 @@ class TestParseBaseImageDigests(unittest.TestCase):
     def test_multiple_digests(self):
         """
         Test Dockerfile with multiple digests.
-        @athena: fec6d0c60367
         """
         dockerfile = """
 FROM rust:1.75@sha256:abc123 AS builder
@@ -172,13 +157,11 @@ FROM debian:slim@sha256:def456
 class TestIsDockerRunner(unittest.TestCase):
     """
     Test Docker environment detection.
-    @athena: 7e9d896c1a55
     """
 
     def test_docker_runner(self):
         """
         Test runner with dockerfile.
-        @athena: a88fcecf498e
         """
         runner = Runner(
             name="builder",
@@ -190,7 +173,6 @@ class TestIsDockerRunner(unittest.TestCase):
     def test_shell_runner(self):
         """
         Test runner without dockerfile.
-        @athena: ecde4c39cb67
         """
         runner = Runner(
             name="bash",
@@ -202,7 +184,6 @@ class TestIsDockerRunner(unittest.TestCase):
     def test_shell_runner_with_list_args(self):
         """
         Test that shell runners still work with list args (backward compatibility).
-        @athena: c03e04ec3817
         """
         # Shell runners should use list args for shell arguments
         runner = Runner(
@@ -221,7 +202,6 @@ class TestIsDockerRunner(unittest.TestCase):
     def test_docker_runner_with_dict_args(self):
         """
         Test that Docker runners use dict args for build arguments.
-        @athena: 1cf37d1c8e86
         """
         # Docker runners should use dict args for build arguments
         runner = Runner(
@@ -296,13 +276,11 @@ class TestContainerScriptExtension(unittest.TestCase):
 class TestResolveContainerWorkingDir(unittest.TestCase):
     """
     Test container working directory resolution.
-    @athena: 23b80ef54ab0
     """
 
     def test_both_specified(self):
         """
         Test with both env and task working dirs.
-        @athena: a7175ac525f7
         """
         result = resolve_container_working_dir("/workspace", "src")
         self.assertEqual(result, "/workspace/src")
@@ -310,7 +288,6 @@ class TestResolveContainerWorkingDir(unittest.TestCase):
     def test_only_env_specified(self):
         """
         Test with only env working dir.
-        @athena: 8cb358e34c10
         """
         result = resolve_container_working_dir("/workspace", "")
         self.assertEqual(result, "/workspace")
@@ -318,7 +295,6 @@ class TestResolveContainerWorkingDir(unittest.TestCase):
     def test_only_task_specified(self):
         """
         Test with only task working dir.
-        @athena: 0c84f6d70917
         """
         result = resolve_container_working_dir("", "src")
         self.assertEqual(result, "/src")
@@ -326,7 +302,6 @@ class TestResolveContainerWorkingDir(unittest.TestCase):
     def test_neither_specified(self):
         """
         Test with neither specified - should return None to use Dockerfile WORKDIR.
-        @athena: 3f333b5c4c62
         """
         result = resolve_container_working_dir("", "")
         self.assertIsNone(result)
@@ -334,7 +309,6 @@ class TestResolveContainerWorkingDir(unittest.TestCase):
     def test_path_normalization(self):
         """
         Test that paths are normalized.
-        @athena: 096f020907da
         """
         result = resolve_container_working_dir("/workspace/", "/src/")
         # Trailing slashes are handled, result has trailing slash from task dir
@@ -344,13 +318,11 @@ class TestResolveContainerWorkingDir(unittest.TestCase):
 class TestDockerManager(unittest.TestCase):
     """
     Test DockerManager class.
-    @athena: f5ee6f7c456b
     """
 
     def setUp(self):
         """
         Set up test environment.
-        @athena: a4d39428bb63
         """
         self.project_root = Path("/fake/project")
         self.manager = DockerManager(self.project_root, logger_stub)
@@ -359,7 +331,6 @@ class TestDockerManager(unittest.TestCase):
     def test_ensure_image_built_caching(self, mock_run):
         """
         Test that images are cached per invocation.
-        @athena: ec5dd97bc4a8
         """
         env = Runner(
             name="builder",
@@ -401,7 +372,6 @@ class TestDockerManager(unittest.TestCase):
     def test_build_command_structure(self, mock_run):
         """
         Test that docker build command is structured correctly.
-        @athena: 21151cc7a8dd
         """
         env = Runner(
             name="builder",
@@ -435,7 +405,6 @@ class TestDockerManager(unittest.TestCase):
     def test_build_command_with_build_args(self, mock_run):
         """
         Test that docker build command includes --build-arg flags.
-        @athena: 581199f6c680
         """
         env = Runner(
             name="builder",
@@ -488,7 +457,6 @@ class TestDockerManager(unittest.TestCase):
     def test_build_command_with_empty_build_args(self, mock_run):
         """
         Test that docker build command works with empty build args dict.
-        @athena: 28b44704ab1c
         """
         env = Runner(
             name="builder",
@@ -526,7 +494,6 @@ class TestDockerManager(unittest.TestCase):
     def test_build_command_with_special_characters_in_args(self, mock_run):
         """
         Test that build args with special characters are handled correctly.
-        @athena: ce755595bb2a
         """
         env = Runner(
             name="builder",
@@ -575,7 +542,6 @@ class TestDockerManager(unittest.TestCase):
     def test_resolve_volume_mount_relative(self):
         """
         Test relative volume path resolution.
-        @athena: acc1d52db050
         """
         volume = "./src:/workspace/src"
         resolved = self.manager._resolve_volume_mount(volume)
@@ -585,7 +551,6 @@ class TestDockerManager(unittest.TestCase):
     def test_resolve_volume_mount_absolute(self):
         """
         Test absolute volume path resolution.
-        @athena: 21aec1a9dbd3
         """
         volume = "/absolute/path:/container/path"
         resolved = self.manager._resolve_volume_mount(volume)
@@ -595,7 +560,6 @@ class TestDockerManager(unittest.TestCase):
     def test_resolve_volume_mount_home(self, mock_expanduser):
         """
         Test home directory expansion in volume paths.
-        @athena: 279c9bfa551c
         """
         mock_expanduser.return_value = "/home/user/.cargo"
         volume = "~/.cargo:/root/.cargo"
@@ -605,7 +569,6 @@ class TestDockerManager(unittest.TestCase):
     def test_resolve_volume_mount_invalid(self):
         """
         Test invalid volume specification.
-        @athena: cd0e7945e0cb
         """
         with self.assertRaises(ValueError):
             self.manager._resolve_volume_mount("invalid-no-colon")
@@ -614,7 +577,6 @@ class TestDockerManager(unittest.TestCase):
     def test_should_add_user_flag_linux(self, mock_platform):
         """
         Test that user flag is added on Linux.
-        @athena: 596549549a3d
         """
         mock_platform.return_value = "Linux"
         self.assertTrue(self.manager._should_add_user_flag())
@@ -623,7 +585,6 @@ class TestDockerManager(unittest.TestCase):
     def test_should_add_user_flag_darwin(self, mock_platform):
         """
         Test that user flag is added on macOS.
-        @athena: 690268fb52fb
         """
         mock_platform.return_value = "Darwin"
         self.assertTrue(self.manager._should_add_user_flag())
@@ -632,7 +593,6 @@ class TestDockerManager(unittest.TestCase):
     def test_should_add_user_flag_windows(self, mock_platform):
         """
         Test that user flag is NOT added on Windows.
-        @athena: 4a296f6deac7
         """
         mock_platform.return_value = "Windows"
         self.assertFalse(self.manager._should_add_user_flag())
@@ -646,7 +606,6 @@ class TestDockerManager(unittest.TestCase):
     ):
         """
         Test that --user flag is added by default on Linux.
-        @athena: 703f41bc981f
         """
         mock_platform.return_value = "Linux"
         mock_getuid.return_value = 1000
@@ -692,7 +651,6 @@ class TestDockerManager(unittest.TestCase):
     def test_run_in_container_mounts_temp_script(self, mock_platform, mock_run):
         """
         Test that temp script is mounted into container.
-        @athena: to-be-generated
         """
         mock_platform.return_value = "Windows"  # Skip user flag for simplicity
 
@@ -748,7 +706,6 @@ class TestDockerManager(unittest.TestCase):
     def test_run_in_container_executes_script_not_dash_c(self, mock_platform, mock_run):
         """
         Test that docker container executes script file instead of -c command.
-        @athena: to-be-generated
         """
         mock_platform.return_value = "Windows"
 
@@ -795,7 +752,6 @@ class TestDockerManager(unittest.TestCase):
     def test_run_in_container_skips_user_flag_on_windows(self, mock_platform, mock_run):
         """
         Test that --user flag is NOT added on Windows.
-        @athena: 9da700a3222e
         """
         mock_platform.return_value = "Windows"
 
@@ -841,7 +797,6 @@ class TestDockerManager(unittest.TestCase):
     ):
         """
         Test that run_as_root=True prevents --user flag from being added.
-        @athena: bae8a549c901
         """
         mock_platform.return_value = "Linux"
         mock_getuid.return_value = 1000
@@ -886,7 +841,6 @@ class TestDockerManager(unittest.TestCase):
     def test_run_in_container_includes_extra_args(self, mock_platform, mock_run):
         """
         Test that extra_args are properly included in docker run command.
-        @athena: 2f519b4e5577
         """
         mock_platform.return_value = "Windows"  # Skip user flag for simplicity
 
@@ -943,7 +897,6 @@ class TestDockerManager(unittest.TestCase):
     def test_run_in_container_with_empty_extra_args(self, mock_platform, mock_run):
         """
         Test that empty extra_args list works correctly.
-        @athena: 5592b6f4dfeb
         """
         mock_platform.return_value = "Windows"
 
@@ -988,7 +941,6 @@ class TestDockerManager(unittest.TestCase):
     def test_run_in_container_with_shell_args(self, mock_platform, mock_run):
         """
         Test that shell args list works correctly.
-        @athena: 1d645d21622c
         """
         mock_platform.return_value = "Windows"
 
@@ -1038,7 +990,6 @@ class TestDockerManager(unittest.TestCase):
 
         Note: Variable substitution happens in the executor before calling docker manager.
         This test verifies that the docker manager correctly handles already-substituted paths.
-        @athena: 16ce782b87a4
         """
         mock_platform.return_value = "Linux"
 
@@ -1269,7 +1220,6 @@ class TestDockerManager(unittest.TestCase):
         """
         Test that appropriate error occurs when dockerfile path cannot be resolved.
         Verifies that Docker build fails with clear error when file doesn't exist.
-        @athena: to-be-generated
         """
         env = Runner(
             name="builder",
@@ -1307,7 +1257,6 @@ class TestDockerManager(unittest.TestCase):
         """
         Test that path traversal attempts in dockerfile paths are handled safely.
         Verifies that paths like ../../etc/passwd are resolved by pathlib correctly.
-        @athena: to-be-generated
         """
         env = Runner(
             name="traversal",

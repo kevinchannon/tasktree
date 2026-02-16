@@ -17,14 +17,12 @@ from tasktree.state import StateManager, TaskState
 
 class TestTaskStatus(unittest.TestCase):
     """
-    @athena: 29bc4b565149
     """
 
     def test_check_never_run(self):
         """
         Test status for task that has never run.
         With new behavior: tasks with no inputs always run with reason "no_inputs".
-        @athena: db5a0f68dacc
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -52,7 +50,6 @@ class TestTaskStatus(unittest.TestCase):
     def test_check_no_inputs(self):
         """
         Test status for task with no inputs (always runs).
-        @athena: fdaca0ac4e9f
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -76,7 +73,6 @@ class TestTaskStatus(unittest.TestCase):
     def test_check_fresh(self):
         """
         Test status for task that is fresh.
-        @athena: 167b3e9937e4
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -131,14 +127,12 @@ class TestTaskStatus(unittest.TestCase):
 
 class TestExecutor(unittest.TestCase):
     """
-    @athena: 2b01be6f3e51
     """
 
     @patch("tasktree.temp_script.os.chmod")
     def test_execute_simple_task(self, _chmod_fake):
         """
         Test executing a simple task.
-        @athena: 6ba5a319dd19
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -169,7 +163,6 @@ class TestExecutor(unittest.TestCase):
     def test_execute_with_dependencies(self):
         """
         Test executing task with dependencies.
-        @athena: bd3de7c1bb8c
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -200,7 +193,6 @@ class TestExecutor(unittest.TestCase):
     def test_execute_with_args(self, _fake_chmod):
         """
         Test executing task with arguments.
-        @athena: a4ec6b06333f
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -241,7 +233,6 @@ class TestExecutor(unittest.TestCase):
     def test_run_command_as_script_single_line(self, mock_unlink, mock_chmod):
         """
         Test _run_command_as_script with single-line command.
-        @athena: 791553a2ae01
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -284,7 +275,6 @@ class TestExecutor(unittest.TestCase):
     def test_run_command_as_script_with_preamble(self, unlink_spy, chmod_spy):
         """
         Test _run_command_as_script with preamble.
-        @athena: fcb783aa3c67
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -318,7 +308,6 @@ class TestExecutor(unittest.TestCase):
     def test_run_command_as_script_multiline(self, unlink_spy, chmod_spy):
         """
         Test _run_command_as_script with multi-line command.
-        @athena: c7500eea58e2
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -356,7 +345,6 @@ class TestExecutor(unittest.TestCase):
         2. Script is made executable with chmod
         3. Script content has correct ordering (shebang -> preamble -> command)
         4. ProcessRunner is called AFTER all script setup completes
-        @athena: 4eec41b394ec
         """
 
         import platform
@@ -511,13 +499,11 @@ class TestExecutor(unittest.TestCase):
 
 class TestMissingOutputs(unittest.TestCase):
     """
-    @athena: 6f72f170894d
     """
 
     def test_fresh_task_with_all_outputs_present(self):
         """
         Test that fresh task with all outputs present should skip.
-        @athena: 529abcc7d9dd
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -565,7 +551,6 @@ class TestMissingOutputs(unittest.TestCase):
         """
         Test that task with no inputs always runs with reason "no_inputs".
         (Even when outputs are missing - "no_inputs" check happens first)
-        @athena: 1061f2d5c1ac
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -609,7 +594,6 @@ class TestMissingOutputs(unittest.TestCase):
     def test_fresh_task_with_partial_outputs(self):
         """
         Test that task with no inputs always runs with reason "no_inputs".
-        @athena: a04a60bd9058
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -654,7 +638,6 @@ class TestMissingOutputs(unittest.TestCase):
     def test_task_with_no_state_should_not_warn_about_outputs(self):
         """
         Test that task with no inputs uses "no_inputs" reason.
-        @athena: 3612805f025c
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -683,7 +666,6 @@ class TestMissingOutputs(unittest.TestCase):
     def test_task_with_no_inputs_always_runs(self):
         """
         Test that tasks with no inputs always run.
-        @athena: 027e040b2197
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -708,7 +690,6 @@ class TestMissingOutputs(unittest.TestCase):
     def test_output_glob_pattern_with_working_dir(self):
         """
         Test that output patterns resolve correctly with working_dir.
-        @athena: fcc6b56d0c6e
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -758,7 +739,6 @@ class TestMissingOutputs(unittest.TestCase):
     def test_output_glob_pattern_no_matches(self):
         """
         Test that task with no inputs always runs with reason "no_inputs".
-        @athena: 58a7173dda57
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -803,13 +783,11 @@ class TestMissingOutputs(unittest.TestCase):
 class TestExecutorErrors(unittest.TestCase):
     """
     Tests for executor error conditions.
-    @athena: bf8665e80bc1
     """
 
     def test_execute_subprocess_failure(self):
         """
         Test ExecutionError raised when subprocess fails.
-        @athena: cb9a84ded9db
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -836,7 +814,6 @@ tasks:
     def test_execute_working_dir_not_found(self):
         """
         Test error when working directory doesn't exist.
-        @athena: b4f1caa74569
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -863,7 +840,6 @@ tasks:
     def test_execute_command_not_found(self):
         """
         Test error when command doesn't exist.
-        @athena: 3e875ac776cd
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -889,7 +865,6 @@ tasks:
     def test_execute_permission_denied(self):
         """
         Test error when command not executable.
-        @athena: 8eea756b0384
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -921,7 +896,6 @@ tasks:
     def test_builtin_working_dir_in_working_dir_raises_error(self):
         """
         Test that using {{ tt.working_dir }} in working_dir raises clear error.
-        @athena: 45c005938b3b
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -952,7 +926,6 @@ tasks:
     def test_other_builtin_vars_in_working_dir_allowed(self):
         """
         Test that non-circular builtin vars like {{ tt.task_name }} work in working_dir.
-        @athena: 5784b8718ffb
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -985,13 +958,11 @@ tasks:
 class TestExecutorPrivateMethods(unittest.TestCase):
     """
     Tests for executor private methods.
-    @athena: 123409a3a7f2
     """
 
     def test_substitute_args_single(self):
         """
         Test substituting single argument.
-        @athena: 9b1dfb1be1a3
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -1013,7 +984,6 @@ class TestExecutorPrivateMethods(unittest.TestCase):
     def test_substitute_args_multiple(self):
         """
         Test substituting multiple arguments.
-        @athena: a81621d02422
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -1040,7 +1010,6 @@ class TestExecutorPrivateMethods(unittest.TestCase):
     def test_substitute_args_missing_placeholder(self):
         """
         Test raises error when arg not provided.
-        @athena: fe8094a00805
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -1070,7 +1039,6 @@ class TestExecutorPrivateMethods(unittest.TestCase):
     def test_check_inputs_changed_mtime(self):
         """
         Test detects changed file by mtime.
-        @athena: ad1eef94f9a4
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -1108,7 +1076,6 @@ class TestExecutorPrivateMethods(unittest.TestCase):
     def test_check_outputs_missing(self):
         """
         Test detects missing output files.
-        @athena: 68398c9cfcd9
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -1137,7 +1104,6 @@ class TestExecutorPrivateMethods(unittest.TestCase):
     def test_expand_globs_multiple_patterns(self):
         """
         Test expanding multiple glob patterns.
-        @athena: 27094d19d541
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -1167,14 +1133,12 @@ class TestExecutorPrivateMethods(unittest.TestCase):
 class TestOnlyMode(unittest.TestCase):
     """
     Test the --only mode that skips dependencies.
-    @athena: 9b470eafd594
     """
 
     @patch("tasktree.temp_script.os.chmod")
     def test_only_mode_skips_dependencies(self, _fake_chmod):
         """
         Test that only=True executes only the target task, not dependencies.
-        @athena: 88af1cf22c38
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -1214,7 +1178,6 @@ class TestOnlyMode(unittest.TestCase):
     def test_only_mode_with_multiple_dependencies(self, _fake_chmod):
         """
         Test that only=True skips all dependencies in a chain.
-        @athena: c6ba6d4a8fb8
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -1254,7 +1217,6 @@ class TestOnlyMode(unittest.TestCase):
     def test_only_mode_forces_execution(self):
         """
         Test that only=True forces execution (ignores freshness).
-        @athena: 87fd4889aa19
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -1309,13 +1271,11 @@ class TestOnlyMode(unittest.TestCase):
 class TestMultilineExecution(unittest.TestCase):
     """
     Test multi-line command execution via temp files.
-    @athena: f5503e728b34
     """
 
     def test_multiline_command_content(self):
         """
         Test multi-line command content is written to temp file.
-        @athena: 939862eef5d8
         """
 
         import platform
@@ -1356,13 +1316,11 @@ echo "line3" >> output.txt"""
 class TestRunnerResolution(unittest.TestCase):
     """
     Test runner resolution and usage.
-    @athena: 43e99504aef1
     """
 
     def test_get_effective_runner_with_global_override(self):
         """
         Test that global_runner_override takes precedence.
-        @athena: f0071f4d55ba
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -1396,7 +1354,6 @@ class TestRunnerResolution(unittest.TestCase):
     def test_get_effective_runner_with_task_runner(self):
         """
         Test that task.run_in is used when no global override.
-        @athena: 50c636d4ee16
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -1427,7 +1384,6 @@ class TestRunnerResolution(unittest.TestCase):
     def test_get_effective_runner_with_default_runner(self):
         """
         Test that default_runner is used when task has no explicit run_in.
-        @athena: 6372bb43f96b
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -1455,7 +1411,6 @@ class TestRunnerResolution(unittest.TestCase):
     def test_get_effective_runner_platform_default(self):
         """
         Test that session default runner name is returned for platform default.
-        @athena: 19260cca1cf9
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -1477,7 +1432,6 @@ class TestRunnerResolution(unittest.TestCase):
     def test_resolve_runner_with_custom_runner(self):
         """
         Test resolving runner with custom shell and preamble.
-        @athena: ad7409ace0a8
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -1509,7 +1463,6 @@ class TestRunnerResolution(unittest.TestCase):
     def test_resolve_runner_falls_back_to_platform_default(self, mock_system):
         """
         Test that _resolve_runner falls back to platform defaults when no runner is defined.
-        @athena: to-be-generated
         """
         # Test Unix/Linux platform
         mock_system.return_value = "Linux"
@@ -1556,7 +1509,6 @@ class TestRunnerResolution(unittest.TestCase):
     def test_task_execution_uses_custom_shell(self, _fake_chmod):
         """
         Test that custom shell from runner is used for execution.
-        @athena: af5465f2617e
         """
 
         import platform
@@ -1607,7 +1559,6 @@ class TestRunnerResolution(unittest.TestCase):
     def test_hash_changes_with_runner(self):
         """
         Test that task hash changes when runner changes.
-        @athena: b54e9f49a005
         """
 
         from tasktree.hasher import hash_task
@@ -1626,7 +1577,6 @@ class TestRunnerResolution(unittest.TestCase):
     def test_run_task_substitutes_environment_variables(self, _fake_chmod):
         """
         Test that _run_task substitutes environment variables.
-        @athena: 6ff1df5d470b
         """
 
         os.environ["TEST_ENV_VAR"] = "test_value"
@@ -1677,7 +1627,6 @@ class TestRunnerResolution(unittest.TestCase):
     def test_run_task_env_substitution_in_working_dir(self):
         """
         Test environment variables work in working_dir.
-        @athena: 918844bd22d1
         """
 
         os.environ["SUBDIR"] = "mydir"
@@ -1717,7 +1666,6 @@ class TestRunnerResolution(unittest.TestCase):
     def test_run_task_undefined_env_var_raises(self):
         """
         Test undefined environment variable raises clear error.
-        @athena: 164a338d8a37
         """
 
         # Ensure var is not set
@@ -1756,13 +1704,11 @@ class TestRunnerResolution(unittest.TestCase):
 class TestTaskOutputParameter(unittest.TestCase):
     """
     Test task_output parameter handling in Executor.
-    @athena: c15f20ce7913
     """
 
     def test_run_command_as_script_accesses_task_output_via_self(self):
         """
         Test that _run_command_as_script() can access task_output via self.
-        @athena: 362bec700c36
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -1861,13 +1807,11 @@ class TestTaskOutputParameter(unittest.TestCase):
 class TestExecutorProcessRunner(unittest.TestCase):
     """
     Tests for Executor's process_runner_factory parameter.
-    @athena: 1c0756739b33
     """
 
     def test_executor_uses_process_runner_in_run_task(self):
         """
         Executor calls process_runner_factory in _run_task.
-        @athena: e8b033b6f187
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -1999,14 +1943,12 @@ class TestExecutorProcessRunner(unittest.TestCase):
 class TestGetSessionDefaultRunner(unittest.TestCase):
     """
     Tests for get_session_default_runner() function.
-    @athena: to-be-generated
     """
 
     @patch("platform.system")
     def test_returns_bash_on_unix(self, mock_system):
         """
         Test that get_session_default_runner returns bash runner on Unix platforms.
-        @athena: to-be-generated
         """
         mock_system.return_value = "Linux"
 
@@ -2030,7 +1972,6 @@ class TestGetSessionDefaultRunner(unittest.TestCase):
     def test_returns_bash_on_macos(self, mock_system):
         """
         Test that get_session_default_runner returns bash runner on macOS.
-        @athena: to-be-generated
         """
         mock_system.return_value = "Darwin"
 
@@ -2054,7 +1995,6 @@ class TestGetSessionDefaultRunner(unittest.TestCase):
     def test_returns_cmd_on_windows(self, mock_system):
         """
         Test that get_session_default_runner returns cmd runner on Windows.
-        @athena: to-be-generated
         """
         mock_system.return_value = "Windows"
 
@@ -2078,7 +2018,6 @@ class TestGetSessionDefaultRunner(unittest.TestCase):
     def test_returns_project_config_runner_when_found(self, mock_system):
         """
         Test that get_session_default_runner returns project config runner when available.
-        @athena: to-be-generated
         """
         mock_system.return_value = "Linux"
 
@@ -2112,7 +2051,6 @@ runners:
     def test_falls_back_to_platform_default_when_no_config(self, mock_system):
         """
         Test that get_session_default_runner falls back to platform default when no config.
-        @athena: to-be-generated
         """
         mock_system.return_value = "Linux"
 
@@ -2136,7 +2074,6 @@ runners:
     def test_handles_config_parse_errors_gracefully(self, mock_system):
         """
         Test that get_session_default_runner falls back to platform default on parse errors.
-        @athena: to-be-generated
         """
         mock_system.return_value = "Linux"
 
@@ -2164,7 +2101,6 @@ runners:
     def test_searches_parent_directories_for_config(self, mock_system):
         """
         Test that get_session_default_runner searches parent directories for config.
-        @athena: to-be-generated
         """
         mock_system.return_value = "Linux"
 
@@ -2202,7 +2138,6 @@ runners:
     def test_returns_user_config_runner_when_found(self, mock_get_user_config, mock_system):
         """
         Test that get_session_default_runner returns user config runner when available.
-        @athena: to-be-generated
         """
         mock_system.return_value = "Linux"
 
@@ -2239,7 +2174,6 @@ runners:
     def test_project_config_overrides_user_config(self, mock_get_user_config, mock_system):
         """
         Test that project config takes precedence over user config.
-        @athena: to-be-generated
         """
         mock_system.return_value = "Linux"
 
@@ -2285,7 +2219,6 @@ runners:
     def test_user_config_overrides_platform_default(self, mock_get_user_config, mock_system):
         """
         Test that user config takes precedence over platform default.
-        @athena: to-be-generated
         """
         mock_system.return_value = "Linux"
 
@@ -2325,7 +2258,6 @@ runners:
     ):
         """
         Test that get_session_default_runner falls back when user config has parse errors.
-        @athena: to-be-generated
         """
         mock_system.return_value = "Linux"
 
@@ -2358,7 +2290,6 @@ runners:
     ):
         """
         Test that get_session_default_runner returns machine config runner when available.
-        @athena: to-be-generated
         """
         mock_system.return_value = "Linux"
 
@@ -2397,7 +2328,6 @@ runners:
     ):
         """
         Test that machine config takes precedence over platform default.
-        @athena: to-be-generated
         """
         mock_system.return_value = "Linux"
 
@@ -2438,7 +2368,6 @@ runners:
     ):
         """
         Test that user config takes precedence over machine config.
-        @athena: to-be-generated
         """
         mock_system.return_value = "Linux"
 
@@ -2489,7 +2418,6 @@ runners:
     ):
         """
         Test that get_session_default_runner falls back when machine config has permission errors.
-        @athena: to-be-generated
         """
         mock_system.return_value = "Linux"
 
@@ -2526,7 +2454,6 @@ runners:
     ):
         """
         Test that get_session_default_runner handles empty machine config files gracefully.
-        @athena: to-be-generated
         """
         mock_system.return_value = "Linux"
 
@@ -2559,7 +2486,6 @@ runners:
     ):
         """
         Test that get_session_default_runner handles malformed YAML in machine config gracefully.
-        @athena: to-be-generated
         """
         mock_system.return_value = "Linux"
 
@@ -2597,7 +2523,6 @@ runners:
     def test_logs_warning_when_config_parse_fails(self, mock_system):
         """
         Test that get_session_default_runner logs a warning when config parsing fails.
-        @athena: to-be-generated
         """
         mock_system.return_value = "Linux"
 
@@ -2631,7 +2556,6 @@ runners:
     def test_project_root_passed_to_config_parser(self, mock_system):
         """
         Test that project_root is passed to parse_config_file for all config levels.
-        @athena: to-be-generated
         """
         mock_system.return_value = "Linux"
 
@@ -2666,7 +2590,6 @@ runners:
         """
         Test that relative paths in user config are accepted and stored.
         Path resolution happens at execution time in docker.py.
-        @athena: to-be-generated
         """
         mock_system.return_value = "Linux"
 
@@ -2705,7 +2628,6 @@ runners:
     def test_absolute_paths_in_config(self, mock_system):
         """
         Test that absolute paths in config files are accepted and stored.
-        @athena: to-be-generated
         """
         mock_system.return_value = "Linux"
 
@@ -2741,13 +2663,11 @@ runners:
 class TestPlatformdirs(unittest.TestCase):
     """
     Test that platformdirs dependency is available.
-    @athena: to-be-generated
     """
 
     def test_platformdirs_import(self):
         """
         Test that platformdirs can be imported successfully.
-        @athena: to-be-generated
         """
         try:
             import platformdirs

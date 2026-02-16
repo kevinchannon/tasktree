@@ -30,7 +30,6 @@ from tasktree.logging import Logger
 class TaskOutputTypes(Enum):
     """
     Enum defining task output control modes.
-    @athena: TBD
     """
 
     ALL = "all"
@@ -43,7 +42,6 @@ class TaskOutputTypes(Enum):
 class ProcessRunner(ABC):
     """
     Abstract interface for running subprocess commands.
-    @athena: 78720f594104
     """
 
     @abstractmethod
@@ -64,7 +62,6 @@ class ProcessRunner(ABC):
         Raises:
         subprocess.CalledProcessError: If check=True and process exits non-zero
         subprocess.TimeoutExpired: If timeout is exceeded
-        @athena: c056d217be2e
         """
         ...
 
@@ -72,7 +69,6 @@ class ProcessRunner(ABC):
 class PassthroughProcessRunner(ProcessRunner):
     """
     Process runner that directly delegates to subprocess.run.
-    @athena: 470e2ca46355
     """
 
     def __init__(self, logger: Logger) -> None:
@@ -92,7 +88,6 @@ class PassthroughProcessRunner(ProcessRunner):
         Raises:
         subprocess.CalledProcessError: If check=True and process exits non-zero
         subprocess.TimeoutExpired: If timeout is exceeded
-        @athena: 9f6363a621f2
         """
         return subprocess.run(*args, **kwargs)
 
@@ -100,7 +95,6 @@ class PassthroughProcessRunner(ProcessRunner):
 class SilentProcessRunner(ProcessRunner):
     """
     Process runner that suppresses all subprocess output by redirecting to DEVNULL.
-    @athena: TBD
     """
 
     def __init__(self, logger: Logger) -> None:
@@ -123,7 +117,6 @@ class SilentProcessRunner(ProcessRunner):
         Raises:
         subprocess.CalledProcessError: If check=True and process exits non-zero
         subprocess.TimeoutExpired: If timeout is exceeded
-        @athena: TBD
         """
         kwargs["stdout"] = subprocess.DEVNULL
         kwargs["stderr"] = subprocess.DEVNULL
@@ -141,7 +134,6 @@ def stream_output(pipe: Any, target: Any) -> None:
     Args:
         pipe: Input pipe to read from
         target: Output stream to write to
-    @athena: TBD
     """
     if pipe:
         try:
@@ -212,7 +204,6 @@ class StdoutOnlyProcessRunner(ProcessRunner):
 
     This implementation uses threading to asynchronously stream stdout from the
     subprocess while discarding stderr output.
-    @athena: TBD
     """
 
     def __init__(self, logger: Logger) -> None:
@@ -239,7 +230,6 @@ class StdoutOnlyProcessRunner(ProcessRunner):
         Raises:
             subprocess.CalledProcessError: If check=True and process exits non-zero
             subprocess.TimeoutExpired: If timeout is exceeded
-        @athena: TBD
         """
         # Extract parameters that need special handling
         check = kwargs.pop("check", False)
@@ -276,7 +266,6 @@ class StderrOnlyProcessRunner(ProcessRunner):
 
     This implementation uses threading to asynchronously stream stderr from the
     subprocess while discarding stdout output.
-    @athena: TBD
     """
 
     def __init__(self, logger: Logger) -> None:
@@ -303,7 +292,6 @@ class StderrOnlyProcessRunner(ProcessRunner):
         Raises:
             subprocess.CalledProcessError: If check=True and process exits non-zero
             subprocess.TimeoutExpired: If timeout is exceeded
-        @athena: TBD
         """
         # Extract parameters that need special handling
         check = kwargs.pop("check", False)
@@ -408,7 +396,6 @@ def make_process_runner(output_type: TaskOutputTypes, logger: Logger) -> Process
 
     Raises:
     ValueError: If an invalid TaskOutputTypes value is provided
-    @athena: ba1d2e048716
     """
     match output_type:
         case TaskOutputTypes.ALL:

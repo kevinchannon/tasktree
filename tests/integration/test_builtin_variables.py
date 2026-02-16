@@ -17,13 +17,11 @@ from helpers.logging import logger_stub
 class TestBuiltinVariables(unittest.TestCase):
     """
     Test built-in variable substitution in task execution.
-    @athena: 0860667033c1
     """
 
     def setUp(self):
         """
         Create temporary directory for test recipes.
-        @athena: 1fdfc01517da
         """
         self.test_dir = tempfile.mkdtemp()
         self.recipe_file = Path(self.test_dir) / "tasktree.yaml"
@@ -31,7 +29,6 @@ class TestBuiltinVariables(unittest.TestCase):
     def tearDown(self):
         """
         Clean up temporary directory.
-        @athena: a5513988aa81
         """
         import shutil
 
@@ -40,7 +37,6 @@ class TestBuiltinVariables(unittest.TestCase):
     def test_all_builtin_variables_in_command(self):
         """
         Test that all 8 built-in variables work in task commands.
-        @athena: 563e5b6fdb88
         """
         # Create output file path
         output_file = Path(self.test_dir) / "output.txt"
@@ -107,7 +103,6 @@ tasks:
     def test_timestamp_consistency_within_task(self):
         """
         Test that timestamp is consistent throughout a single task execution.
-        @athena: 6cc0d4fe1705
         """
         output_file = Path(self.test_dir) / "timestamps.txt"
 
@@ -140,7 +135,6 @@ tasks:
     def test_builtin_vars_with_working_dir(self):
         """
         Test that tt.working_dir reflects the task's working_dir setting.
-        @athena: c18a54ee5714
         """
         # Create subdirectory
         subdir = Path(self.test_dir) / "subdir"
@@ -168,7 +162,6 @@ tasks:
     def test_builtin_vars_in_multiline_command(self):
         """
         Test that built-in variables work in multi-line commands.
-        @athena: 78bf7fa81929
         """
         output_file = Path(self.test_dir) / "multiline.txt"
 
@@ -195,7 +188,6 @@ tasks:
     def test_recipe_dir_differs_from_project_root_when_recipe_in_subdir(self):
         """
         Test that recipe_dir points to recipe file location, not project root.
-        @athena: 77385f66adb8
         """
         # Create recipe in a subdirectory
         recipe_subdir = Path(self.test_dir) / "config"
@@ -233,7 +225,6 @@ tasks:
     def test_builtin_vars_mixed_with_other_vars(self):
         """
         Test built-in variables work alongside regular variables and arguments.
-        @athena: bc7dd2476396
         """
         output_file = Path(self.test_dir) / "mixed.txt"
 
@@ -274,7 +265,6 @@ tasks:
     def test_builtin_vars_in_working_dir(self):
         """
         Test that non-circular builtin variables can be used in working_dir.
-        @athena: 0e94262b7e78
         """
 
         # Create a directory that matches the task name
@@ -312,7 +302,6 @@ tasks:
     def test_builtin_vars_in_runner_volumes(self):
         """
         Test that builtin variables are substituted in runner volume mounts.
-        @athena: 8147ff7024a4
         """
 
         from unittest.mock import patch, Mock
@@ -442,7 +431,6 @@ tasks:
     def test_env_vars_in_runner_fields(self):
         """
         Test that {{ env.* }} variables are substituted in runner fields.
-        @athena: b22c32541ba0
         """
 
         from unittest.mock import patch, Mock
@@ -558,7 +546,6 @@ tasks:
     def test_var_vars_in_runner_fields(self):
         """
         Test that {{ var.* }} variables are substituted in runner fields.
-        @athena: 6f133a9ba7f8
         """
 
         from unittest.mock import patch, Mock

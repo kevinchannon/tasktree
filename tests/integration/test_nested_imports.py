@@ -14,7 +14,6 @@ from tasktree.cli import app
 def strip_ansi_codes(text: str) -> str:
     """
     Remove ANSI escape sequences from text.
-    @athena: 853120f3304f
     """
     ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
     return ansi_escape.sub("", text)
@@ -23,13 +22,11 @@ def strip_ansi_codes(text: str) -> str:
 class TestNestedImports(unittest.TestCase):
     """
     Integration tests for nested import execution.
-    @athena: 77a91725ee77
     """
 
     def setUp(self):
         """
         Set up test fixtures.
-        @athena: 36a706d60319
         """
         self.runner = CliRunner()
         self.env = {"NO_COLOR": "1"}
@@ -37,7 +34,6 @@ class TestNestedImports(unittest.TestCase):
     def test_nested_import_task_execution(self):
         """
         Test that tasks from nested imports execute correctly.
-        @athena: 14bc7bd25f21
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -109,7 +105,6 @@ tasks:
     def test_nested_import_dependency_chain(self):
         """
         Test dependency resolution across nested imports.
-        @athena: 51ce04113795
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -206,7 +201,6 @@ tasks:
     def test_diamond_import_execution(self):
         """
         Test diamond import pattern executes correctly.
-        @athena: 0beec7ecf115
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)

@@ -4,7 +4,6 @@ Unit tests for temp_script module.
 Tests the TempScript context manager for creating, managing, and cleaning up
 temporary shell script files.
 
-@athena: module
 """
 
 import os
@@ -22,14 +21,12 @@ class TestTempScript(unittest.TestCase):
     """
     Test TempScript context manager.
 
-    @athena: class
     """
 
     def test_creates_temp_script_with_command_only(self):
         """
         Test TempScript creates a temporary script file with command only.
 
-        @athena: method
         """
         cmd = "echo hello"
 
@@ -58,7 +55,6 @@ class TestTempScript(unittest.TestCase):
         """
         Test TempScript creates script with preamble prepended.
 
-        @athena: method
         """
         cmd = "echo hello"
         preamble = "set -e\n"
@@ -83,7 +79,6 @@ class TestTempScript(unittest.TestCase):
         """
         Test TempScript adds newline after preamble if missing.
 
-        @athena: method
         """
         cmd = "echo hello"
         preamble = "set -e"  # No trailing newline
@@ -100,7 +95,6 @@ class TestTempScript(unittest.TestCase):
         """
         Test TempScript handles multi-line commands correctly.
 
-        @athena: method
         """
         cmd = "echo hello\necho world\necho !"
 
@@ -118,7 +112,6 @@ class TestTempScript(unittest.TestCase):
         """
         Test TempScript uses custom shell in shebang.
 
-        @athena: method
         """
         is_windows = platform.system() == "Windows"
         if is_windows:
@@ -139,7 +132,6 @@ class TestTempScript(unittest.TestCase):
         """
         Test TempScript makes script executable on Unix/macOS.
 
-        @athena: method
         """
         is_windows = platform.system() == "Windows"
         if is_windows:
@@ -159,7 +151,6 @@ class TestTempScript(unittest.TestCase):
         """
         Test TempScript cleans up script even when exception occurs.
 
-        @athena: method
         """
         cmd = "echo hello"
         script_path_ref = None
@@ -182,7 +173,6 @@ class TestTempScript(unittest.TestCase):
         """
         Test TempScript cleanup ignores OSError during file deletion.
 
-        @athena: method
         """
         cmd = "echo hello"
 
@@ -197,7 +187,6 @@ class TestTempScript(unittest.TestCase):
         """
         Test TempScript does not add shebang if command already has one.
 
-        @athena: method
         """
         is_windows = platform.system() == "Windows"
         if is_windows:
@@ -220,7 +209,6 @@ class TestTempScript(unittest.TestCase):
         """
         Test TempScript handles empty command string.
 
-        @athena: method
         """
         cmd = ""
 
@@ -240,7 +228,6 @@ class TestTempScript(unittest.TestCase):
         """
         Test TempScript returns Path object, not string.
 
-        @athena: method
         """
         cmd = "echo hello"
 
@@ -254,7 +241,6 @@ class TestTempScript(unittest.TestCase):
         """
         Test TempScript uses .bat extension on Windows.
 
-        @athena: method
         """
         is_windows = platform.system() == "Windows"
         if not is_windows:
@@ -276,7 +262,6 @@ class TestTempScript(unittest.TestCase):
         """
         Test TempScript handles non-ASCII (UTF-8) characters in commands.
 
-        @athena: method
         """
         # Test with various Unicode characters
         cmd = "echo 'Hello 世界 🌍 Привет café'"

@@ -11,7 +11,6 @@ import click
 class HostnameType(click.ParamType):
     """
     Validates hostname format (not DNS resolution).
-    @athena: 84a721c40458
     """
 
     name = "hostname"
@@ -25,7 +24,6 @@ class HostnameType(click.ParamType):
         self, value: Any, param: Optional[click.Parameter], ctx: Optional[click.Context]
     ) -> str:
         """
-        @athena: 8d921e52bcf2
         """
         if isinstance(value, str):
             if self.HOSTNAME_PATTERN.match(value):
@@ -36,7 +34,6 @@ class HostnameType(click.ParamType):
 class EmailType(click.ParamType):
     """
     Validates email format (not deliverability).
-    @athena: 95cfacc3f4cd
     """
 
     name = "email"
@@ -48,7 +45,6 @@ class EmailType(click.ParamType):
         self, value: Any, param: Optional[click.Parameter], ctx: Optional[click.Context]
     ) -> str:
         """
-        @athena: 25046aeb6e6f
         """
         if isinstance(value, str):
             if self.EMAIL_PATTERN.match(value):
@@ -59,7 +55,6 @@ class EmailType(click.ParamType):
 class IPType(click.ParamType):
     """
     Validates IP address (IPv4 or IPv6).
-    @athena: dac837bf4894
     """
 
     name = "ip"
@@ -68,7 +63,6 @@ class IPType(click.ParamType):
         self, value: Any, param: Optional[click.Parameter], ctx: Optional[click.Context]
     ) -> str:
         """
-        @athena: d57618e5ad89
         """
         try:
             ip_address(value)
@@ -80,7 +74,6 @@ class IPType(click.ParamType):
 class IPv4Type(click.ParamType):
     """
     Validates IPv4 address.
-    @athena: ea5957643fe5
     """
 
     name = "ipv4"
@@ -89,7 +82,6 @@ class IPv4Type(click.ParamType):
         self, value: Any, param: Optional[click.Parameter], ctx: Optional[click.Context]
     ) -> str:
         """
-        @athena: 7ed2d17d1f1a
         """
         try:
             IPv4Address(value)
@@ -101,7 +93,6 @@ class IPv4Type(click.ParamType):
 class IPv6Type(click.ParamType):
     """
     Validates IPv6 address.
-    @athena: 9bc5b38d4f23
     """
 
     name = "ipv6"
@@ -110,7 +101,6 @@ class IPv6Type(click.ParamType):
         self, value: Any, param: Optional[click.Parameter], ctx: Optional[click.Context]
     ) -> str:
         """
-        @athena: 4b101e4d54cf
         """
         try:
             IPv6Address(value)
@@ -122,7 +112,6 @@ class IPv6Type(click.ParamType):
 class DateTimeType(click.ParamType):
     """
     Validates datetime in format YYYY-MM-DDTHH:MM:SS.
-    @athena: 0b935a25fb23
     """
 
     name = "datetime"
@@ -131,7 +120,6 @@ class DateTimeType(click.ParamType):
         self, value: Any, param: Optional[click.Parameter], ctx: Optional[click.Context]
     ) -> str:
         """
-        @athena: 9c7bb2d672cc
         """
         if isinstance(value, str):
             try:
@@ -180,7 +168,6 @@ def get_click_type(
 
     Raises:
     ValueError: If type_name is not recognized
-    @athena: 523ff9c66303
     """
     if type_name not in TYPE_MAPPING:
         raise ValueError(f"Unknown type: {type_name}")

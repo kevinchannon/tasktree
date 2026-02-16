@@ -1,6 +1,5 @@
 """
 E2E test utilities for Docker tests.
-@athena: a274bf57a098
 """
 
 import os

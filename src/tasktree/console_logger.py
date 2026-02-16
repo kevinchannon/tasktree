@@ -9,7 +9,6 @@ class ConsoleLogger(Logger):
     Filters log messages based on the current log level. Messages with severity
     lower than the current level are suppressed. Supports a stack-based level
     management system for temporary verbosity changes.
-    @athena: a892913fc11c
     """
 
     def __init__(self, console: Console, level: LogLevel = LogLevel.INFO) -> None:
@@ -19,7 +18,6 @@ class ConsoleLogger(Logger):
         Args:
         console: Rich Console instance to use for output
         level: Initial log level (default: INFO)
-        @athena: 388d9c273a6a
         """
         self._console = console
         self._levels = [level]
@@ -35,7 +33,6 @@ class ConsoleLogger(Logger):
         level: The severity level of this message (default: INFO)
         *args: Positional arguments passed to Rich Console.print()
         **kwargs: Keyword arguments passed to Rich Console.print()
-        @athena: efae38733da1
         """
         if self._levels[-1].value >= level.value:
             self._console.print(*args, **kwargs)
@@ -46,7 +43,6 @@ class ConsoleLogger(Logger):
 
         Args:
         level: The new log level to activate
-        @athena: 07c7493570b1
         """
         self._levels.append(level)
 
@@ -59,7 +55,6 @@ class ConsoleLogger(Logger):
 
         Raises:
         RuntimeError: If attempting to pop the base (initial) log level
-        @athena: 65ac19e00168
         """
         if len(self._levels) <= 1:
             raise RuntimeError("Cannot pop the base log level")

@@ -12,26 +12,22 @@ from typer.testing import CliRunner
 class TestDependencyOutputReferences(unittest.TestCase):
     """
     Test {{ dep.task.outputs.name }} template references.
-    @athena: 398929af7bd8
     """
 
     def setUp(self):
         """
-        @athena: a7ea58f41c87
         """
         self.runner = CliRunner()
         self.original_cwd = os.getcwd()
 
     def tearDown(self):
         """
-        @athena: 63b8f9e02fea
         """
         os.chdir(self.original_cwd)
 
     def test_basic_output_reference(self):
         """
         Test basic named output reference.
-        @athena: d557dfa33e2b
         """
         with TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)
@@ -85,7 +81,6 @@ tasks:
     def test_mixed_named_and_anonymous_outputs(self):
         """
         Test task with both named and anonymous outputs.
-        @athena: 62e974978726
         """
         with TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)
@@ -130,7 +125,6 @@ tasks:
     def test_transitive_output_references(self):
         """
         Test output references across multiple levels.
-        @athena: 3e58fb45ddb0
         """
         with TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)
@@ -178,7 +172,6 @@ tasks:
     def test_error_on_missing_output_name(self):
         """
         Test error when referencing non-existent output name.
-        @athena: 3290631bbe12
         """
         with TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)
@@ -210,7 +203,6 @@ tasks:
     def test_error_on_task_not_in_deps(self):
         """
         Test error when referencing task not in dependencies.
-        @athena: 4c08aaeae0a5
         """
         with TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)
@@ -245,7 +237,6 @@ tasks:
     def test_output_references_in_outputs_field(self):
         """
         Test that output references work in outputs field.
-        @athena: b0ed86fa55ca
         """
         with TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)
@@ -289,7 +280,6 @@ tasks:
     def test_backward_compatibility_anonymous_outputs(self):
         """
         Test that existing anonymous outputs still work.
-        @athena: 99fb7c088df2
         """
         with TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)

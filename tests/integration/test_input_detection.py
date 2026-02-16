@@ -15,7 +15,6 @@ from tasktree.cli import app
 def strip_ansi_codes(text: str) -> str:
     """
     Remove ANSI escape sequences from text.
-    @athena: 853120f3304f
     """
     ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
     return ansi_escape.sub("", text)
@@ -24,13 +23,11 @@ def strip_ansi_codes(text: str) -> str:
 class TestInputDetection(unittest.TestCase):
     """
     Test that input file changes are detected correctly.
-    @athena: 260902ab8664
     """
 
     def setUp(self):
         """
         Set up test fixtures.
-        @athena: 36a706d60319
         """
         self.runner = CliRunner()
         self.env = {"NO_COLOR": "1"}
@@ -38,7 +35,6 @@ class TestInputDetection(unittest.TestCase):
     def test_input_file_mtime_triggers_rerun(self):
         """
         Test file mtime change is detected and triggers rerun.
-        @athena: 6591614b9a0d
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -93,7 +89,6 @@ tasks:
     def test_input_glob_pattern_detects_new_files(self):
         """
         Test glob pattern matches new files and triggers rerun.
-        @athena: 93b9f8e591d6
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -145,7 +140,6 @@ tasks:
     def test_input_modified_file_triggers_rerun_with_glob(self):
         """
         Test modifying one of multiple glob-matched files triggers rerun.
-        @athena: 6ece6b978798
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)

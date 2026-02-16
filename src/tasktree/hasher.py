@@ -19,7 +19,6 @@ def _arg_sort_key(arg: str | dict[str, Any]) -> str:
 
     Returns:
     The argument name to use as a sort key
-    @athena: c88bb2cf696b
     """
     if isinstance(arg, dict):
         # Dict args have exactly one key - the argument name
@@ -40,7 +39,6 @@ def _normalize_choices_lists(
     Returns:
     List of argument specs with sorted choices lists
 
-    @athena: dc34b6fb09a6
     """
     normalized_args = []
     for arg in args:
@@ -78,7 +76,6 @@ def _serialize_outputs_for_hash(outputs: list[str | dict[str, str]]) -> list[str
     Example:
     >>> _serialize_outputs_for_hash(["file.txt", {"bundle": "app.js"}])
     ['bundle:app.js', 'file.txt']
-    @athena: 933995400691
     """
     serialized = []
     for output in outputs:
@@ -114,7 +111,6 @@ def hash_task(
 
     Returns:
     8-character hash of task definition
-    @athena: 815a47cf1af0
     """
     data = {
         "cmd": cmd,
@@ -158,7 +154,6 @@ def hash_args(args_dict: dict[str, Any]) -> str:
     Returns:
         8-character hash of the argument dictionary
 
-    @athena: 768e562bff64
     """
     serialized = json.dumps(args_dict, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(serialized.encode()).hexdigest()[:8]
@@ -173,7 +168,6 @@ def hash_runner_definition(env) -> str:
 
     Returns:
     16-character hash of runner definition
-    @athena: a54f6c171ba9
     """
     # Import inside function to avoid circular dependency
 
@@ -210,7 +204,6 @@ def make_cache_key(task_hash: str, args_hash: Optional[str] = None) -> str:
     Returns:
         Combined cache key string in format "task_hash__args_hash" or just "task_hash"
 
-    @athena: c85093f485c7
     """
     if args_hash:
         return f"{task_hash}__{args_hash}"

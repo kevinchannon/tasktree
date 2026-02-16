@@ -10,13 +10,11 @@ from . import run_tasktree_cli
 class TestTaskOutputControl(unittest.TestCase):
     """
     Test --task-output flag functionality end-to-end.
-    @athena: TBD
     """
 
     def test_task_output_all_shows_both_stdout_and_stderr(self):
         """
         Test that --task-output=all shows both stdout and stderr.
-        @athena: TBD
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -55,7 +53,6 @@ tasks:
     def test_task_output_out_shows_only_stdout(self):
         """
         Test that --task-output=out shows only stdout, suppresses stderr.
-        @athena: TBD
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -98,7 +95,6 @@ tasks:
     def test_task_output_out_case_insensitive(self):
         """
         Test that --task-output accepts OUT in various cases (OUT, Out, out).
-        @athena: TBD
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -124,7 +120,6 @@ tasks:
     def test_task_output_out_with_short_flag(self):
         """
         Test that -O out works as short form of --task-output=out.
-        @athena: TBD
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -158,7 +153,6 @@ tasks:
     def test_task_output_none_suppresses_all_output(self):
         """
         Test that --task-output=none suppresses both stdout and stderr.
-        @athena: TBD
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -198,7 +192,6 @@ tasks:
     def test_task_output_none_with_short_flag(self):
         """
         Test that -O none works as short form of --task-output=none.
-        @athena: TBD
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -236,7 +229,6 @@ tasks:
     def test_task_output_none_case_insensitive(self):
         """
         Test that --task-output accepts NONE in various cases (NONE, None, none).
-        @athena: TBD
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -266,7 +258,6 @@ tasks:
     def test_task_output_err_shows_only_stderr(self):
         """
         Test that --task-output=err shows only stderr, suppresses stdout.
-        @athena: TBD
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -309,7 +300,6 @@ tasks:
     def test_task_output_err_case_insensitive(self):
         """
         Test that --task-output accepts ERR in various cases (ERR, Err, err).
-        @athena: TBD
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -335,7 +325,6 @@ tasks:
     def test_task_output_err_with_short_flag(self):
         """
         Test that -O err works as short form of --task-output=err.
-        @athena: TBD
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -369,7 +358,6 @@ tasks:
     def test_task_output_on_err_suppresses_stderr_on_success(self):
         """
         Test that --task-output=on-err suppresses stderr when task succeeds.
-        @athena: TBD
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -408,7 +396,6 @@ tasks:
     def test_task_output_on_err_shows_stderr_on_failure(self):
         """
         Test that --task-output=on-err shows buffered stderr when task fails.
-        @athena: TBD
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -441,7 +428,6 @@ tasks:
     def test_task_output_on_err_handles_failure_with_no_stderr(self):
         """
         Test that --task-output=on-err handles failures gracefully even with no stderr.
-        @athena: TBD
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -473,7 +459,6 @@ tasks:
     def test_task_output_on_err_case_insensitive(self):
         """
         Test that --task-output accepts ON-ERR in various cases.
-        @athena: TBD
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -507,7 +492,6 @@ tasks:
     def test_task_output_on_err_with_short_flag(self):
         """
         Test that -O on-err works as short form of --task-output=on-err.
-        @athena: TBD
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)

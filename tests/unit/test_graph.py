@@ -16,13 +16,11 @@ from tasktree.parser import Recipe, Task
 
 class TestResolveExecutionOrder(unittest.TestCase):
     """
-    @athena: bddf5f60de23
     """
 
     def test_single_task(self):
         """
         Test execution order for single task with no dependencies.
-        @athena: 25b6e4458e0b
         """
         tasks = {"build": Task(name="build", cmd="cargo build")}
         recipe = Recipe(
@@ -35,7 +33,6 @@ class TestResolveExecutionOrder(unittest.TestCase):
     def test_linear_dependencies(self):
         """
         Test execution order for linear dependency chain.
-        @athena: 36db80f88e0d
         """
         tasks = {
             "lint": Task(name="lint", cmd="cargo clippy"),
@@ -52,7 +49,6 @@ class TestResolveExecutionOrder(unittest.TestCase):
     def test_diamond_dependencies(self):
         """
         Test execution order for diamond dependency pattern.
-        @athena: e6229248ac25
         """
         tasks = {
             "a": Task(name="a", cmd="echo a"),
@@ -79,7 +75,6 @@ class TestResolveExecutionOrder(unittest.TestCase):
     def test_task_not_found(self):
         """
         Test error when task doesn't exist.
-        @athena: 03d6846673d2
         """
         tasks = {"build": Task(name="build", cmd="cargo build")}
         recipe = Recipe(
@@ -92,13 +87,11 @@ class TestResolveExecutionOrder(unittest.TestCase):
 
 class TestGetImplicitInputs(unittest.TestCase):
     """
-    @athena: af2a76679f91
     """
 
     def test_no_dependencies(self):
         """
         Test implicit inputs for task with no dependencies.
-        @athena: b85caf97f461
         """
         tasks = {"build": Task(name="build", cmd="cargo build")}
         recipe = Recipe(
@@ -111,7 +104,6 @@ class TestGetImplicitInputs(unittest.TestCase):
     def test_inherit_from_dependency_with_outputs(self):
         """
         Test inheriting outputs from dependency.
-        @athena: b1eda5964e2d
         """
         tasks = {
             "build": Task(name="build", cmd="cargo build", outputs=["target/bin"]),
@@ -129,7 +121,6 @@ class TestGetImplicitInputs(unittest.TestCase):
     def test_inherit_from_dependency_without_outputs(self):
         """
         Test inheriting inputs from dependency without outputs.
-        @athena: 9b258fa6f4fc
         """
         tasks = {
             "lint": Task(name="lint", cmd="cargo clippy", inputs=["src/**/*.rs"]),
@@ -146,13 +137,11 @@ class TestGetImplicitInputs(unittest.TestCase):
 class TestGraphErrors(unittest.TestCase):
     """
     Tests for graph error conditions.
-    @athena: 086247682401
     """
 
     def test_graph_cycle_error(self):
         """
         Test CycleError raised for circular dependencies.
-        @athena: a3ad7fd26e99
         """
         # Create a circular dependency: A -> B -> C -> A
         tasks = {
@@ -170,7 +159,6 @@ class TestGraphErrors(unittest.TestCase):
     def test_graph_build_tree_missing_task(self):
         """
         Test TaskNotFoundError in build_dependency_tree().
-        @athena: 188311aaf016
         """
         tasks = {
             "build": Task(name="build", cmd="echo build"),
@@ -188,13 +176,11 @@ class TestGraphErrors(unittest.TestCase):
 class TestBuildDependencyTree(unittest.TestCase):
     """
     Tests for build_dependency_tree() function.
-    @athena: d08a468e3300
     """
 
     def test_build_tree_single_task(self):
         """
         Test tree for task with no dependencies.
-        @athena: 1244c78bcdf3
         """
         tasks = {"build": Task(name="build", cmd="cargo build")}
         recipe = Recipe(
@@ -209,7 +195,6 @@ class TestBuildDependencyTree(unittest.TestCase):
     def test_build_tree_with_dependencies(self):
         """
         Test tree structure for task with deps.
-        @athena: a310fef1d0af
         """
         tasks = {
             "lint": Task(name="lint", cmd="cargo clippy"),
@@ -236,7 +221,6 @@ class TestBuildDependencyTree(unittest.TestCase):
     def test_build_tree_missing_task(self):
         """
         Test raises TaskNotFoundError for nonexistent task.
-        @athena: 70062ae2c66d
         """
         tasks = {"build": Task(name="build", cmd="echo build")}
         recipe = Recipe(
@@ -249,7 +233,6 @@ class TestBuildDependencyTree(unittest.TestCase):
     def test_build_tree_includes_task_info(self):
         """
         Test tree includes task name and deps structure.
-        @athena: aa72fa35fc90
         """
         tasks = {
             "a": Task(name="a", cmd="echo a"),
@@ -275,13 +258,11 @@ class TestBuildDependencyTree(unittest.TestCase):
 class TestResolveSelfReferences(unittest.TestCase):
     """
     Test resolve_self_references function.
-    @athena: 616b3369d1f0
     """
 
     def test_resolve_self_references_in_command(self):
         """
         Test that self-references in cmd field are resolved.
-        @athena: 95791267b955
         """
         task = Task(
             name="copy",
@@ -302,7 +283,6 @@ class TestResolveSelfReferences(unittest.TestCase):
     def test_resolve_self_references_in_working_dir(self):
         """
         Test that self-references in working_dir field are resolved.
-        @athena: 13752a32f485
         """
         task = Task(
             name="build",
@@ -323,7 +303,6 @@ class TestResolveSelfReferences(unittest.TestCase):
     def test_resolve_self_references_in_arg_defaults(self):
         """
         Test that self-references in argument defaults are resolved.
-        @athena: 266f9b3c4467
         """
         task = Task(
             name="deploy",
@@ -347,7 +326,6 @@ class TestResolveSelfReferences(unittest.TestCase):
     def test_resolve_self_references_multiple_tasks(self):
         """
         Test that self-references are resolved for multiple tasks.
-        @athena: 1f6b57be8641
         """
         task1 = Task(
             name="task1",
@@ -373,7 +351,6 @@ class TestResolveSelfReferences(unittest.TestCase):
     def test_resolve_self_references_no_refs(self):
         """
         Test that tasks without self-references are unchanged.
-        @athena: d0c6812747a8
         """
         task = Task(
             name="build",
@@ -395,7 +372,6 @@ class TestResolveSelfReferences(unittest.TestCase):
     def test_resolve_self_references_error_propagates(self):
         """
         Test that validation errors from substitute_self_references propagate.
-        @athena: 72fc599ff001
         """
         task = Task(
             name="build",

@@ -10,14 +10,12 @@ from . import is_docker_available, run_tasktree_cli
 class TestDockerBasic(unittest.TestCase):
     """
     Test basic Docker container execution.
-    @athena: 17d30c765b6f
     """
 
     @classmethod
     def setUpClass(cls):
         """
         Ensure Docker is available before running tests.
-        @athena: c8c40c167b6e
         """
         if not is_docker_available():
             raise RuntimeError(
@@ -28,7 +26,6 @@ class TestDockerBasic(unittest.TestCase):
     def test_simple_echo_in_container(self):
         """
         Test that basic command executes in Docker container.
-        @athena: a02bbd6a9dbc
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -74,7 +71,6 @@ tasks:
     def test_file_creation_persists_to_host(self):
         """
         Test that files created in container appear on host via volume mount.
-        @athena: f26018792e5e
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -126,7 +122,6 @@ tasks:
     def test_multiline_command_execution(self):
         """
         Test that multi-line commands execute correctly in Docker container.
-        @athena: 3d1613afbc7f
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)

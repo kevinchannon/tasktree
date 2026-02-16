@@ -24,13 +24,11 @@ from tasktree.process_runner import (
 class TestProcessRunner(unittest.TestCase):
     """
     Tests for ProcessRunner abstract interface.
-    @athena: 2bff092195e6
     """
 
     def test_process_runner_is_abstract(self):
         """
         ProcessRunner cannot be instantiated directly.
-        @athena: daac65da93e2
         """
         with self.assertRaises(TypeError):
             ProcessRunner()
@@ -38,7 +36,6 @@ class TestProcessRunner(unittest.TestCase):
     def test_process_runner_has_run_method(self):
         """
         ProcessRunner defines run as an abstract method.
-        @athena: 93aee4ee423d
         """
         self.assertTrue(hasattr(ProcessRunner, "run"))
         self.assertTrue(callable(getattr(ProcessRunner, "run")))
@@ -47,20 +44,17 @@ class TestProcessRunner(unittest.TestCase):
 class TestPassthroughProcessRunner(unittest.TestCase):
     """
     Tests for PassthroughProcessRunner implementation.
-    @athena: 23c89ef36346
     """
 
     def setUp(self):
         """
         Set up test fixtures.
-        @athena: 61cd9d62c968
         """
         self.runner = PassthroughProcessRunner(logger_stub)
 
     def test_run_executes_command_and_returns_result(self):
         """
         run() executes command and returns CompletedProcess.
-        @athena: fdbd1736580a
         """
         result = self.runner.run(
             [sys.executable, "-c", "print('test')"], capture_output=True, text=True
@@ -73,7 +67,6 @@ class TestPassthroughProcessRunner(unittest.TestCase):
     def test_run_captures_stdout_when_requested(self):
         """
         run() captures stdout when stdout=PIPE is specified.
-        @athena: 273fec922ecb
         """
         result = self.runner.run(
             [sys.executable, "-c", "print('hello')"], stdout=subprocess.PIPE, text=True
@@ -84,7 +77,6 @@ class TestPassthroughProcessRunner(unittest.TestCase):
     def test_run_captures_stderr_when_requested(self):
         """
         run() captures stderr when stderr=PIPE is specified.
-        @athena: e41a18e7158b
         """
         result = self.runner.run(
             [sys.executable, "-c", "import sys; sys.stderr.write('error\\n')"],
@@ -97,7 +89,6 @@ class TestPassthroughProcessRunner(unittest.TestCase):
     def test_run_uses_cwd_parameter(self):
         """
         run() executes command in specified working directory.
-        @athena: 70d97cb42a40
         """
         test_dir = "/tmp"
         result = self.runner.run(
@@ -115,7 +106,6 @@ class TestPassthroughProcessRunner(unittest.TestCase):
     def test_run_uses_env_parameter(self):
         """
         run() passes environment variables to subprocess.
-        @athena: a4c3d81350b2
         """
         env = {"TEST_VAR": "test_value"}
         result = self.runner.run(
@@ -130,7 +120,6 @@ class TestPassthroughProcessRunner(unittest.TestCase):
     def test_run_returns_completed_process(self):
         """
         run() returns subprocess.CompletedProcess instance.
-        @athena: 9869c9cb26a3
         """
         result = self.runner.run(
             [sys.executable, "-c", "print('test')"], capture_output=True
@@ -142,7 +131,6 @@ class TestPassthroughProcessRunner(unittest.TestCase):
     def test_run_raises_called_process_error_when_check_true(self):
         """
         run() raises CalledProcessError when check=True and process fails.
-        @athena: bfe001d890b9
         """
         with self.assertRaises(subprocess.CalledProcessError) as context:
             self.runner.run(
@@ -154,7 +142,6 @@ class TestPassthroughProcessRunner(unittest.TestCase):
     def test_run_raises_timeout_expired(self):
         """
         run() raises TimeoutExpired when timeout is exceeded.
-        @athena: d00a1b51cec2
         """
         with self.assertRaises(subprocess.TimeoutExpired):
             self.runner.run(
@@ -164,7 +151,6 @@ class TestPassthroughProcessRunner(unittest.TestCase):
     def test_run_executes_shell_command(self):
         """
         run() executes shell commands when shell=True.
-        @athena: 3d0b2b764077
         """
         result = self.runner.run(
             f"{sys.executable} -c \"print('shell test')\"",
@@ -178,7 +164,6 @@ class TestPassthroughProcessRunner(unittest.TestCase):
     def test_passthrough_runner_is_process_runner(self):
         """
         PassthroughProcessRunner implements ProcessRunner interface.
-        @athena: 8eb7b69f432a
         """
         self.assertIsInstance(self.runner, ProcessRunner)
 
@@ -186,20 +171,17 @@ class TestPassthroughProcessRunner(unittest.TestCase):
 class TestSilentProcessRunner(unittest.TestCase):
     """
     Tests for SilentProcessRunner implementation.
-    @athena: TBD
     """
 
     def setUp(self):
         """
         Set up test fixtures.
-        @athena: TBD
         """
         self.runner = SilentProcessRunner(logger_stub)
 
     def test_run_suppresses_stdout(self):
         """
         run() suppresses stdout output.
-        @athena: TBD
         """
         # Run command that produces stdout - output should be suppressed
         result = self.runner.run(
@@ -214,7 +196,6 @@ class TestSilentProcessRunner(unittest.TestCase):
     def test_run_suppresses_stderr(self):
         """
         run() suppresses stderr output.
-        @athena: TBD
         """
         # Run command that produces stderr - output should be suppressed
         result = self.runner.run(
@@ -228,7 +209,6 @@ class TestSilentProcessRunner(unittest.TestCase):
     def test_run_overrides_stdout_parameter(self):
         """
         run() overrides stdout even if caller specifies stdout=PIPE.
-        @athena: TBD
         """
         # Caller tries to capture stdout, but should be overridden to DEVNULL
         result = self.runner.run(
@@ -241,7 +221,6 @@ class TestSilentProcessRunner(unittest.TestCase):
     def test_run_overrides_stderr_parameter(self):
         """
         run() overrides stderr even if caller specifies stderr=PIPE.
-        @athena: TBD
         """
         # Caller tries to capture stderr, but should be overridden to DEVNULL
         result = self.runner.run(
@@ -256,7 +235,6 @@ class TestSilentProcessRunner(unittest.TestCase):
     def test_run_preserves_other_parameters(self):
         """
         run() preserves other parameters like check, cwd, env.
-        @athena: TBD
         """
         env = {"TEST_VAR": "test_value"}
 
@@ -280,7 +258,6 @@ class TestSilentProcessRunner(unittest.TestCase):
     def test_run_raises_called_process_error_when_check_true(self):
         """
         run() propagates CalledProcessError when check=True and process fails.
-        @athena: TBD
         """
         with self.assertRaises(subprocess.CalledProcessError) as context:
             self.runner.run(
@@ -292,7 +269,6 @@ class TestSilentProcessRunner(unittest.TestCase):
     def test_run_raises_timeout_expired(self):
         """
         run() propagates TimeoutExpired when timeout is exceeded.
-        @athena: TBD
         """
         with self.assertRaises(subprocess.TimeoutExpired):
             self.runner.run(
@@ -302,14 +278,12 @@ class TestSilentProcessRunner(unittest.TestCase):
     def test_silent_runner_is_process_runner(self):
         """
         SilentProcessRunner implements ProcessRunner interface.
-        @athena: TBD
         """
         self.assertIsInstance(self.runner, ProcessRunner)
 
     def test_run_returns_completed_process(self):
         """
         run() returns subprocess.CompletedProcess instance.
-        @athena: TBD
         """
         result = self.runner.run([sys.executable, "-c", "print('test')"])
 
@@ -319,7 +293,6 @@ class TestSilentProcessRunner(unittest.TestCase):
     def test_run_suppresses_both_stdout_and_stderr(self):
         """
         run() suppresses both stdout and stderr simultaneously.
-        @athena: TBD
         """
         # Command that writes to both stdout and stderr
         result = self.runner.run(
@@ -339,7 +312,6 @@ class TestStreamOutput(unittest.TestCase):
     def test_stream_output_handles_broken_pipe(self):
         """
         stream_output handles exceptions gracefully (e.g., broken pipe).
-        @athena: TBD
         """
         from io import StringIO
         from unittest.mock import Mock
@@ -363,20 +335,17 @@ class TestStreamOutput(unittest.TestCase):
 class TestStdoutOnlyProcessRunner(unittest.TestCase):
     """
     Tests for StdoutOnlyProcessRunner implementation.
-    @athena: TBD
     """
 
     def setUp(self):
         """
         Set up test fixtures.
-        @athena: TBD
         """
         self.runner = StdoutOnlyProcessRunner(logger_stub)
 
     def test_run_forwards_stdout(self):
         """
         run() forwards stdout to sys.stdout.
-        @athena: TBD
         """
         # Run a command that produces stdout
         # We can't easily capture the output that goes to sys.stdout from the thread,
@@ -391,7 +360,6 @@ class TestStdoutOnlyProcessRunner(unittest.TestCase):
     def test_run_suppresses_stderr(self):
         """
         run() suppresses stderr output.
-        @athena: TBD
         """
         # Run command that produces stderr - output should be suppressed
         result = self.runner.run(
@@ -405,7 +373,6 @@ class TestStdoutOnlyProcessRunner(unittest.TestCase):
     def test_run_handles_both_stdout_and_stderr(self):
         """
         run() forwards stdout while suppressing stderr.
-        @athena: TBD
         """
         # Command that writes to both stdout and stderr
         result = self.runner.run(
@@ -423,7 +390,6 @@ class TestStdoutOnlyProcessRunner(unittest.TestCase):
     def test_run_raises_called_process_error_when_check_true(self):
         """
         run() raises CalledProcessError when check=True and process fails.
-        @athena: TBD
         """
         with self.assertRaises(subprocess.CalledProcessError) as context:
             self.runner.run(
@@ -435,7 +401,6 @@ class TestStdoutOnlyProcessRunner(unittest.TestCase):
     def test_run_raises_timeout_expired(self):
         """
         run() raises TimeoutExpired when timeout is exceeded.
-        @athena: TBD
         """
         with self.assertRaises(subprocess.TimeoutExpired):
             self.runner.run(
@@ -445,14 +410,12 @@ class TestStdoutOnlyProcessRunner(unittest.TestCase):
     def test_stdout_only_runner_is_process_runner(self):
         """
         StdoutOnlyProcessRunner implements ProcessRunner interface.
-        @athena: TBD
         """
         self.assertIsInstance(self.runner, ProcessRunner)
 
     def test_run_returns_completed_process(self):
         """
         run() returns subprocess.CompletedProcess instance.
-        @athena: TBD
         """
         result = self.runner.run([sys.executable, "-c", "print('test')"])
 
@@ -462,7 +425,6 @@ class TestStdoutOnlyProcessRunner(unittest.TestCase):
     def test_run_preserves_exit_code(self):
         """
         run() preserves non-zero exit codes.
-        @athena: TBD
         """
         result = self.runner.run(
             [sys.executable, "-c", "import sys; sys.exit(42)"], check=False
@@ -474,20 +436,17 @@ class TestStdoutOnlyProcessRunner(unittest.TestCase):
 class TestStderrOnlyProcessRunner(unittest.TestCase):
     """
     Tests for StderrOnlyProcessRunner implementation.
-    @athena: TBD
     """
 
     def setUp(self):
         """
         Set up test fixtures.
-        @athena: TBD
         """
         self.runner = StderrOnlyProcessRunner(logger_stub)
 
     def test_run_forwards_stderr(self):
         """
         run() forwards stderr to sys.stderr.
-        @athena: TBD
         """
         # Run a command that produces stderr
         # We can't easily capture the output that goes to sys.stderr from the thread,
@@ -504,7 +463,6 @@ class TestStderrOnlyProcessRunner(unittest.TestCase):
     def test_run_suppresses_stdout(self):
         """
         run() suppresses stdout output.
-        @athena: TBD
         """
         # Run command that produces stdout - output should be suppressed
         result = self.runner.run([sys.executable, "-c", "print('test output')"])
@@ -516,7 +474,6 @@ class TestStderrOnlyProcessRunner(unittest.TestCase):
     def test_run_handles_both_stdout_and_stderr(self):
         """
         run() forwards stderr while suppressing stdout.
-        @athena: TBD
         """
         # Command that writes to both stdout and stderr
         result = self.runner.run(
@@ -534,7 +491,6 @@ class TestStderrOnlyProcessRunner(unittest.TestCase):
     def test_run_raises_called_process_error_when_check_true(self):
         """
         run() raises CalledProcessError when check=True and process fails.
-        @athena: TBD
         """
         with self.assertRaises(subprocess.CalledProcessError) as context:
             self.runner.run(
@@ -546,7 +502,6 @@ class TestStderrOnlyProcessRunner(unittest.TestCase):
     def test_run_raises_timeout_expired(self):
         """
         run() raises TimeoutExpired when timeout is exceeded.
-        @athena: TBD
         """
         with self.assertRaises(subprocess.TimeoutExpired):
             self.runner.run(
@@ -556,14 +511,12 @@ class TestStderrOnlyProcessRunner(unittest.TestCase):
     def test_stderr_only_runner_is_process_runner(self):
         """
         StderrOnlyProcessRunner implements ProcessRunner interface.
-        @athena: TBD
         """
         self.assertIsInstance(self.runner, ProcessRunner)
 
     def test_run_returns_completed_process(self):
         """
         run() returns subprocess.CompletedProcess instance.
-        @athena: TBD
         """
         result = self.runner.run(
             [sys.executable, "-c", "import sys; sys.stderr.write('test\\n')"]
@@ -575,7 +528,6 @@ class TestStderrOnlyProcessRunner(unittest.TestCase):
     def test_run_preserves_exit_code(self):
         """
         run() preserves non-zero exit codes.
-        @athena: TBD
         """
         result = self.runner.run(
             [sys.executable, "-c", "import sys; sys.exit(42)"], check=False
@@ -587,7 +539,6 @@ class TestStderrOnlyProcessRunner(unittest.TestCase):
 class TestStderrOnlyOnFailureProcessRunner(unittest.TestCase):
     """
     Tests for StderrOnlyOnFailureProcessRunner implementation.
-    @athena: TBD
     """
 
     def setUp(self):
@@ -596,7 +547,6 @@ class TestStderrOnlyOnFailureProcessRunner(unittest.TestCase):
     def test_run_suppresses_stderr_on_success(self):
         """
         StderrOnlyOnFailureProcessRunner buffers stderr but does not output it on success.
-        @athena: TBD
         """
         stderr_capture = StringIO()
 
@@ -617,7 +567,6 @@ class TestStderrOnlyOnFailureProcessRunner(unittest.TestCase):
     def test_run_outputs_buffered_stderr_on_failure(self):
         """
         StderrOnlyOnFailureProcessRunner outputs buffered stderr when process fails.
-        @athena: TBD
         """
         stderr_capture = StringIO()
 
@@ -638,7 +587,6 @@ class TestStderrOnlyOnFailureProcessRunner(unittest.TestCase):
     def test_run_handles_failure_with_no_stderr(self):
         """
         StderrOnlyOnFailureProcessRunner handles process failure with no stderr output.
-        @athena: TBD
         """
         stderr_capture = StringIO()
 
@@ -654,7 +602,6 @@ class TestStderrOnlyOnFailureProcessRunner(unittest.TestCase):
     def test_run_handles_success_with_no_output(self):
         """
         StderrOnlyOnFailureProcessRunner handles successful process with no output.
-        @athena: TBD
         """
         stderr_capture = StringIO()
 
@@ -669,7 +616,6 @@ class TestStderrOnlyOnFailureProcessRunner(unittest.TestCase):
     def test_run_ignores_stdout_completely(self):
         """
         StderrOnlyOnFailureProcessRunner sends stdout to DEVNULL.
-        @athena: TBD
         """
         stdout_capture = StringIO()
         stderr_capture = StringIO()
@@ -693,7 +639,6 @@ class TestStderrOnlyOnFailureProcessRunner(unittest.TestCase):
     def test_run_raises_called_process_error_when_check_true(self):
         """
         StderrOnlyOnFailureProcessRunner raises CalledProcessError when check=True and process fails.
-        @athena: TBD
         """
         with self.assertRaises(subprocess.CalledProcessError) as cm:
             self.runner.run(
@@ -705,7 +650,6 @@ class TestStderrOnlyOnFailureProcessRunner(unittest.TestCase):
     def test_run_raises_timeout_expired(self):
         """
         StderrOnlyOnFailureProcessRunner raises TimeoutExpired when timeout is exceeded.
-        @athena: TBD
         """
         with self.assertRaises(subprocess.TimeoutExpired):
             self.runner.run(
@@ -715,14 +659,12 @@ class TestStderrOnlyOnFailureProcessRunner(unittest.TestCase):
     def test_stderr_only_on_failure_runner_is_process_runner(self):
         """
         StderrOnlyOnFailureProcessRunner is an instance of ProcessRunner.
-        @athena: TBD
         """
         self.assertIsInstance(self.runner, ProcessRunner)
 
     def test_run_returns_completed_process(self):
         """
         StderrOnlyOnFailureProcessRunner.run() returns CompletedProcess object.
-        @athena: TBD
         """
         result = self.runner.run(
             [sys.executable, "-c", "import sys; sys.exit(0)"], check=False
@@ -734,7 +676,6 @@ class TestStderrOnlyOnFailureProcessRunner(unittest.TestCase):
     def test_run_preserves_exit_code(self):
         """
         StderrOnlyOnFailureProcessRunner preserves the process exit code.
-        @athena: TBD
         """
         result = self.runner.run(
             [sys.executable, "-c", "import sys; sys.exit(42)"], check=False
@@ -745,7 +686,6 @@ class TestStderrOnlyOnFailureProcessRunner(unittest.TestCase):
     def test_run_handles_multiple_stderr_lines(self):
         """
         StderrOnlyOnFailureProcessRunner correctly buffers and outputs multiple stderr lines.
-        @athena: TBD
         """
         stderr_capture = StringIO()
 
@@ -769,13 +709,11 @@ class TestStderrOnlyOnFailureProcessRunner(unittest.TestCase):
 class TestMakeProcessRunner(unittest.TestCase):
     """
     Tests for make_process_runner factory function.
-    @athena: 80c9607632a3
     """
 
     def test_make_process_runner_with_all_returns_passthrough(self):
         """
         make_process_runner(TaskOutputTypes.ALL) returns PassthroughProcessRunner.
-        @athena: TBD
         """
         runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
         self.assertIsInstance(runner, PassthroughProcessRunner)
@@ -783,7 +721,6 @@ class TestMakeProcessRunner(unittest.TestCase):
     def test_make_process_runner_with_none_returns_silent(self):
         """
         make_process_runner(TaskOutputTypes.NONE) returns SilentProcessRunner.
-        @athena: TBD
         """
         runner = make_process_runner(TaskOutputTypes.NONE, logger_stub)
         self.assertIsInstance(runner, SilentProcessRunner)
@@ -791,7 +728,6 @@ class TestMakeProcessRunner(unittest.TestCase):
     def test_make_process_runner_with_out_returns_stdout_only(self):
         """
         make_process_runner(TaskOutputTypes.OUT) returns StdoutOnlyProcessRunner.
-        @athena: TBD
         """
         runner = make_process_runner(TaskOutputTypes.OUT, logger_stub)
         self.assertIsInstance(runner, StdoutOnlyProcessRunner)
@@ -799,7 +735,6 @@ class TestMakeProcessRunner(unittest.TestCase):
     def test_make_process_runner_with_err_returns_stderr_only(self):
         """
         make_process_runner(TaskOutputTypes.ERR) returns StderrOnlyProcessRunner.
-        @athena: TBD
         """
         runner = make_process_runner(TaskOutputTypes.ERR, logger_stub)
         self.assertIsInstance(runner, StderrOnlyProcessRunner)
@@ -807,7 +742,6 @@ class TestMakeProcessRunner(unittest.TestCase):
     def test_make_process_runner_with_on_err_returns_stderr_only_on_failure(self):
         """
         make_process_runner(TaskOutputTypes.ON_ERR) returns StderrOnlyOnFailureProcessRunner.
-        @athena: TBD
         """
         runner = make_process_runner(TaskOutputTypes.ON_ERR, logger_stub)
         self.assertIsInstance(runner, StderrOnlyOnFailureProcessRunner)
@@ -815,7 +749,6 @@ class TestMakeProcessRunner(unittest.TestCase):
     def test_make_process_runner_with_invalid_raises_error(self):
         """
         make_process_runner() raises ValueError for invalid TaskOutputTypes.
-        @athena: TBD
         """
         # Create an invalid enum value by casting
         invalid_value = "invalid"

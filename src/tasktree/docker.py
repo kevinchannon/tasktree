@@ -31,7 +31,6 @@ if TYPE_CHECKING:
 class DockerError(Exception):
     """
     Raised when Docker operations fail.
-    @athena: 876629e35765
     """
 
     pass
@@ -77,7 +76,6 @@ def _get_container_script_extension(shell: str) -> str:
 class DockerManager:
     """
     Manages Docker image building and container execution.
-    @athena: f8f5c2693d84
     """
 
     def __init__(self, project_root: Path, logger: Logger):
@@ -87,7 +85,6 @@ class DockerManager:
         Args:
             project_root: Root directory of the project (where tasktree.yaml is located)
             logger: Logger instance for debug/trace messages
-        @athena: eb7d4c5a27aa
         """
         self._project_root = project_root
         self._logger = logger
@@ -105,7 +102,6 @@ class DockerManager:
 
         Returns:
         True if --user flag should be added, False otherwise
-        @athena: c5932076dfda
         """
         # Skip on Windows - Docker Desktop handles UID mapping differently
         if platform.system() == "Windows":
@@ -131,7 +127,6 @@ class DockerManager:
 
         Raises:
         DockerError: If docker command not available or build fails
-        @athena: 42b53d2685e0
         """
         # Check if already built this invocation
         if env.name in self._built_images:
@@ -218,7 +213,6 @@ class DockerManager:
 
         Raises:
         DockerError: If docker run fails
-        @athena: ef024ea2c182
         """
         # Ensure image is built (returns tag and ID)
         image_tag, image_id = self.ensure_image_built(env, process_runner)
@@ -320,7 +314,6 @@ class DockerManager:
 
         Returns:
         Resolved volume specification with absolute host path
-        @athena: c7661050443e
         """
         if ":" not in volume:
             raise ValueError(
@@ -350,7 +343,6 @@ class DockerManager:
 
         Raises:
         DockerError: If docker is not available
-        @athena: 8deaf8c5c05e
         """
         try:
             subprocess.run(
@@ -378,7 +370,6 @@ class DockerManager:
 
         Raises:
         DockerError: If cannot inspect image
-        @athena: 9e5aa77003ee
         """
         try:
             result = subprocess.run(
@@ -402,7 +393,6 @@ def is_docker_runner(env: Runner) -> bool:
 
     Returns:
     True if runner has a dockerfile field, False otherwise
-    @athena: 1ffd255a4e90
     """
     return bool(env.dockerfile)
 
@@ -424,7 +414,6 @@ def resolve_container_working_dir(
 
     Returns:
     Resolved working directory path, or None if neither specified
-    @athena: bb13d00dd07d
     """
     if not env_working_dir and not task_working_dir:
         return None
@@ -449,7 +438,6 @@ def parse_dockerignore(dockerignore_path: Path) -> PathSpec | None:
 
     Returns:
     PathSpec object for matching, or None if file doesn't exist or pathspec not available
-    @athena: 13fca9ee5a73
     """
     if pathspec is None:
         # pathspec library not available - can't parse .dockerignore
@@ -484,7 +472,6 @@ def context_changed_since(
 
     Returns:
     True if any file changed, False otherwise
-    @athena: 556acb1ed6ca
     """
     # Parse .dockerignore
     dockerignore_spec = None
@@ -527,7 +514,6 @@ def extract_from_images(dockerfile_content: str) -> list[tuple[str, str | None]]
     Returns:
     List of (image_reference, digest) tuples where digest may be None for unpinned images
     Example: [("rust:1.75", None), ("rust", "sha256:abc123...")]
-    @athena: de0d013fdd05
     """
     # Regex pattern to match FROM lines
     # Handles: FROM [--platform=...] image[:tag][@digest] [AS alias]
@@ -554,7 +540,6 @@ def check_unpinned_images(dockerfile_content: str) -> list[str]:
 
     Returns:
     List of unpinned image references (images without @sha256:... digests)
-    @athena: 58cc6de8fc96
     """
     images = extract_from_images(dockerfile_content)
     return [image for image, digest in images if digest is None]
@@ -569,7 +554,6 @@ def parse_base_image_digests(dockerfile_content: str) -> list[str]:
 
     Returns:
     List of digests (e.g., ["sha256:abc123...", "sha256:def456..."])
-    @athena: c4d1da6b067c
     """
     images = extract_from_images(dockerfile_content)
     return [digest for _image, digest in images if digest is not None]

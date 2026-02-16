@@ -12,7 +12,6 @@ from tasktree.logging import Logger
 def init_recipe(logger: Logger):
     """
     Create a blank recipe file with commented examples.
-    @athena: f05c0eb014d4
     """
     recipe_path = Path("tasktree.yaml")
     if recipe_path.exists():

@@ -14,12 +14,10 @@ from tasktree.logging import LogLevel
 class TestConsoleLogger(unittest.TestCase):
     """
     Tests for ConsoleLogger implementation.
-    @athena: b2c70a11b5b4
     """
 
     def setUp(self):
         """
-        @athena: a002ef315ecb
         """
         self._console = MagicMock()
         self._console.print = MagicMock()
@@ -29,7 +27,6 @@ class TestConsoleLogger(unittest.TestCase):
     def test_logger_fn_accepts_no_arguments(self):
         """
         Test that Logger can be called with no arguments.
-        @athena: d4540e834428
         """
         self._logger.log(LogLevel.INFO)
         self._console.print.assert_called_once_with()
@@ -37,7 +34,6 @@ class TestConsoleLogger(unittest.TestCase):
     def test_logger_fn_accepts_string_message(self):
         """
         Test that LoggerFn can be called with string messages.
-        @athena: e4fe2008cf4a
         """
         self._logger.log(LogLevel.INFO, "test message")
         self._console.print.assert_called_once_with("test message")
@@ -45,7 +41,6 @@ class TestConsoleLogger(unittest.TestCase):
     def test_logger_fn_accepts_multiple_string_arguments(self):
         """
         Test that LoggerFn can be called with multiple string arguments.
-        @athena: 5655c0fcb152
         """
         self._logger.log(LogLevel.INFO, "first", "second", "third")
         self._console.print.assert_called_once_with("first", "second", "third")
@@ -53,7 +48,6 @@ class TestConsoleLogger(unittest.TestCase):
     def test_logger_fn_accepts_rich_table(self):
         """
         Test that LoggerFn can be called with Rich Table objects.
-        @athena: f949e7e61c7f
         """
 
         table = Table(title="Test Table")
@@ -66,7 +60,6 @@ class TestConsoleLogger(unittest.TestCase):
     def test_logger_accepts_rich_syntax(self):
         """
         Test that Logger can be called with Rich Syntax objects.
-        @athena: 1eeb087afcd2
         """
         syntax = Syntax("print('hello')", "python")
 
@@ -76,7 +69,6 @@ class TestConsoleLogger(unittest.TestCase):
     def test_logger_accepts_rich_tree(self):
         """
         Test that Logger can be called with Rich Tree objects.
-        @athena: 946e7105a37d
         """
         tree = Tree("Root")
         tree.add("Child 1")
@@ -88,7 +80,6 @@ class TestConsoleLogger(unittest.TestCase):
     def test_logger_accepts_kwargs(self):
         """
         Test that LoggerFn can be called with keyword arguments.
-        @athena: fc5f586bd163
         """
         self._logger.log(LogLevel.INFO, "message", style="bold", justify="center")
         self._console.print.assert_called_once_with(
@@ -98,7 +89,6 @@ class TestConsoleLogger(unittest.TestCase):
     def test_logger_accepts_args_and_kwargs(self):
         """
         Test that Logger can be called with both args and kwargs.
-        @athena: d65226ae4089
         """
         self._logger.log(LogLevel.INFO, "msg1", "msg2", style="red", end="")
         self._console.print.assert_called_once_with("msg1", "msg2", style="red", end="")
@@ -107,13 +97,11 @@ class TestConsoleLogger(unittest.TestCase):
 class TestLogLevel(unittest.TestCase):
     """
     Tests for LogLevel enum.
-    @athena: ff70441b1348
     """
 
     def test_log_level_values(self):
         """
         Test that LogLevel enum has correct values and ordering.
-        @athena: b6eefbebd2a6
         """
         self.assertEqual(LogLevel.FATAL.value, 0)
         self.assertEqual(LogLevel.ERROR.value, 1)
@@ -125,7 +113,6 @@ class TestLogLevel(unittest.TestCase):
     def test_log_level_ordering(self):
         """
         Test that log levels have correct severity ordering.
-        @athena: 075b75ce437a
         """
         # Lower values = higher severity = less verbose
         self.assertLess(LogLevel.FATAL.value, LogLevel.ERROR.value)
@@ -138,12 +125,10 @@ class TestLogLevel(unittest.TestCase):
 class TestLoggerLevels(unittest.TestCase):
     """
     Tests for make_leveled_logger function.
-    @athena: 665e881fe040
     """
 
     def setUp(self):
         """
-        @athena: e6d5aeb014da
         """
         self._console = MagicMock()
         self._console.print = MagicMock()
@@ -151,7 +136,6 @@ class TestLoggerLevels(unittest.TestCase):
     def test_filters_messages_below_threshold(self):
         """
         Test that messages below the current level are filtered out.
-        @athena: c5fef486a1d0
         """
         l = ConsoleLogger(self._console, LogLevel.ERROR)
         l.info("msg")
@@ -164,7 +148,6 @@ class TestLoggerLevels(unittest.TestCase):
     def test_shows_messages_at_or_above_threshold(self):
         """
         Test that messages at or above the current level are shown.
-        @athena: 9b4bb14e1e4e
         """
         l = ConsoleLogger(self._console, LogLevel.ERROR)
 
@@ -174,7 +157,6 @@ class TestLoggerLevels(unittest.TestCase):
 
     def test_push_and_pop_levels(self):
         """
-        @athena: 29bf08bbcac3
         """
         l = ConsoleLogger(self._console, LogLevel.INFO)
 
@@ -205,7 +187,6 @@ class TestLoggerLevels(unittest.TestCase):
     def test_pop_level_returns_popped_level(self):
         """
         Test that pop_level() returns the level that was popped.
-        @athena: d5f1ef958d8d
         """
         l = ConsoleLogger(self._console, LogLevel.INFO)
         l.push_level(LogLevel.DEBUG)
@@ -220,7 +201,6 @@ class TestLoggerLevels(unittest.TestCase):
     def test_pop_level_raises_when_popping_base_level(self):
         """
         Test that pop_level() raises RuntimeError when trying to pop the base level.
-        @athena: a363ba5a22f4
         """
         l = ConsoleLogger(self._console, LogLevel.INFO)
 
@@ -232,7 +212,6 @@ class TestLoggerLevels(unittest.TestCase):
     def test_pop_level_allows_multiple_pushes_then_pops(self):
         """
         Test that pop_level() works correctly after multiple pushes.
-        @athena: 8a26ceb2fe5d
         """
         l = ConsoleLogger(self._console, LogLevel.INFO)
 

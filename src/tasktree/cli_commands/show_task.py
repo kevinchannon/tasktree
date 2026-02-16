@@ -43,7 +43,6 @@ def _resolve_effective_runner(recipe: Recipe, task: Task) -> Optional[str]:
 def show_task(logger: Logger, task_name: str, tasks_file: Optional[str] = None, runner_override: Optional[str] = None):
     """
     Show task definition with syntax highlighting.
-    @athena: a6b71673d4b7
     """
     # Pass task_name as root_task for lazy variable evaluation
     recipe = get_recipe(logger, tasks_file, root_task=task_name)

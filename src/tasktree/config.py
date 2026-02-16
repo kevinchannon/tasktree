@@ -1,6 +1,5 @@
 """
 Configuration file parsing for default runner definitions.
-@athena: to-be-generated
 """
 
 from __future__ import annotations
@@ -37,7 +36,6 @@ def get_machine_config_path() -> Path:
         >>> if machine_config.exists():
         ...     runner = parse_config_file(machine_config)
 
-    @athena: to-be-generated
     """
     config_dir = Path(platformdirs.site_config_dir("tasktree"))
     return config_dir / "config.yml"
@@ -58,7 +56,6 @@ def get_user_config_path() -> Path:
         >>> if user_config.exists():
         ...     runner = parse_config_file(user_config)
 
-    @athena: to-be-generated
     """
     config_dir: Path = Path(platformdirs.user_config_dir("tasktree"))
     return config_dir / "config.yml"
@@ -79,7 +76,6 @@ def find_project_config(start_dir: Path) -> Optional[Path]:
         >>> if config_path:
         ...     runner = parse_config_file(config_path)
 
-    @athena: to-be-generated
     """
     try:
         current = start_dir.resolve()
@@ -137,7 +133,6 @@ class ConfigError(Exception):
     - Understand what went wrong
     - Fix the problem efficiently
 
-    @athena: to-be-generated
     """
 
     pass
@@ -214,7 +209,6 @@ def parse_config_file(path: Path) -> Optional[Runner]:
         the relative paths are valid from the project root of projects where the
         config will be used.
 
-    @athena: to-be-generated
     """
     # Return None if file doesn't exist (not an error)
     if not path.exists():

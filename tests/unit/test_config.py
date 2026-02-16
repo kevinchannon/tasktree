@@ -18,14 +18,12 @@ from tasktree.parser import Runner
 class TestGetUserConfigPath(unittest.TestCase):
     """
     Tests for get_user_config_path function.
-    @athena: to-be-generated
     """
 
     @patch("platformdirs.user_config_dir")
     def test_returns_path_from_platformdirs(self, mock_user_config_dir):
         """
         Test that get_user_config_path uses platformdirs.user_config_dir.
-        @athena: to-be-generated
         """
         mock_user_config_dir.return_value = "/home/user/.config/tasktree"
         result = get_user_config_path()
@@ -36,7 +34,6 @@ class TestGetUserConfigPath(unittest.TestCase):
     def test_returns_correct_path_on_linux(self, mock_user_config_dir):
         """
         Test that get_user_config_path returns correct path on Linux.
-        @athena: to-be-generated
         """
         mock_user_config_dir.return_value = "/home/testuser/.config/tasktree"
         result = get_user_config_path()
@@ -46,7 +43,6 @@ class TestGetUserConfigPath(unittest.TestCase):
     def test_returns_correct_path_on_macos(self, mock_user_config_dir):
         """
         Test that get_user_config_path returns correct path on macOS.
-        @athena: to-be-generated
         """
         mock_user_config_dir.return_value = (
             "/Users/testuser/Library/Application Support/tasktree"
@@ -61,7 +57,6 @@ class TestGetUserConfigPath(unittest.TestCase):
     def test_returns_correct_path_on_windows(self, mock_user_config_dir):
         """
         Test that get_user_config_path returns correct path on Windows.
-        @athena: to-be-generated
         """
         # Use forward slashes for mock return value to avoid path separator issues
         mock_user_config_dir.return_value = "C:/Users/testuser/AppData/Local/tasktree"
@@ -73,14 +68,12 @@ class TestGetUserConfigPath(unittest.TestCase):
 class TestGetMachineConfigPath(unittest.TestCase):
     """
     Tests for get_machine_config_path function.
-    @athena: to-be-generated
     """
 
     @patch("platformdirs.site_config_dir")
     def test_returns_path_from_platformdirs(self, mock_site_config_dir):
         """
         Test that get_machine_config_path uses platformdirs.site_config_dir.
-        @athena: to-be-generated
         """
         mock_site_config_dir.return_value = "/etc/tasktree"
         result = get_machine_config_path()
@@ -91,7 +84,6 @@ class TestGetMachineConfigPath(unittest.TestCase):
     def test_returns_correct_path_on_linux(self, mock_site_config_dir):
         """
         Test that get_machine_config_path returns correct path on Linux.
-        @athena: to-be-generated
         """
         mock_site_config_dir.return_value = "/etc/xdg/tasktree"
         result = get_machine_config_path()
@@ -101,7 +93,6 @@ class TestGetMachineConfigPath(unittest.TestCase):
     def test_returns_correct_path_on_macos(self, mock_site_config_dir):
         """
         Test that get_machine_config_path returns correct path on macOS.
-        @athena: to-be-generated
         """
         mock_site_config_dir.return_value = "/Library/Application Support/tasktree"
         result = get_machine_config_path()
@@ -113,7 +104,6 @@ class TestGetMachineConfigPath(unittest.TestCase):
     def test_returns_correct_path_on_windows(self, mock_site_config_dir):
         """
         Test that get_machine_config_path returns correct path on Windows.
-        @athena: to-be-generated
         """
         # Use forward slashes for mock return value to avoid path separator issues
         mock_site_config_dir.return_value = "C:/ProgramData/tasktree"
@@ -125,13 +115,11 @@ class TestGetMachineConfigPath(unittest.TestCase):
 class TestParseConfigFile(unittest.TestCase):
     """
     Tests for parse_config_file function.
-    @athena: to-be-generated
     """
 
     def test_missing_file_returns_none(self):
         """
         Test that parse_config_file returns None for missing files.
-        @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "nonexistent.yml"
@@ -141,7 +129,6 @@ class TestParseConfigFile(unittest.TestCase):
     def test_empty_file_returns_none(self):
         """
         Test that parse_config_file returns None for empty files.
-        @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.yml"
@@ -152,7 +139,6 @@ class TestParseConfigFile(unittest.TestCase):
     def test_whitespace_only_file_returns_none(self):
         """
         Test that parse_config_file returns None for whitespace-only files.
-        @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.yml"
@@ -163,7 +149,6 @@ class TestParseConfigFile(unittest.TestCase):
     def test_file_without_runners_key_returns_none(self):
         """
         Test that parse_config_file returns None for files without 'runners' key.
-        @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.yml"
@@ -174,7 +159,6 @@ class TestParseConfigFile(unittest.TestCase):
     def test_valid_shell_runner(self):
         """
         Test that parse_config_file correctly parses a valid shell runner.
-        @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.yml"
@@ -196,7 +180,6 @@ class TestParseConfigFile(unittest.TestCase):
     def test_valid_dockerfile_runner(self):
         """
         Test that parse_config_file correctly parses a valid dockerfile runner.
-        @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.yml"
@@ -218,7 +201,6 @@ class TestParseConfigFile(unittest.TestCase):
     def test_runner_with_all_fields(self):
         """
         Test that parse_config_file correctly parses a runner with all fields.
-        @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.yml"
@@ -259,7 +241,6 @@ class TestParseConfigFile(unittest.TestCase):
     def test_malformed_yaml_raises_error(self):
         """
         Test that parse_config_file raises ConfigError for malformed YAML.
-        @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.yml"
@@ -272,7 +253,6 @@ class TestParseConfigFile(unittest.TestCase):
     def test_runners_not_dict_raises_error(self):
         """
         Test that parse_config_file raises ConfigError when 'runners' is not a dict.
-        @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.yml"
@@ -285,7 +265,6 @@ class TestParseConfigFile(unittest.TestCase):
     def test_missing_default_runner_raises_error(self):
         """
         Test that parse_config_file raises ConfigError when 'default' runner is missing.
-        @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.yml"
@@ -303,7 +282,6 @@ class TestParseConfigFile(unittest.TestCase):
     def test_multiple_runners_raises_error(self):
         """
         Test that parse_config_file raises ConfigError when multiple runners are defined.
-        @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.yml"
@@ -324,7 +302,6 @@ class TestParseConfigFile(unittest.TestCase):
     def test_runner_config_not_dict_raises_error(self):
         """
         Test that parse_config_file raises ConfigError when runner config is not a dict.
-        @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.yml"
@@ -337,7 +314,6 @@ class TestParseConfigFile(unittest.TestCase):
     def test_missing_shell_and_dockerfile_raises_error(self):
         """
         Test that parse_config_file raises ConfigError when neither shell nor dockerfile is specified.
-        @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.yml"
@@ -356,7 +332,6 @@ class TestParseConfigFile(unittest.TestCase):
     def test_shell_runner_with_minimal_config(self):
         """
         Test that parse_config_file handles a shell runner with only required fields.
-        @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.yml"
@@ -375,7 +350,6 @@ class TestParseConfigFile(unittest.TestCase):
     def test_dockerfile_runner_with_minimal_config(self):
         """
         Test that parse_config_file handles a dockerfile runner with only required fields.
-        @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.yml"
@@ -397,7 +371,6 @@ class TestParseConfigFile(unittest.TestCase):
         """
         Test that relative paths in config files are stored as-is without validation.
         Path validation is deferred to execution time as per spec.
-        @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.yml"
@@ -420,7 +393,6 @@ class TestParseConfigFile(unittest.TestCase):
         """
         Test that relative paths are accepted even when project_root is provided.
         Path validation happens at execution time, not parse time.
-        @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -443,7 +415,6 @@ class TestParseConfigFile(unittest.TestCase):
         """
         Test that relative paths in config files are stored as-is.
         Path resolution happens at execution time, not parse time.
-        @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.yml"
@@ -464,13 +435,11 @@ class TestParseConfigFile(unittest.TestCase):
 class TestConfigFieldValidation(unittest.TestCase):
     """
     Tests for field type validation in config files.
-    @athena: to-be-generated
     """
 
     def test_shell_must_be_string(self):
         """
         Test that parse_config_file raises ConfigError when 'shell' is not a string.
-        @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.yml"
@@ -488,7 +457,6 @@ class TestConfigFieldValidation(unittest.TestCase):
     def test_args_must_be_list(self):
         """
         Test that parse_config_file raises ConfigError when 'args' is not a list.
-        @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.yml"
@@ -507,7 +475,6 @@ class TestConfigFieldValidation(unittest.TestCase):
     def test_preamble_must_be_string(self):
         """
         Test that parse_config_file raises ConfigError when 'preamble' is not a string.
-        @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.yml"
@@ -526,7 +493,6 @@ class TestConfigFieldValidation(unittest.TestCase):
     def test_working_dir_must_be_string(self):
         """
         Test that parse_config_file raises ConfigError when 'working_dir' is not a string.
-        @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.yml"
@@ -545,7 +511,6 @@ class TestConfigFieldValidation(unittest.TestCase):
     def test_dockerfile_must_be_string(self):
         """
         Test that parse_config_file raises ConfigError when 'dockerfile' is not a string.
-        @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.yml"
@@ -564,7 +529,6 @@ class TestConfigFieldValidation(unittest.TestCase):
     def test_context_must_be_string(self):
         """
         Test that parse_config_file raises ConfigError when 'context' is not a string.
-        @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.yml"
@@ -583,7 +547,6 @@ class TestConfigFieldValidation(unittest.TestCase):
     def test_volumes_must_be_list(self):
         """
         Test that parse_config_file raises ConfigError when 'volumes' is not a list.
-        @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.yml"
@@ -603,7 +566,6 @@ class TestConfigFieldValidation(unittest.TestCase):
     def test_ports_must_be_list(self):
         """
         Test that parse_config_file raises ConfigError when 'ports' is not a list.
-        @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.yml"
@@ -623,7 +585,6 @@ class TestConfigFieldValidation(unittest.TestCase):
     def test_env_vars_must_be_dict(self):
         """
         Test that parse_config_file raises ConfigError when 'env_vars' is not a dict.
-        @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.yml"
@@ -643,7 +604,6 @@ class TestConfigFieldValidation(unittest.TestCase):
     def test_extra_args_must_be_list(self):
         """
         Test that parse_config_file raises ConfigError when 'extra_args' is not a list.
-        @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.yml"
@@ -663,7 +623,6 @@ class TestConfigFieldValidation(unittest.TestCase):
     def test_run_as_root_must_be_bool(self):
         """
         Test that parse_config_file raises ConfigError when 'run_as_root' is not a boolean.
-        @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.yml"
@@ -684,7 +643,6 @@ class TestConfigFieldValidation(unittest.TestCase):
 class TestErrorMessageContext(unittest.TestCase):
     """
     Tests to verify all error messages include config file path for debugging.
-    @athena: to-be-generated
     """
 
     def test_all_config_errors_include_file_path(self):
@@ -696,7 +654,6 @@ class TestErrorMessageContext(unittest.TestCase):
         - Error messages must be clear and actionable
         - Users should be able to quickly identify which file has the problem
 
-        @athena: to-be-generated
         """
         test_cases = [
             # (yaml_content, expected_error_substring)
@@ -754,13 +711,11 @@ class TestErrorMessageContext(unittest.TestCase):
 class TestFindProjectConfig(unittest.TestCase):
     """
     Tests for find_project_config function.
-    @athena: to-be-generated
     """
 
     def test_find_config_in_current_directory(self):
         """
         Test that find_project_config finds config in the current directory.
-        @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             tmppath = Path(tmpdir).resolve()
@@ -774,7 +729,6 @@ class TestFindProjectConfig(unittest.TestCase):
     def test_find_config_in_parent_directory(self):
         """
         Test that find_project_config finds config in parent directory.
-        @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             tmppath = Path(tmpdir).resolve()
@@ -792,7 +746,6 @@ class TestFindProjectConfig(unittest.TestCase):
     def test_find_config_in_grandparent_directory(self):
         """
         Test that find_project_config finds config in grandparent directory.
-        @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             tmppath = Path(tmpdir).resolve()
@@ -810,7 +763,6 @@ class TestFindProjectConfig(unittest.TestCase):
     def test_find_config_returns_none_when_not_found(self):
         """
         Test that find_project_config returns None when no config is found.
-        @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             tmppath = Path(tmpdir).resolve()
@@ -822,7 +774,6 @@ class TestFindProjectConfig(unittest.TestCase):
     def test_find_config_stops_at_first_match(self):
         """
         Test that find_project_config returns the first config found (closest to start_dir).
-        @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             tmppath = Path(tmpdir).resolve()
@@ -845,7 +796,6 @@ class TestFindProjectConfig(unittest.TestCase):
     def test_find_config_with_nested_directories(self):
         """
         Test that find_project_config works with deeply nested directory structures.
-        @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             tmppath = Path(tmpdir).resolve()
@@ -866,7 +816,6 @@ class TestFindProjectConfig(unittest.TestCase):
     def test_find_config_with_nonexistent_start_dir(self):
         """
         Test that find_project_config returns None for non-existent start directory.
-        @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             tmppath = Path(tmpdir).resolve()
@@ -878,7 +827,6 @@ class TestFindProjectConfig(unittest.TestCase):
     def test_find_config_with_file_as_start_dir(self):
         """
         Test that find_project_config handles a file path as start_dir.
-        @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             tmppath = Path(tmpdir).resolve()
@@ -899,7 +847,6 @@ class TestFindProjectConfig(unittest.TestCase):
     def test_find_config_with_symlinked_directory(self):
         """
         Test that find_project_config correctly handles symlinked directories.
-        @athena: to-be-generated
         """
         import sys
 

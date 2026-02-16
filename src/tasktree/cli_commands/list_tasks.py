@@ -13,7 +13,6 @@ from tasktree.logging import Logger
 def list_tasks(logger: Logger, tasks_file: Optional[str] = None):
     """
     List all available tasks with descriptions.
-    @athena: 907819fc0cc7
     """
     recipe = get_recipe(logger, tasks_file)
     if recipe is None:
@@ -74,7 +73,6 @@ def _format_task_arguments(arg_specs: list[str | dict]) -> str:
     ["mode=debug", "target=x86_64"] -> "mode:str [=debug] target:str [=x86_64]"
     ["port:int", "debug:bool=false"] -> "port:int debug:bool [=false]"
     [{"timeout": {"type": "int", "default": 30}}] -> "timeout:int [=30]"
-    @athena: fc3d6da90aeb
     """
     if not arg_specs:
         return ""

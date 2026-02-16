@@ -41,7 +41,6 @@ def execute_dynamic_task(
     tasks_file: Path to recipe file (optional)
     task_output: Control task subprocess output (all, out, err, on-err, none)
 
-    @athena: 36ae914a5bc7
     """
     if not args:
         return

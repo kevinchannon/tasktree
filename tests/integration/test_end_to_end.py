@@ -14,7 +14,6 @@ from tasktree.cli import app
 def strip_ansi_codes(text: str) -> str:
     """
     Remove ANSI escape sequences from text.
-    @athena: 853120f3304f
     """
     ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
     return ansi_escape.sub("", text)
@@ -23,13 +22,11 @@ def strip_ansi_codes(text: str) -> str:
 class TestEndToEnd(unittest.TestCase):
     """
     Test complete CLI workflows from argument parsing to execution.
-    @athena: 7e5ecefb9d59
     """
 
     def setUp(self):
         """
         Set up test fixtures.
-        @athena: 36a706d60319
         """
         self.runner = CliRunner()
         self.env = {"NO_COLOR": "1"}
@@ -37,7 +34,6 @@ class TestEndToEnd(unittest.TestCase):
     def test_args_flow_cli_to_subprocess(self):
         """
         Test arguments flow from CLI -> parser -> executor -> subprocess.
-        @athena: 1ede661616a8
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -116,7 +112,6 @@ tasks:
     def test_task_execution_failure_shows_user_friendly_error(self):
         """
         Test task failure shows error message, not Python traceback.
-        @athena: d2c02d4a8a71
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -157,7 +152,6 @@ tasks:
 
         Dots in task names are reserved for namespacing imported tasks (e.g., namespace.task),
         so user-defined task names cannot contain dots.
-        @athena: 39a02833e77aon-test
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)

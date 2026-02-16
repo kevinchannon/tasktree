@@ -15,7 +15,6 @@ from tasktree.parser import find_recipe_file
 def clean_state(logger: Logger, tasks_file: Optional[str] = None) -> None:
     """
     Remove the .tasktree-state file to reset task execution state.
-    @athena: 2f270f8a2d70
     """
     if tasks_file:
         recipe_path = Path(tasks_file)

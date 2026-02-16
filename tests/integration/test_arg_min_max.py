@@ -14,7 +14,6 @@ from tasktree.cli import app
 def strip_ansi_codes(text: str) -> str:
     """
     Remove ANSI escape sequences from text.
-    @athena: 853120f3304f
     """
     ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
     return ansi_escape.sub("", text)
@@ -23,13 +22,11 @@ def strip_ansi_codes(text: str) -> str:
 class TestArgMinMax(unittest.TestCase):
     """
     Test min/max constraints on arguments in end-to-end workflows.
-    @athena: 9d206bda611a
     """
 
     def setUp(self):
         """
         Set up test fixtures.
-        @athena: 36a706d60319
         """
         self.runner = CliRunner()
         self.env = {"NO_COLOR": "1"}
@@ -37,7 +34,6 @@ class TestArgMinMax(unittest.TestCase):
     def test_int_arg_within_range(self):
         """
         Test integer argument value within min/max range succeeds.
-        @athena: 714f9c7d4bbd
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -71,7 +67,6 @@ tasks:
     def test_int_arg_below_min_fails(self):
         """
         Test integer argument value below min fails with clear error.
-        @athena: 8368e5a86f20
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -101,7 +96,6 @@ tasks:
     def test_int_arg_above_max_fails(self):
         """
         Test integer argument value above max fails with clear error.
-        @athena: 11799273f525
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -131,7 +125,6 @@ tasks:
     def test_int_arg_at_boundaries(self):
         """
         Test integer argument at exact min and max boundaries.
-        @athena: df3109d98f42
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -171,7 +164,6 @@ tasks:
     def test_float_arg_within_range(self):
         """
         Test float argument value within min/max range succeeds.
-        @athena: a639bfb41ad1
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -203,7 +195,6 @@ tasks:
     def test_float_arg_below_min_fails(self):
         """
         Test float argument value below min fails.
-        @athena: e2722db6f2bf
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -233,7 +224,6 @@ tasks:
     def test_int_arg_with_min_only(self):
         """
         Test integer argument with only min constraint.
-        @athena: a58bbd3d8f9f
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -272,7 +262,6 @@ tasks:
     def test_float_arg_with_max_only(self):
         """
         Test float argument with only max constraint.
-        @athena: b28dc290b403
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -311,7 +300,6 @@ tasks:
     def test_default_within_range(self):
         """
         Test that default value within range is accepted and used.
-        @athena: 697bd561c88a
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -343,7 +331,6 @@ tasks:
     def test_negative_int_range(self):
         """
         Test integer range with negative values.
-        @athena: fe1c928b2bf2
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -375,7 +362,6 @@ tasks:
     def test_parse_error_on_invalid_min_max_config(self):
         """
         Test that min > max in recipe file causes parse error.
-        @athena: 1a382b4f0c24
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -406,7 +392,6 @@ tasks:
     def test_parse_error_on_non_numeric_type_with_min_max(self):
         """
         Test that min/max on non-numeric type causes parse error.
-        @athena: e702c9892686
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)

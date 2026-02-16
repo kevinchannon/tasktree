@@ -1,6 +1,5 @@
 """
 Task Tree - A task automation tool with intelligent incremental execution.
-@athena: 1f9043e194aa
 """
 
 try:

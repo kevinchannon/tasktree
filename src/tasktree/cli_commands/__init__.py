@@ -12,7 +12,6 @@ def _supports_unicode() -> bool:
 
     Returns:
     True if terminal supports UTF-8, False otherwise
-    @athena: 68f62a942a95
     """
     # Hard stop: classic Windows console (conhost)
     if os.name == "nt" and "WT_SESSION" not in os.environ:
@@ -36,7 +35,6 @@ def get_action_success_string() -> str:
 
     Returns:
     Unicode tick symbol (✓) if terminal supports UTF-8, otherwise "[ OK ]"
-    @athena: 39d9966ee6c8
     """
     return "✓" if _supports_unicode() else "[ OK ]"
 
@@ -47,6 +45,5 @@ def get_action_failure_string() -> str:
 
     Returns:
     Unicode cross symbol (✗) if terminal supports UTF-8, otherwise "[ FAIL ]"
-    @athena: 5dd1111f8d74
     """
     return "✗" if _supports_unicode() else "[ FAIL ]"

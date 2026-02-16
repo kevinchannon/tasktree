@@ -34,7 +34,6 @@ from tasktree.temp_script import TempScript
 class TaskStatus:
     """
     Status of a task for execution planning.
-    @athena: a718e784981d
     """
 
     task_name: str
@@ -48,7 +47,6 @@ class TaskStatus:
 class ExecutionError(Exception):
     """
     Raised when task execution fails.
-    @athena: f22d72903ee4
     """
 
     pass
@@ -57,7 +55,6 @@ class ExecutionError(Exception):
 class Executor:
     """
     Executes tasks with incremental execution logic.
-    @athena: 779b12944194
     """
 
     # Container state file path (mounted inside Docker containers)
@@ -93,7 +90,6 @@ class Executor:
         state_manager: State manager for tracking task execution
         logger_fn: Logger function for output (matches Console.print signature)
         process_runner_factory: Factory function for creating ProcessRunner instances
-        @athena: d09e6a537c99
         """
         self.recipe = recipe
         self.state = state_manager
@@ -111,7 +107,6 @@ class Executor:
 
         Returns:
         True if task has at least one regular (non-exported) argument, False otherwise
-        @athena: c529cda63cce
         """
         if not task.args:
             return False
@@ -143,7 +138,6 @@ class Executor:
 
         Returns:
         Dictionary containing only regular (non-exported) arguments
-        @athena: 1ae863406335
         """
         if not task.args or not task_args:
             return {}
@@ -180,7 +174,6 @@ class Executor:
 
         Raises:
         ExecutionError: If any built-in variable fails to resolve
-        @athena: a0c1316fd713
         """
         import os
 
@@ -234,7 +227,6 @@ class Executor:
 
         Raises:
         ExecutionError: If any built-in variable fails to resolve
-        @athena: 7f6203e8d617
         """
         # Get early builtin vars (those that don't depend on working_dir)
         builtin_vars = self._collect_early_builtin_variables(task, timestamp)
@@ -262,7 +254,6 @@ class Executor:
 
         Raises:
         ValueError: If an exported arg attempts to override a protected environment variable
-        @athena: 5340be771194
         """
         env = os.environ.copy()
         if exported_env_vars:
@@ -348,7 +339,6 @@ class Executor:
             cannot be resolved (e.g., dockerfile doesn't exist), the error will
             occur during task execution, not during config loading.
 
-        @athena: to-be-generated
         """
         # Import here to avoid circular dependency
         from tasktree.config import (
@@ -418,7 +408,6 @@ class Executor:
 
         Returns:
         Runner name (session default runner name if no other override)
-        @athena: e5bface8a3a2
         """
         # Validate pinned tasks have a runner specified
         if task.pin_runner and not task.run_in:
@@ -457,7 +446,6 @@ class Executor:
 
         Returns:
         Tuple of (shell, preamble)
-        @athena: 15cad76d7c80
         """
         # Check for global override first
         env_name = self.recipe.global_runner_override
@@ -509,7 +497,6 @@ class Executor:
 
         Returns:
         TaskStatus indicating whether task will run and why
-        @athena: 03922de1bd23
         """
         # If force flag is set, always run
         if force:
@@ -645,7 +632,6 @@ class Executor:
 
         Raises:
         ExecutionError: If task execution fails
-        @athena: 4773fc590d9a
         """
         if args_dict is None:
             args_dict = {}
@@ -829,7 +815,6 @@ class Executor:
         Raises:
             ExecutionError: If task requires incompatible Docker runner
 
-        @athena: validate_nested_docker_runner
         """
         task_runner_name = self._get_effective_runner_name(task)
 
@@ -880,7 +865,6 @@ class Executor:
 
         Raises:
         ExecutionError: If task execution fails
-        @athena: b5abffeef10a
         """
         # Capture timestamp at task start for consistency (in UTC)
         task_start_time = datetime.now(timezone.utc)
@@ -1063,8 +1047,6 @@ class Executor:
 
         Raises:
         ExecutionError: If command execution fails
-        @athena: TBD
-        @athena: 228cc00e7665
         """
         # Prepare environment with exported args and call chain
         env = self._prepare_env_with_exports(exported_env_vars, call_chain)
@@ -1159,7 +1141,6 @@ class Executor:
 
         Raises:
         ValueError: If builtin variable or environment variable is not defined
-        @athena: eba6e3d62062
         """
         from dataclasses import replace
 
@@ -1292,7 +1273,6 @@ class Executor:
 
         Raises:
         ExecutionError: If Docker execution fails
-        @athena: 61725a57e304
         """
         # Get builtin variables for substitution in environment fields
         task_start_time = datetime.now(timezone.utc)
@@ -1391,7 +1371,6 @@ class Executor:
 
         Raises:
         ExecutionError: If {{ tt.working_dir }} placeholder is found
-        @athena: 82822f02716a
         """
         import re
 
@@ -1421,7 +1400,6 @@ class Executor:
 
         Raises:
         ValueError: If built-in variable is not defined
-        @athena: fe47afe87b52
         """
         from tasktree.substitution import substitute_builtin_variables
 
@@ -1447,7 +1425,6 @@ class Executor:
 
         Raises:
         ValueError: If an exported argument is used in template substitution
-        @athena: 9a931179f270
         """
         from tasktree.substitution import substitute_arguments
 
@@ -1468,7 +1445,6 @@ class Executor:
 
         Raises:
         ValueError: If environment variable is not set
-        @athena: 1bbe24759451
         """
         from tasktree.substitution import substitute_environment
 
@@ -1483,7 +1459,6 @@ class Executor:
 
         Returns:
         List of input glob patterns
-        @athena: ca7ed7a6682f
         """
         # Extract paths from inputs (handle both anonymous strings and named dicts)
         all_inputs = []
@@ -1520,7 +1495,6 @@ class Executor:
 
         Returns:
         True if environment definition changed, False otherwise
-        @athena: e206e104150a
         """
         # If using platform default (no environment), no definition to track
         if not env_name or env_name == "__platform_default__":
@@ -1584,7 +1558,6 @@ class Executor:
 
         Returns:
         True if image ID changed, False otherwise
-        @athena: bc954288e4ad
         """
         # Build/ensure image is built and get its ID
         try:
@@ -1633,7 +1606,6 @@ class Executor:
 
         Returns:
         List of changed file paths
-        @athena: 15b13fd181bf
         """
         changed_files = []
 
@@ -1739,7 +1711,6 @@ class Executor:
 
         Returns:
         List of output path patterns (glob patterns as strings)
-        @athena: 21da23ad5dcf
         """
         paths = []
         for output in task.outputs:
@@ -1760,7 +1731,6 @@ class Executor:
 
         Returns:
         List of output patterns that have no matching files
-        @athena: 9ceac49b4e68
         """
         if not task.outputs:
             return []
@@ -1793,7 +1763,6 @@ class Executor:
 
         Returns:
         List of file paths (relative to working_dir)
-        @athena: 5ba093866558
         """
         files = []
         base_path = self.recipe.project_root / working_dir
@@ -1812,7 +1781,6 @@ class Executor:
     def _update_state(self, task: Task, args_dict: dict[str, Any]) -> None:
         """
         Update state after task execution.
-        @athena: f4d3efdaac7c
         """
         cache_key = self._cache_key(task, args_dict)
         input_state = self._input_files_to_modified_times(task)
@@ -1831,7 +1799,6 @@ class Executor:
 
     def _cache_key(self, task: Task, args_dict: dict[str, Any]) -> str:
         """
-        @athena: d20ce4090741
         """
         effective_env = self._get_effective_runner_name(task)
         task_hash = hash_task(
@@ -1847,7 +1814,6 @@ class Executor:
 
     def _input_files_to_modified_times(self, task: Task) -> dict[str, float]:
         """
-        @athena: 7e5ba779a41f
         """
         input_files = self._expand_globs(self._get_all_inputs(task), task.working_dir)
 
@@ -1867,7 +1833,6 @@ class Executor:
         self, env_name: str, env: Runner
     ) -> dict[str, float]:
         """
-        @athena: bfe53b0d56cd
         """
         input_state = dict()
         # Record Dockerfile mtime

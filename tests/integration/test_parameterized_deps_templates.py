@@ -12,13 +12,11 @@ from pathlib import Path
 class TestParameterizedDependenciesWithTemplates:
     """
     Test template substitution in dependency arguments.
-    @athena: d19075d38ee8
     """
 
     def test_simple_template_substitution(self):
         """
         Test basic {{ arg.* }} template substitution in dependency args.
-        @athena: 7c3894f2ff5c
         """
         recipe_content = """
 tasks:
@@ -53,7 +51,6 @@ tasks:
     def test_template_with_string_type(self):
         """
         Test template substitution with string types (safer than int).
-        @athena: 2dc041dfc6e7
         """
         recipe_content = """
 tasks:
@@ -90,7 +87,6 @@ tasks:
     def test_multiple_templates_in_one_dependency(self):
         """
         Test multiple template substitutions in a single dependency.
-        @athena: f0d0552533e5
         """
         recipe_content = """
 tasks:
@@ -124,7 +120,6 @@ tasks:
     def test_named_args_with_templates(self):
         """
         Test template substitution with named arguments.
-        @athena: 8a1502017b65
         """
         recipe_content = """
 tasks:
@@ -158,7 +153,6 @@ tasks:
     def test_backward_compatibility_literal_args(self):
         """
         Test that literal dependency args still work (backward compatibility).
-        @athena: 9746ab6c99a5
         """
         recipe_content = """
 tasks:
@@ -191,7 +185,6 @@ tasks:
     def test_template_with_choices_validation(self):
         """
         Test that type validation works after template substitution.
-        @athena: 73bc26ea7f00
         """
         recipe_content = """
 tasks:
@@ -226,7 +219,6 @@ tasks:
     def test_invalid_template_reference(self):
         """
         Test that referencing undefined parent arg fails with clear error.
-        @athena: 5b4fc8a54d63
         """
         recipe_content = """
 tasks:

@@ -16,7 +16,6 @@ from tasktree.logging import Logger
 class TaskState:
     """
     State for a single task execution.
-    @athena: b08a937b7f2f
     """
 
     last_run: float
@@ -25,7 +24,6 @@ class TaskState:
     def to_dict(self) -> dict[str, Any]:
         """
         Convert to dictionary for JSON serialization.
-        @athena: 5f42efc35e77
         """
         return {
             "last_run": self.last_run,
@@ -36,7 +34,6 @@ class TaskState:
     def from_dict(cls, data: dict[str, Any]) -> "TaskState":
         """
         Create from dictionary loaded from JSON.
-        @athena: d9237db7e7e7
         """
         return cls(
             last_run=data["last_run"],
@@ -47,7 +44,6 @@ class TaskState:
 class StateManager:
     """
     Manages the .tasktree-state file.
-    @athena: 3dd3447bb53b
     """
 
     STATE_FILE = ".tasktree-state"
@@ -59,7 +55,6 @@ class StateManager:
         Args:
         project_root: Root directory of the project
         logger: Optional logger for diagnostic output
-        @athena: a0afbd8ae591
         """
         self.logger = logger
 
@@ -90,7 +85,6 @@ class StateManager:
     def load(self) -> None:
         """
         Load state from file if it exists.
-        @athena: e0cf9097c590
         """
         if self.state_path.exists():
             if self.logger:
@@ -116,7 +110,6 @@ class StateManager:
     def save(self) -> None:
         """
         Save state to file.
-        @athena: 11e4a9761e4d
         """
         if self.logger:
             self.logger.trace(f"Saving state to '{self.state_path}' ({len(self._state)} task state(s))")
@@ -133,7 +126,6 @@ class StateManager:
 
         Returns:
         TaskState if found, None otherwise
-        @athena: fe5b27e855eb
         """
         if not self._loaded:
             self.load()
@@ -146,7 +138,6 @@ class StateManager:
         Args:
         cache_key: Cache key (task_hash or task_hash__args_hash)
         state: TaskState to store
-        @athena: 244f16ea0ebc
         """
         if not self._loaded:
             self.load()
@@ -158,7 +149,6 @@ class StateManager:
 
         Args:
         valid_task_hashes: Set of valid task hashes from current recipe
-        @athena: 2717c6c244d3
         """
         if not self._loaded:
             self.load()
@@ -184,7 +174,6 @@ class StateManager:
     def clear(self) -> None:
         """
         Clear all state (useful for testing).
-        @athena: 3a92e36d9f83
         """
         self._state = {}
         self._loaded = True
@@ -195,7 +184,6 @@ class StateManager:
 
         Returns:
         SHA256 hash of file contents, or None if file doesn't exist
-        @athena: tbd
         """
         if not self.state_path.exists():
             return None

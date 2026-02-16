@@ -1,6 +1,5 @@
 """
 Dependency resolution using topological sorting.
-@athena: bc19c5dc0cca
 """
 
 from graphlib import TopologicalSorter
@@ -31,7 +30,6 @@ def _get_exported_arg_names(task: Task) -> set[str]:
     Example:
     Task with args: ["$server", "port"]
     Returns: {"server"}
-    @athena: 706576271735
     """
     if not task.args:
         return set()
@@ -98,7 +96,6 @@ def resolve_dependency_invocation(
     ...     recipe
     ... )
     DependencyInvocation("build", {"mode": "production"})
-    @athena: dd9a84821159
     """
     # Simple string case - no args to substitute
     if isinstance(dep_spec, str):
@@ -170,7 +167,6 @@ def resolve_dependency_invocation(
 class CycleError(Exception):
     """
     Raised when a dependency cycle is detected.
-    @athena: 80f584af9b92
     """
 
     pass
@@ -179,7 +175,6 @@ class CycleError(Exception):
 class TaskNotFoundError(Exception):
     """
     Raised when a task dependency doesn't exist.
-    @athena: f838e39564ae
     """
 
     pass
@@ -191,12 +186,10 @@ class TaskNode:
 
     Each node represents a unique invocation of a task with specific arguments.
     Tasks invoked with different arguments are considered different nodes.
-    @athena: b5ff009e2f60
     """
 
     def __init__(self, task_name: str, args: dict[str, Any] | None = None):
         """
-        @athena: 24d686697ce3
         """
         self.task_name = task_name
         self.args = args  # Keep None as None
@@ -204,7 +197,6 @@ class TaskNode:
     def __hash__(self):
         """
         Hash based on task name and sorted args.
-        @athena: 16615e007076
         """
         # Treat None and {} as equivalent for hashing
         if not self.args:
@@ -215,7 +207,6 @@ class TaskNode:
     def __eq__(self, other):
         """
         Equality based on task name and args.
-        @athena: 139d5234448f
         """
         if not isinstance(other, TaskNode):
             return False
@@ -226,7 +217,6 @@ class TaskNode:
 
     def __repr__(self):
         """
-        @athena: dd99b6a7835e
         """
         if not self.args:
             return f"TaskNode({self.task_name})"
@@ -235,7 +225,6 @@ class TaskNode:
 
     def __str__(self):
         """
-        @athena: 2d82ca4b9d41
         """
         if not self.args:
             return self.task_name
@@ -260,7 +249,6 @@ def resolve_execution_order(
     Raises:
     TaskNotFoundError: If target task or any dependency doesn't exist
     CycleError: If a dependency cycle is detected
-    @athena: 687f627efc75
     """
     if target_task not in recipe.tasks:
         raise TaskNotFoundError(f"Task not found: {target_task}")
@@ -359,7 +347,6 @@ def resolve_dependency_output_references(
     Given tasks in topological order: [('build', {}), ('deploy', {})]
     If deploy.cmd contains "{{ dep.build.outputs.bundle }}", it will be
     resolved to the actual output path from the build task.
-    @athena: 6dce9dbe6286
     """
     from tasktree.substitution import substitute_dependency_outputs
 
@@ -472,7 +459,6 @@ def resolve_self_references(
     it will be resolved to "*.txt" (literal string, no glob expansion).
     If task.cmd contains "{{ self.inputs.0 }}" and task has inputs ["*.txt", "*.md"],
     it will be resolved to "*.txt" (first input in YAML order).
-    @athena: 641e28567d1d
     """
     from tasktree.substitution import substitute_self_references
 
@@ -538,7 +524,6 @@ def get_implicit_inputs(recipe: Recipe, task: Task) -> list[str]:
 
     Returns:
     List of glob patterns for implicit inputs, including Docker-specific markers
-    @athena: da25e64fbd2b
     """
     implicit_inputs = []
 
@@ -607,7 +592,6 @@ def build_dependency_tree(
 
     Returns:
     Nested dictionary representing the dependency tree
-    @athena: 8c853b393bdb
     """
     if target_task not in recipe.tasks:
         raise TaskNotFoundError(f"Task not found: {target_task}")

@@ -10,13 +10,11 @@ from . import run_tasktree_cli
 class TestLoggingFullWorkflow(unittest.TestCase):
     """
     Test logging behavior across complete task execution workflows.
-    @athena: 783a576f944e
     """
 
     def test_fatal_level_suppresses_progress_messages(self):
         """
         Test that FATAL level suppresses all progress messages but task still executes.
-        @athena: 7485d6b81f26
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -63,7 +61,6 @@ tasks:
     def test_info_level_shows_normal_progress(self):
         """
         Test that INFO level shows normal execution progress messages.
-        @athena: 67992a330d12
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -101,7 +98,6 @@ tasks:
     def test_error_level_shows_failures(self):
         """
         Test that ERROR level shows task failures with error messages.
-        @athena: fa972690df7c
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -130,7 +126,6 @@ tasks:
 
         Note: Actual debug-specific output will be added in later commits.
         This test verifies that debug level still shows info messages.
-        @athena: 3011ece510e2
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -164,7 +159,6 @@ tasks:
 
         Note: Actual trace-specific output will be added in later commits.
         This test verifies that trace level still shows info messages.
-        @athena: 7c9b1bbcd244
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -195,7 +189,6 @@ tasks:
     def test_log_level_with_parameterized_tasks(self):
         """
         Test that log level filtering works with parameterized tasks.
-        @athena: 698c1956eaea
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -234,7 +227,6 @@ tasks:
     def test_log_level_with_incremental_execution(self):
         """
         Test that log level filtering works correctly with incremental execution.
-        @athena: 129c0b65775e
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -266,7 +258,6 @@ tasks:
     def test_log_level_with_force_flag(self):
         """
         Test that log level filtering works with --force flag.
-        @athena: 5713c341d9d8
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)

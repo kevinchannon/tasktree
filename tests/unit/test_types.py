@@ -18,20 +18,17 @@ from tasktree.types import (
 class TestHostnameType(unittest.TestCase):
     """
     Tests for HostnameType validation.
-    @athena: 2012ecde9eb3
     """
 
     def setUp(self):
         """
         Set up test fixtures.
-        @athena: cbdb62064b0f
         """
         self.hostname_type = HostnameType()
 
     def test_hostname_valid(self):
         """
         Test valid hostnames pass validation.
-        @athena: 9c31238d816b
         """
         valid_hostnames = [
             "example.com",
@@ -49,7 +46,6 @@ class TestHostnameType(unittest.TestCase):
     def test_hostname_invalid_characters(self):
         """
         Test hostnames with invalid characters fail.
-        @athena: 347fd9bd1844
         """
         invalid_hostnames = [
             "host@name.com",
@@ -66,7 +62,6 @@ class TestHostnameType(unittest.TestCase):
     def test_hostname_too_long(self):
         """
         Test hostnames >253 characters fail.
-        @athena: 272799630fee
         """
         # Create a hostname longer than 253 characters
         long_hostname = "a" * 254 + ".com"
@@ -76,7 +71,6 @@ class TestHostnameType(unittest.TestCase):
     def test_hostname_empty(self):
         """
         Test empty hostname fails.
-        @athena: e47dbe266c29
         """
         with self.assertRaises(click.exceptions.BadParameter):
             self.hostname_type.convert("", None, None)
@@ -85,20 +79,17 @@ class TestHostnameType(unittest.TestCase):
 class TestEmailType(unittest.TestCase):
     """
     Tests for EmailType validation.
-    @athena: 2a897a3aae06
     """
 
     def setUp(self):
         """
         Set up test fixtures.
-        @athena: 7df6fe15852a
         """
         self.email_type = EmailType()
 
     def test_email_valid(self):
         """
         Test valid email addresses pass.
-        @athena: fdd701df64bb
         """
         valid_emails = [
             "user@example.com",
@@ -114,7 +105,6 @@ class TestEmailType(unittest.TestCase):
     def test_email_no_at(self):
         """
         Test email without @ fails.
-        @athena: 5b006c11e382
         """
         with self.assertRaises(click.exceptions.BadParameter):
             self.email_type.convert("userexample.com", None, None)
@@ -122,7 +112,6 @@ class TestEmailType(unittest.TestCase):
     def test_email_no_domain(self):
         """
         Test email without domain fails.
-        @athena: 812c2bb16800
         """
         with self.assertRaises(click.exceptions.BadParameter):
             self.email_type.convert("user@", None, None)
@@ -130,7 +119,6 @@ class TestEmailType(unittest.TestCase):
     def test_email_invalid_format(self):
         """
         Test malformed emails fail.
-        @athena: 1601ef5ecff2
         """
         invalid_emails = [
             "@example.com",
@@ -147,13 +135,11 @@ class TestEmailType(unittest.TestCase):
 class TestIPTypes(unittest.TestCase):
     """
     Tests for IP address type validation.
-    @athena: df42c4791e94
     """
 
     def setUp(self):
         """
         Set up test fixtures.
-        @athena: 7b943dd01aa3
         """
         self.ip_type = IPType()
         self.ipv4_type = IPv4Type()
@@ -162,7 +148,6 @@ class TestIPTypes(unittest.TestCase):
     def test_ip_valid_ipv4(self):
         """
         Test valid IPv4 addresses pass.
-        @athena: 0084dcf9e642
         """
         valid_ipv4 = [
             "192.168.1.1",
@@ -177,7 +162,6 @@ class TestIPTypes(unittest.TestCase):
     def test_ip_valid_ipv6(self):
         """
         Test valid IPv6 addresses pass.
-        @athena: 1a810cf0f0c4
         """
         valid_ipv6 = [
             "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
@@ -192,7 +176,6 @@ class TestIPTypes(unittest.TestCase):
     def test_ipv4_valid(self):
         """
         Test IPv4Type accepts valid IPv4 addresses.
-        @athena: 8e0f8a99730f
         """
         result = self.ipv4_type.convert("192.168.1.1", None, None)
         self.assertEqual(result, "192.168.1.1")
@@ -200,7 +183,6 @@ class TestIPTypes(unittest.TestCase):
     def test_ipv4_rejects_ipv6(self):
         """
         Test IPv4Type rejects IPv6 addresses.
-        @athena: 4ad4e445403c
         """
         with self.assertRaises(click.exceptions.BadParameter):
             self.ipv4_type.convert("2001:db8::1", None, None)
@@ -208,7 +190,6 @@ class TestIPTypes(unittest.TestCase):
     def test_ipv6_valid(self):
         """
         Test IPv6Type accepts valid IPv6 addresses.
-        @athena: acb089661fa5
         """
         result = self.ipv6_type.convert("::1", None, None)
         self.assertEqual(result, "::1")
@@ -216,7 +197,6 @@ class TestIPTypes(unittest.TestCase):
     def test_ipv6_rejects_ipv4(self):
         """
         Test IPv6Type rejects IPv4 addresses.
-        @athena: 94368c270f85
         """
         with self.assertRaises(click.exceptions.BadParameter):
             self.ipv6_type.convert("192.168.1.1", None, None)
@@ -224,7 +204,6 @@ class TestIPTypes(unittest.TestCase):
     def test_ip_invalid(self):
         """
         Test invalid IP formats fail.
-        @athena: 61aaa7c57b18
         """
         invalid_ips = [
             "256.256.256.256",
@@ -240,7 +219,6 @@ class TestIPTypes(unittest.TestCase):
     def test_ip_empty(self):
         """
         Test empty IP fails.
-        @athena: f9b100be5148
         """
         with self.assertRaises(click.exceptions.BadParameter):
             self.ip_type.convert("", None, None)
@@ -249,20 +227,17 @@ class TestIPTypes(unittest.TestCase):
 class TestDateTimeType(unittest.TestCase):
     """
     Tests for DateTimeType validation.
-    @athena: 786382fbe457
     """
 
     def setUp(self):
         """
         Set up test fixtures.
-        @athena: 08db4215199c
         """
         self.datetime_type = DateTimeType()
 
     def test_datetime_iso_format(self):
         """
         Test ISO format datetimes pass.
-        @athena: 5ec977f06060
         """
         valid_datetimes = [
             "2023-01-15T10:30:00",
@@ -277,7 +252,6 @@ class TestDateTimeType(unittest.TestCase):
     def test_datetime_invalid_format(self):
         """
         Test non-ISO formats fail.
-        @athena: 43a134b9814c
         """
         invalid_datetimes = [
             "2023/01/15T10:30:00",  # slashes instead of hyphens
@@ -293,7 +267,6 @@ class TestDateTimeType(unittest.TestCase):
     def test_datetime_empty(self):
         """
         Test empty datetime fails.
-        @athena: 7424226a51f9
         """
         with self.assertRaises(click.exceptions.BadParameter):
             self.datetime_type.convert("", None, None)
@@ -302,13 +275,11 @@ class TestDateTimeType(unittest.TestCase):
 class TestGetClickType(unittest.TestCase):
     """
     Tests for get_click_type() function.
-    @athena: bb5bd89e2897
     """
 
     def test_get_click_type_str(self):
         """
         Test returns STRING for 'str'.
-        @athena: 4abdf3a81d67
         """
         result = get_click_type("str")
         self.assertEqual(result, click.STRING)
@@ -316,7 +287,6 @@ class TestGetClickType(unittest.TestCase):
     def test_get_click_type_int(self):
         """
         Test returns INT for 'int'.
-        @athena: be2daffc4f03
         """
         result = get_click_type("int")
         self.assertEqual(result, click.INT)
@@ -324,7 +294,6 @@ class TestGetClickType(unittest.TestCase):
     def test_get_click_type_float(self):
         """
         Test returns FLOAT for 'float'.
-        @athena: 0e5ad4963c8f
         """
         result = get_click_type("float")
         self.assertEqual(result, click.FLOAT)
@@ -332,7 +301,6 @@ class TestGetClickType(unittest.TestCase):
     def test_get_click_type_bool(self):
         """
         Test returns BOOL for 'bool'.
-        @athena: 867de59d2445
         """
         result = get_click_type("bool")
         self.assertEqual(result, click.BOOL)
@@ -340,7 +308,6 @@ class TestGetClickType(unittest.TestCase):
     def test_get_click_type_path(self):
         """
         Test returns Path for 'path'.
-        @athena: 93407a347a4e
         """
         result = get_click_type("path")
         self.assertIsInstance(result, click.Path)
@@ -348,7 +315,6 @@ class TestGetClickType(unittest.TestCase):
     def test_get_click_type_custom_types(self):
         """
         Test returns custom types (hostname, email, ip, etc).
-        @athena: 3b326154c483
         """
         custom_types = {
             "hostname": HostnameType,
@@ -365,7 +331,6 @@ class TestGetClickType(unittest.TestCase):
     def test_get_click_type_unknown(self):
         """
         Test raises ValueError for unknown type.
-        @athena: 608e8891cf32
         """
         with self.assertRaises(ValueError) as cm:
             get_click_type("unknown_type")
@@ -374,7 +339,6 @@ class TestGetClickType(unittest.TestCase):
     def test_get_click_type_case_sensitivity(self):
         """
         Test type names are case-sensitive.
-        @athena: 234afb7ec048
         """
         # 'str' should work, 'STR' should not
         self.assertEqual(get_click_type("str"), click.STRING)

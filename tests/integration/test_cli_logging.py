@@ -14,13 +14,11 @@ from helpers.io import strip_ansi_codes
 class TestCLILogging(unittest.TestCase):
     """
     Test that --log-level correctly filters messages during task execution.
-    @athena: bbc2d247e3b3
     """
 
     def setUp(self):
         """
         Set up test fixtures.
-        @athena: 563ac9b21ae9
         """
         self.runner = CliRunner()
         self.env = {"NO_COLOR": "1"}  # Disable color output for consistent assertions
@@ -28,7 +26,6 @@ class TestCLILogging(unittest.TestCase):
     def test_fatal_level_suppresses_all_but_fatal(self):
         """
         Test that FATAL level only shows fatal errors, not normal execution messages.
-        @athena: 822b1d43f993
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -62,7 +59,6 @@ tasks:
     def test_error_level_shows_errors(self):
         """
         Test that ERROR level shows task failures.
-        @athena: aad7711d06a3
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -95,7 +91,6 @@ tasks:
     def test_info_level_shows_normal_execution(self):
         """
         Test that INFO level (default) shows normal execution progress.
-        @athena: 61b7cb4d6e2b
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -131,7 +126,6 @@ tasks:
         Test that higher verbosity levels include messages from lower levels.
 
         For example, DEBUG should include INFO, WARN, ERROR, and FATAL messages.
-        @athena: 370f2b3c4225
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -164,7 +158,6 @@ tasks:
     def test_log_level_with_dependencies(self):
         """
         Test that log level filtering works correctly with task dependencies.
-        @athena: bb73b59da34e
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)

@@ -14,7 +14,6 @@ from tasktree.cli import app
 def strip_ansi_codes(text: str) -> str:
     """
     Remove ANSI escape sequences from text.
-    @athena: 853120f3304f
     """
     ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
     return ansi_escape.sub("", text)
@@ -23,13 +22,11 @@ def strip_ansi_codes(text: str) -> str:
 class TestCleanState(unittest.TestCase):
     """
     Test that --clean and its aliases work correctly.
-    @athena: 4391efb2c247
     """
 
     def setUp(self):
         """
         Set up test fixtures.
-        @athena: 563ac9b21ae9
         """
         self.runner = CliRunner()
         self.env = {"NO_COLOR": "1"}  # Disable color output for consistent assertions
@@ -37,7 +34,6 @@ class TestCleanState(unittest.TestCase):
     def test_clean_removes_state_file(self):
         """
         Test that --clean removes the .tasktree-state file.
-        @athena: 545ac4a8ddca
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -75,7 +71,6 @@ tasks:
     def test_clean_when_no_state_file(self):
         """
         Test that --clean handles missing state file gracefully.
-        @athena: 5b5f8d270dc9
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)

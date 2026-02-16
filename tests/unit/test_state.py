@@ -9,13 +9,11 @@ from tasktree.state import StateManager, TaskState
 
 class TestTaskState(unittest.TestCase):
     """
-    @athena: 6c3020b9e082
     """
 
     def test_to_dict(self):
         """
         Test converting TaskState to dictionary.
-        @athena: 9594e8c69e86
         """
         state = TaskState(last_run=1234567890.0, input_state={"file.txt": 1234567880.0})
         data = state.to_dict()
@@ -25,7 +23,6 @@ class TestTaskState(unittest.TestCase):
     def test_from_dict(self):
         """
         Test creating TaskState from dictionary.
-        @athena: f3071e61f611
         """
         data = {"last_run": 1234567890.0, "input_state": {"file.txt": 1234567880.0}}
         state = TaskState.from_dict(data)
@@ -35,13 +32,11 @@ class TestTaskState(unittest.TestCase):
 
 class TestStateManager(unittest.TestCase):
     """
-    @athena: a79336270d00
     """
 
     def test_save_and_load(self):
         """
         Test saving and loading state.
-        @athena: e668c2dca075
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -66,7 +61,6 @@ class TestStateManager(unittest.TestCase):
     def test_prune(self):
         """
         Test pruning stale state entries.
-        @athena: d3d5c4f01118
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -90,7 +84,6 @@ class TestStateManager(unittest.TestCase):
     def test_clear(self):
         """
         Test clearing all state.
-        @athena: 3774a651a994
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -107,13 +100,11 @@ class TestStateManager(unittest.TestCase):
 class TestStateErrors(unittest.TestCase):
     """
     Tests for state error conditions.
-    @athena: 16beefd58e3d
     """
 
     def test_state_corrupted_json(self):
         """
         Test StateManager handles corrupted JSON gracefully.
-        @athena: 7e02c3c3b4ab
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)

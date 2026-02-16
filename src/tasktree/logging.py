@@ -14,7 +14,6 @@ class LogLevel(enum.Enum):
     Log verbosity levels for tasktree diagnostic messages.
 
     Lower numeric values represent higher severity / less verbosity.
-    @athena: 3b2d8a378440
     """
 
     FATAL = 0  # Only unrecoverable errors (malformed task files, missing dependencies)
@@ -31,7 +30,6 @@ class Logger:
 
     Provides a level-based logging interface with stack-based level management.
     Concrete implementations must define how messages are output (e.g., to console, file, etc.).
-    @athena: fdcd08796011
     """
 
     @abstractmethod
@@ -43,7 +41,6 @@ class Logger:
         level: The severity level of the message
         *args: Positional arguments to log (strings, Rich objects, etc.)
         **kwargs: Keyword arguments for formatting (e.g., style, justify)
-        @athena: 4563ae920ff4
         """
         pass
 
@@ -57,7 +54,6 @@ class Logger:
 
         Args:
         level: The new log level to use
-        @athena: c73ac375d30a
         """
         pass
 
@@ -71,42 +67,35 @@ class Logger:
 
         Raises:
         RuntimeError: If attempting to pop the base (initial) log level
-        @athena: d4721a34516f
         """
         pass
 
     def fatal(self, *args, **kwargs):
         """
-        @athena: 951c9c5d4f3b
         """
         self.log(LogLevel.FATAL, *args, **kwargs)
 
     def error(self, *args, **kwargs):
         """
-        @athena: 7125264a8ce1
         """
         self.log(LogLevel.ERROR, *args, **kwargs)
 
     def warn(self, *args, **kwargs):
         """
-        @athena: 5a70af1bb5b4
         """
         self.log(LogLevel.WARN, *args, **kwargs)
 
     def info(self, *args, **kwargs):
         """
-        @athena: cdb5381023a6
         """
         self.log(LogLevel.INFO, *args, **kwargs)
 
     def debug(self, *args, **kwargs):
         """
-        @athena: ddfd0e359f09
         """
         self.log(LogLevel.DEBUG, *args, **kwargs)
 
     def trace(self, *args, **kwargs):
         """
-        @athena: 4f615a15562c
         """
         self.log(LogLevel.TRACE, *args, **kwargs)

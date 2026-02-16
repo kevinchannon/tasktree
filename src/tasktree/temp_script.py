@@ -5,7 +5,6 @@ This module provides the TempScript context manager for creating, managing,
 and cleaning up temporary shell script files. It ensures consistent behavior
 between containerized and non-containerized execution paths.
 
-@athena: module
 """
 
 import os
@@ -40,7 +39,6 @@ class TempScript:
             subprocess.run([str(script_path)], check=True)
         # Script is automatically cleaned up after the with block
 
-    @athena: class
     """
 
     def __init__(
@@ -65,7 +63,6 @@ class TempScript:
             use_shebang: Optional override for whether to add shebang.
                         If None, determined from platform (True on Unix/macOS, False on Windows).
 
-        @athena: method
         """
         self.cmd = cmd
         self.preamble = preamble
@@ -92,7 +89,6 @@ class TempScript:
         Returns:
             Path object pointing to the temporary script file
 
-        @athena: method
         """
         # Determine file extension (use override if provided, otherwise platform default)
         if self.script_extension is not None:
@@ -171,7 +167,6 @@ class TempScript:
             exc_val: Exception value (if an exception occurred)
             exc_tb: Exception traceback (if an exception occurred)
 
-        @athena: method
         """
         if self.script_path:
             try:

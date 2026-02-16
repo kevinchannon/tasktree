@@ -10,14 +10,12 @@ from . import is_docker_available, run_tasktree_cli
 class TestDockerRunner(unittest.TestCase):
     """
     Test Docker runner variable and configuration features.
-    @athena: c7c662b4eea1
     """
 
     @classmethod
     def setUpClass(cls):
         """
         Ensure Docker is available before running tests.
-        @athena: c8c40c167b6e
         """
         if not is_docker_available():
             raise RuntimeError(
@@ -28,7 +26,6 @@ class TestDockerRunner(unittest.TestCase):
     def test_environment_variable_injection(self):
         """
         Test that env_vars are passed to container correctly.
-        @athena: c271cc48b3ff
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -85,7 +82,6 @@ tasks:
     def test_container_working_directory(self):
         """
         Test that container working_dir is set correctly.
-        @athena: 79d7fac1169e
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -137,7 +133,6 @@ tasks:
     def test_extra_docker_args(self):
         """
         Test that extra_args are passed to docker run.
-        @athena: 6b8eb410e4a4
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -188,7 +183,6 @@ tasks:
     def test_dockerfile_workdir_default(self):
         """
         Test that container uses Dockerfile WORKDIR when no working_dir specified.
-        @athena: e4f9a2b7c3d8
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -244,7 +238,6 @@ tasks:
         This test verifies that:
         1. Config files can contain relative paths
         2. Relative paths in recipe runners are resolved at execution time
-        @athena: to-be-generated
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)

@@ -13,14 +13,12 @@ from . import get_file_ownership, is_docker_available, run_tasktree_cli
 class TestDockerOwnership(unittest.TestCase):
     """
     Test Docker user mapping and file ownership (Linux/macOS only).
-    @athena: 18321b887918
     """
 
     @classmethod
     def setUpClass(cls):
         """
         Ensure Docker is available before running tests.
-        @athena: c8c40c167b6e
         """
         if not is_docker_available():
             raise RuntimeError(
@@ -31,7 +29,6 @@ class TestDockerOwnership(unittest.TestCase):
     def test_files_created_with_host_user_ownership(self):
         """
         Test that files created in container have correct host user ownership.
-        @athena: 4173e28a2566
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -96,7 +93,6 @@ tasks:
     def test_run_as_root_creates_root_owned_files(self):
         """
         Test that run_as_root: true creates root-owned files.
-        @athena: 2b351c8cda71
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)

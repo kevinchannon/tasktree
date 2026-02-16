@@ -16,13 +16,11 @@ from tasktree.state import StateManager
 class TestExportedArgs(unittest.TestCase):
     """
     Test exported arguments feature end-to-end.
-    @athena: b9a6feeb3796
     """
 
     def test_exported_args_in_environment(self):
         """
         Test that exported args are set as environment variables.
-        @athena: 7452bcb0da29
         """
 
         is_windows = platform.system() == "Windows"
@@ -57,7 +55,6 @@ tasks:
     def test_exported_args_with_defaults(self):
         """
         Test that exported args with defaults work correctly.
-        @athena: d60a6a296f21
         """
 
         is_windows = platform.system() == "Windows"
@@ -95,7 +92,6 @@ tasks:
         This is a regression test for the bug where exported args with defaults
         would not be set as environment variables if the value wasn't provided
         by the user (relying on CLI to apply the default).
-        @athena: 9abbc843c8a5
         """
 
         is_windows = platform.system() == "Windows"
@@ -140,7 +136,6 @@ tasks:
     def test_exported_args_not_substitutable(self):
         """
         Test that exported args cannot be used in template substitution.
-        @athena: 44813147cd69
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -169,7 +164,6 @@ tasks:
     def test_mixed_exported_and_regular_args(self):
         """
         Test mixing exported and regular arguments.
-        @athena: 461ab9c604cf
         """
 
         is_windows = platform.system() == "Windows"
@@ -203,7 +197,6 @@ tasks:
     def test_case_preserved_in_env_vars(self):
         """
         Test that environment variable names preserve case exactly.
-        @athena: 1bf4ca57ced7
         """
 
         is_windows = platform.system() == "Windows"
@@ -235,7 +228,6 @@ tasks:
     def test_values_with_spaces(self):
         """
         Test that exported args with spaces are preserved correctly.
-        @athena: e8719b3c4f91
         """
 
         is_windows = platform.system() == "Windows"
@@ -266,7 +258,6 @@ tasks:
     def test_exported_arg_with_type_annotation_fails_cli_parsing(self):
         """
         Test that exported arguments with type annotations fail during arg parsing.
-        @athena: ab6d905b48b7
         """
 
         from tasktree.parser import parse_arg_spec
@@ -280,7 +271,6 @@ tasks:
     def test_exported_arg_yaml_dict_with_type_fails(self):
         """
         Test that exported arguments with type field in YAML dict format fails.
-        @athena: ff514bc0ea9d
         """
 
         from tasktree.parser import parse_arg_spec
@@ -295,7 +285,6 @@ tasks:
     def test_multiline_command_with_exported_args(self):
         """
         Test exported args work with multi-line commands.
-        @athena: 23b572ee8ebe
         """
 
         is_windows = platform.system() == "Windows"
@@ -334,7 +323,6 @@ tasks:
     def test_exported_args_override_existing_env_vars(self):
         """
         Test that exported args override existing environment variables.
-        @athena: e1c032593cd6
         """
 
         is_windows = platform.system() == "Windows"
@@ -377,7 +365,6 @@ tasks:
     def test_protected_env_var_override_fails(self):
         """
         Test that attempting to override protected environment variables fails.
-        @athena: 6a83998c89bb
         """
 
         with TemporaryDirectory() as tmpdir:

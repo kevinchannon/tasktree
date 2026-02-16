@@ -13,7 +13,6 @@ from tasktree.state import StateManager
 
 class TestMissingOutputsIntegration(unittest.TestCase):
     """
-    @athena: c4550664bdc1
     """
 
     def test_missing_outputs_integration(self):
@@ -24,7 +23,6 @@ class TestMissingOutputsIntegration(unittest.TestCase):
         2. Delete one output file
         3. Run again - should execute and warn
         4. Run third time - should skip (outputs now exist)
-        @athena: 6b4d40bdfe7a
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -79,7 +77,6 @@ class TestMissingOutputsIntegration(unittest.TestCase):
 
         When a task declares multiple outputs but only some exist,
         the task should run to regenerate all outputs.
-        @athena: c4d759c7abc3
         """
 
         with TemporaryDirectory() as tmpdir:

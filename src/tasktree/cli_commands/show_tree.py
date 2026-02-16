@@ -13,7 +13,6 @@ from tasktree.parser import get_recipe
 def show_tree(logger: Logger, task_name: str, tasks_file: Optional[str] = None):
     """
     Show dependency tree structure.
-    @athena: 88fbc03f4915
     """
     # Pass task_name as root_task for lazy variable evaluation
     recipe = get_recipe(logger, tasks_file, root_task=task_name)
@@ -50,7 +49,6 @@ def _build_rich_tree(dep_tree: dict) -> Tree:
     Returns:
         Rich Tree object for terminal display
 
-    @athena: 62472c8ca729
     """
     task_name = dep_tree["name"]
     tree = Tree(task_name)

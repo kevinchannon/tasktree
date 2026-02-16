@@ -3,7 +3,6 @@ Placeholder substitution for variables, arguments, and environment variables.
 
 This module provides functions to substitute {{ var.name }}, {{ arg.name }},
 and {{ env.NAME }} placeholders with their corresponding values.
-@athena: f92441b6fff5
 """
 
 import re
@@ -43,7 +42,6 @@ def substitute_variables(
 
     Raises:
     ValueError: If a referenced variable is not defined
-    @athena: 93e0fbbe447c
     """
     if isinstance(text, dict):
         # The dict will only contain a single key, the value of this key should also be a dictionary, which contains
@@ -109,7 +107,6 @@ def substitute_arguments(
 
     Raises:
     ValueError: If a referenced argument is not provided or is exported
-    @athena: 39577c2b74a6
     """
     # Use empty set if None for cleaner handling
     exported_args = exported_args or set()
@@ -165,7 +162,6 @@ def substitute_environment(text: str) -> str:
     >>> os.environ['USER'] = 'alice'
     >>> substitute_environment("Hello {{ env.USER }}")
     'Hello alice'
-    @athena: 4f2afd2e0da2
     """
     import os
 
@@ -206,7 +202,6 @@ def substitute_builtin_variables(text: str, builtin_vars: dict[str, str]) -> str
     >>> builtin_vars = {'project_root': '/home/user/project', 'task_name': 'build'}
     >>> substitute_builtin_variables("Root: {{ tt.project_root }}", builtin_vars)
     'Root: /home/user/project'
-    @athena: 716250e3a71f
     """
 
     def replace_match(match: re.Match) -> str:
@@ -256,7 +251,6 @@ def substitute_dependency_args(
     Example:
     >>> substitute_dependency_args("{{ arg.mode }}", "build", {"mode": "debug"})
     'debug'
-    @athena: 4ffd5664e3ec
     """
     # Check for disallowed placeholder types in dependency args
     # Only {{ arg.* }} is allowed, not {{ var.* }}, {{ env.* }}, or {{ tt.* }}
@@ -316,7 +310,6 @@ def substitute_all(text: str, variables: dict[str, str], args: dict[str, Any]) -
 
     Raises:
     ValueError: If any referenced variable, argument, or environment variable is not defined
-    @athena: c3fe48d3df5a
     """
     text = substitute_variables(text, variables)
     text = substitute_arguments(text, args)
@@ -361,7 +354,6 @@ def substitute_dependency_outputs(
     ...     {"build": build_task}
     ... )
     'Deploy dist/app.js'
-    @athena: 3fbf79c15ee9
     """
 
     def replacer(match: re.Match) -> str:
@@ -456,7 +448,6 @@ def substitute_self_references(
     ...     indexed_outputs
     ... )
     'cp *.txt out/result.txt'
-    @athena: 9d997ff08eef
     """
 
     def replacer(match: re.Match) -> str:

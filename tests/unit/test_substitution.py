@@ -1,6 +1,5 @@
 """
 Unit tests for substitution module.
-@athena: 6d71fa7b1f77
 """
 
 import os
@@ -24,13 +23,11 @@ from tasktree.parser import Task
 class TestPlaceholderPattern(unittest.TestCase):
     """
     Test the regex pattern for matching placeholders.
-    @athena: c578a483b231
     """
 
     def test_pattern_matches_var_prefix(self):
         """
         Test pattern matches {{ var.name }} syntax.
-        @athena: 26a9f371610e
         """
         match = PLACEHOLDER_PATTERN.search("{{ var.foo }}")
         self.assertIsNotNone(match)
@@ -40,7 +37,6 @@ class TestPlaceholderPattern(unittest.TestCase):
     def test_pattern_matches_arg_prefix(self):
         """
         Test pattern matches {{ arg.name }} syntax.
-        @athena: 0b1fe334a03d
         """
         match = PLACEHOLDER_PATTERN.search("{{ arg.bar }}")
         self.assertIsNotNone(match)
@@ -50,7 +46,6 @@ class TestPlaceholderPattern(unittest.TestCase):
     def test_pattern_matches_env_prefix(self):
         """
         Test pattern matches {{ env.name }} syntax.
-        @athena: 122170350687
         """
         match = PLACEHOLDER_PATTERN.search("{{ env.USER }}")
         self.assertIsNotNone(match)
@@ -60,7 +55,6 @@ class TestPlaceholderPattern(unittest.TestCase):
     def test_pattern_matches_tt_prefix(self):
         """
         Test pattern matches {{ tt.name }} syntax.
-        @athena: e7b46d5cc217
         """
         match = PLACEHOLDER_PATTERN.search("{{ tt.project_root }}")
         self.assertIsNotNone(match)
@@ -70,7 +64,6 @@ class TestPlaceholderPattern(unittest.TestCase):
     def test_pattern_allows_whitespace(self):
         """
         Test pattern tolerates extra whitespace.
-        @athena: 62f777d2169e
         """
         test_cases = [
             ("no_whitespace", "{{var.the_name}}"),
@@ -85,7 +78,6 @@ class TestPlaceholderPattern(unittest.TestCase):
     def test_pattern_requires_valid_identifier(self):
         """
         Test pattern matches arbitrary non-whitespace characters including emojis.
-        @athena: 555df31aac2f
         """
         # Valid names (any non-whitespace, including dots for namespaces, emojis, etc.)
         valid = ["foo", "foo_bar", "foo123", "_private", "foo.bar", "a.b.c", "123foo", "foo-bar", "🎄🥶👊"]
@@ -121,13 +113,11 @@ class TestPlaceholderPattern(unittest.TestCase):
 class TestSubstituteVariables(unittest.TestCase):
     """
     Test substitute_variables function.
-    @athena: 839a88d59a7a
     """
 
     def test_substitute_single_variable(self):
         """
         Test basic {{ var.x }} substitution.
-        @athena: 6d9a612b30b0
         """
         result = substitute_variables("Hello {{ var.name }}!", {"name": "World"})
         self.assertEqual(result, "Hello World!")
@@ -135,7 +125,6 @@ class TestSubstituteVariables(unittest.TestCase):
     def test_substitute_multiple_variables(self):
         """
         Test multiple different variables in same string.
-        @athena: 69809b197058
         """
         text = "{{ var.greeting }} {{ var.name }}!"
         variables = {"greeting": "Hello", "name": "World"}
@@ -145,7 +134,6 @@ class TestSubstituteVariables(unittest.TestCase):
     def test_substitute_same_variable_multiple_times(self):
         """
         Test same variable appears multiple times.
-        @athena: ef9618d351bf
         """
         text = "{{ var.name }} says hello to {{ var.name }}"
         variables = {"name": "Alice"}
@@ -155,7 +143,6 @@ class TestSubstituteVariables(unittest.TestCase):
     def test_substitute_no_placeholders(self):
         """
         Test string without placeholders returns unchanged.
-        @athena: bf4f549bb8fa
         """
         text = "No placeholders here"
         result = substitute_variables(text, {"foo": "bar"})
@@ -164,7 +151,6 @@ class TestSubstituteVariables(unittest.TestCase):
     def test_substitute_ignores_arg_prefix(self):
         """
         Test {{ arg.name }} is not substituted.
-        @athena: df90aed9bd1f
         """
         text = "{{ var.foo }} {{ arg.bar }}"
         variables = {"foo": "FOO", "bar": "BAR"}
@@ -174,7 +160,6 @@ class TestSubstituteVariables(unittest.TestCase):
     def test_substitute_undefined_variable_raises(self):
         """
         Test error for undefined variable reference.
-        @athena: 5351101b8697
         """
         with self.assertRaises(ValueError) as cm:
             substitute_variables("{{ var.missing }}", {})
@@ -184,7 +169,6 @@ class TestSubstituteVariables(unittest.TestCase):
     def test_substitute_with_whitespace_variations(self):
         """
         Test whitespace handling in placeholders.
-        @athena: 7fb804c17309
         """
         variables = {"name": "World"}
         test_cases = [
@@ -198,7 +182,6 @@ class TestSubstituteVariables(unittest.TestCase):
     def test_substitute_empty_string_value(self):
         """
         Test variable with empty string value.
-        @athena: 9ecef27e5aaa
         """
         result = substitute_variables("foo{{ var.x }}bar", {"x": ""})
         self.assertEqual(result, "foobar")
@@ -206,7 +189,6 @@ class TestSubstituteVariables(unittest.TestCase):
     def test_substitute_in_complex_text(self):
         """
         Test substitution in realistic command string.
-        @athena: 531219a12307
         """
         text = 'echo "Deploying to {{ var.server }} on port {{ var.port }}"'
         variables = {"server": "production.example.com", "port": "8080"}
@@ -219,13 +201,11 @@ class TestSubstituteVariables(unittest.TestCase):
 class TestSubstituteArguments(unittest.TestCase):
     """
     Test substitute_arguments function.
-    @athena: 9049f11dcbb3
     """
 
     def test_substitute_single_argument(self):
         """
         Test basic {{ arg.x }} substitution.
-        @athena: bcc8ebd53cf4
         """
         result = substitute_arguments("Hello {{ arg.name }}!", {"name": "World"})
         self.assertEqual(result, "Hello World!")
@@ -233,7 +213,6 @@ class TestSubstituteArguments(unittest.TestCase):
     def test_substitute_multiple_arguments(self):
         """
         Test multiple different arguments in same string.
-        @athena: 9a26af6a2f4f
         """
         text = "deploy {{ arg.app }} to {{ arg.region }}"
         args = {"app": "myapp", "region": "us-west-1"}
@@ -243,7 +222,6 @@ class TestSubstituteArguments(unittest.TestCase):
     def test_substitute_converts_types_to_strings(self):
         """
         Test int/bool/float values are converted to strings.
-        @athena: a801ad9e99e8
         """
         text = "port={{ arg.port }} debug={{ arg.debug }} timeout={{ arg.timeout }}"
         args = {"port": 8080, "debug": True, "timeout": 30.5}
@@ -253,7 +231,6 @@ class TestSubstituteArguments(unittest.TestCase):
     def test_substitute_ignores_var_prefix(self):
         """
         Test {{ var.name }} is not substituted.
-        @athena: fb1f73337112
         """
         text = "{{ arg.foo }} {{ var.bar }}"
         args = {"foo": "FOO", "bar": "BAR"}
@@ -263,7 +240,6 @@ class TestSubstituteArguments(unittest.TestCase):
     def test_substitute_undefined_argument_raises(self):
         """
         Test error for undefined argument reference.
-        @athena: 7c4858e65a20
         """
         with self.assertRaises(ValueError) as cm:
             substitute_arguments("{{ arg.missing }}", {})
@@ -273,7 +249,6 @@ class TestSubstituteArguments(unittest.TestCase):
     def test_substitute_none_value(self):
         """
         Test None value is converted to string.
-        @athena: 0da0c2029e64
         """
         result = substitute_arguments("value={{ arg.x }}", {"x": None})
         self.assertEqual(result, "value=None")
@@ -281,7 +256,6 @@ class TestSubstituteArguments(unittest.TestCase):
     def test_exported_arg_raises_error_when_used_in_template(self):
         """
         Test that exported arguments cannot be used in template substitution.
-        @athena: b56eda9eb334
         """
         exported_args = {"server"}
         args = {"port": 8080}  # Only non-exported args
@@ -297,7 +271,6 @@ class TestSubstituteArguments(unittest.TestCase):
     def test_regular_arg_works_with_exported_args_set(self):
         """
         Test that regular args still work when exported_args is provided.
-        @athena: e3e11f021486
         """
         exported_args = {"server"}
         args = {"port": 8080}
@@ -308,7 +281,6 @@ class TestSubstituteArguments(unittest.TestCase):
     def test_mixed_exported_and_regular_args(self):
         """
         Test mixing exported and regular args in substitution.
-        @athena: 3b0f2a7b7721
         """
         exported_args = {"server", "user"}
         args = {"port": 8080, "verbose": True}
@@ -325,13 +297,11 @@ class TestSubstituteArguments(unittest.TestCase):
 class TestSubstituteEnvironmentVariable(unittest.TestCase):
     """
     Test substitute_environment function for environment variables.
-    @athena: 8b6b7f441d81
     """
 
     def test_substitute_single_env_var(self):
         """
         Test basic {{ env.VAR }} substitution for environment variables.
-        @athena: 14c224625dc5
         """
         os.environ["TEST_VAR"] = "test_value"
         try:
@@ -343,7 +313,6 @@ class TestSubstituteEnvironmentVariable(unittest.TestCase):
     def test_substitute_multiple_env_vars(self):
         """
         Test multiple different environment variables in same string.
-        @athena: 893b52157e30
         """
         os.environ["VAR1"] = "value1"
         os.environ["VAR2"] = "value2"
@@ -358,7 +327,6 @@ class TestSubstituteEnvironmentVariable(unittest.TestCase):
     def test_substitute_same_env_var_multiple_times(self):
         """
         Test same environment variable appears multiple times.
-        @athena: 53d21a278e2a
         """
         os.environ["USER"] = "testuser"
         try:
@@ -371,7 +339,6 @@ class TestSubstituteEnvironmentVariable(unittest.TestCase):
     def test_substitute_no_placeholders(self):
         """
         Test string without placeholders returns unchanged.
-        @athena: ad282889cbbc
         """
         text = "No placeholders here"
         result = substitute_environment(text)
@@ -380,7 +347,6 @@ class TestSubstituteEnvironmentVariable(unittest.TestCase):
     def test_substitute_ignores_var_prefix(self):
         """
         Test {{ var.name }} is not substituted.
-        @athena: e663d9b809b3
         """
         os.environ["FOO"] = "env_foo"
         try:
@@ -393,7 +359,6 @@ class TestSubstituteEnvironmentVariable(unittest.TestCase):
     def test_substitute_ignores_arg_prefix(self):
         """
         Test {{ arg.name }} is not substituted.
-        @athena: 8f722ed8bf4c
         """
         os.environ["FOO"] = "env_foo"
         try:
@@ -406,7 +371,6 @@ class TestSubstituteEnvironmentVariable(unittest.TestCase):
     def test_substitute_undefined_env_var_raises(self):
         """
         Test error for undefined environment variable.
-        @athena: a31ae899f042
         """
         # Make sure var is not set
         if "DEFINITELY_NOT_SET_VAR" in os.environ:
@@ -420,7 +384,6 @@ class TestSubstituteEnvironmentVariable(unittest.TestCase):
     def test_substitute_with_whitespace_variations(self):
         """
         Test whitespace handling in placeholders.
-        @athena: 465a44e5e078
         """
         os.environ["TEST_VAR"] = "value"
         try:
@@ -437,7 +400,6 @@ class TestSubstituteEnvironmentVariable(unittest.TestCase):
     def test_substitute_empty_string_value(self):
         """
         Test env var with empty string value.
-        @athena: 58efa8a86b72
         """
         os.environ["EMPTY_VAR"] = ""
         try:
@@ -449,7 +411,6 @@ class TestSubstituteEnvironmentVariable(unittest.TestCase):
     def test_substitute_in_complex_command(self):
         """
         Test substitution in realistic command string.
-        @athena: 923ce7df0885
         """
         os.environ["DEPLOY_USER"] = "admin"
         os.environ["DEPLOY_HOST"] = "prod.example.com"
@@ -467,13 +428,11 @@ class TestSubstituteEnvironmentVariable(unittest.TestCase):
 class TestSubstituteBuiltinVariables(unittest.TestCase):
     """
     Test substitute_builtin_variables function.
-    @athena: 1c9cfba3ca00
     """
 
     def test_substitute_single_builtin_var(self):
         """
         Test basic {{ tt.x }} substitution.
-        @athena: a2c34f2094b9
         """
         builtin_vars = {"project_root": "/home/user/project"}
         result = substitute_builtin_variables(
@@ -484,7 +443,6 @@ class TestSubstituteBuiltinVariables(unittest.TestCase):
     def test_substitute_multiple_builtin_vars(self):
         """
         Test multiple different built-in vars in same string.
-        @athena: 5bbddcbd1305
         """
         builtin_vars = {
             "project_root": "/home/user/project",
@@ -497,7 +455,6 @@ class TestSubstituteBuiltinVariables(unittest.TestCase):
     def test_substitute_all_builtin_vars(self):
         """
         Test all 8 built-in variables.
-        @athena: 569abe1b5861
         """
         builtin_vars = {
             "project_root": "/home/user/project",
@@ -535,7 +492,6 @@ class TestSubstituteBuiltinVariables(unittest.TestCase):
     def test_substitute_same_builtin_var_multiple_times(self):
         """
         Test same built-in var appears multiple times.
-        @athena: 6e2a553b375b
         """
         builtin_vars = {"task_name": "build"}
         text = "{{ tt.task_name }} depends on {{ tt.task_name }}"
@@ -545,7 +501,6 @@ class TestSubstituteBuiltinVariables(unittest.TestCase):
     def test_substitute_no_placeholders(self):
         """
         Test string without placeholders returns unchanged.
-        @athena: a91f2ab890d9
         """
         builtin_vars = {"project_root": "/home/user/project"}
         text = "No placeholders here"
@@ -555,7 +510,6 @@ class TestSubstituteBuiltinVariables(unittest.TestCase):
     def test_substitute_ignores_var_prefix(self):
         """
         Test {{ var.name }} is not substituted.
-        @athena: 60f157862197
         """
         builtin_vars = {"project_root": "/home/user/project"}
         text = "{{ tt.project_root }} {{ var.foo }}"
@@ -565,7 +519,6 @@ class TestSubstituteBuiltinVariables(unittest.TestCase):
     def test_substitute_ignores_arg_prefix(self):
         """
         Test {{ arg.name }} is not substituted.
-        @athena: 9d2f1259f58c
         """
         builtin_vars = {"project_root": "/home/user/project"}
         text = "{{ tt.project_root }} {{ arg.foo }}"
@@ -575,7 +528,6 @@ class TestSubstituteBuiltinVariables(unittest.TestCase):
     def test_substitute_ignores_env_prefix(self):
         """
         Test {{ env.NAME }} is not substituted.
-        @athena: 185fea66c636
         """
         builtin_vars = {"project_root": "/home/user/project"}
         text = "{{ tt.project_root }} {{ env.USER }}"
@@ -585,7 +537,6 @@ class TestSubstituteBuiltinVariables(unittest.TestCase):
     def test_substitute_undefined_builtin_var_raises(self):
         """
         Test error for undefined built-in variable.
-        @athena: cdb21f2219f1
         """
         builtin_vars = {"project_root": "/home/user/project"}
         with self.assertRaises(ValueError) as cm:
@@ -596,7 +547,6 @@ class TestSubstituteBuiltinVariables(unittest.TestCase):
     def test_substitute_with_whitespace_variations(self):
         """
         Test whitespace handling in placeholders.
-        @athena: fca5f1c67072
         """
         builtin_vars = {"task_name": "build"}
         test_cases = [
@@ -610,7 +560,6 @@ class TestSubstituteBuiltinVariables(unittest.TestCase):
     def test_substitute_in_realistic_command(self):
         """
         Test substitution in realistic command string.
-        @athena: aafc0df7159f
         """
         builtin_vars = {
             "project_root": "/home/user/project",
@@ -626,13 +575,11 @@ class TestSubstituteBuiltinVariables(unittest.TestCase):
 class TestSubstituteAll(unittest.TestCase):
     """
     Test substitute_all function.
-    @athena: 3bba88c9beb9
     """
 
     def test_substitute_both_var_and_arg(self):
         """
         Test both variables and arguments are substituted.
-        @athena: 05f6138e23d7
         """
         text = "{{ var.server }} {{ arg.port }}"
         variables = {"server": "example.com"}
@@ -643,7 +590,6 @@ class TestSubstituteAll(unittest.TestCase):
     def test_variables_substituted_before_arguments(self):
         """
         Test variables are substituted first, then arguments.
-        @athena: 628f7673d6a9
         """
         # If a variable contains {{ arg.x }}, it should remain for arg substitution
         text = "{{ var.template }}"
@@ -655,7 +601,6 @@ class TestSubstituteAll(unittest.TestCase):
     def test_substitute_mixed_placeholders(self):
         """
         Test realistic case with both types.
-        @athena: 8d75ca68ae1e
         """
         text = 'echo "Deploy {{ arg.app }} to {{ var.server }}:{{ var.port }}"'
         variables = {"server": "prod.example.com", "port": "8080"}
@@ -666,7 +611,6 @@ class TestSubstituteAll(unittest.TestCase):
     def test_substitute_all_empty_dicts(self):
         """
         Test with no variables or arguments.
-        @athena: 6640c5811547
         """
         text = "No placeholders"
         result = substitute_all(text, {}, {})
@@ -675,7 +619,6 @@ class TestSubstituteAll(unittest.TestCase):
     def test_substitute_all_three_types(self):
         """
         Test variables, arguments, and environment all work together.
-        @athena: 4c994f354858
         """
         os.environ["ENV_VAR"] = "from_env"
         try:
@@ -690,7 +633,6 @@ class TestSubstituteAll(unittest.TestCase):
     def test_substitute_order_var_then_arg_then_env(self):
         """
         Test substitution happens in correct order.
-        @athena: 45df2446bc4e
         """
         os.environ["PORT"] = "9000"
         try:
@@ -707,13 +649,11 @@ class TestSubstituteAll(unittest.TestCase):
 class TestDepOutputPattern(unittest.TestCase):
     """
     Test the regex pattern for matching dependency output references.
-    @athena: 3b6aba512b3d
     """
 
     def test_pattern_matches_basic_syntax(self):
         """
         Test pattern matches {{ dep.task.outputs.name }} syntax.
-        @athena: 40a0770b7cce
         """
         match = DEP_OUTPUT_PATTERN.search("{{ dep.build.outputs.bundle }}")
         self.assertIsNotNone(match)
@@ -723,7 +663,6 @@ class TestDepOutputPattern(unittest.TestCase):
     def test_pattern_matches_with_whitespace(self):
         """
         Test pattern allows whitespace variations.
-        @athena: 940bc0bececf
         """
         patterns = [
             "{{dep.build.outputs.bundle}}",
@@ -739,7 +678,6 @@ class TestDepOutputPattern(unittest.TestCase):
     def test_pattern_matches_namespaced_task(self):
         """
         Test pattern matches namespaced tasks with dots.
-        @athena: 31e80d794517
         """
         match = DEP_OUTPUT_PATTERN.search("{{ dep.external.build.outputs.artifact }}")
         self.assertIsNotNone(match)
@@ -749,7 +687,6 @@ class TestDepOutputPattern(unittest.TestCase):
     def test_pattern_matches_underscores(self):
         """
         Test pattern matches names with underscores.
-        @athena: d2bbda779f56
         """
         match = DEP_OUTPUT_PATTERN.search("{{ dep.build_app.outputs.my_output }}")
         self.assertIsNotNone(match)
@@ -759,7 +696,6 @@ class TestDepOutputPattern(unittest.TestCase):
     def test_pattern_does_not_match_other_prefixes(self):
         """
         Test pattern doesn't match var/arg/env/tt prefixes.
-        @athena: 3a19de3eb05f
         """
         non_matches = [
             "{{ var.foo }}",
@@ -774,7 +710,6 @@ class TestDepOutputPattern(unittest.TestCase):
     def test_pattern_finds_multiple_references(self):
         """
         Test pattern finds all references in text.
-        @athena: ddeb3a2f8d5d
         """
         text = (
             "Deploy {{ dep.build.outputs.bundle }} and {{ dep.compile.outputs.binary }}"
@@ -790,13 +725,11 @@ class TestDepOutputPattern(unittest.TestCase):
 class TestSubstituteDependencyOutputs(unittest.TestCase):
     """
     Test dependency output substitution function.
-    @athena: d765e0973a6f
     """
 
     def test_substitute_basic_output(self):
         """
         Test basic output reference substitution.
-        @athena: 1d0c6d0a8171
         """
         build_task = Task(name="build", cmd="build.sh")
         build_task.outputs = [{"bundle": "dist/app.js"}]
@@ -813,7 +746,6 @@ class TestSubstituteDependencyOutputs(unittest.TestCase):
     def test_substitute_multiple_outputs(self):
         """
         Test multiple output references in same text.
-        @athena: 6953ac13543b
         """
         build_task = Task(name="build", cmd="build.sh")
         build_task.outputs = [
@@ -835,7 +767,6 @@ class TestSubstituteDependencyOutputs(unittest.TestCase):
     def test_substitute_from_multiple_tasks(self):
         """
         Test references from multiple dependency tasks.
-        @athena: 78f7479eca65
         """
         build_task = Task(name="build", cmd="build.sh")
         build_task.outputs = [{"bundle": "dist/app.js"}]
@@ -856,7 +787,6 @@ class TestSubstituteDependencyOutputs(unittest.TestCase):
     def test_substitute_no_placeholders(self):
         """
         Test text without placeholders returns unchanged.
-        @athena: 906249c2dd9c
         """
         resolved_tasks = {}
         text = "No placeholders here"
@@ -866,7 +796,6 @@ class TestSubstituteDependencyOutputs(unittest.TestCase):
     def test_error_on_unknown_task(self):
         """
         Test error when referencing unknown task.
-        @athena: af2af69299db
         """
         resolved_tasks = {}
 
@@ -881,7 +810,6 @@ class TestSubstituteDependencyOutputs(unittest.TestCase):
     def test_error_on_task_not_in_deps(self):
         """
         Test error when task not listed as dependency.
-        @athena: fa1665a8d367
         """
         build_task = Task(name="build", cmd="build.sh")
         build_task.outputs = [{"bundle": "dist/app.js"}]
@@ -906,7 +834,6 @@ class TestSubstituteDependencyOutputs(unittest.TestCase):
     def test_error_on_missing_output_name(self):
         """
         Test error when output name doesn't exist.
-        @athena: 8c0068e47bfb
         """
         build_task = Task(name="build", cmd="build.sh")
         build_task.outputs = [{"bundle": "dist/app.js"}]
@@ -926,7 +853,6 @@ class TestSubstituteDependencyOutputs(unittest.TestCase):
     def test_error_message_for_anonymous_outputs(self):
         """
         Test error message when task has no named outputs.
-        @athena: 31324bbcbae3
         """
         build_task = Task(name="build", cmd="build.sh")
         build_task.outputs = ["dist/app.js"]  # Anonymous output
@@ -945,7 +871,6 @@ class TestSubstituteDependencyOutputs(unittest.TestCase):
     def test_substitute_with_other_placeholders(self):
         """
         Test that other placeholder types are not affected.
-        @athena: 2634f308abc2
         """
         build_task = Task(name="build", cmd="build.sh")
         build_task.outputs = [{"bundle": "dist/app.js"}]
@@ -966,13 +891,11 @@ class TestSubstituteDependencyOutputs(unittest.TestCase):
 class TestSelfReferencePattern(unittest.TestCase):
     """
     Test the regex pattern for matching self-reference placeholders.
-    @athena: f782f128e72f
     """
 
     def test_pattern_matches_self_inputs(self):
         """
         Test pattern matches {{ self.inputs.name }} syntax.
-        @athena: 00703c56a0f7
         """
         match = SELF_REFERENCE_PATTERN.search("{{ self.inputs.src }}")
         self.assertIsNotNone(match)
@@ -982,7 +905,6 @@ class TestSelfReferencePattern(unittest.TestCase):
     def test_pattern_matches_self_outputs(self):
         """
         Test pattern matches {{ self.outputs.name }} syntax.
-        @athena: d36fb8e83fc2
         """
         match = SELF_REFERENCE_PATTERN.search("{{ self.outputs.dest }}")
         self.assertIsNotNone(match)
@@ -992,7 +914,6 @@ class TestSelfReferencePattern(unittest.TestCase):
     def test_pattern_with_whitespace(self):
         """
         Test pattern allows various whitespace configurations.
-        @athena: 72c79076b744
         """
         patterns = [
             "{{self.inputs.foo}}",
@@ -1007,7 +928,6 @@ class TestSelfReferencePattern(unittest.TestCase):
     def test_pattern_captures_field_and_name(self):
         """
         Test pattern correctly captures field (inputs/outputs) and name.
-        @athena: ff880c048f72
         """
         match_input = SELF_REFERENCE_PATTERN.search("{{ self.inputs.config }}")
         self.assertEqual(match_input.group(1), "inputs")
@@ -1020,7 +940,6 @@ class TestSelfReferencePattern(unittest.TestCase):
     def test_pattern_requires_valid_identifier(self):
         """
         Test pattern only matches valid identifier names.
-        @athena: f032a0b3c956
         """
         # Valid identifiers should match
         valid = [
@@ -1047,7 +966,6 @@ class TestSelfReferencePattern(unittest.TestCase):
     def test_pattern_does_not_match_other_prefixes(self):
         """
         Test pattern does not match non-self prefixes.
-        @athena: ade039f40952
         """
         non_matches = [
             "{{ var.foo }}",
@@ -1063,7 +981,6 @@ class TestSelfReferencePattern(unittest.TestCase):
     def test_pattern_finds_multiple_references(self):
         """
         Test pattern finds all self-references in text.
-        @athena: a06d4d939c84
         """
         text = "cp {{ self.inputs.src }} {{ self.outputs.dest }}"
         matches = list(SELF_REFERENCE_PATTERN.finditer(text))
@@ -1076,7 +993,6 @@ class TestSelfReferencePattern(unittest.TestCase):
     def test_pattern_matches_underscores(self):
         """
         Test pattern matches names with underscores.
-        @athena: 90e473c0bba6
         """
         match = SELF_REFERENCE_PATTERN.search("{{ self.inputs.my_input_file }}")
         self.assertIsNotNone(match)
@@ -1085,7 +1001,6 @@ class TestSelfReferencePattern(unittest.TestCase):
     def test_pattern_case_sensitive(self):
         """
         Test pattern is case-sensitive for field names.
-        @athena: 8b1b3f0e010d
         """
         # 'inputs' and 'outputs' are lowercase
         match_inputs = SELF_REFERENCE_PATTERN.search("{{ self.inputs.foo }}")
@@ -1098,7 +1013,6 @@ class TestSelfReferencePattern(unittest.TestCase):
     def test_pattern_mixed_in_text(self):
         """
         Test pattern works when mixed with other text and placeholders.
-        @athena: 6be8b342f622
         """
         text = "Build {{ self.inputs.src }} using {{ var.compiler }} to {{ self.outputs.bin }}"
         matches = list(SELF_REFERENCE_PATTERN.finditer(text))
@@ -1109,7 +1023,6 @@ class TestSelfReferencePattern(unittest.TestCase):
     def test_pattern_matches_numeric_index(self):
         """
         Test pattern matches {{ self.inputs.0 }} syntax.
-        @athena: 17f767495483
         """
         match = SELF_REFERENCE_PATTERN.search("{{ self.inputs.0 }}")
         self.assertIsNotNone(match)
@@ -1119,7 +1032,6 @@ class TestSelfReferencePattern(unittest.TestCase):
     def test_pattern_matches_multidigit_index(self):
         """
         Test pattern matches multi-digit indices.
-        @athena: 0e6c5bac2ab5
         """
         test_cases = [
             ("{{ self.inputs.42 }}", "42"),
@@ -1134,7 +1046,6 @@ class TestSelfReferencePattern(unittest.TestCase):
     def test_pattern_rejects_negative_indices(self):
         """
         Test pattern does not match negative indices.
-        @athena: fbee773da2fe
         """
         invalid = [
             "{{ self.inputs.-1 }}",
@@ -1147,7 +1058,6 @@ class TestSelfReferencePattern(unittest.TestCase):
     def test_pattern_rejects_float_indices(self):
         """
         Test pattern does not match floating point indices.
-        @athena: d2ecfcc42ea8
         """
         invalid = [
             "{{ self.inputs.1.5 }}",
@@ -1161,13 +1071,11 @@ class TestSelfReferencePattern(unittest.TestCase):
 class TestSubstituteSelfReferences(unittest.TestCase):
     """
     Test substitute_self_references function.
-    @athena: a75c47a1b237
     """
 
     def test_substitute_single_input(self):
         """
         Test substituting a single input reference.
-        @athena: f5aa8b4425d6
         """
         input_map = {"src": "src/app.js"}
         output_map = {}
@@ -1180,7 +1088,6 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_substitute_single_output(self):
         """
         Test substituting a single output reference.
-        @athena: 7a9312269af1
         """
         input_map = {}
         output_map = {"dest": "dist/app.js"}
@@ -1193,7 +1100,6 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_substitute_multiple_references(self):
         """
         Test substituting multiple self-references in same text.
-        @athena: 642fd8b4df2f
         """
         input_map = {"src": "src/main.c", "headers": "include/*.h"}
         output_map = {"binary": "build/app"}
@@ -1206,7 +1112,6 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_substitute_mixed_inputs_and_outputs(self):
         """
         Test substituting both inputs and outputs in same command.
-        @athena: a8c4b4693397
         """
         input_map = {"config": "config.json"}
         output_map = {"log": "build.log"}
@@ -1219,7 +1124,6 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_substitute_glob_pattern_verbatim(self):
         """
         Test that glob patterns are substituted as-is without expansion.
-        @athena: 6f1555a6e38d
         """
         input_map = {"sources": "src/**/*.js"}
         output_map = {"bundle": "dist/*.min.js"}
@@ -1233,7 +1137,6 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_substitute_no_placeholders(self):
         """
         Test that text without placeholders is unchanged.
-        @athena: 31af1437d1be
         """
         input_map = {"src": "file.txt"}
         output_map = {"dest": "out.txt"}
@@ -1244,7 +1147,6 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_error_on_missing_input_name(self):
         """
         Test that referencing non-existent input raises error with available names.
-        @athena: 6206dde09c5a
         """
         input_map = {"src": "file.txt", "config": "config.json"}
         output_map = {}
@@ -1261,7 +1163,6 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_error_on_missing_output_name(self):
         """
         Test that referencing non-existent output raises error with available names.
-        @athena: 8c7525c15305
         """
         input_map = {}
         output_map = {"bundle": "dist/app.js", "sourcemap": "dist/app.js.map"}
@@ -1278,7 +1179,6 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_error_with_empty_input_map(self):
         """
         Test error message when all inputs are anonymous.
-        @athena: 982070c53bb3
         """
         input_map = {}
         output_map = {}
@@ -1293,7 +1193,6 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_error_with_empty_output_map(self):
         """
         Test error message when all outputs are anonymous.
-        @athena: 0f14b88b5156
         """
         input_map = {}
         output_map = {}
@@ -1308,7 +1207,6 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_substitute_ignores_other_placeholders(self):
         """
         Test that other placeholder types are not touched.
-        @athena: d6102023946f
         """
         input_map = {"src": "file.txt"}
         output_map = {"dest": "out.txt"}
@@ -1322,7 +1220,6 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_substitute_same_reference_multiple_times(self):
         """
         Test substituting the same reference multiple times.
-        @athena: 4b88c1d3cbd4
         """
         input_map = {"config": "app.json"}
         output_map = {}
@@ -1333,7 +1230,6 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_substitute_with_underscores(self):
         """
         Test that names with underscores work correctly.
-        @athena: 32da29013926
         """
         input_map = {"source_file": "src/main.c", "header_files": "include/*.h"}
         output_map = {"output_binary": "bin/app"}
@@ -1346,7 +1242,6 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_substitute_empty_string(self):
         """
         Test that empty string is handled correctly.
-        @athena: eff5e22f5a6e
         """
         input_map = {"src": "file.txt"}
         output_map = {}
@@ -1357,7 +1252,6 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_substitute_positional_input(self):
         """
         Test basic positional input access.
-        @athena: cd6b985862bf
         """
         input_map = {}
         output_map = {}
@@ -1372,7 +1266,6 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_substitute_positional_output(self):
         """
         Test basic positional output access.
-        @athena: d22906dd4714
         """
         input_map = {}
         output_map = {}
@@ -1387,7 +1280,6 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_substitute_multiple_positional_references(self):
         """
         Test multiple positional references in same text.
-        @athena: c615e1c19418
         """
         input_map = {}
         output_map = {}
@@ -1404,7 +1296,6 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_substitute_mixed_named_and_positional(self):
         """
         Test mixing named and positional access in same text.
-        @athena: 626f1b67e8db
         """
         input_map = {"config": "app.json"}
         output_map = {"log": "build.log"}
@@ -1419,7 +1310,6 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_substitute_same_item_by_name_and_index(self):
         """
         Test accessing same item by both name and positional index.
-        @athena: 313e1c3198da
         """
         input_map = {"src": "src/app.js"}
         output_map = {}
@@ -1434,7 +1324,6 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_error_on_out_of_bounds_input_index(self):
         """
         Test error when input index is out of bounds.
-        @athena: 252c60951baa
         """
         input_map = {}
         output_map = {}
@@ -1454,7 +1343,6 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_error_on_out_of_bounds_output_index(self):
         """
         Test error when output index is out of bounds.
-        @athena: 7391f6ffcaee
         """
         input_map = {}
         output_map = {}
@@ -1474,7 +1362,6 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_error_on_empty_inputs_with_index(self):
         """
         Test error when referencing index on empty inputs list.
-        @athena: 123459084e84
         """
         input_map = {}
         output_map = {}
@@ -1493,7 +1380,6 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_error_on_empty_outputs_with_index(self):
         """
         Test error when referencing index on empty outputs list.
-        @athena: 38ef4134d8f8
         """
         input_map = {}
         output_map = {}
@@ -1512,7 +1398,6 @@ class TestSubstituteSelfReferences(unittest.TestCase):
     def test_substitute_positional_with_glob_patterns(self):
         """
         Test positional access with glob patterns (substituted as-is).
-        @athena: a65e3f4936eb
         """
         input_map = {}
         output_map = {}

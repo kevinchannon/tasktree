@@ -14,13 +14,11 @@ from tasktree.state import StateManager, TaskState
 class TestHashRunnerDefinition(unittest.TestCase):
     """
     Test runner definition hashing.
-    @athena: fbb73ccc237c
     """
 
     def test_hash_runner_definition_deterministic(self):
         """
         Test that hashing same runner twice produces same hash.
-        @athena: 37a4cfe4b1a0
         """
 
         runner = Runner(
@@ -39,7 +37,6 @@ class TestHashRunnerDefinition(unittest.TestCase):
     def test_hash_runner_definition_shell_change(self):
         """
         Test that changing shell produces different hash.
-        @athena: a8fdcd0bd181
         """
 
         runner1 = Runner(
@@ -61,7 +58,6 @@ class TestHashRunnerDefinition(unittest.TestCase):
     def test_hash_runner_definition_args_change(self):
         """
         Test that changing args produces different hash.
-        @athena: e15d7b6812ba
         """
 
         runner1 = Runner(
@@ -83,7 +79,6 @@ class TestHashRunnerDefinition(unittest.TestCase):
     def test_hash_runner_definition_preamble_change(self):
         """
         Test that changing preamble produces different hash.
-        @athena: e59fe9e22990
         """
 
         runner1 = Runner(
@@ -107,7 +102,6 @@ class TestHashRunnerDefinition(unittest.TestCase):
     def test_hash_runner_definition_docker_fields(self):
         """
         Test that changing Docker fields produces different hash.
-        @athena: 52d0d07aedf0
         """
 
         runner1 = Runner(
@@ -130,7 +124,6 @@ class TestHashRunnerDefinition(unittest.TestCase):
     def test_hash_runner_definition_args_order_independent(self):
         """
         Test that args order doesn't matter (they're sorted).
-        @athena: 2327b764e6b0
         """
 
         runner1 = Runner(
@@ -153,13 +146,11 @@ class TestHashRunnerDefinition(unittest.TestCase):
 class TestCheckRunnerChanged(unittest.TestCase):
     """
     Test runner change detection in executor.
-    @athena: e7202cf8d971
     """
 
     def setUp(self):
         """
         Set up test runner.
-        @athena: f157d4dcbdad
         """
         self.project_root = Path("/tmp/test")
         self.runner = Runner(
@@ -182,7 +173,6 @@ class TestCheckRunnerChanged(unittest.TestCase):
     def test_check_runner_changed_no_runner(self):
         """
         Test that platform default (no runner) returns False.
-        @athena: 56d8c158de7d
         """
 
         task = Task(name="test", cmd="echo test")
@@ -200,7 +190,6 @@ class TestCheckRunnerChanged(unittest.TestCase):
     def test_check_runner_changed_first_run(self):
         """
         Test that missing cached hash returns True.
-        @athena: a4f11f0f5f39
         """
 
         task = Task(name="test", cmd="echo test", run_in="test")
@@ -218,7 +207,6 @@ class TestCheckRunnerChanged(unittest.TestCase):
     def test_check_runner_changed_unchanged(self):
         """
         Test that matching hash returns False.
-        @athena: 218c97f22523
         """
         task = Task(name="test", cmd="echo test", run_in="test")
 
@@ -240,7 +228,6 @@ class TestCheckRunnerChanged(unittest.TestCase):
     def test_check_runner_changed_shell_modified(self):
         """
         Test that modified shell is detected.
-        @athena: a2b621275515
         """
         task = Task(name="test", cmd="echo test", run_in="test")
 
@@ -267,7 +254,6 @@ class TestCheckRunnerChanged(unittest.TestCase):
     def test_check_runner_changed_deleted_runner(self):
         """
         Test that deleted runner returns True.
-        @athena: 1ee2b820e19f
         """
 
         task = Task(name="test", cmd="echo test", run_in="test")
@@ -291,13 +277,11 @@ class TestCheckRunnerChanged(unittest.TestCase):
 class TestCheckDockerImageChanged(unittest.TestCase):
     """
     Test Docker image ID change detection in executor.
-    @athena: e1e6afc3d943
     """
 
     def setUp(self):
         """
         Set up test runner.
-        @athena: c2d62daebe7d
         """
 
         self.project_root = Path("/tmp/test")
@@ -322,7 +306,6 @@ class TestCheckDockerImageChanged(unittest.TestCase):
     def test_check_docker_image_changed_no_cached_id(self):
         """
         Test that missing cached image ID returns True (first run).
-        @athena: b0f9b4e70a6f
         """
 
         # TODO why is this not used?
@@ -355,7 +338,6 @@ class TestCheckDockerImageChanged(unittest.TestCase):
     def test_check_docker_image_changed_same_id(self):
         """
         Test that matching image ID returns False.
-        @athena: e141f18876b2
         """
 
         # TODO why is this not used?
@@ -386,7 +368,6 @@ class TestCheckDockerImageChanged(unittest.TestCase):
     def test_check_docker_image_changed_different_id(self):
         """
         Test that different image ID returns True (unpinned base updated).
-        @athena: 997fd2e71a45
         """
 
         # TODO why is this not used?
@@ -418,7 +399,6 @@ class TestCheckDockerImageChanged(unittest.TestCase):
     def test_check_runner_changed_docker_yaml_and_image(self):
         """
         Test that Docker runner checks both YAML hash and image ID.
-        @athena: fccc97ebb3ab
         """
 
         task = Task(name="test", cmd="echo test", run_in="builder")
@@ -455,7 +435,6 @@ class TestCheckDockerImageChanged(unittest.TestCase):
     def test_check_runner_changed_docker_yaml_changed(self):
         """
         Test that YAML change detected without checking image ID.
-        @athena: f3ea6140643e
         """
 
         task = Task(name="test", cmd="echo test", run_in="builder")

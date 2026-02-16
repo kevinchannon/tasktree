@@ -37,7 +37,6 @@ console = Console()
 def _version_callback(value: bool):
     """
     Show version and exit.
-    @athena: abaed96ac23b
     """
     if value:
         console.print(f"task-tree version {__version__}")
@@ -144,7 +143,6 @@ def main(
     tt deploy prod region=us-1   # Run 'deploy' with arguments
     tt --list                    # List all tasks
     tt --tree test               # Show dependency tree for 'test'
-    @athena: 40e6fdbe6100
     """
 
     logger = ConsoleLogger(console, LogLevel(LogLevel[log_level.upper()]))
@@ -205,7 +203,6 @@ def main(
 def cli():
     """
     Entry point for the CLI.
-    @athena: 3b3cccd1ff6f
     """
     app()
 

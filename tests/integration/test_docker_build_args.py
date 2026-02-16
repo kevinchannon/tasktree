@@ -14,13 +14,11 @@ from tasktree.cli import app
 class TestDockerBuildArgs(unittest.TestCase):
     """
     Test Docker build args are passed correctly to docker build.
-    @athena: 3788b22a1d83
     """
 
     def setUp(self):
         """
         Set up test fixtures.
-        @athena: 36a706d60319
         """
         self.runner = CliRunner()
         self.env = {"NO_COLOR": "1"}
@@ -29,7 +27,6 @@ class TestDockerBuildArgs(unittest.TestCase):
     def test_build_args_passed_to_dockerfile(self):
         """
         Test that build args are passed to docker build and used in Dockerfile.
-        @athena: 5ae4d329e037
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
