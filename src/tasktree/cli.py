@@ -7,9 +7,6 @@ dependency resolution, and rich terminal output via the Rich library.
 
 from __future__ import annotations
 
-import os
-import sys
-from pathlib import Path
 from typing import List, Optional
 
 import click
@@ -18,22 +15,15 @@ from rich.console import Console
 
 from tasktree import __version__
 from tasktree.cli_commands.clean_state import clean_state
+from tasktree.cli_commands.execute_dynamic_task import execute_dynamic_task
 from tasktree.cli_commands.init_recipe import init_recipe
 from tasktree.cli_commands.list_tasks import list_tasks
 from tasktree.cli_commands.show_task import show_task
 from tasktree.cli_commands.show_tree import show_tree
-from tasktree.executor import Executor
-from tasktree.graph import (
-    resolve_execution_order,
-    resolve_dependency_output_references,
-    resolve_self_references,
-)
-from tasktree.hasher import hash_task
-from tasktree.console_logger import ConsoleLogger, Logger
+from tasktree.console_logger import ConsoleLogger
 from tasktree.logging import LogLevel
-from tasktree.parser import find_recipe_file, get_recipe, parse_task_args
-from tasktree.process_runner import TaskOutputTypes, make_process_runner
-from tasktree.state import StateManager
+from tasktree.parser import get_recipe
+from tasktree.process_runner import TaskOutputTypes
 
 app = typer.Typer(
     help="Task Tree - A task automation tool with intelligent incremental execution",
@@ -41,53 +31,6 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 console = Console()
-
-
-def _supports_unicode() -> bool:
-    """
-    Check if the terminal supports Unicode characters.
-
-    Returns:
-    True if terminal supports UTF-8, False otherwise
-    @athena: 68f62a942a95
-    """
-    # Hard stop: classic Windows console (conhost)
-    if os.name == "nt" and "WT_SESSION" not in os.environ:
-        return False
-
-    # Encoding check
-    encoding = sys.stdout.encoding
-    if not encoding:
-        return False
-
-    try:
-        "✓✗".encode(encoding)
-        return True
-    except UnicodeEncodeError:
-        return False
-
-
-def get_action_success_string() -> str:
-    """
-    Get the appropriate success symbol based on terminal capabilities.
-
-    Returns:
-    Unicode tick symbol (✓) if terminal supports UTF-8, otherwise "[ OK ]"
-    @athena: 39d9966ee6c8
-    """
-    return "✓" if _supports_unicode() else "[ OK ]"
-
-
-def get_action_failure_string() -> str:
-    """
-    Get the appropriate failure symbol based on terminal capabilities.
-
-    Returns:
-    Unicode cross symbol (✗) if terminal supports UTF-8, otherwise "[ FAIL ]"
-    @athena: 5dd1111f8d74
-    """
-    return "✗" if _supports_unicode() else "[ FAIL ]"
-
 
 
 
@@ -229,7 +172,7 @@ def main(
     if task_args:
         # --only implies --force
         force_execution = force or only or False
-        _execute_dynamic_task(
+        execute_dynamic_task(
             logger,
             task_args,
             force=force_execution,
@@ -257,124 +200,6 @@ def main(
         logger.info("\nUse [cyan]tt --list[/cyan] for detailed information")
         logger.info("Use [cyan]tt <task-name>[/cyan] to run a task")
 
-
-
-def _execute_dynamic_task(
-    logger: Logger,
-    args: list[str],
-    force: bool = False,
-    only: bool = False,
-    runner: Optional[str] = None,
-    tasks_file: Optional[str] = None,
-    task_output: str | None = None,
-) -> None:
-    """
-    Execute a task with its dependencies and handle argument parsing.
-
-    Args:
-    logger: Logger interface for output
-    args: Task name followed by optional task arguments
-    force: Force re-execution even if task is up-to-date
-    only: Execute only the specified task, skip dependencies
-    runner: Override runner for task execution
-    tasks_file: Path to recipe file (optional)
-    task_output: Control task subprocess output (all, out, err, on-err, none)
-
-    @athena: 36ae914a5bc7
-    """
-    if not args:
-        return
-
-    task_name = args[0]
-    task_args = args[1:]
-
-    # Pass task_name as root_task for lazy variable evaluation
-    recipe = get_recipe(logger, tasks_file, root_task=task_name)
-    if recipe is None:
-        logger.error(
-            "[red]No recipe file found (tasktree.yaml, tasktree.yml, tt.yaml, or *.tasks)[/red]",
-        )
-        raise typer.Exit(1)
-
-    # Apply global runner override if provided
-    if runner:
-        # Validate that the runner exists
-        if not recipe.get_runner(runner):
-            logger.error(f"[red]Runner not found: {runner}[/red]")
-            logger.info("\nAvailable runners:")
-            for env_name in sorted(recipe.runners.keys()):
-                logger.info(f"  - {env_name}")
-            raise typer.Exit(1)
-        recipe.global_runner_override = runner
-
-    task = recipe.get_task(task_name)
-    if task is None:
-        logger.error(f"[red]Task not found: {task_name}[/red]")
-        logger.info("\nAvailable tasks:")
-        for name in sorted(recipe.task_names()):
-            task = recipe.get_task(name)
-            if task and not task.private:
-                logger.info(f"  - {name}")
-        raise typer.Exit(1)
-
-    # Parse task arguments
-    args_dict = parse_task_args(logger, task.args, task_args)
-
-    # Create executor and state manager
-    state = StateManager(recipe.project_root, logger)
-    state.load()
-    executor = Executor(recipe, state, logger, make_process_runner)
-
-    # Resolve execution order to determine which tasks will actually run
-    # This is important for correct state pruning after template substitution
-    execution_order = resolve_execution_order(recipe, task_name, args_dict)
-
-    try:
-        # Resolve dependency output references in topological order
-        # This substitutes {{ dep.*.outputs.* }} templates before execution
-        resolve_dependency_output_references(recipe, execution_order)
-
-        # Resolve self-references in topological order
-        # This substitutes {{ self.inputs.* }} and {{ self.outputs.* }} templates
-        resolve_self_references(recipe, execution_order)
-    except ValueError as e:
-        logger.error(f"[red]Error in task template: {e}[/red]")
-        raise typer.Exit(1)
-
-    # Prune state based on tasks that will actually execute (with their specific arguments)
-    # This ensures template-substituted dependencies are handled correctly
-    valid_hashes = set()
-    for _, task in recipe.tasks.items():
-        # Compute base task hash
-        task_hash = hash_task(
-            task.cmd,
-            task.outputs,
-            task.working_dir,
-            task.args,
-            executor._get_effective_runner_name(task),
-            task.deps,
-        )
-
-        valid_hashes.add(task_hash)
-
-    state.prune(valid_hashes)
-    state.save()
-    try:
-        executor.execute_task(
-            task_name,
-            TaskOutputTypes(task_output.lower()) if task_output is not None else None,
-            args_dict,
-            force=force,
-            only=only,
-        )
-        logger.info(
-            f"[green]{get_action_success_string()} Task '{task_name}' completed successfully[/green]",
-        )
-    except Exception as e:
-        logger.error(
-            f"[red]{get_action_failure_string()} Task '{task_name}' failed: {e}[/red]"
-        )
-        raise typer.Exit(1)
 
 
 def cli():
