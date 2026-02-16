@@ -12,6 +12,7 @@ dependencies = [
     "colorama>=0.4.6",
     "pathspec>=0.11.0",
     "platformdirs>=4.0.0",
+    "pygls>=2.0.0",
 ]
 
 [project.optional-dependencies]
@@ -22,6 +23,7 @@ where = ["src"]
 
 [project.scripts]
 tt = "tasktree.cli:cli"
+tt-lsp = "tasktree.lsp.server:main"
 
 [build-system]
 requires = ["hatchling"]
