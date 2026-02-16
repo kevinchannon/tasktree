@@ -4,6 +4,8 @@ from pygls.lsp.server import LanguageServer
 
 import tasktree
 
+__all__ = ["TasktreeLanguageServer", "main"]
+
 
 class TasktreeLanguageServer(LanguageServer):
     """Language server for tasktree files."""
