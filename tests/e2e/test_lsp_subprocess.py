@@ -231,7 +231,7 @@ class TestLSPSubprocess(unittest.TestCase):
                 "textDocument/completion",
                 {
                     "textDocument": {"uri": "file:///test/tasktree.yaml"},
-                    "position": {"line": 4, "character": 26},
+                    "position": {"line": 5, "character": 26},
                 },
             )
 
