@@ -84,8 +84,12 @@ class TestLSPCompletionIntegration(unittest.TestCase):
         from lsprotocol.types import (
             DidChangeTextDocumentParams,
             VersionedTextDocumentIdentifier,
-            TextDocumentContentChangeEvent,
         )
+
+        # In lsprotocol 2025.0.0+, for full sync mode we use a simple object with text attribute
+        class ChangeEvent:
+            def __init__(self, text):
+                self.text = text
 
         change_handler = self.server.handlers["textDocument/didChange"]
         change_params = DidChangeTextDocumentParams(
@@ -93,9 +97,7 @@ class TestLSPCompletionIntegration(unittest.TestCase):
                 uri="file:///test/project/build.tt", version=2
             ),
             content_changes=[
-                TextDocumentContentChangeEvent(
-                    text="tasks:\n  test:\n    cmd: echo {{ tt.proj"
-                )
+                ChangeEvent(text="tasks:\n  test:\n    cmd: echo {{ tt.proj")
             ],
         )
         change_handler(change_params)
@@ -206,7 +208,7 @@ class TestLSPCompletionIntegration(unittest.TestCase):
             text_document=TextDocumentIdentifier(
                 uri="file:///test/project/tasktree.yaml"
             ),
-            position=Position(line=2, character=30),  # After "{{ tt.user"
+            position=Position(line=2, character=29),  # After "{{ tt.user" (before closing quote)
         )
         result = completion_handler(completion_params)
 
