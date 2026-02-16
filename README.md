@@ -48,15 +48,21 @@ tt test  # Runs build → package → test, skipping unchanged steps
 ```
 tasktree/
 ├── src/tasktree/           # Main source code
-│   ├── cli.py              # CLI interface (Typer)
-│   ├── parser.py           # YAML recipe parsing
-│   ├── executor.py         # Task execution engine
-│   ├── graph.py            # Dependency resolution
-│   ├── docker.py           # Docker integration
-│   ├── substitution.py     # Template variable engine
-│   ├── state.py            # State file management
-│   ├── hasher.py           # Task hashing for caching
-│   └── types.py            # Custom Click parameter types
+│   ├── cli.py              # CLI interface (458 lines, Typer)
+│   ├── parser.py           # YAML recipe parsing, imports, runners (3,222 lines)
+│   ├── executor.py         # Task execution engine (1,907 lines)
+│   ├── graph.py            # Dependency resolution (662 lines)
+│   ├── docker.py           # Docker integration (575 lines)
+│   ├── substitution.py     # Template variable engine (518 lines)
+│   ├── process_runner.py   # Process execution and management (425 lines)
+│   ├── config.py           # Configuration management (372 lines)
+│   ├── hasher.py           # Task hashing for caching (217 lines)
+│   ├── state.py            # State file management (204 lines)
+│   ├── types.py            # Custom Click parameter types (194 lines)
+│   ├── temp_script.py      # Temporary script generation (185 lines)
+│   ├── logging.py          # Logging configuration (112 lines)
+│   ├── console_logger.py   # Console output formatting (66 lines)
+│   └── __init__.py         # Package initialization (49 lines)
 ├── tests/                  # Test suite
 │   ├── unit/               # Unit tests
 │   ├── integration/        # Integration tests
