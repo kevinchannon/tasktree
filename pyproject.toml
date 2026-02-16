@@ -23,6 +23,7 @@ where = ["src"]
 
 [project.scripts]
 tt = "tasktree.cli:cli"
+tt-lsp = "tasktree.lsp.server:main"
 
 [build-system]
 requires = ["hatchling"]
