@@ -14,6 +14,10 @@ from pygls.lsp.types import (
     TextDocumentItem,
     VersionedTextDocumentIdentifier,
     TextDocumentContentChangeEvent,
+    CompletionParams,
+    TextDocumentIdentifier,
+    Position,
+    CompletionList,
 )
 
 
@@ -157,6 +161,30 @@ class TestCreateServer(unittest.TestCase):
             server.documents["file:///test/tasktree.yaml"],
             "tasks:\n  hello:\n    cmd: echo world",
         )
+
+    def test_completion_handler_registered(self):
+        """Test that the completion handler is registered."""
+        server = create_server()
+        self.assertIn("textDocument/completion", server.lsp._features)
+
+    def test_completion_returns_list(self):
+        """Test that completion handler returns a CompletionList."""
+        server = create_server()
+        handler = server.lsp._features["textDocument/completion"]
+
+        # Create a completion request
+        params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
+            position=Position(line=2, character=25),
+        )
+
+        # Call the handler
+        result = handler(params)
+
+        # Verify we get a CompletionList
+        self.assertIsInstance(result, CompletionList)
+        self.assertFalse(result.is_incomplete)
+        self.assertIsInstance(result.items, list)
 
 
 class TestMain(unittest.TestCase):

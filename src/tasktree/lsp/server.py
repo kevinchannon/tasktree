@@ -8,6 +8,8 @@ from pygls.lsp.types import (
     CompletionOptions,
     DidOpenTextDocumentParams,
     DidChangeTextDocumentParams,
+    CompletionParams,
+    CompletionList,
 )
 
 import tasktree
@@ -77,6 +79,12 @@ def create_server() -> TasktreeLanguageServer:
         # In full sync mode, we get the entire document in the first change
         if params.content_changes:
             server.documents[uri] = params.content_changes[0].text
+
+    @server.feature("textDocument/completion")
+    def completion(params: CompletionParams) -> CompletionList:
+        """Handle completion request."""
+        # Return empty list for now - will implement completion logic in next commit
+        return CompletionList(is_incomplete=False, items=[])
 
     return server
 
