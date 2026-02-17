@@ -1,7 +1,10 @@
 """Parser wrapper for LSP to extract identifiers from tasktree YAML files."""
 
+import logging
 import re
 import yaml
+
+logger = logging.getLogger(__name__)
 
 
 def extract_variables(text: str) -> list[str]:
@@ -23,8 +26,9 @@ def extract_variables(text: str) -> list[str]:
             return []
 
         return sorted(variables.keys())
-    except (yaml.YAMLError, AttributeError):
+    except (yaml.YAMLError, AttributeError) as e:
         # If YAML parsing fails, return empty list (graceful degradation)
+        logger.debug(f"YAML parse failed for variable extraction: {e}")
         return []
 
 
@@ -160,8 +164,9 @@ def extract_task_args(text: str, task_name: str) -> list[str]:
                 arg_names.extend(arg.keys())
 
         return sorted(arg_names)
-    except (yaml.YAMLError, AttributeError):
+    except (yaml.YAMLError, AttributeError) as e:
         # YAML parsing failed (likely incomplete YAML during editing)
         # Fall back to heuristic extraction
+        logger.debug(f"YAML parse failed for task args extraction: {e}")
         arg_names = _extract_task_args_heuristic(text, task_name)
         return sorted(arg_names)
