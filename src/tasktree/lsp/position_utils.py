@@ -78,30 +78,29 @@ def get_task_at_position(text: str, position: Position) -> str | None:
         return None
 
     # Now search for which task contains the cursor position
-    # We build the text up to the cursor position and find the last task definition
-    # This handles single-line YAML, multi-line YAML, any indentation, etc.
+    # Strategy: Search through the document and find the last task definition
+    # that appears at or before the cursor position
 
-    # Build text up to cursor position
-    if position.line == 0:
-        text_up_to_cursor = lines[0][:position.character]
-    else:
-        text_up_to_cursor = '\n'.join(lines[:position.line]) + '\n' + lines[position.line][:position.character]
-
-    # Search for all task name occurrences in the text up to cursor
-    # We want the LAST (rightmost) occurrence, as that's the task we're currently in
+    # For each task name, find all occurrences and check if they're before cursor
     last_task_found = None
-    last_task_pos = -1
+    last_task_line = -1
+    last_task_char = -1
 
     for task_name in task_names:
         # Create a pattern that matches the task name as a key
         # Pattern: task name followed by optional whitespace and colon
         pattern = re.escape(task_name) + r'\s*:'
 
-        # Find all matches and get the last one
-        for match in re.finditer(pattern, text_up_to_cursor):
-            if match.start() > last_task_pos:
-                last_task_pos = match.start()
-                last_task_found = task_name
+        # Search through each line
+        for line_num, line in enumerate(lines):
+            for match in re.finditer(pattern, line):
+                # Check if this match is before or at the cursor position
+                if line_num < position.line or (line_num == position.line and match.start() <= position.character):
+                    # This match is valid - check if it's the most recent one
+                    if line_num > last_task_line or (line_num == last_task_line and match.start() > last_task_char):
+                        last_task_found = task_name
+                        last_task_line = line_num
+                        last_task_char = match.start()
 
     return last_task_found
 
