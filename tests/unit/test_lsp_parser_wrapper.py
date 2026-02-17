@@ -1,7 +1,7 @@
 """Unit tests for LSP parser wrapper."""
 
 import unittest
-from tasktree.lsp.parser_wrapper import extract_variables, extract_task_args
+from tasktree.lsp.parser_wrapper import extract_variables, extract_task_args, extract_task_inputs
 
 
 class TestExtractVariables(unittest.TestCase):
@@ -180,6 +180,118 @@ tasks:
     args: not-a-list
 """
         result = extract_task_args(text, "build")
+        self.assertEqual(result, [])
+
+
+class TestExtractTaskInputs(unittest.TestCase):
+    """Test task input extraction from YAML."""
+
+    def test_extract_named_inputs_key_value_format(self):
+        """Test extracting named inputs in key-value format."""
+        text = """
+tasks:
+  build:
+    inputs:
+      - source: src/main.c
+      - header: include/defs.h
+"""
+        result = extract_task_inputs(text, "build")
+        self.assertEqual(sorted(result), ["header", "source"])
+
+    def test_extract_named_inputs_dict_format(self):
+        """Test extracting named inputs in dict format."""
+        text = """
+tasks:
+  build:
+    inputs:
+      - name: src/main.c
+      - config: config.yaml
+"""
+        result = extract_task_inputs(text, "build")
+        self.assertEqual(sorted(result), ["config", "name"])
+
+    def test_skip_anonymous_inputs(self):
+        """Test that anonymous inputs are not extracted."""
+        text = """
+tasks:
+  build:
+    inputs:
+      - src/main.c
+      - include/defs.h
+"""
+        result = extract_task_inputs(text, "build")
+        self.assertEqual(result, [])
+
+    def test_mixed_named_and_anonymous_inputs(self):
+        """Test extracting only named inputs from mixed format."""
+        text = """
+tasks:
+  build:
+    inputs:
+      - src/main.c
+      - source: src/lib.c
+      - include/defs.h
+      - header: include/lib.h
+"""
+        result = extract_task_inputs(text, "build")
+        self.assertEqual(sorted(result), ["header", "source"])
+
+    def test_no_inputs_in_task(self):
+        """Test task with no inputs section."""
+        text = """
+tasks:
+  build:
+    cmd: echo hello
+"""
+        result = extract_task_inputs(text, "build")
+        self.assertEqual(result, [])
+
+    def test_empty_inputs_list(self):
+        """Test task with empty inputs list."""
+        text = """
+tasks:
+  build:
+    inputs: []
+"""
+        result = extract_task_inputs(text, "build")
+        self.assertEqual(result, [])
+
+    def test_task_not_found(self):
+        """Test extracting inputs for non-existent task."""
+        text = """
+tasks:
+  build:
+    inputs:
+      - source: src/main.c
+"""
+        result = extract_task_inputs(text, "deploy")
+        self.assertEqual(result, [])
+
+    def test_no_tasks_section(self):
+        """Test extracting from YAML with no tasks section."""
+        text = """
+variables:
+  foo: bar
+"""
+        result = extract_task_inputs(text, "build")
+        self.assertEqual(result, [])
+
+    def test_invalid_yaml(self):
+        """Test graceful handling of invalid YAML."""
+        text = """
+invalid: yaml: content
+"""
+        result = extract_task_inputs(text, "build")
+        self.assertEqual(result, [])
+
+    def test_inputs_not_list(self):
+        """Test handling when inputs is not a list."""
+        text = """
+tasks:
+  build:
+    inputs: not-a-list
+"""
+        result = extract_task_inputs(text, "build")
         self.assertEqual(result, [])
 
 

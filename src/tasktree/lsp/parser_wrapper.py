@@ -199,3 +199,63 @@ def extract_task_args(text: str, task_name: str) -> list[str]:
         logger.debug(f"YAML parse failed for task args extraction: {e}")
         arg_names = _extract_task_args_heuristic(text, task_name)
         return sorted(arg_names)
+
+
+def extract_task_inputs(text: str, task_name: str) -> list[str]:
+    """Extract named input identifiers for a specific task from tasktree YAML text.
+
+    Only extracts NAMED inputs (e.g., "source: path/to/file"), not anonymous
+    inputs (e.g., "- path/to/file"). This is because only named inputs can be
+    referenced via {{ self.inputs.name }} syntax.
+
+    Named inputs can be specified in two formats:
+    1. Dict format: { name: "path/to/file" }
+    2. Key-value format: name: path/to/file
+
+    Edge cases:
+    - Imported/namespaced tasks: Requires the full namespaced name (e.g., "build.compile")
+    - Private tasks: Returns inputs regardless of private: true setting
+    - Anonymous inputs: Ignored (returns empty list if task has only anonymous inputs)
+    - Missing inputs: Returns empty list if task has no inputs defined
+    - Invalid task name: Returns empty list if task doesn't exist
+
+    Args:
+        text: The YAML document text (may be incomplete during editing)
+        task_name: The name of the task to extract inputs from
+
+    Returns:
+        Alphabetically sorted list of named input identifiers defined for the task.
+        Returns empty list if task not found, has no inputs, or YAML is unparseable.
+    """
+    try:
+        data = yaml.safe_load(text)
+        if not isinstance(data, dict):
+            return []
+
+        tasks = data.get("tasks", {})
+        if not isinstance(tasks, dict):
+            return []
+
+        task = tasks.get(task_name)
+        if not isinstance(task, dict):
+            return []
+
+        inputs = task.get("inputs", [])
+        if not isinstance(inputs, list):
+            return []
+
+        # Extract named input identifiers from the inputs list
+        # Named inputs are dicts with the input name as key
+        # Anonymous inputs are strings (we skip these)
+        input_names = []
+        for input_item in inputs:
+            if isinstance(input_item, dict):
+                # Each dict should have the input name as key
+                input_names.extend(input_item.keys())
+
+        return sorted(input_names)
+    except (yaml.YAMLError, AttributeError) as e:
+        # YAML parsing failed (likely incomplete YAML during editing)
+        # Return empty list (no heuristic fallback for now)
+        logger.debug(f"YAML parse failed for task inputs extraction: {e}")
+        return []
