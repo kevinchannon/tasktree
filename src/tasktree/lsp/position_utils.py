@@ -112,6 +112,45 @@ def _extract_task_names_heuristic(text: str) -> list[str]:
     return task_names
 
 
+def _find_task_containing_position(task_names: list[str], lines: list[str], position: Position) -> str | None:
+    """Find which task definition contains the given position.
+
+    Searches through the document to find the most recent task definition
+    that appears at or before the cursor position. This handles cases where
+    multiple tasks are defined in the document.
+
+    Args:
+        task_names: List of valid task names to search for
+        lines: Document text split into lines
+        position: The position to check (line and character)
+
+    Returns:
+        The task name if a task definition is found at or before position, None otherwise
+    """
+    # For each task name, find all occurrences and check if they're before cursor
+    last_task_found = None
+    last_task_line = -1
+    last_task_char = -1
+
+    for task_name in task_names:
+        # Create a pattern that matches the task name as a key
+        # Pattern: task name followed by optional whitespace and colon
+        pattern = re.escape(task_name) + r'\s*:'
+
+        # Search through each line
+        for line_num, line in enumerate(lines):
+            for match in re.finditer(pattern, line):
+                # Check if this match is before or at the cursor position
+                if line_num < position.line or (line_num == position.line and match.start() <= position.character):
+                    # This match is valid - check if it's the most recent one
+                    if line_num > last_task_line or (line_num == last_task_line and match.start() > last_task_char):
+                        last_task_found = task_name
+                        last_task_line = line_num
+                        last_task_char = match.start()
+
+    return last_task_found
+
+
 def get_task_at_position(text: str, position: Position) -> str | None:
     """Get the task name containing the given position.
 
@@ -152,32 +191,8 @@ def get_task_at_position(text: str, position: Position) -> str | None:
     if not task_names:
         return None
 
-    # Now search for which task contains the cursor position
-    # Strategy: Search through the document and find the last task definition
-    # that appears at or before the cursor position
-
-    # For each task name, find all occurrences and check if they're before cursor
-    last_task_found = None
-    last_task_line = -1
-    last_task_char = -1
-
-    for task_name in task_names:
-        # Create a pattern that matches the task name as a key
-        # Pattern: task name followed by optional whitespace and colon
-        pattern = re.escape(task_name) + r'\s*:'
-
-        # Search through each line
-        for line_num, line in enumerate(lines):
-            for match in re.finditer(pattern, line):
-                # Check if this match is before or at the cursor position
-                if line_num < position.line or (line_num == position.line and match.start() <= position.character):
-                    # This match is valid - check if it's the most recent one
-                    if line_num > last_task_line or (line_num == last_task_line and match.start() > last_task_char):
-                        last_task_found = task_name
-                        last_task_line = line_num
-                        last_task_char = match.start()
-
-    return last_task_found
+    # Find which task contains the cursor position
+    return _find_task_containing_position(task_names, lines, position)
 
 
 def get_prefix_at_position(text: str, position: Position) -> str:
