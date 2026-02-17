@@ -77,23 +77,33 @@ def get_task_at_position(text: str, position: Position) -> str | None:
     if not task_names:
         return None
 
-    # Now search backwards from the current position to find which task we're in
-    # We look for task names as keys in the YAML (format: "task-name:" or "task-name :")
-    # This handles any indentation level and Unicode characters
-    for line_num in range(position.line, -1, -1):
-        line = lines[line_num]
+    # Now search for which task contains the cursor position
+    # We build the text up to the cursor position and find the last task definition
+    # This handles single-line YAML, multi-line YAML, any indentation, etc.
 
-        # Check if this line contains a task definition
-        # We look for any of our known task names followed by a colon
-        for task_name in task_names:
-            # Create a pattern that matches the task name as a key
-            # The task name might be quoted or unquoted, and can have any indentation
-            # Pattern: optional whitespace, optional quote, task name, optional quote, colon
-            pattern = re.escape(task_name) + r'\s*:'
-            if re.search(pattern, line):
-                return task_name
+    # Build text up to cursor position
+    if position.line == 0:
+        text_up_to_cursor = lines[0][:position.character]
+    else:
+        text_up_to_cursor = '\n'.join(lines[:position.line]) + '\n' + lines[position.line][:position.character]
 
-    return None
+    # Search for all task name occurrences in the text up to cursor
+    # We want the LAST (rightmost) occurrence, as that's the task we're currently in
+    last_task_found = None
+    last_task_pos = -1
+
+    for task_name in task_names:
+        # Create a pattern that matches the task name as a key
+        # Pattern: task name followed by optional whitespace and colon
+        pattern = re.escape(task_name) + r'\s*:'
+
+        # Find all matches and get the last one
+        for match in re.finditer(pattern, text_up_to_cursor):
+            if match.start() > last_task_pos:
+                last_task_pos = match.start()
+                last_task_found = task_name
+
+    return last_task_found
 
 
 def get_prefix_at_position(text: str, position: Position) -> str:
