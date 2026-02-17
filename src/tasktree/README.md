@@ -186,6 +186,28 @@ tasks:
 
 See [schema/README.md](https://github.com/kevinchannon/tasktree/blob/main/schema/README.md) for IntelliJ/PyCharm and command-line validation.
 
+### Language Server (LSP)
+
+Task Tree includes a Language Server Protocol (LSP) implementation that provides intelligent autocompletion for template variables inside `cmd` fields. The `tt-lsp` server works with any LSP-compatible editor (VS Code, Neovim, Helix, Sublime Text, Emacs, etc.).
+
+**Features:**
+- Built-in variable completion (`{{ tt.project_root }}`, `{{ tt.timestamp }}`, etc.)
+- User-defined variable completion (`{{ var.* }}`)
+- Task argument completion (`{{ arg.* }}`) - context-aware, scoped to current task
+- Real-time updates as you edit
+- Graceful handling of incomplete/malformed YAML
+
+**Quick setup** (example for Neovim):
+```lua
+vim.lsp.start({
+  name = 'tasktree',
+  cmd = { 'tt-lsp' },
+  root_dir = vim.fs.dirname(vim.fs.find({'tasktree.yaml', '.git'}, { upward = true })[1]),
+})
+```
+
+For complete LSP documentation and editor-specific setup instructions, see [lsp/README.md](lsp/README.md).
+
 ## Core Concepts
 
 ### Intelligent Incremental Execution
