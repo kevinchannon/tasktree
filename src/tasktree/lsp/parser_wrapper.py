@@ -10,11 +10,21 @@ logger = logging.getLogger(__name__)
 def extract_variables(text: str) -> list[str]:
     """Extract variable names from tasktree YAML text.
 
+    Extracts variable names from the variables section, handling all variable
+    definition formats (simple values, env, eval, read).
+
+    Edge cases:
+    - Complex variables: Extracts names from {env: VAR}, {eval: "cmd"}, {read: path} formats
+    - Missing variables section: Returns empty list
+    - Incomplete YAML: Returns empty list (graceful degradation during editing)
+    - Invalid YAML: Returns empty list and logs debug message
+
     Args:
-        text: The YAML document text
+        text: The YAML document text (may be incomplete during editing)
 
     Returns:
-        Alphabetically sorted list of variable names defined in the document
+        Alphabetically sorted list of variable names defined in the document.
+        Returns empty list if no variables section or YAML is unparseable.
     """
     try:
         data = yaml.safe_load(text)
@@ -38,12 +48,22 @@ def _extract_task_args_heuristic(text: str, task_name: str) -> list[str]:
     This function is used as a fallback when yaml.safe_load() fails due to
     incomplete or malformed YAML (common during LSP editing).
 
+    Handles both flow-style (args: [arg1, arg2]) and block-style formats.
+    Supports both simple string args and dict-format args with type information.
+
+    Limitations:
+    - Searches up to 20 lines after task definition (performance trade-off)
+    - May not handle complex nested structures correctly
+    - Best-effort extraction that prioritizes availability over accuracy
+    - Should only be used when yaml.safe_load() fails
+
     Args:
         text: The YAML document text (potentially incomplete)
-        task_name: The name of the task to extract arguments from
+        task_name: The name of the task to extract arguments from (exact match required)
 
     Returns:
-        List of argument names found for the task
+        List of argument names found for the task (may contain duplicates).
+        Returns empty list if task not found or no args field found.
     """
     arg_names = []
 
@@ -129,12 +149,21 @@ def extract_task_args(text: str, task_name: str) -> list[str]:
     For incomplete YAML (common during LSP editing), falls back to heuristic
     regex-based extraction.
 
+    Edge cases:
+    - Imported/namespaced tasks: Requires the full namespaced name (e.g., "build.compile")
+    - Private tasks: Returns args regardless of private: true setting
+    - Dict-format args: Extracts the argument name from {name: {type: str, ...}} format
+    - Simple string args: Handles both ["arg1", "arg2"] and flow-style formats
+    - Missing args: Returns empty list if task has no args defined
+    - Invalid task name: Returns empty list if task doesn't exist
+
     Args:
-        text: The YAML document text
+        text: The YAML document text (may be incomplete during editing)
         task_name: The name of the task to extract arguments from
 
     Returns:
-        Alphabetically sorted list of argument names defined for the task
+        Alphabetically sorted list of argument names defined for the task.
+        Returns empty list if task not found, has no args, or YAML is unparseable.
     """
     try:
         data = yaml.safe_load(text)

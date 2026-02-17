@@ -56,11 +56,20 @@ def _extract_task_names_heuristic(text: str) -> list[str]:
     And flow-style format:
         tasks: {task-name: {cmd: ...}, ...}
 
+    Filters out known field names (cmd, args, deps, etc.) to avoid false positives.
+    Supports Unicode task names (emojis, non-ASCII characters).
+
+    Limitations:
+    - May not handle deeply nested or complex YAML structures correctly
+    - Best-effort extraction that prioritizes availability over accuracy
+    - Should only be used when yaml.safe_load() fails
+
     Args:
         text: The YAML document text (potentially incomplete)
 
     Returns:
-        List of task names found in the text
+        List of task names found in the text (may contain duplicates).
+        Returns empty list if no tasks pattern is found.
     """
     task_names = []
 
@@ -119,13 +128,19 @@ def _find_task_containing_position(task_names: list[str], lines: list[str], posi
     that appears at or before the cursor position. This handles cases where
     multiple tasks are defined in the document.
 
+    The function searches for each task name followed by a colon (using exact
+    string matching with regex escaping) and returns the task whose definition
+    line is closest to but not after the cursor position.
+
     Args:
-        task_names: List of valid task names to search for
+        task_names: List of valid task names to search for (can include Unicode)
         lines: Document text split into lines
         position: The position to check (line and character)
 
     Returns:
-        The task name if a task definition is found at or before position, None otherwise
+        The task name if a task definition is found at or before position, None otherwise.
+        Returns the rightmost (in same line) or bottommost (in earlier line) task
+        definition when multiple tasks appear before the cursor.
     """
     # For each task name, find all occurrences and check if they're before cursor
     last_task_found = None
@@ -162,12 +177,20 @@ def get_task_at_position(text: str, position: Position) -> str | None:
     For incomplete YAML (common during LSP editing), falls back to regex-based
     heuristic parsing to extract task names from the text structure.
 
+    Edge cases:
+    - Imported/namespaced tasks: Returns the namespaced name (e.g., "build.compile")
+    - Private tasks: Returns the task name regardless of private: true setting
+    - Multiline cmd fields: Correctly identifies the task for all lines in the cmd block
+    - Nested blocks: Returns the most recent task definition before the cursor
+
     Args:
         text: The full document text
         position: The position to check (line and character)
 
     Returns:
-        The task name if position is inside a task definition, None otherwise
+        The task name if position is inside a task definition, None otherwise.
+        Returns None if position is before any task definition or outside the
+        tasks section entirely.
     """
     lines = text.split("\n")
 
