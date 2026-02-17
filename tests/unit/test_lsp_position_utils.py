@@ -151,20 +151,37 @@ tasks:
         self.assertIsNone(task_name)
 
     def test_position_in_multiline_cmd(self):
-        """Test getting task name in multiline cmd field."""
+        """Test getting task name in multiline cmd field.
+
+        Multiline cmd fields (using | or >) span multiple lines.
+        The task name should be found by looking for the most recent
+        task definition before the cursor position.
+        """
         text = """tasks:
   build:
     cmd: |
       echo line 1
       echo line 2
 """
-        # Position on second line of multiline cmd
+        # Position on second line of multiline cmd (line 4, after "build:" on line 1)
         position = Position(line=4, character=10)
         task_name = get_task_at_position(text, position)
-        # Note: This might return None with current implementation
-        # since multiline cmd handling is complex
-        # We'll document this as a known limitation for now
-        self.assertIn(task_name, ["build", None])
+        self.assertEqual(task_name, "build")
+
+    def test_position_in_multiline_cmd_folded(self):
+        """Test getting task name in multiline cmd with folded style (>)."""
+        text = """tasks:
+  deploy:
+    cmd: >
+      docker run
+      --rm
+      myapp:latest
+"""
+        # Position on third line of multiline cmd
+        char_offset = len("      myapp:")
+        position = Position(line=5, character=char_offset)
+        task_name = get_task_at_position(text, position)
+        self.assertEqual(task_name, "deploy")
 
     def test_position_out_of_bounds(self):
         """Test that out of bounds position returns None."""
