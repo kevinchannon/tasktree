@@ -180,7 +180,7 @@ class TestCreateServer(unittest.TestCase):
         # Create a completion request
         params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
-            position=Position(line=2, character=25),
+            position=Position(line=2, character=len("    cmd: echo {{ tt.")),
         )
 
         # Call the handler
@@ -211,7 +211,7 @@ class TestCreateServer(unittest.TestCase):
         # Request completion at the end of "{{ tt."
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
-            position=Position(line=2, character=25),  # After "{{ tt."
+            position=Position(line=2, character=len("    cmd: echo {{ tt.")),
         )
 
         result = completion_handler(completion_params)
@@ -251,7 +251,7 @@ class TestCreateServer(unittest.TestCase):
         # Request completion after "{{ tt.time"
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
-            position=Position(line=2, character=29),  # After "{{ tt.time"
+            position=Position(line=2, character=len("    cmd: echo {{ tt.time")),
         )
 
         result = completion_handler(completion_params)
@@ -281,7 +281,7 @@ class TestCreateServer(unittest.TestCase):
         # Request completion in deps field
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
-            position=Position(line=2, character=15),
+            position=Position(line=2, character=len("    deps: [buil")),
         )
 
         result = completion_handler(completion_params)
@@ -309,7 +309,7 @@ class TestCreateServer(unittest.TestCase):
         # Request completion after the second "tt." (outside template)
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
-            position=Position(line=2, character=42),  # After "}} tt."
+            position=Position(line=2, character=len("    cmd: echo {{ tt.user_name }} tt.")),
         )
         result = completion_handler(completion_params)
 
@@ -336,7 +336,7 @@ class TestCreateServer(unittest.TestCase):
         # Request completion at "proj" (before closing }})
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
-            position=Position(line=2, character=24),  # After "proj", before }}
+            position=Position(line=2, character=len("    cmd: echo {{ tt.proj")),
         )
         result = completion_handler(completion_params)
 
@@ -364,7 +364,7 @@ class TestCreateServer(unittest.TestCase):
         # Request completion at the end of "{{ var."
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
-            position=Position(line=5, character=26),  # After "{{ var."
+            position=Position(line=5, character=len("    cmd: echo {{ var.")),
         )
 
         result = completion_handler(completion_params)
@@ -394,7 +394,7 @@ class TestCreateServer(unittest.TestCase):
         # Request completion after "{{ var.foo"
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
-            position=Position(line=6, character=29),  # After "{{ var.foo"
+            position=Position(line=6, character=len("    cmd: echo {{ var.foo")),
         )
 
         result = completion_handler(completion_params)
@@ -424,7 +424,7 @@ class TestCreateServer(unittest.TestCase):
         # Request completion at the end of "{{ var."
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
-            position=Position(line=2, character=26),  # After "{{ var."
+            position=Position(line=2, character=len("    cmd: echo {{ var.")),
         )
 
         result = completion_handler(completion_params)
@@ -452,7 +452,7 @@ class TestCreateServer(unittest.TestCase):
         # Request completion
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
-            position=Position(line=8, character=26),  # After "{{ var."
+            position=Position(line=8, character=len("    cmd: echo {{ var.")),
         )
 
         result = completion_handler(completion_params)
@@ -482,7 +482,7 @@ class TestCreateServer(unittest.TestCase):
         # Request completion at "my_" (before closing }})
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
-            position=Position(line=5, character=24),  # After "my_", before }}
+            position=Position(line=5, character=len("    cmd: echo {{ var.my_")),
         )
 
         result = completion_handler(completion_params)
@@ -512,7 +512,7 @@ class TestCreateServer(unittest.TestCase):
         # Request completion at the second {{ var. on the same line
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
-            position=Position(line=5, character=42),  # After second "{{ var."
+            position=Position(line=5, character=len("    cmd: echo {{ var.foo }} and {{ var.")),
         )
 
         result = completion_handler(completion_params)
@@ -521,6 +521,181 @@ class TestCreateServer(unittest.TestCase):
         self.assertEqual(len(result.items), 2)
         var_names = {item.label for item in result.items}
         self.assertEqual(var_names, {"baz", "foo"})
+
+    def test_completion_arg_in_cmd_field(self):
+        """Test that completion returns arg.* variables when in cmd field."""
+        server = create_server()
+        open_handler = server.handlers["textDocument/didOpen"]
+        completion_handler = server.handlers["textDocument/completion"]
+
+        # Open a document with task args
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  build:\n    args:\n      - name\n      - version\n    cmd: echo {{ arg.",
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion in cmd field after "{{ arg."
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
+            position=Position(line=5, character=len("    cmd: echo {{ arg.")),
+        )
+
+        result = completion_handler(completion_params)
+
+        # Verify we get both args
+        self.assertEqual(len(result.items), 2)
+        arg_names = {item.label for item in result.items}
+        self.assertEqual(arg_names, {"name", "version"})
+
+    def test_completion_arg_not_in_cmd_field(self):
+        """Test that arg.* completion is not provided outside cmd field."""
+        server = create_server()
+        open_handler = server.handlers["textDocument/didOpen"]
+        completion_handler = server.handlers["textDocument/completion"]
+
+        # Open a document with task args
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  build:\n    args:\n      - name\n    deps: {{ arg.",
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion in deps field (not cmd)
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
+            position=Position(line=4, character=len("    deps: {{ arg.")),
+        )
+
+        result = completion_handler(completion_params)
+
+        # Should get no completions (arg.* only valid in cmd fields)
+        self.assertEqual(len(result.items), 0)
+
+    def test_completion_arg_dict_format(self):
+        """Test arg.* completion with dict-format args (with types/defaults)."""
+        server = create_server()
+        open_handler = server.handlers["textDocument/didOpen"]
+        completion_handler = server.handlers["textDocument/completion"]
+
+        # Open a document with dict-format args
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text='tasks:\n  build:\n    args:\n      - build_type:\n          choices: ["debug", "release"]\n      - target:\n          type: str\n    cmd: echo {{ arg.',
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion in cmd field
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
+            position=Position(line=7, character=len("    cmd: echo {{ arg.")),
+        )
+
+        result = completion_handler(completion_params)
+
+        # Verify we get both args
+        self.assertEqual(len(result.items), 2)
+        arg_names = {item.label for item in result.items}
+        self.assertEqual(arg_names, {"build_type", "target"})
+
+    def test_completion_arg_filtered_by_prefix(self):
+        """Test that arg.* completion filters by prefix."""
+        server = create_server()
+        open_handler = server.handlers["textDocument/didOpen"]
+        completion_handler = server.handlers["textDocument/completion"]
+
+        # Open a document with args
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  build:\n    args:\n      - build_type\n      - build_dir\n      - target\n    cmd: echo {{ arg.build",
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion after "{{ arg.build"
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
+            position=Position(line=6, character=len("    cmd: echo {{ arg.build")),
+        )
+
+        result = completion_handler(completion_params)
+
+        # Verify we only get build_* args
+        self.assertEqual(len(result.items), 2)
+        arg_names = {item.label for item in result.items}
+        self.assertEqual(arg_names, {"build_type", "build_dir"})
+
+    def test_completion_arg_no_args_defined(self):
+        """Test that arg.* returns empty when task has no args."""
+        server = create_server()
+        open_handler = server.handlers["textDocument/didOpen"]
+        completion_handler = server.handlers["textDocument/completion"]
+
+        # Open a document with task but no args
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  build:\n    cmd: echo {{ arg.",
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
+            position=Position(line=2, character=len("    cmd: echo {{ arg.")),
+        )
+
+        result = completion_handler(completion_params)
+
+        # Should get no completions
+        self.assertEqual(len(result.items), 0)
+
+    def test_completion_arg_different_tasks(self):
+        """Test that arg.* completion is scoped to the current task."""
+        server = create_server()
+        open_handler = server.handlers["textDocument/didOpen"]
+        completion_handler = server.handlers["textDocument/completion"]
+
+        # Open a document with multiple tasks with different args
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  build:\n    args:\n      - build_type\n    cmd: echo building\n  deploy:\n    args:\n      - environment\n    cmd: echo {{ arg.",
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion in deploy task's cmd
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
+            position=Position(line=8, character=len("    cmd: echo {{ arg.")),
+        )
+
+        result = completion_handler(completion_params)
+
+        # Should only get deploy task's args (not build task's args)
+        self.assertEqual(len(result.items), 1)
+        self.assertEqual(result.items[0].label, "environment")
 
 
 class TestMain(unittest.TestCase):

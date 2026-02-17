@@ -1,6 +1,7 @@
 """Utilities for working with LSP positions in YAML documents."""
 
 import re
+import yaml
 from lsprotocol.types import Position
 
 
@@ -21,7 +22,8 @@ def is_in_cmd_field(text: str, position: Position) -> bool:
         return False
 
     line = lines[position.line]
-    if position.character >= len(line):
+    # Allow position at end of line (cursor after last character)
+    if position.character > len(line):
         return False
 
     # Simple heuristic: if we're on a line that contains "cmd:" followed by text,
@@ -37,6 +39,183 @@ def is_in_cmd_field(text: str, position: Position) -> bool:
         return position.character >= value_start
 
     return False
+
+
+def _extract_task_names_heuristic(text: str) -> list[str]:
+    """Extract task names from potentially incomplete YAML using heuristics.
+
+    This function is used as a fallback when yaml.safe_load() fails due to
+    incomplete or malformed YAML (common during LSP editing). It uses regex
+    patterns to identify task names from the text structure.
+
+    Handles both standard YAML format:
+        tasks:
+          task-name:
+            cmd: ...
+
+    And flow-style format:
+        tasks: {task-name: {cmd: ...}, ...}
+
+    Filters out known field names (cmd, args, deps, etc.) to avoid false positives.
+    Supports Unicode task names (emojis, non-ASCII characters).
+
+    Limitations:
+    - May not handle deeply nested or complex YAML structures correctly
+    - Best-effort extraction that prioritizes availability over accuracy
+    - Should only be used when yaml.safe_load() fails
+
+    Args:
+        text: The YAML document text (potentially incomplete)
+
+    Returns:
+        List of task names found in the text (may contain duplicates).
+        Returns empty list if no tasks pattern is found.
+    """
+    task_names = []
+
+    # Pattern 1: Standard YAML - "tasks:" followed by indented task definitions
+    # Match: tasks:\n  task-name:
+    # We look for lines after "tasks:" that have any indentation followed by any non-whitespace
+    # characters (the task name) and a colon
+    lines = text.split("\n")
+    in_tasks_section = False
+
+    for i, line in enumerate(lines):
+        # Check if we're entering the tasks section
+        if re.match(r'^\s*tasks\s*:\s*$', line):
+            in_tasks_section = True
+            continue
+
+        # Check if we're leaving the tasks section (new top-level key)
+        if in_tasks_section and re.match(r'^[a-zA-Z]', line):
+            in_tasks_section = False
+            continue
+
+        # Extract task names from indented lines in tasks section
+        if in_tasks_section:
+            # Match any indented line with pattern: whitespace + task-name + colon
+            # Task name can be any non-whitespace characters (including Unicode)
+            match = re.match(r'^\s+(\S+?)\s*:\s*', line)
+            if match:
+                task_name = match.group(1)
+                # Filter out field names that are not task names
+                if task_name not in ['cmd', 'args', 'deps', 'desc', 'inputs', 'outputs',
+                                     'working_dir', 'run_in', 'private', 'pin_runner']:
+                    task_names.append(task_name)
+
+    # Pattern 2: Flow-style YAML - tasks: {task1: {...}, task2: {...}}
+    # Look for "tasks:" followed by opening brace, then extract keys
+    flow_pattern = r'tasks\s*:\s*\{([^}]*)'
+    flow_match = re.search(flow_pattern, text, re.DOTALL)
+    if flow_match:
+        # Extract the content inside the braces
+        content = flow_match.group(1)
+        # Find all task names - pattern: any characters followed by colon
+        # We need to be careful with nested braces
+        task_pattern = r'(\S+?)\s*:\s*\{'
+        for match in re.finditer(task_pattern, content):
+            task_name = match.group(1)
+            if task_name not in task_names:
+                task_names.append(task_name)
+
+    return task_names
+
+
+def _find_task_containing_position(task_names: list[str], lines: list[str], position: Position) -> str | None:
+    """Find which task definition contains the given position.
+
+    Searches through the document to find the most recent task definition
+    that appears at or before the cursor position. This handles cases where
+    multiple tasks are defined in the document.
+
+    The function searches for each task name followed by a colon (using exact
+    string matching with regex escaping) and returns the task whose definition
+    line is closest to but not after the cursor position.
+
+    Args:
+        task_names: List of valid task names to search for (can include Unicode)
+        lines: Document text split into lines
+        position: The position to check (line and character)
+
+    Returns:
+        The task name if a task definition is found at or before position, None otherwise.
+        Returns the rightmost (in same line) or bottommost (in earlier line) task
+        definition when multiple tasks appear before the cursor.
+    """
+    # For each task name, find all occurrences and check if they're before cursor
+    last_task_found = None
+    last_task_line = -1
+    last_task_char = -1
+
+    for task_name in task_names:
+        # Create a pattern that matches the task name as a key
+        # Pattern: task name followed by optional whitespace and colon
+        pattern = re.escape(task_name) + r'\s*:'
+
+        # Search through each line
+        for line_num, line in enumerate(lines):
+            for match in re.finditer(pattern, line):
+                # Check if this match is before or at the cursor position
+                if line_num < position.line or (line_num == position.line and match.start() <= position.character):
+                    # This match is valid - check if it's the most recent one
+                    if line_num > last_task_line or (line_num == last_task_line and match.start() > last_task_char):
+                        last_task_found = task_name
+                        last_task_line = line_num
+                        last_task_char = match.start()
+
+    return last_task_found
+
+
+def get_task_at_position(text: str, position: Position) -> str | None:
+    """Get the task name containing the given position.
+
+    This function uses YAML parsing to extract valid task names, then searches
+    backwards to find which task contains the position. This approach handles
+    Unicode task names and all valid YAML formats (including exotic formats
+    with braces, variable indentation, etc.).
+
+    For incomplete YAML (common during LSP editing), falls back to regex-based
+    heuristic parsing to extract task names from the text structure.
+
+    Edge cases:
+    - Imported/namespaced tasks: Returns the namespaced name (e.g., "build.compile")
+    - Private tasks: Returns the task name regardless of private: true setting
+    - Multiline cmd fields: Correctly identifies the task for all lines in the cmd block
+    - Nested blocks: Returns the most recent task definition before the cursor
+
+    Args:
+        text: The full document text
+        position: The position to check (line and character)
+
+    Returns:
+        The task name if position is inside a task definition, None otherwise.
+        Returns None if position is before any task definition or outside the
+        tasks section entirely.
+    """
+    lines = text.split("\n")
+
+    # Check if position is within document bounds
+    if position.line >= len(lines):
+        return None
+
+    # Parse YAML to get valid task names (handles Unicode, exotic formats, etc.)
+    task_names = []
+    try:
+        data = yaml.safe_load(text)
+        if isinstance(data, dict):
+            tasks = data.get("tasks", {})
+            if isinstance(tasks, dict):
+                task_names = list(tasks.keys())
+    except (yaml.YAMLError, AttributeError):
+        # YAML parsing failed (likely incomplete YAML during editing)
+        # Fall back to heuristic regex-based extraction
+        task_names = _extract_task_names_heuristic(text)
+
+    if not task_names:
+        return None
+
+    # Find which task contains the cursor position
+    return _find_task_containing_position(task_names, lines, position)
 
 
 def get_prefix_at_position(text: str, position: Position) -> str:
