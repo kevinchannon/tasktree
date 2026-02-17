@@ -4,6 +4,8 @@ import unittest
 from lsprotocol.types import Position
 from tasktree.lsp.position_utils import (
     is_in_cmd_field,
+    is_in_working_dir_field,
+    is_in_substitutable_field,
     get_prefix_at_position,
     get_task_at_position,
 )
@@ -268,6 +270,62 @@ tasks:
         position = Position(line=0, character=char_offset)
         task_name = get_task_at_position(text, position)
         self.assertEqual(task_name, "🦊")
+
+
+class TestIsInWorkingDirField(unittest.TestCase):
+    """Tests for is_in_working_dir_field function."""
+
+    def test_position_in_working_dir_field(self):
+        """Test that position inside working_dir field value returns True."""
+        text = "tasks:\n  hello:\n    working_dir: /tmp/{{ var."
+        position = Position(line=2, character=len("    working_dir: "))
+        self.assertTrue(is_in_working_dir_field(text, position))
+
+    def test_position_not_in_working_dir_field(self):
+        """Test that position outside working_dir field returns False."""
+        text = "tasks:\n  hello:\n    cmd: echo hello"
+        position = Position(line=2, character=len("    cmd: echo"))
+        self.assertFalse(is_in_working_dir_field(text, position))
+
+    def test_position_after_working_dir_colon(self):
+        """Test that position right after 'working_dir:' returns True."""
+        text = "tasks:\n  hello:\n    working_dir: /path"
+        position = Position(line=2, character=len("    working_dir:"))
+        self.assertTrue(is_in_working_dir_field(text, position))
+
+
+class TestIsInSubstitutableField(unittest.TestCase):
+    """Tests for is_in_substitutable_field function."""
+
+    def test_position_in_cmd_field(self):
+        """Test that position in cmd field returns True."""
+        text = "tasks:\n  hello:\n    cmd: echo {{ arg."
+        position = Position(line=2, character=len("    cmd: echo "))
+        self.assertTrue(is_in_substitutable_field(text, position))
+
+    def test_position_in_working_dir_field(self):
+        """Test that position in working_dir field returns True."""
+        text = "tasks:\n  hello:\n    working_dir: {{ arg."
+        position = Position(line=2, character=len("    working_dir: "))
+        self.assertTrue(is_in_substitutable_field(text, position))
+
+    def test_position_in_default_field(self):
+        """Test that position in args default field returns True."""
+        text = "tasks:\n  hello:\n    args:\n      - name: foo\n        default: {{ self.inputs."
+        position = Position(line=4, character=len("        default: "))
+        self.assertTrue(is_in_substitutable_field(text, position))
+
+    def test_position_in_non_substitutable_field(self):
+        """Test that position in non-substitutable field returns False."""
+        text = "tasks:\n  hello:\n    deps: [build]"
+        position = Position(line=2, character=len("    deps: "))
+        self.assertFalse(is_in_substitutable_field(text, position))
+
+    def test_position_in_desc_field(self):
+        """Test that position in desc field returns False."""
+        text = "tasks:\n  hello:\n    desc: Some description"
+        position = Position(line=2, character=len("    desc: "))
+        self.assertFalse(is_in_substitutable_field(text, position))
 
 
 if __name__ == "__main__":

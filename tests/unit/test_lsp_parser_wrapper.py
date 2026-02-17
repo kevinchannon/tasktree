@@ -1,7 +1,12 @@
 """Unit tests for LSP parser wrapper."""
 
 import unittest
-from tasktree.lsp.parser_wrapper import extract_variables, extract_task_args, extract_task_inputs
+from tasktree.lsp.parser_wrapper import (
+    extract_variables,
+    extract_task_args,
+    extract_task_inputs,
+    _extract_task_inputs_heuristic,
+)
 
 
 class TestExtractVariables(unittest.TestCase):
@@ -293,6 +298,84 @@ tasks:
 """
         result = extract_task_inputs(text, "build")
         self.assertEqual(result, [])
+
+
+class TestExtractTaskInputsHeuristic(unittest.TestCase):
+    """Tests for _extract_task_inputs_heuristic function (incomplete YAML fallback)."""
+
+    def test_extract_block_style_kv_inputs(self):
+        """Test extracting named inputs in block key-value format from incomplete YAML."""
+        text = """tasks:
+  build:
+    inputs:
+      - source: src/main.c
+      - hea"""  # Incomplete YAML
+        result = _extract_task_inputs_heuristic(text, "build")
+        self.assertIn("source", result)
+
+    def test_extract_block_style_dict_inputs(self):
+        """Test extracting named inputs in block dict format from incomplete YAML."""
+        text = """tasks:
+  build:
+    inputs:
+      - { source: src/main.c }
+      - { header: inc"""  # Incomplete YAML
+        result = _extract_task_inputs_heuristic(text, "build")
+        self.assertIn("source", result)
+        self.assertIn("header", result)
+
+    def test_extract_flow_style_inputs(self):
+        """Test extracting named inputs in flow style from incomplete YAML."""
+        text = """tasks:
+  build:
+    inputs: [{ source: src/main.c }, { header: """  # Incomplete YAML
+        result = _extract_task_inputs_heuristic(text, "build")
+        self.assertIn("source", result)
+        self.assertIn("header", result)
+
+    def test_task_not_found(self):
+        """Test that empty list is returned when task is not found."""
+        text = """tasks:
+  build:
+    inputs:
+      - source: src/main.c"""
+        result = _extract_task_inputs_heuristic(text, "nonexistent")
+        self.assertEqual(result, [])
+
+    def test_no_inputs_field(self):
+        """Test that empty list is returned when task has no inputs field."""
+        text = """tasks:
+  build:
+    cmd: gcc"""
+        result = _extract_task_inputs_heuristic(text, "build")
+        self.assertEqual(result, [])
+
+    def test_mixed_named_and_anonymous_inputs(self):
+        """Test that only named inputs are extracted, anonymous are skipped."""
+        text = """tasks:
+  build:
+    inputs:
+      - src/file1.txt
+      - source: src/main.c
+      - include/"""
+        result = _extract_task_inputs_heuristic(text, "build")
+        self.assertIn("source", result)
+        # Anonymous inputs should not appear
+        self.assertNotIn("src/file1.txt", result)
+        self.assertNotIn("include/", result)
+
+    def test_fallback_on_incomplete_yaml(self):
+        """Test that extract_task_inputs falls back to heuristic on incomplete YAML."""
+        # This YAML is incomplete (missing closing quotes)
+        text = """tasks:
+  build:
+    inputs:
+      - source: "src/main.c
+      - header: "include/de"""
+        result = extract_task_inputs(text, "build")
+        # Should use heuristic fallback and still find named inputs
+        self.assertIn("source", result)
+        self.assertIn("header", result)
 
 
 if __name__ == "__main__":

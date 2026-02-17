@@ -20,6 +20,7 @@ from tasktree.lsp.builtin_variables import BUILTIN_VARIABLES
 from tasktree.lsp.position_utils import (
     get_prefix_at_position,
     is_in_cmd_field,
+    is_in_substitutable_field,
     get_task_at_position,
 )
 from tasktree.lsp.parser_wrapper import extract_variables, extract_task_args, extract_task_inputs
@@ -216,10 +217,10 @@ def create_server() -> TasktreeLanguageServer:
                 prefix, "{{ var.", variables, "User"
             )
 
-        # Try arg.* task argument completion (only in cmd fields)
+        # Try arg.* task argument completion (cmd, working_dir, args defaults)
         if "{{ arg." in prefix:
-            # arg.* is only valid inside a task's cmd field
-            if not is_in_cmd_field(text, position):
+            # arg.* is valid in cmd, working_dir, and args[].default fields
+            if not is_in_substitutable_field(text, position):
                 return CompletionList(is_incomplete=False, items=[])
 
             # Get the task name at this position
@@ -233,10 +234,10 @@ def create_server() -> TasktreeLanguageServer:
                 prefix, "{{ arg.", args, "Task argument"
             )
 
-        # Try self.inputs.* named input completion (only in cmd fields)
+        # Try self.inputs.* named input completion (cmd, working_dir, args defaults)
         if "{{ self.inputs." in prefix:
-            # self.inputs.* is only valid inside a task's cmd field
-            if not is_in_cmd_field(text, position):
+            # self.inputs.* is valid in cmd, working_dir, and args[].default fields
+            if not is_in_substitutable_field(text, position):
                 return CompletionList(is_incomplete=False, items=[])
 
             # Get the task name at this position

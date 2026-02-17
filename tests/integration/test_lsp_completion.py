@@ -531,6 +531,122 @@ class TestLSPCompletionIntegration(unittest.TestCase):
         input_names = {item.label for item in result.items}
         self.assertEqual(input_names, {"header", "source"})
 
+    def test_self_inputs_completion_in_working_dir(self):
+        """Test self.inputs.* completion works in working_dir field."""
+        server = create_server()
+        init_handler = server.handlers["initialize"]
+        init_handler(InitializeParams(process_id=12345, root_uri="file:///test", capabilities={}))
+
+        # Open a document with named inputs
+        yaml_text = """tasks:
+  build:
+    inputs:
+      - source: src/main.c
+      - header: include/defs.h
+    working_dir: {{ self.inputs."""
+
+        open_handler = server.handlers["textDocument/didOpen"]
+        open_handler(
+            DidOpenTextDocumentParams(
+                text_document=TextDocumentItem(
+                    uri="file:///test.yaml",
+                    language_id="yaml",
+                    version=1,
+                    text=yaml_text,
+                )
+            )
+        )
+
+        # Request completion in working_dir field
+        completion_handler = server.handlers["textDocument/completion"]
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test.yaml"),
+            position=Position(line=5, character=len("    working_dir: {{ self.inputs.")),
+        )
+        result = completion_handler(completion_params)
+
+        # Verify we get named inputs in working_dir field
+        self.assertEqual(len(result.items), 2)
+        input_names = {item.label for item in result.items}
+        self.assertEqual(input_names, {"header", "source"})
+
+    def test_self_inputs_completion_in_arg_default(self):
+        """Test self.inputs.* completion works in args default field."""
+        server = create_server()
+        init_handler = server.handlers["initialize"]
+        init_handler(InitializeParams(process_id=12345, root_uri="file:///test", capabilities={}))
+
+        # Open a document with named inputs and arg with default
+        yaml_text = """tasks:
+  build:
+    inputs:
+      - config: config/settings.yml
+    args:
+      - conf_path: { default: "{{ self.inputs." }"""
+
+        open_handler = server.handlers["textDocument/didOpen"]
+        open_handler(
+            DidOpenTextDocumentParams(
+                text_document=TextDocumentItem(
+                    uri="file:///test.yaml",
+                    language_id="yaml",
+                    version=1,
+                    text=yaml_text,
+                )
+            )
+        )
+
+        # Request completion in arg default field
+        completion_handler = server.handlers["textDocument/completion"]
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test.yaml"),
+            position=Position(line=5, character=len('      - conf_path: { default: "{{ self.inputs.')),
+        )
+        result = completion_handler(completion_params)
+
+        # Verify we get named inputs in default field
+        self.assertEqual(len(result.items), 1)
+        self.assertEqual(result.items[0].label, "config")
+
+    def test_arg_completion_in_working_dir(self):
+        """Test arg.* completion works in working_dir field."""
+        server = create_server()
+        init_handler = server.handlers["initialize"]
+        init_handler(InitializeParams(process_id=12345, root_uri="file:///test", capabilities={}))
+
+        # Open a document with args
+        yaml_text = """tasks:
+  build:
+    args:
+      - build_dir
+      - mode
+    working_dir: {{ arg."""
+
+        open_handler = server.handlers["textDocument/didOpen"]
+        open_handler(
+            DidOpenTextDocumentParams(
+                text_document=TextDocumentItem(
+                    uri="file:///test.yaml",
+                    language_id="yaml",
+                    version=1,
+                    text=yaml_text,
+                )
+            )
+        )
+
+        # Request completion in working_dir field
+        completion_handler = server.handlers["textDocument/completion"]
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test.yaml"),
+            position=Position(line=5, character=len("    working_dir: {{ arg.")),
+        )
+        result = completion_handler(completion_params)
+
+        # Verify we get args in working_dir field
+        self.assertEqual(len(result.items), 2)
+        arg_names = {item.label for item in result.items}
+        self.assertEqual(arg_names, {"build_dir", "mode"})
+
 
 if __name__ == "__main__":
     unittest.main()
