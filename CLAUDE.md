@@ -65,6 +65,11 @@ Your sponsor is not made of money! Try to minimise token useage, so that we can 
 - **`src/tasktree/types.py`** (139 lines): Custom Click parameter types for argument validation (hostname, email, IP, IPv4, IPv6, datetime)
 - **`src/tasktree/hasher.py`** (161 lines): Task hashing for incremental execution, cache key generation, runner definition hashing
 - **`src/tasktree/state.py`** (119 lines): State file management (.tasktree-state), task execution state tracking
+- **`src/tasktree/lsp/`**: Language Server Protocol implementation
+  - **`server.py`**: Main LSP server with pygls handlers (initialize, shutdown, completion, document tracking)
+  - **`builtin_variables.py`**: Built-in variable constant definitions (tt.*)
+  - **`parser_wrapper.py`**: YAML parsing for variable/argument extraction (reuses tasktree parser)
+  - **`position_utils.py`**: Cursor position detection utilities (task scoping, cmd field detection)
 
 ### Key Dependencies
 
@@ -250,3 +255,138 @@ tasks:
 
 ### Schema Validation
 The project includes JSON Schema definitions in `schema/` for validating recipe YAML files.
+
+## LSP Server Development
+
+### Architecture Principles
+
+The LSP server (`tt-lsp`) follows these key design principles:
+
+1. **Parser Reuse**: The LSP server MUST reuse tasktree's own parser (`src/tasktree/parser.py`) for extracting identifiers. DO NOT reimplement YAML parsing or task/variable extraction logic.
+
+2. **Thin Vertical Slices**: LSP features are implemented as end-to-end vertical slices, each with unit, integration, and e2e tests. Each slice delivers one complete, working feature (e.g., tt.* completion, var.* completion, arg.* completion).
+
+3. **Small, Focused Modules**: The LSP implementation is split into small modules with single responsibilities:
+   - `server.py` - LSP protocol handlers only
+   - `parser_wrapper.py` - YAML parsing and identifier extraction only
+   - `position_utils.py` - Cursor position detection only
+   - `builtin_variables.py` - Constant definitions only
+
+4. **Graceful Degradation**: The LSP server must handle incomplete/malformed YAML gracefully (common during editing). Use try/except with regex fallbacks where appropriate.
+
+### Implementation Guidelines
+
+**Adding New Completion Features:**
+
+When adding a new completion prefix (e.g., `env.*`, `dep.*`, `self.*`):
+
+1. **Parser Wrapper First**: Add extraction function to `parser_wrapper.py` (e.g., `extract_env_vars(text)`)
+   - Unit test the extraction with valid YAML
+   - Unit test with invalid YAML (should return empty list)
+   - Include regex fallback if needed for incomplete YAML
+
+2. **Position Detection (if context-aware)**: Add position detection to `position_utils.py` if needed
+   - Unit test position detection with various YAML structures
+   - Handle edge cases (multiline fields, nested blocks, etc.)
+
+3. **Server Completion Logic**: Add completion handler to `server.py`
+   - Reuse `_complete_template_variables()` helper function
+   - Unit test completion filtering and context awareness
+   - Unit test empty/missing identifier cases
+
+4. **Integration Tests**: Add integration test to `tests/integration/test_lsp_completion.py`
+   - Test full workflow: initialize → open → complete
+   - Test document changes triggering re-parse
+   - Test context awareness (if applicable)
+
+5. **E2E Tests**: Add subprocess test to `tests/e2e/test_lsp_subprocess.py`
+   - Test LSP protocol over stdio
+   - Verify JSON-RPC request/response format
+
+**Testing Strategy:**
+
+- **Unit tests** should be the primary testing approach (fastest, most focused)
+- **Integration tests** cover full LSP workflows across modules
+- **E2E tests** verify subprocess execution and protocol compliance (slower, fewer tests)
+
+**What NOT to Do:**
+
+- DO NOT reimplement tasktree's parser or variable extraction logic
+- DO NOT add completion logic directly to parser modules (keep separation of concerns)
+- DO NOT skip unit tests in favor of integration/e2e tests
+- DO NOT add features without comprehensive test coverage
+
+### Current LSP Feature Status
+
+**Implemented:**
+- ✅ Server lifecycle (initialize, shutdown, exit)
+- ✅ Document management (textDocument/didOpen, textDocument/didChange)
+- ✅ `tt.*` completion - Built-in variables (8 variables from executor.py)
+- ✅ `var.*` completion - User-defined variables (from variables section)
+- ✅ `arg.*` completion - Task arguments (context-aware, scoped to current task)
+
+**Not Yet Implemented:**
+- ❌ `env.*` completion - Environment variables
+- ❌ `dep.*.outputs.*` completion - Dependency outputs
+- ❌ `self.inputs.*` / `self.outputs.*` completion - Self-references
+- ❌ Task name completion in `deps` lists
+- ❌ Diagnostics (undefined variables, circular deps, etc.)
+- ❌ Go-to-definition for task references
+- ❌ Hover documentation for variables/tasks
+
+### Common Patterns
+
+**Extracting Identifiers from YAML:**
+
+```python
+def extract_identifiers(text: str) -> list[str]:
+    """Extract identifiers from tasktree YAML text."""
+    try:
+        data = yaml.safe_load(text)
+        if not isinstance(data, dict):
+            return []
+
+        # Extract identifiers...
+        return sorted(identifier_list)
+    except (yaml.YAMLError, AttributeError) as e:
+        logger.debug(f"YAML parse failed: {e}")
+        # Optional: Add regex fallback for incomplete YAML
+        return []
+```
+
+**Reusing Completion Logic:**
+
+The `_complete_template_variables()` helper function in `server.py` handles:
+- Prefix matching (`{{ prefix.`)
+- Template boundary detection (no completions after `}}`)
+- Partial filtering (e.g., `{{ var.my` → only variables starting with "my")
+- CompletionItem creation with appropriate detail/kind
+
+Reuse this function for all new completion prefixes - DO NOT duplicate the logic.
+
+### LSP Testing Examples
+
+**Unit Test Pattern:**
+```python
+def test_extract_something_from_yaml(self):
+    """Test extracting something from valid YAML."""
+    yaml_text = "...\n"
+    result = extract_something(yaml_text)
+    self.assertEqual(result, ["expected", "items"])
+```
+
+**Integration Test Pattern:**
+```python
+def test_complete_prefix_after_document_change(self):
+    """Test completion updates after document changes."""
+    server = create_server()
+    server.handlers["initialize"](InitializeParams(...))
+    server.handlers["textDocument/didOpen"](...)
+    result = server.handlers["textDocument/completion"](...)
+    # Change document
+    server.handlers["textDocument/didChange"](...)
+    result2 = server.handlers["textDocument/completion"](...)
+    # Assert result2 reflects changes
+```
+
+For complete LSP documentation, see `src/tasktree/lsp/README.md`.

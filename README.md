@@ -62,7 +62,12 @@ tasktree/
 │   ├── temp_script.py      # Temporary script generation (185 lines)
 │   ├── logging.py          # Logging configuration (112 lines)
 │   ├── console_logger.py   # Console output formatting (66 lines)
-│   └── __init__.py         # Package initialization (49 lines)
+│   ├── __init__.py         # Package initialization (49 lines)
+│   └── lsp/                # Language Server Protocol (LSP) implementation
+│       ├── server.py       # LSP server entry point and handlers
+│       ├── builtin_variables.py  # Built-in variable definitions
+│       ├── parser_wrapper.py     # YAML parsing for LSP
+│       └── position_utils.py     # Cursor position utilities
 ├── tests/                  # Test suite
 │   ├── unit/               # Unit tests
 │   ├── integration/        # Integration tests
@@ -184,6 +189,63 @@ Variables resolved in this order:
 4. Task arguments (`{{ arg.name }}`)
 5. Environment variables (`{{ env.NAME }}`)
 6. Built-in variables (`{{ tt.project_root }}`, etc.)
+
+### Language Server Protocol (LSP)
+
+Task Tree includes an LSP server (`tt-lsp`) that provides intelligent editor features for tasktree files:
+
+**Architecture:**
+- Built with `pygls` (Python LSP framework)
+- Reuses tasktree's own parser (no reimplementation)
+- Communicates over stdio using JSON-RPC
+- Full-sync document tracking in memory
+
+**Implementation Structure:**
+```
+src/tasktree/lsp/
+├── server.py              # Main LSP server with pygls handlers
+├── builtin_variables.py   # Built-in variable constant definitions
+├── parser_wrapper.py      # Extract variables/args from YAML
+└── position_utils.py      # Cursor position detection utilities
+```
+
+**Key Features Implemented:**
+- **Server lifecycle**: Initialize, shutdown, exit handlers
+- **Document management**: Track opened/changed documents (full-sync mode)
+- **Completion provider**: Context-aware completions for:
+  - `tt.*` - Built-in variables (8 variables from executor.py)
+  - `var.*` - User-defined variables (from variables section)
+  - `arg.*` - Task arguments (scoped to task containing cursor, only in cmd fields)
+
+**Technical Details:**
+- Trigger character: `.` (completes after `{{ tt.`, `{{ var.`, `{{ arg.`)
+- Prefix filtering: Partial match after template prefix (e.g., `{{ tt.time` → `timestamp*`)
+- Template boundary detection: No completions after `}}`
+- Graceful degradation: Handles incomplete YAML during editing via regex fallback
+- Context awareness: `arg.*` completions only inside task `cmd` fields
+- Task scoping: Uses `get_task_at_position()` to determine which task contains cursor
+
+**Testing:**
+- Unit tests: Server lifecycle, parsing, position detection, completion logic
+- Integration tests: Full LSP workflows (initialize → open → change → complete)
+- E2E tests: Subprocess execution with LSP protocol over stdio
+
+**Development Principles:**
+- Reuse tasktree's parser completely (DRY principle)
+- Small, focused modules with single responsibilities
+- Comprehensive test coverage at all levels (unit/integration/e2e)
+- Incremental feature development (thin vertical slices)
+
+**Future Extensions:**
+- `env.*` - Environment variable completion
+- `dep.*.outputs.*` - Dependency output completion
+- `self.inputs.*` / `self.outputs.*` - Self-reference completion
+- Task name completion in `deps` lists
+- Diagnostics (undefined vars, circular deps, etc.)
+- Go-to-definition for task references
+- Hover documentation for variables/tasks
+
+For user documentation and editor setup, see [src/tasktree/lsp/README.md](src/tasktree/lsp/README.md).
 
 ## Testing Best Practices
 
