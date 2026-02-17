@@ -202,9 +202,9 @@ tasks:
 
     def test_exotic_yaml_single_line_braces(self):
         """Test getting task name from exotic YAML with braces on single line."""
-        text = """tasks:{🦊:{args:[🌂],cmd:"echo {{arg.🌂}}"}}"""
-        # Position in the middle of the single-line YAML
-        position = Position(line=0, character=30)
+        text = """tasks: {🦊: {args: [🌂], cmd: "echo {{arg.🌂}}"}}"""
+        # Position in the middle of the single-line YAML (in the cmd value)
+        position = Position(line=0, character=40)
         task_name = get_task_at_position(text, position)
         self.assertEqual(task_name, "🦊")
 
