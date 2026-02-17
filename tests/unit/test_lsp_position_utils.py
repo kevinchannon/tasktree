@@ -15,36 +15,31 @@ class TestIsInCmdField(unittest.TestCase):
     def test_position_in_cmd_field(self):
         """Test that position inside cmd field value returns True."""
         text = "tasks:\n  hello:\n    cmd: echo {{ tt."
-        # Position at the end of the cmd line (after the space following 'cmd:')
-        position = Position(line=2, character=9)
+        position = Position(line=2, character=len("    cmd: "))
         self.assertTrue(is_in_cmd_field(text, position))
 
     def test_position_not_in_cmd_field(self):
         """Test that position outside cmd field returns False."""
         text = "tasks:\n  hello:\n    deps: [build]"
-        # Position in deps field
-        position = Position(line=2, character=15)
+        position = Position(line=2, character=len("    deps: [buil"))
         self.assertFalse(is_in_cmd_field(text, position))
 
     def test_position_before_cmd_colon(self):
         """Test that position before 'cmd:' returns False."""
         text = "tasks:\n  hello:\n    cmd: echo hello"
-        # Position at 'c' in 'cmd'
-        position = Position(line=2, character=4)
+        position = Position(line=2, character=len("    "))
         self.assertFalse(is_in_cmd_field(text, position))
 
     def test_position_right_after_cmd_colon(self):
         """Test that position right after 'cmd:' returns True."""
         text = "tasks:\n  hello:\n    cmd: echo hello"
-        # Position right after 'cmd:'
-        position = Position(line=2, character=8)
+        position = Position(line=2, character=len("    cmd:"))
         self.assertTrue(is_in_cmd_field(text, position))
 
     def test_position_in_cmd_value(self):
         """Test that position in the middle of cmd value returns True."""
         text = "tasks:\n  hello:\n    cmd: echo hello"
-        # Position at 'h' in 'hello'
-        position = Position(line=2, character=14)
+        position = Position(line=2, character=len("    cmd: echo "))
         self.assertTrue(is_in_cmd_field(text, position))
 
     def test_position_out_of_bounds(self):
@@ -61,14 +56,14 @@ class TestGetPrefixAtPosition(unittest.TestCase):
     def test_get_prefix_at_middle(self):
         """Test getting prefix in the middle of a line."""
         text = "tasks:\n  hello:\n    cmd: echo {{ tt.project"
-        position = Position(line=2, character=24)
+        position = Position(line=2, character=len("    cmd: echo {{ tt.proj"))
         prefix = get_prefix_at_position(text, position)
         self.assertEqual(prefix, "    cmd: echo {{ tt.proj")
 
     def test_get_prefix_at_end(self):
         """Test getting prefix at end of line."""
         text = "tasks:\n  hello:\n    cmd: echo hello"
-        position = Position(line=2, character=23)
+        position = Position(line=2, character=len("    cmd: echo hello"))
         prefix = get_prefix_at_position(text, position)
         self.assertEqual(prefix, "    cmd: echo hello")
 
@@ -96,8 +91,7 @@ class TestGetTaskAtPosition(unittest.TestCase):
   build:
     cmd: echo {{ arg.name }}
 """
-        # Position in cmd field of 'build' task
-        position = Position(line=2, character=15)
+        position = Position(line=2, character=len("    cmd: echo {"))
         task_name = get_task_at_position(text, position)
         self.assertEqual(task_name, "build")
 
@@ -108,8 +102,7 @@ class TestGetTaskAtPosition(unittest.TestCase):
     deps: [build]
     cmd: echo deploying
 """
-        # Position in deps field of 'deploy' task
-        position = Position(line=2, character=10)
+        position = Position(line=2, character=len("    deps: "))
         task_name = get_task_at_position(text, position)
         self.assertEqual(task_name, "deploy")
 
@@ -119,8 +112,7 @@ class TestGetTaskAtPosition(unittest.TestCase):
   build:
     cmd: echo hello
 """
-        # Position on the 'build:' line
-        position = Position(line=1, character=5)
+        position = Position(line=1, character=len("  buil"))
         task_name = get_task_at_position(text, position)
         self.assertEqual(task_name, "build")
 
@@ -132,8 +124,7 @@ class TestGetTaskAtPosition(unittest.TestCase):
   deploy:
     cmd: echo deploying
 """
-        # Position in 'deploy' task cmd
-        position = Position(line=4, character=15)
+        position = Position(line=4, character=len("    cmd: echo d"))
         task_name = get_task_at_position(text, position)
         self.assertEqual(task_name, "deploy")
 
@@ -145,8 +136,7 @@ tasks:
   build:
     cmd: echo hello
 """
-        # Position in variables section
-        position = Position(line=1, character=5)
+        position = Position(line=1, character=len("  foo"))
         task_name = get_task_at_position(text, position)
         self.assertIsNone(task_name)
 
@@ -163,8 +153,7 @@ tasks:
       echo line 1
       echo line 2
 """
-        # Position on second line of multiline cmd (line 4, after "build:" on line 1)
-        position = Position(line=4, character=10)
+        position = Position(line=4, character=len("      echo"))
         task_name = get_task_at_position(text, position)
         self.assertEqual(task_name, "build")
 
@@ -200,8 +189,7 @@ tasks:
   🐳🏃‍♂️‍➡️:
     cmd: echo running
 """
-        # Position in cmd field of Unicode task
-        position = Position(line=2, character=10)
+        position = Position(line=2, character=len("    cmd: e"))
         task_name = get_task_at_position(text, position)
         self.assertEqual(task_name, "🐳🏃‍♂️‍➡️")
 
@@ -212,16 +200,14 @@ tasks:
     args: [🌂]
     cmd: echo {{arg.🌂}}
 """
-        # Position in cmd field
-        position = Position(line=3, character=15)
+        position = Position(line=3, character=len("    cmd: echo {"))
         task_name = get_task_at_position(text, position)
         self.assertEqual(task_name, "🦊")
 
     def test_exotic_yaml_single_line_braces(self):
         """Test getting task name from exotic YAML with braces on single line."""
         text = """tasks: {🦊: {args: [🌂], cmd: "echo {{arg.🌂}}"}}"""
-        # Position in the middle of the single-line YAML (in the cmd value)
-        position = Position(line=0, character=40)
+        position = Position(line=0, character=len("""tasks: {🦊: {args: [🌂], cmd: "echo {{ar"""))
         task_name = get_task_at_position(text, position)
         self.assertEqual(task_name, "🦊")
 
@@ -231,16 +217,14 @@ tasks:
     build:
         cmd: echo building
 """
-        # Position in cmd field
-        position = Position(line=2, character=15)
+        position = Position(line=2, character=len("        cmd: ec"))
         task_name = get_task_at_position(text, position)
         self.assertEqual(task_name, "build")
 
     def test_no_indentation_flow_style(self):
         """Test getting task name with flow style (no indentation)."""
         text = """tasks: {deploy: {cmd: "echo deploying"}}"""
-        # Position in cmd value
-        position = Position(line=0, character=30)
+        position = Position(line=0, character=len("""tasks: {deploy: {cmd: "echo d"""))
         task_name = get_task_at_position(text, position)
         self.assertEqual(task_name, "deploy")
 
@@ -252,13 +236,11 @@ tasks:
   deploy:
     cmd: echo deploy
 """
-        # Position in first task
-        position1 = Position(line=2, character=10)
+        position1 = Position(line=2, character=len("    cmd: e"))
         task_name1 = get_task_at_position(text, position1)
         self.assertEqual(task_name1, "build-🐳")
 
-        # Position in second task
-        position2 = Position(line=4, character=10)
+        position2 = Position(line=4, character=len("    cmd: e"))
         task_name2 = get_task_at_position(text, position2)
         self.assertEqual(task_name2, "deploy")
 
@@ -270,8 +252,8 @@ tasks:
         even when the YAML is syntactically incomplete.
         """
         text = """tasks: {🦊: {args: [🌂], cmd: "echo {{arg."""
-        # Position after {{arg. - should still detect we're in task 🦊
-        position = Position(line=0, character=45)
+        char_offset = len("""tasks: {🦊: {args: [🌂], cmd: "echo {{arg.""")
+        position = Position(line=0, character=char_offset)
         task_name = get_task_at_position(text, position)
         self.assertEqual(task_name, "🦊")
 
@@ -282,8 +264,8 @@ tasks:
         marker is complete ({{arg.}}), we should still detect the task.
         """
         text = """tasks: {🦊: {args: [🌂], cmd: "echo {{arg.}}"""
-        # Position inside the template (after {{arg.)
-        position = Position(line=0, character=45)
+        char_offset = len("""tasks: {🦊: {args: [🌂], cmd: "echo {{arg.""")
+        position = Position(line=0, character=char_offset)
         task_name = get_task_at_position(text, position)
         self.assertEqual(task_name, "🦊")
 

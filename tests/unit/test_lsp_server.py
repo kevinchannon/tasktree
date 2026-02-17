@@ -180,7 +180,7 @@ class TestCreateServer(unittest.TestCase):
         # Create a completion request
         params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
-            position=Position(line=2, character=25),
+            position=Position(line=2, character=len("    cmd: echo {{ tt.")),
         )
 
         # Call the handler
@@ -211,7 +211,7 @@ class TestCreateServer(unittest.TestCase):
         # Request completion at the end of "{{ tt."
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
-            position=Position(line=2, character=25),  # After "{{ tt."
+            position=Position(line=2, character=len("    cmd: echo {{ tt.")),
         )
 
         result = completion_handler(completion_params)
@@ -251,7 +251,7 @@ class TestCreateServer(unittest.TestCase):
         # Request completion after "{{ tt.time"
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
-            position=Position(line=2, character=29),  # After "{{ tt.time"
+            position=Position(line=2, character=len("    cmd: echo {{ tt.time")),
         )
 
         result = completion_handler(completion_params)
@@ -281,7 +281,7 @@ class TestCreateServer(unittest.TestCase):
         # Request completion in deps field
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
-            position=Position(line=2, character=15),
+            position=Position(line=2, character=len("    deps: [buil")),
         )
 
         result = completion_handler(completion_params)
@@ -309,7 +309,7 @@ class TestCreateServer(unittest.TestCase):
         # Request completion after the second "tt." (outside template)
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
-            position=Position(line=2, character=42),  # After "}} tt."
+            position=Position(line=2, character=len("    cmd: echo {{ tt.user_name }} tt.")),
         )
         result = completion_handler(completion_params)
 
@@ -336,7 +336,7 @@ class TestCreateServer(unittest.TestCase):
         # Request completion at "proj" (before closing }})
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
-            position=Position(line=2, character=24),  # After "proj", before }}
+            position=Position(line=2, character=len("    cmd: echo {{ tt.proj")),
         )
         result = completion_handler(completion_params)
 
@@ -364,7 +364,7 @@ class TestCreateServer(unittest.TestCase):
         # Request completion at the end of "{{ var."
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
-            position=Position(line=5, character=26),  # After "{{ var."
+            position=Position(line=5, character=len("    cmd: echo {{ var.")),
         )
 
         result = completion_handler(completion_params)
@@ -394,7 +394,7 @@ class TestCreateServer(unittest.TestCase):
         # Request completion after "{{ var.foo"
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
-            position=Position(line=6, character=29),  # After "{{ var.foo"
+            position=Position(line=6, character=len("    cmd: echo {{ var.foo")),
         )
 
         result = completion_handler(completion_params)
@@ -424,7 +424,7 @@ class TestCreateServer(unittest.TestCase):
         # Request completion at the end of "{{ var."
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
-            position=Position(line=2, character=26),  # After "{{ var."
+            position=Position(line=2, character=len("    cmd: echo {{ var.")),
         )
 
         result = completion_handler(completion_params)
@@ -452,7 +452,7 @@ class TestCreateServer(unittest.TestCase):
         # Request completion
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
-            position=Position(line=8, character=26),  # After "{{ var."
+            position=Position(line=8, character=len("    cmd: echo {{ var.")),
         )
 
         result = completion_handler(completion_params)
@@ -482,7 +482,7 @@ class TestCreateServer(unittest.TestCase):
         # Request completion at "my_" (before closing }})
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
-            position=Position(line=5, character=24),  # After "my_", before }}
+            position=Position(line=5, character=len("    cmd: echo {{ var.my_")),
         )
 
         result = completion_handler(completion_params)
@@ -512,7 +512,7 @@ class TestCreateServer(unittest.TestCase):
         # Request completion at the second {{ var. on the same line
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
-            position=Position(line=5, character=42),  # After second "{{ var."
+            position=Position(line=5, character=len("    cmd: echo {{ var.foo }} and {{ var.")),
         )
 
         result = completion_handler(completion_params)
@@ -540,10 +540,9 @@ class TestCreateServer(unittest.TestCase):
         open_handler(open_params)
 
         # Request completion in cmd field after "{{ arg."
-        # Line is "    cmd: echo {{ arg." which is 21 chars
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
-            position=Position(line=5, character=21),  # After "{{ arg."
+            position=Position(line=5, character=len("    cmd: echo {{ arg.")),
         )
 
         result = completion_handler(completion_params)
@@ -573,7 +572,7 @@ class TestCreateServer(unittest.TestCase):
         # Request completion in deps field (not cmd)
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
-            position=Position(line=4, character=20),  # After "{{ arg." in deps
+            position=Position(line=4, character=len("    deps: {{ arg.")),
         )
 
         result = completion_handler(completion_params)
@@ -599,10 +598,9 @@ class TestCreateServer(unittest.TestCase):
         open_handler(open_params)
 
         # Request completion in cmd field
-        # Line is "    cmd: echo {{ arg." which is 21 chars
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
-            position=Position(line=7, character=21),  # After "{{ arg."
+            position=Position(line=7, character=len("    cmd: echo {{ arg.")),
         )
 
         result = completion_handler(completion_params)
@@ -630,10 +628,9 @@ class TestCreateServer(unittest.TestCase):
         open_handler(open_params)
 
         # Request completion after "{{ arg.build"
-        # Line is "    cmd: echo {{ arg.build" which is 26 chars
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
-            position=Position(line=6, character=26),  # After "{{ arg.build"
+            position=Position(line=6, character=len("    cmd: echo {{ arg.build")),
         )
 
         result = completion_handler(completion_params)
@@ -661,10 +658,9 @@ class TestCreateServer(unittest.TestCase):
         open_handler(open_params)
 
         # Request completion
-        # Line is "    cmd: echo {{ arg." which is 21 chars
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
-            position=Position(line=2, character=21),  # After "{{ arg."
+            position=Position(line=2, character=len("    cmd: echo {{ arg.")),
         )
 
         result = completion_handler(completion_params)
@@ -690,10 +686,9 @@ class TestCreateServer(unittest.TestCase):
         open_handler(open_params)
 
         # Request completion in deploy task's cmd
-        # Line is "    cmd: echo {{ arg." which is 21 chars
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
-            position=Position(line=8, character=21),  # After "{{ arg." in deploy task
+            position=Position(line=8, character=len("    cmd: echo {{ arg.")),
         )
 
         result = completion_handler(completion_params)
