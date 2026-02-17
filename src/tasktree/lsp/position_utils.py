@@ -41,6 +41,77 @@ def is_in_cmd_field(text: str, position: Position) -> bool:
     return False
 
 
+def _extract_task_names_heuristic(text: str) -> list[str]:
+    """Extract task names from potentially incomplete YAML using heuristics.
+
+    This function is used as a fallback when yaml.safe_load() fails due to
+    incomplete or malformed YAML (common during LSP editing). It uses regex
+    patterns to identify task names from the text structure.
+
+    Handles both standard YAML format:
+        tasks:
+          task-name:
+            cmd: ...
+
+    And flow-style format:
+        tasks: {task-name: {cmd: ...}, ...}
+
+    Args:
+        text: The YAML document text (potentially incomplete)
+
+    Returns:
+        List of task names found in the text
+    """
+    task_names = []
+
+    # Pattern 1: Standard YAML - "tasks:" followed by indented task definitions
+    # Match: tasks:\n  task-name:
+    # We look for lines after "tasks:" that have any indentation followed by any non-whitespace
+    # characters (the task name) and a colon
+    lines = text.split("\n")
+    in_tasks_section = False
+
+    for i, line in enumerate(lines):
+        # Check if we're entering the tasks section
+        if re.match(r'^\s*tasks\s*:\s*$', line):
+            in_tasks_section = True
+            continue
+
+        # Check if we're leaving the tasks section (new top-level key)
+        if in_tasks_section and re.match(r'^[a-zA-Z]', line):
+            in_tasks_section = False
+            continue
+
+        # Extract task names from indented lines in tasks section
+        if in_tasks_section:
+            # Match any indented line with pattern: whitespace + task-name + colon
+            # Task name can be any non-whitespace characters (including Unicode)
+            match = re.match(r'^\s+(\S+?)\s*:\s*', line)
+            if match:
+                task_name = match.group(1)
+                # Filter out field names that are not task names
+                if task_name not in ['cmd', 'args', 'deps', 'desc', 'inputs', 'outputs',
+                                     'working_dir', 'run_in', 'private', 'pin_runner']:
+                    task_names.append(task_name)
+
+    # Pattern 2: Flow-style YAML - tasks: {task1: {...}, task2: {...}}
+    # Look for "tasks:" followed by opening brace, then extract keys
+    flow_pattern = r'tasks\s*:\s*\{([^}]*)'
+    flow_match = re.search(flow_pattern, text, re.DOTALL)
+    if flow_match:
+        # Extract the content inside the braces
+        content = flow_match.group(1)
+        # Find all task names - pattern: any characters followed by colon
+        # We need to be careful with nested braces
+        task_pattern = r'(\S+?)\s*:\s*\{'
+        for match in re.finditer(task_pattern, content):
+            task_name = match.group(1)
+            if task_name not in task_names:
+                task_names.append(task_name)
+
+    return task_names
+
+
 def get_task_at_position(text: str, position: Position) -> str | None:
     """Get the task name containing the given position.
 
@@ -48,6 +119,9 @@ def get_task_at_position(text: str, position: Position) -> str | None:
     backwards to find which task contains the position. This approach handles
     Unicode task names and all valid YAML formats (including exotic formats
     with braces, variable indentation, etc.).
+
+    For incomplete YAML (common during LSP editing), falls back to regex-based
+    heuristic parsing to extract task names from the text structure.
 
     Args:
         text: The full document text
@@ -63,16 +137,17 @@ def get_task_at_position(text: str, position: Position) -> str | None:
         return None
 
     # Parse YAML to get valid task names (handles Unicode, exotic formats, etc.)
+    task_names = []
     try:
         data = yaml.safe_load(text)
-        if not isinstance(data, dict):
-            return None
-        tasks = data.get("tasks", {})
-        if not isinstance(tasks, dict):
-            return None
-        task_names = list(tasks.keys())
+        if isinstance(data, dict):
+            tasks = data.get("tasks", {})
+            if isinstance(tasks, dict):
+                task_names = list(tasks.keys())
     except (yaml.YAMLError, AttributeError):
-        return None
+        # YAML parsing failed (likely incomplete YAML during editing)
+        # Fall back to heuristic regex-based extraction
+        task_names = _extract_task_names_heuristic(text)
 
     if not task_names:
         return None

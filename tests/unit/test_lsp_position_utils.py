@@ -245,6 +245,31 @@ tasks:
         task_name2 = get_task_at_position(text, position2)
         self.assertEqual(task_name2, "deploy")
 
+    def test_incomplete_yaml_missing_closing_quote(self):
+        """Test getting task name from incomplete YAML (missing closing quote).
+
+        LSP servers must handle incomplete YAML gracefully since users type
+        incrementally. This test ensures we can still detect the task name
+        even when the YAML is syntactically incomplete.
+        """
+        text = """tasks: {🦊: {args: [🌂], cmd: "echo {{arg."""
+        # Position after {{arg. - should still detect we're in task 🦊
+        position = Position(line=0, character=45)
+        task_name = get_task_at_position(text, position)
+        self.assertEqual(task_name, "🦊")
+
+    def test_incomplete_yaml_with_complete_template(self):
+        """Test getting task name from incomplete YAML with complete template marker.
+
+        Even when the outer YAML structure is incomplete, if the template
+        marker is complete ({{arg.}}), we should still detect the task.
+        """
+        text = """tasks: {🦊: {args: [🌂], cmd: "echo {{arg.}}"""
+        # Position inside the template (after {{arg.)
+        position = Position(line=0, character=45)
+        task_name = get_task_at_position(text, position)
+        self.assertEqual(task_name, "🦊")
+
 
 if __name__ == "__main__":
     unittest.main()
