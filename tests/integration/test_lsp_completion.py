@@ -388,6 +388,149 @@ class TestLSPCompletionIntegration(unittest.TestCase):
         # Verify we get no completions
         self.assertEqual(len(result.items), 0)
 
+    def test_full_workflow_self_inputs_completion(self):
+        """Test complete workflow for self.inputs.* named input completion."""
+        # Initialize
+        init_handler = self.server.handlers["initialize"]
+        init_params = InitializeParams(
+            process_id=12345, root_uri="file:///test/project", capabilities={}
+        )
+        init_result = init_handler(init_params)
+        self.assertIsNotNone(init_result.capabilities.completion_provider)
+
+        # Open document with named inputs
+        open_handler = self.server.handlers["textDocument/didOpen"]
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/project/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  build:\n    inputs:\n      - source: src/main.c\n      - header: include/defs.h\n    cmd: echo {{ self.inputs.",
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion
+        completion_handler = self.server.handlers["textDocument/completion"]
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(
+                uri="file:///test/project/tasktree.yaml"
+            ),
+            position=Position(line=5, character=len("    cmd: echo {{ self.inputs.")),
+        )
+        result = completion_handler(completion_params)
+
+        # Verify completions
+        self.assertEqual(len(result.items), 2)
+        input_names = {item.label for item in result.items}
+        self.assertEqual(input_names, {"header", "source"})
+
+    def test_self_inputs_completion_after_document_change(self):
+        """Test that self.inputs.* completion works after document changes."""
+        # Open document with named inputs
+        open_handler = self.server.handlers["textDocument/didOpen"]
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/project/build.tt",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  test:\n    inputs:\n      - source: src/main.c\n    cmd: echo hello",
+            )
+        )
+        open_handler(open_params)
+
+        # Change document to add self.inputs. prefix and more inputs
+        from lsprotocol.types import (
+            DidChangeTextDocumentParams,
+            VersionedTextDocumentIdentifier,
+        )
+
+        class ChangeEvent:
+            def __init__(self, text):
+                self.text = text
+
+        change_handler = self.server.handlers["textDocument/didChange"]
+        change_params = DidChangeTextDocumentParams(
+            text_document=VersionedTextDocumentIdentifier(
+                uri="file:///test/project/build.tt", version=2
+            ),
+            content_changes=[
+                ChangeEvent(
+                    text="tasks:\n  test:\n    inputs:\n      - source: src/main.c\n      - header: include/defs.h\n    cmd: echo {{ self.inputs."
+                )
+            ],
+        )
+        change_handler(change_params)
+
+        # Request completion
+        completion_handler = self.server.handlers["textDocument/completion"]
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/project/build.tt"),
+            position=Position(line=5, character=len("    cmd: echo {{ self.inputs.")),
+        )
+        result = completion_handler(completion_params)
+
+        # Verify we get both inputs
+        self.assertEqual(len(result.items), 2)
+        input_names = {item.label for item in result.items}
+        self.assertEqual(input_names, {"header", "source"})
+
+    def test_self_inputs_completion_skip_anonymous(self):
+        """Test that self.inputs.* completion skips anonymous inputs."""
+        # Open document with only anonymous inputs
+        open_handler = self.server.handlers["textDocument/didOpen"]
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/project/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  build:\n    inputs:\n      - src/main.c\n      - include/defs.h\n    cmd: echo {{ self.inputs.",
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion
+        completion_handler = self.server.handlers["textDocument/completion"]
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(
+                uri="file:///test/project/tasktree.yaml"
+            ),
+            position=Position(line=5, character=len("    cmd: echo {{ self.inputs.")),
+        )
+        result = completion_handler(completion_params)
+
+        # Verify we get no completions (only anonymous inputs)
+        self.assertEqual(len(result.items), 0)
+
+    def test_self_inputs_completion_mixed_named_anonymous(self):
+        """Test self.inputs.* completion with mixed named and anonymous inputs."""
+        # Open document with mixed inputs
+        open_handler = self.server.handlers["textDocument/didOpen"]
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/project/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  build:\n    inputs:\n      - src/main.c\n      - source: src/lib.c\n      - include/defs.h\n      - header: include/lib.h\n    cmd: echo {{ self.inputs.",
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion
+        completion_handler = self.server.handlers["textDocument/completion"]
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(
+                uri="file:///test/project/tasktree.yaml"
+            ),
+            position=Position(line=7, character=len("    cmd: echo {{ self.inputs.")),
+        )
+        result = completion_handler(completion_params)
+
+        # Verify we get only named inputs
+        self.assertEqual(len(result.items), 2)
+        input_names = {item.label for item in result.items}
+        self.assertEqual(input_names, {"header", "source"})
+
 
 if __name__ == "__main__":
     unittest.main()
