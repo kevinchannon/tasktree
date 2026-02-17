@@ -1,6 +1,7 @@
 """Utilities for working with LSP positions in YAML documents."""
 
 import re
+import yaml
 from lsprotocol.types import Position
 
 
@@ -43,8 +44,10 @@ def is_in_cmd_field(text: str, position: Position) -> bool:
 def get_task_at_position(text: str, position: Position) -> str | None:
     """Get the task name containing the given position.
 
-    This function walks backwards from the current position to find the
-    task definition that contains this position.
+    This function uses YAML parsing to extract valid task names, then searches
+    backwards to find which task contains the position. This approach handles
+    Unicode task names and all valid YAML formats (including exotic formats
+    with braces, variable indentation, etc.).
 
     Args:
         text: The full document text
@@ -59,27 +62,36 @@ def get_task_at_position(text: str, position: Position) -> str | None:
     if position.line >= len(lines):
         return None
 
-    # First, find "tasks:" to know the base indentation
-    tasks_indent = None
-    for line in lines:
-        if re.match(r'^tasks:\s*$', line):
-            tasks_indent = 0
-            break
-
-    if tasks_indent is None:
+    # Parse YAML to get valid task names (handles Unicode, exotic formats, etc.)
+    try:
+        data = yaml.safe_load(text)
+        if not isinstance(data, dict):
+            return None
+        tasks = data.get("tasks", {})
+        if not isinstance(tasks, dict):
+            return None
+        task_names = list(tasks.keys())
+    except (yaml.YAMLError, AttributeError):
         return None
 
-    # Now walk backwards from current line to find the task definition
-    # We're looking for a line with exactly 2 spaces indentation (one level under "tasks:")
+    if not task_names:
+        return None
+
+    # Now search backwards from the current position to find which task we're in
+    # We look for task names as keys in the YAML (format: "task-name:" or "task-name :")
+    # This handles any indentation level and Unicode characters
     for line_num in range(position.line, -1, -1):
         line = lines[line_num]
 
-        # Check if this is a task definition at exactly 2 spaces indent
-        # Pattern: "  task-name:" (exactly 2 spaces, then identifier, then colon)
-        task_match = re.match(r'^  ([a-zA-Z0-9_-]+):\s*$', line)
-        if task_match:
-            task_name = task_match.group(1)
-            return task_name
+        # Check if this line contains a task definition
+        # We look for any of our known task names followed by a colon
+        for task_name in task_names:
+            # Create a pattern that matches the task name as a key
+            # The task name might be quoted or unquoted, and can have any indentation
+            # Pattern: optional whitespace, optional quote, task name, optional quote, colon
+            pattern = re.escape(task_name) + r'\s*:'
+            if re.search(pattern, line):
+                return task_name
 
     return None
 

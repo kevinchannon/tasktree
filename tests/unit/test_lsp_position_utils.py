@@ -177,6 +177,74 @@ tasks:
         task_name = get_task_at_position(text, position)
         self.assertIsNone(task_name)
 
+    def test_unicode_task_name(self):
+        """Test getting task name with Unicode characters (emojis)."""
+        text = """tasks:
+  🐳🏃‍♂️‍➡️:
+    cmd: echo running
+"""
+        # Position in cmd field of Unicode task
+        position = Position(line=2, character=10)
+        task_name = get_task_at_position(text, position)
+        self.assertEqual(task_name, "🐳🏃‍♂️‍➡️")
+
+    def test_unicode_task_name_with_umbrella(self):
+        """Test getting task name with Unicode emoji argument."""
+        text = """tasks:
+  🦊:
+    args: [🌂]
+    cmd: echo {{arg.🌂}}
+"""
+        # Position in cmd field
+        position = Position(line=3, character=15)
+        task_name = get_task_at_position(text, position)
+        self.assertEqual(task_name, "🦊")
+
+    def test_exotic_yaml_single_line_braces(self):
+        """Test getting task name from exotic YAML with braces on single line."""
+        text = """tasks:{🦊:{args:[🌂],cmd:"echo {{arg.🌂}}"}}"""
+        # Position in the middle of the single-line YAML
+        position = Position(line=0, character=30)
+        task_name = get_task_at_position(text, position)
+        self.assertEqual(task_name, "🦊")
+
+    def test_four_space_indentation(self):
+        """Test getting task name with 4-space indentation."""
+        text = """tasks:
+    build:
+        cmd: echo building
+"""
+        # Position in cmd field
+        position = Position(line=2, character=15)
+        task_name = get_task_at_position(text, position)
+        self.assertEqual(task_name, "build")
+
+    def test_no_indentation_flow_style(self):
+        """Test getting task name with flow style (no indentation)."""
+        text = """tasks: {deploy: {cmd: "echo deploying"}}"""
+        # Position in cmd value
+        position = Position(line=0, character=30)
+        task_name = get_task_at_position(text, position)
+        self.assertEqual(task_name, "deploy")
+
+    def test_mixed_unicode_and_ascii(self):
+        """Test file with both Unicode and ASCII task names."""
+        text = """tasks:
+  build-🐳:
+    cmd: echo docker build
+  deploy:
+    cmd: echo deploy
+"""
+        # Position in first task
+        position1 = Position(line=2, character=10)
+        task_name1 = get_task_at_position(text, position1)
+        self.assertEqual(task_name1, "build-🐳")
+
+        # Position in second task
+        position2 = Position(line=4, character=10)
+        task_name2 = get_task_at_position(text, position2)
+        self.assertEqual(task_name2, "deploy")
+
 
 if __name__ == "__main__":
     unittest.main()
