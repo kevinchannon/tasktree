@@ -4,7 +4,7 @@ A Language Server Protocol (LSP) implementation for tasktree files, providing in
 
 ## Overview
 
-The `tt-lsp` server enables IDE-like features for tasktree files (`.tt`, `.tasks`, `tasktree.yaml`, `.tasktree-config.yml`) in any LSP-compatible editor. It reuses tasktree's own parser to provide context-aware completions for template syntax inside `cmd` fields.
+The `tt-lsp` server enables IDE-like features for tasktree files (`.tt`, `.tasks`, `tasktree.yaml`, `.tasktree-config.yml`) in any LSP-compatible editor. It reuses tasktree's own parser to provide context-aware completions for template syntax.
 
 ## Features
 
