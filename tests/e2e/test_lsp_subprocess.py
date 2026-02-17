@@ -299,12 +299,13 @@ class TestLSPSubprocess(unittest.TestCase):
             )
 
             # Request completion
+            # Line 5 is: "    cmd: echo {{ self.inputs." (length: 29)
             self._send_request(
                 proc,
                 "textDocument/completion",
                 {
                     "textDocument": {"uri": "file:///test/tasktree.yaml"},
-                    "position": {"line": 5, "character": 34},
+                    "position": {"line": 5, "character": 29},
                 },
             )
 
