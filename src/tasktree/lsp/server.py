@@ -23,7 +23,12 @@ from tasktree.lsp.position_utils import (
     is_in_substitutable_field,
     get_task_at_position,
 )
-from tasktree.lsp.parser_wrapper import extract_variables, extract_task_args, extract_task_inputs
+from tasktree.lsp.parser_wrapper import (
+    extract_variables,
+    extract_task_args,
+    extract_task_inputs,
+    extract_task_outputs,
+)
 
 __all__ = ["TasktreeLanguageServer", "main"]
 
@@ -179,12 +184,13 @@ def create_server() -> TasktreeLanguageServer:
         - var.* user-defined variable completion
         - arg.* task argument completion (only inside task cmd fields)
         - self.inputs.* named input completion (only inside task cmd fields)
+        - self.outputs.* named output completion (only inside task cmd fields)
 
         Completion behavior:
         - Completions filter by partial match after the prefix (e.g., "{{ var.my" → only "my*" variables)
         - Returns empty list if template is already closed (cursor after }})
         - Trailing }} in partial names are automatically stripped for matching
-        - arg.* and self.inputs.* completions are only provided when cursor is inside a task's cmd field
+        - arg.*, self.inputs.*, and self.outputs.* completions are only provided when cursor is inside a task's cmd field
 
         Args:
             params: Completion request parameters containing document URI and cursor position
@@ -249,6 +255,23 @@ def create_server() -> TasktreeLanguageServer:
             inputs = extract_task_inputs(text, task_name)
             return _complete_template_variables(
                 prefix, "{{ self.inputs.", inputs, "Task input"
+            )
+
+        # Try self.outputs.* named output completion (cmd, working_dir, args defaults)
+        if "{{ self.outputs." in prefix:
+            # self.outputs.* is valid in cmd, working_dir, and args[].default fields
+            if not is_in_substitutable_field(text, position):
+                return CompletionList(is_incomplete=False, items=[])
+
+            # Get the task name at this position
+            task_name = get_task_at_position(text, position)
+            if task_name is None:
+                return CompletionList(is_incomplete=False, items=[])
+
+            # Extract named outputs for this task
+            outputs = extract_task_outputs(text, task_name)
+            return _complete_template_variables(
+                prefix, "{{ self.outputs.", outputs, "Task output"
             )
 
         return CompletionList(is_incomplete=False, items=[])

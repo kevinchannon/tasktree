@@ -873,6 +873,181 @@ class TestCreateServer(unittest.TestCase):
         self.assertEqual(len(result.items), 1)
         self.assertEqual(result.items[0].label, "config")
 
+    def test_completion_self_outputs_in_cmd_field(self):
+        """Test self.outputs.* completion in cmd field."""
+        server = create_server()
+        open_handler = server.handlers["textDocument/didOpen"]
+        completion_handler = server.handlers["textDocument/completion"]
+
+        # Open a document with named outputs
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  build:\n    outputs:\n      - binary: dist/app\n      - log: logs/build.log\n    cmd: echo {{ self.outputs.",
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion after "{{ self.outputs."
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
+            position=Position(line=5, character=len("    cmd: echo {{ self.outputs.")),
+        )
+
+        result = completion_handler(completion_params)
+
+        # Should get both named outputs
+        self.assertEqual(len(result.items), 2)
+        output_names = {item.label for item in result.items}
+        self.assertEqual(output_names, {"binary", "log"})
+
+    def test_completion_self_outputs_not_in_cmd_field(self):
+        """Test that self.outputs.* completion works in deps fields."""
+        server = create_server()
+        open_handler = server.handlers["textDocument/didOpen"]
+        completion_handler = server.handlers["textDocument/completion"]
+
+        # Open a document where we're in deps field (not cmd)
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  build:\n    outputs:\n      - binary: dist/app\n    deps: [{{ self.outputs.",
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion in deps field
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
+            position=Position(line=4, character=len("    deps: [{{ self.outputs.")),
+        )
+
+        result = completion_handler(completion_params)
+
+        # Should get completions (self.outputs.* works in deps fields too)
+        self.assertEqual(len(result.items), 1)
+        self.assertEqual(result.items[0].label, "binary")
+
+    def test_completion_self_outputs_filtered_by_prefix(self):
+        """Test that self.outputs.* completion filters by prefix."""
+        server = create_server()
+        open_handler = server.handlers["textDocument/didOpen"]
+        completion_handler = server.handlers["textDocument/completion"]
+
+        # Open a document with multiple named outputs
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  build:\n    outputs:\n      - binary: dist/app\n      - log: logs/build.log\n      - report: reports/build.html\n    cmd: echo {{ self.outputs.lo",
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion after "{{ self.outputs.lo"
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
+            position=Position(line=6, character=len("    cmd: echo {{ self.outputs.lo")),
+        )
+
+        result = completion_handler(completion_params)
+
+        # Should only get "log" (starts with "lo")
+        self.assertEqual(len(result.items), 1)
+        self.assertEqual(result.items[0].label, "log")
+
+    def test_completion_self_outputs_skip_anonymous(self):
+        """Test that self.outputs.* completion skips anonymous outputs."""
+        server = create_server()
+        open_handler = server.handlers["textDocument/didOpen"]
+        completion_handler = server.handlers["textDocument/completion"]
+
+        # Open a document with only anonymous outputs
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  build:\n    outputs:\n      - dist/app\n      - logs/build.log\n    cmd: echo {{ self.outputs.",
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion after "{{ self.outputs."
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
+            position=Position(line=5, character=len("    cmd: echo {{ self.outputs.")),
+        )
+
+        result = completion_handler(completion_params)
+
+        # Should get no completions (only anonymous outputs)
+        self.assertEqual(len(result.items), 0)
+
+    def test_completion_self_outputs_mixed_named_anonymous(self):
+        """Test self.outputs.* completion with mixed named and anonymous outputs."""
+        server = create_server()
+        open_handler = server.handlers["textDocument/didOpen"]
+        completion_handler = server.handlers["textDocument/completion"]
+
+        # Open a document with mixed named and anonymous outputs
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  build:\n    outputs:\n      - dist/temp\n      - binary: dist/app\n      - logs/*.log\n      - report: reports/build.html\n    cmd: echo {{ self.outputs.",
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion after "{{ self.outputs."
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
+            position=Position(line=7, character=len("    cmd: echo {{ self.outputs.")),
+        )
+
+        result = completion_handler(completion_params)
+
+        # Should only get named outputs
+        self.assertEqual(len(result.items), 2)
+        output_names = {item.label for item in result.items}
+        self.assertEqual(output_names, {"binary", "report"})
+
+    def test_completion_self_outputs_different_tasks(self):
+        """Test that self.outputs.* completion is scoped to the current task."""
+        server = create_server()
+        open_handler = server.handlers["textDocument/didOpen"]
+        completion_handler = server.handlers["textDocument/completion"]
+
+        # Open a document with multiple tasks with different outputs
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  build:\n    outputs:\n      - binary: dist/app\n    cmd: echo building\n  deploy:\n    outputs:\n      - log: deploy.log\n    cmd: echo {{ self.outputs.",
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion in deploy task's cmd
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
+            position=Position(line=8, character=len("    cmd: echo {{ self.outputs.")),
+        )
+
+        result = completion_handler(completion_params)
+
+        # Should only get deploy task's outputs (not build task's outputs)
+        self.assertEqual(len(result.items), 1)
+        self.assertEqual(result.items[0].label, "log")
+
 
 class TestMain(unittest.TestCase):
     """Tests for main entry point."""
