@@ -157,7 +157,8 @@ def _is_in_list_field(text: str, position: Position, field_name: str) -> bool:
                 return position.character >= len(list_item_match.group(0))
             return False
 
-        # If we hit another field at the same or lower indentation, we're not in this field
+        # If we hit another field (at any indentation level), stop searching
+        # This assumes tasktree YAML doesn't have nested structures within list fields
         if re.match(r'^(\s*)[a-zA-Z_][a-zA-Z0-9_]*:\s*', prev_line):
             return False
 
