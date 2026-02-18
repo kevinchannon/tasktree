@@ -32,6 +32,12 @@ def _is_position_valid(text: str, position: Position) -> tuple[list[str], str] |
 def is_in_cmd_field(text: str, position: Position) -> bool:
     """Check if the given position is inside a cmd field value.
 
+    Handles both single-line and multi-line formats:
+    - cmd: echo hello
+    - cmd: |
+        echo line 1
+        echo line 2
+
     Args:
         text: The full document text
         position: The position to check (line and character)
@@ -45,8 +51,7 @@ def is_in_cmd_field(text: str, position: Position) -> bool:
 
     lines, line = result
 
-    # Simple heuristic: if we're on a line that contains "cmd:" followed by text,
-    # and the position is after "cmd:", we're in a cmd field
+    # Check if we're on a line that contains "cmd:" followed by text (single-line format)
     cmd_match = re.match(r'^(\s*)cmd:\s*(.*)$', line)
     if cmd_match:
         # Find where the value starts (after "cmd:")
@@ -56,6 +61,21 @@ def is_in_cmd_field(text: str, position: Position) -> bool:
 
         # Position is in cmd field if it's after "cmd:" on this line
         return position.character >= value_start
+
+    # Check if we're in a multi-line cmd block (cmd: | or cmd: >)
+    # Walk backwards to find if we're inside a cmd section
+    for i in range(position.line, -1, -1):
+        prev_line = lines[i]
+
+        # Check if we hit the cmd: line with block scalar indicator
+        if re.match(r'^(\s*)cmd:\s*[|>][-+]?\s*$', prev_line):
+            # We're inside the cmd section
+            # Position is valid anywhere on continuation lines
+            return True
+
+        # If we hit another field, we're not in cmd
+        if re.match(r'^(\s*)[a-zA-Z_][a-zA-Z0-9_]*:\s*', prev_line):
+            return False
 
     return False
 

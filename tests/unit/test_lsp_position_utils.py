@@ -152,6 +152,51 @@ class TestIsInCmdField(unittest.TestCase):
         position = Position(line=10, character=0)
         self.assertFalse(is_in_cmd_field(text, position))
 
+    def test_position_in_multiline_cmd_literal(self):
+        """Test that position in multi-line cmd (|) returns True."""
+        text = """tasks:
+  build:
+    cmd: |
+      echo line 1
+      echo line 2"""
+        # Position on second line of multi-line cmd
+        position = Position(line=4, character=len("      echo line"))
+        self.assertTrue(is_in_cmd_field(text, position))
+
+    def test_position_in_multiline_cmd_folded(self):
+        """Test that position in multi-line cmd (>) returns True."""
+        text = """tasks:
+  deploy:
+    cmd: >
+      docker run
+      --rm
+      myapp"""
+        # Position on third line of multi-line cmd
+        position = Position(line=5, character=len("      my"))
+        self.assertTrue(is_in_cmd_field(text, position))
+
+    def test_position_in_multiline_cmd_strip(self):
+        """Test that position in multi-line cmd with strip (|-) returns True."""
+        text = """tasks:
+  test:
+    cmd: |-
+      pytest tests/
+      coverage report"""
+        # Position on first line of multi-line cmd content
+        position = Position(line=3, character=len("      pytest"))
+        self.assertTrue(is_in_cmd_field(text, position))
+
+    def test_position_after_multiline_cmd_in_different_field(self):
+        """Test that position after multi-line cmd in different field returns False."""
+        text = """tasks:
+  build:
+    cmd: |
+      echo building
+    deps: [lint]"""
+        # Position in deps field (after multi-line cmd)
+        position = Position(line=4, character=len("    deps: "))
+        self.assertFalse(is_in_cmd_field(text, position))
+
 
 class TestGetPrefixAtPosition(unittest.TestCase):
     """Tests for get_prefix_at_position function."""
