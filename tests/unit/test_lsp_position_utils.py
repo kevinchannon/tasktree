@@ -443,9 +443,14 @@ class TestIsInSubstitutableField(unittest.TestCase):
         self.assertTrue(is_in_substitutable_field(text, position))
 
     def test_position_in_non_substitutable_field(self):
-        """Test that position in non-substitutable field returns False."""
-        text = "tasks:\n  hello:\n    deps: [build]"
-        position = Position(line=2, character=len("    deps: "))
+        """Test that position in non-substitutable field returns False.
+
+        Note: deps and outputs fields ARE substitutable (for parameterized deps
+        and templated output paths), even if they don't currently contain templates.
+        This test uses the 'desc' field which is never substitutable.
+        """
+        text = "tasks:\n  hello:\n    desc: Some description"
+        position = Position(line=2, character=len("    desc: "))
         self.assertFalse(is_in_substitutable_field(text, position))
 
     def test_position_in_desc_field(self):
