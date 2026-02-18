@@ -9,7 +9,43 @@ from tasktree.lsp.position_utils import (
     get_prefix_at_position,
     get_task_at_position,
     _is_in_list_field,
+    _is_position_valid,
 )
+
+
+class TestIsPositionValid(unittest.TestCase):
+    """Tests for _is_position_valid helper function."""
+
+    def test_valid_position(self):
+        """Test that valid position returns lines and line."""
+        text = "tasks:\n  hello:\n    cmd: echo"
+        position = Position(line=2, character=5)
+        result = _is_position_valid(text, position)
+        self.assertIsNotNone(result)
+        lines, line = result
+        self.assertEqual(len(lines), 3)
+        self.assertEqual(line, "    cmd: echo")
+
+    def test_position_out_of_bounds(self):
+        """Test that position beyond document returns None."""
+        text = "tasks:\n  hello:\n    cmd: echo"
+        position = Position(line=10, character=0)
+        result = _is_position_valid(text, position)
+        self.assertIsNone(result)
+
+    def test_position_beyond_line_length(self):
+        """Test that position beyond line length returns None."""
+        text = "tasks:\n  hello:\n    cmd: echo"
+        position = Position(line=2, character=100)
+        result = _is_position_valid(text, position)
+        self.assertIsNone(result)
+
+    def test_position_at_end_of_line(self):
+        """Test that position at end of line (after last char) is valid."""
+        text = "tasks:\n  hello:\n    cmd: echo"
+        position = Position(line=2, character=len("    cmd: echo"))
+        result = _is_position_valid(text, position)
+        self.assertIsNotNone(result)
 
 
 class TestIsInListField(unittest.TestCase):

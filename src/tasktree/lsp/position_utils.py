@@ -5,6 +5,30 @@ import yaml
 from lsprotocol.types import Position
 
 
+def _is_position_valid(text: str, position: Position) -> tuple[list[str], str] | None:
+    """Check if position is within document bounds and return lines and current line.
+
+    Args:
+        text: The full document text
+        position: The position to check (line and character)
+
+    Returns:
+        Tuple of (lines, current_line) if position is valid, None otherwise
+    """
+    lines = text.split("\n")
+
+    # Check if position is within document bounds
+    if position.line >= len(lines):
+        return None
+
+    line = lines[position.line]
+    # Allow position at end of line (cursor after last character)
+    if position.character > len(line):
+        return None
+
+    return (lines, line)
+
+
 def is_in_cmd_field(text: str, position: Position) -> bool:
     """Check if the given position is inside a cmd field value.
 
@@ -15,16 +39,11 @@ def is_in_cmd_field(text: str, position: Position) -> bool:
     Returns:
         True if the position is inside a cmd field value, False otherwise
     """
-    lines = text.split("\n")
-
-    # Check if position is within document bounds
-    if position.line >= len(lines):
+    result = _is_position_valid(text, position)
+    if result is None:
         return False
 
-    line = lines[position.line]
-    # Allow position at end of line (cursor after last character)
-    if position.character > len(line):
-        return False
+    lines, line = result
 
     # Simple heuristic: if we're on a line that contains "cmd:" followed by text,
     # and the position is after "cmd:", we're in a cmd field
@@ -51,16 +70,11 @@ def is_in_working_dir_field(text: str, position: Position) -> bool:
     Returns:
         True if the position is inside a working_dir field value, False otherwise
     """
-    lines = text.split("\n")
-
-    # Check if position is within document bounds
-    if position.line >= len(lines):
+    result = _is_position_valid(text, position)
+    if result is None:
         return False
 
-    line = lines[position.line]
-    # Allow position at end of line (cursor after last character)
-    if position.character > len(line):
-        return False
+    lines, line = result
 
     # Check if we're on a line that contains "working_dir:" followed by text
     working_dir_match = re.match(r'^(\s*)working_dir:\s*(.*)$', line)
@@ -92,16 +106,11 @@ def _is_in_list_field(text: str, position: Position, field_name: str) -> bool:
     Returns:
         True if the position is inside the field value, False otherwise
     """
-    lines = text.split("\n")
-
-    # Check if position is within document bounds
-    if position.line >= len(lines):
+    result = _is_position_valid(text, position)
+    if result is None:
         return False
 
-    line = lines[position.line]
-    # Allow position at end of line (cursor after last character)
-    if position.character > len(line):
-        return False
+    lines, line = result
 
     # Check if we're on a line that contains "field_name:" followed by text (single-line format)
     field_match = re.match(rf'^(\s*){re.escape(field_name)}:\s*(.*)$', line)
