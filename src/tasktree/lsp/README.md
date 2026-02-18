@@ -100,11 +100,28 @@ tasks:
 - Only **named** inputs are completed (e.g., `- source: path`). Anonymous inputs (e.g., `- path`) are not included.
 - `self.inputs.*` completions are scoped to the task containing the cursor. Inputs from other tasks are not suggested.
 
+#### Named Outputs (`self.outputs.*`)
+
+Complete named outputs defined in the current task (context-aware, available in substitutable fields):
+
+```yaml
+tasks:
+  build:
+    outputs:
+      - binary: dist/app
+      - log: logs/build.log
+    cmd: echo "Built {{ self.outputs.█  # Completes: binary, log
+```
+
+**Important**:
+- Only **named** outputs are completed (e.g., `- binary: path`). Anonymous outputs (e.g., `- path`) are not included.
+- `self.outputs.*` completions are scoped to the task containing the cursor. Outputs from other tasks are not suggested.
+
 ### Intelligent Context Awareness
 
 - **Prefix filtering**: Completions filter by partial match (e.g., `{{ tt.time` → only `timestamp`, `timestamp_unix`)
-- **Task scoping**: `arg.*` and `self.inputs.*` completions are scoped to the task containing the cursor
-- **Field-aware**: `arg.*` completions are only available in fields that support argument substitution: `cmd`, `working_dir`, `outputs`, `deps`, and `args[].default`
+- **Task scoping**: `arg.*`, `self.inputs.*`, and `self.outputs.*` completions are scoped to the task containing the cursor
+- **Field-aware**: `arg.*`, `self.inputs.*`, and `self.outputs.*` completions are only available in fields that support substitution: `cmd`, `working_dir`, `outputs`, `deps`, and `args[].default`
 - **Template boundaries**: No completions after closing `}}` braces
 - **Graceful degradation**: Works with incomplete/malformed YAML during editing
 
@@ -284,7 +301,6 @@ The following features are planned but not yet implemented:
 
 - Environment variable completion (`env.*`)
 - Dependency output completion (`dep.*.outputs.*`)
-- Self-reference output completion (`self.outputs.*`)
 - Task name completion in `deps` lists
 - Diagnostics (undefined variables, missing dependencies, circular deps)
 - Go-to-definition for task references and imports
