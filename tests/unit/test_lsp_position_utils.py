@@ -294,6 +294,56 @@ class TestIsInWorkingDirField(unittest.TestCase):
         self.assertTrue(is_in_working_dir_field(text, position))
 
 
+class TestIsInOutputsField(unittest.TestCase):
+    """Tests for is_in_outputs_field function."""
+
+    def test_position_in_outputs_field_single_line(self):
+        """Test that position in outputs field (single-line format) returns True."""
+        text = "tasks:\n  hello:\n    outputs: [\"file-{{ arg."
+        position = Position(line=2, character=len("    outputs: "))
+        from tasktree.lsp.position_utils import is_in_outputs_field
+        self.assertTrue(is_in_outputs_field(text, position))
+
+    def test_position_in_outputs_field_multi_line(self):
+        """Test that position in outputs field (multi-line format) returns True."""
+        text = "tasks:\n  hello:\n    outputs:\n      - file-{{ arg."
+        position = Position(line=3, character=len("      - file-"))
+        from tasktree.lsp.position_utils import is_in_outputs_field
+        self.assertTrue(is_in_outputs_field(text, position))
+
+    def test_position_not_in_outputs_field(self):
+        """Test that position outside outputs field returns False."""
+        text = "tasks:\n  hello:\n    cmd: echo hello"
+        position = Position(line=2, character=len("    cmd: echo"))
+        from tasktree.lsp.position_utils import is_in_outputs_field
+        self.assertFalse(is_in_outputs_field(text, position))
+
+
+class TestIsInDepsField(unittest.TestCase):
+    """Tests for is_in_deps_field function."""
+
+    def test_position_in_deps_field_single_line(self):
+        """Test that position in deps field (single-line format) returns True."""
+        text = "tasks:\n  hello:\n    deps: [task({{ arg."
+        position = Position(line=2, character=len("    deps: "))
+        from tasktree.lsp.position_utils import is_in_deps_field
+        self.assertTrue(is_in_deps_field(text, position))
+
+    def test_position_in_deps_field_multi_line(self):
+        """Test that position in deps field (multi-line format) returns True."""
+        text = "tasks:\n  hello:\n    deps:\n      - task: [{{ arg."
+        position = Position(line=3, character=len("      - task: "))
+        from tasktree.lsp.position_utils import is_in_deps_field
+        self.assertTrue(is_in_deps_field(text, position))
+
+    def test_position_not_in_deps_field(self):
+        """Test that position outside deps field returns False."""
+        text = "tasks:\n  hello:\n    cmd: echo hello"
+        position = Position(line=2, character=len("    cmd: echo"))
+        from tasktree.lsp.position_utils import is_in_deps_field
+        self.assertFalse(is_in_deps_field(text, position))
+
+
 class TestIsInSubstitutableField(unittest.TestCase):
     """Tests for is_in_substitutable_field function."""
 
@@ -307,6 +357,18 @@ class TestIsInSubstitutableField(unittest.TestCase):
         """Test that position in working_dir field returns True."""
         text = "tasks:\n  hello:\n    working_dir: {{ arg."
         position = Position(line=2, character=len("    working_dir: "))
+        self.assertTrue(is_in_substitutable_field(text, position))
+
+    def test_position_in_outputs_field(self):
+        """Test that position in outputs field returns True."""
+        text = "tasks:\n  hello:\n    outputs: [\"file-{{ arg."
+        position = Position(line=2, character=len("    outputs: "))
+        self.assertTrue(is_in_substitutable_field(text, position))
+
+    def test_position_in_deps_field(self):
+        """Test that position in deps field returns True."""
+        text = "tasks:\n  hello:\n    deps: [task({{ arg."
+        position = Position(line=2, character=len("    deps: "))
         self.assertTrue(is_in_substitutable_field(text, position))
 
     def test_position_in_default_field(self):
