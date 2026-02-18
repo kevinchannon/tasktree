@@ -41,6 +41,89 @@ def is_in_cmd_field(text: str, position: Position) -> bool:
     return False
 
 
+def is_in_working_dir_field(text: str, position: Position) -> bool:
+    """Check if the given position is inside a working_dir field value.
+
+    Args:
+        text: The full document text
+        position: The position to check (line and character)
+
+    Returns:
+        True if the position is inside a working_dir field value, False otherwise
+    """
+    lines = text.split("\n")
+
+    # Check if position is within document bounds
+    if position.line >= len(lines):
+        return False
+
+    line = lines[position.line]
+    # Allow position at end of line (cursor after last character)
+    if position.character > len(line):
+        return False
+
+    # Check if we're on a line that contains "working_dir:" followed by text
+    working_dir_match = re.match(r'^(\s*)working_dir:\s*(.*)$', line)
+    if working_dir_match:
+        # Find where the value starts (after "working_dir:")
+        indent = working_dir_match.group(1)
+        prefix = f"{indent}working_dir:"
+        value_start = len(prefix)
+
+        # Position is in working_dir field if it's after "working_dir:" on this line
+        return position.character >= value_start
+
+    return False
+
+
+def is_in_substitutable_field(text: str, position: Position) -> bool:
+    """Check if position is in a field that supports arg.* and self.* substitutions.
+
+    These substitutions are valid in:
+    - cmd field
+    - working_dir field
+    - args[].default field (argument defaults)
+
+    Args:
+        text: The full document text
+        position: The position to check (line and character)
+
+    Returns:
+        True if the position is in a field supporting substitutions, False otherwise
+    """
+    # Check cmd and working_dir fields
+    if is_in_cmd_field(text, position) or is_in_working_dir_field(text, position):
+        return True
+
+    # Check if we're in an args default field
+    # This is a bit more complex as defaults can be nested inside args
+    lines = text.split("\n")
+    if position.line >= len(lines):
+        return False
+
+    line = lines[position.line]
+    if position.character > len(line):
+        return False
+
+    # Check for block-style "default:" field pattern
+    default_match = re.match(r'^(\s*)default:\s*(.*)$', line)
+    if default_match:
+        indent = default_match.group(1)
+        prefix = f"{indent}default:"
+        value_start = len(prefix)
+        return position.character >= value_start
+
+    # Check for flow-style default: { default: "value" }
+    # Look for pattern: default: followed by quote or opening brace
+    flow_default_match = re.search(r'default:\s*["{]', line)
+    if flow_default_match:
+        # Position is in default if it's after "default:"
+        default_start = flow_default_match.start() + len("default:")
+        return position.character >= default_start
+
+    return False
+
+
 def _extract_task_names_heuristic(text: str) -> list[str]:
     """Extract task names from potentially incomplete YAML using heuristics.
 

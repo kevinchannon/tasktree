@@ -697,6 +697,180 @@ class TestCreateServer(unittest.TestCase):
         self.assertEqual(len(result.items), 1)
         self.assertEqual(result.items[0].label, "environment")
 
+    def test_completion_self_inputs_in_cmd_field(self):
+        """Test self.inputs.* completion in cmd field."""
+        server = create_server()
+        open_handler = server.handlers["textDocument/didOpen"]
+        completion_handler = server.handlers["textDocument/completion"]
+
+        # Open a document with named inputs
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  build:\n    inputs:\n      - source: src/main.c\n      - header: include/defs.h\n    cmd: echo {{ self.inputs.",
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion after "{{ self.inputs."
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
+            position=Position(line=5, character=len("    cmd: echo {{ self.inputs.")),
+        )
+
+        result = completion_handler(completion_params)
+
+        # Should get both named inputs
+        self.assertEqual(len(result.items), 2)
+        input_names = {item.label for item in result.items}
+        self.assertEqual(input_names, {"header", "source"})
+
+    def test_completion_self_inputs_not_in_cmd_field(self):
+        """Test that self.inputs.* completion only works in cmd fields."""
+        server = create_server()
+        open_handler = server.handlers["textDocument/didOpen"]
+        completion_handler = server.handlers["textDocument/completion"]
+
+        # Open a document where we're in deps field (not cmd)
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  build:\n    inputs:\n      - source: src/main.c\n    deps: [{{ self.inputs.",
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion in deps field
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
+            position=Position(line=4, character=len("    deps: [{{ self.inputs.")),
+        )
+
+        result = completion_handler(completion_params)
+
+        # Should get no completions (not in cmd field)
+        self.assertEqual(len(result.items), 0)
+
+    def test_completion_self_inputs_filtered_by_prefix(self):
+        """Test that self.inputs.* completion filters by prefix."""
+        server = create_server()
+        open_handler = server.handlers["textDocument/didOpen"]
+        completion_handler = server.handlers["textDocument/completion"]
+
+        # Open a document with multiple named inputs
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  build:\n    inputs:\n      - source: src/main.c\n      - header: include/defs.h\n      - config: config.yaml\n    cmd: echo {{ self.inputs.so",
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion after "{{ self.inputs.so"
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
+            position=Position(line=6, character=len("    cmd: echo {{ self.inputs.so")),
+        )
+
+        result = completion_handler(completion_params)
+
+        # Should only get "source" (starts with "so")
+        self.assertEqual(len(result.items), 1)
+        self.assertEqual(result.items[0].label, "source")
+
+    def test_completion_self_inputs_skip_anonymous(self):
+        """Test that self.inputs.* completion skips anonymous inputs."""
+        server = create_server()
+        open_handler = server.handlers["textDocument/didOpen"]
+        completion_handler = server.handlers["textDocument/completion"]
+
+        # Open a document with only anonymous inputs
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  build:\n    inputs:\n      - src/main.c\n      - include/defs.h\n    cmd: echo {{ self.inputs.",
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion after "{{ self.inputs."
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
+            position=Position(line=5, character=len("    cmd: echo {{ self.inputs.")),
+        )
+
+        result = completion_handler(completion_params)
+
+        # Should get no completions (only anonymous inputs)
+        self.assertEqual(len(result.items), 0)
+
+    def test_completion_self_inputs_mixed_named_anonymous(self):
+        """Test self.inputs.* completion with mixed named and anonymous inputs."""
+        server = create_server()
+        open_handler = server.handlers["textDocument/didOpen"]
+        completion_handler = server.handlers["textDocument/completion"]
+
+        # Open a document with mixed named and anonymous inputs
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  build:\n    inputs:\n      - src/main.c\n      - source: src/lib.c\n      - include/defs.h\n      - header: include/lib.h\n    cmd: echo {{ self.inputs.",
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion after "{{ self.inputs."
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
+            position=Position(line=7, character=len("    cmd: echo {{ self.inputs.")),
+        )
+
+        result = completion_handler(completion_params)
+
+        # Should only get named inputs
+        self.assertEqual(len(result.items), 2)
+        input_names = {item.label for item in result.items}
+        self.assertEqual(input_names, {"header", "source"})
+
+    def test_completion_self_inputs_different_tasks(self):
+        """Test that self.inputs.* completion is scoped to the current task."""
+        server = create_server()
+        open_handler = server.handlers["textDocument/didOpen"]
+        completion_handler = server.handlers["textDocument/completion"]
+
+        # Open a document with multiple tasks with different inputs
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  build:\n    inputs:\n      - source: src/main.c\n    cmd: echo building\n  deploy:\n    inputs:\n      - config: deploy.yaml\n    cmd: echo {{ self.inputs.",
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion in deploy task's cmd
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
+            position=Position(line=8, character=len("    cmd: echo {{ self.inputs.")),
+        )
+
+        result = completion_handler(completion_params)
+
+        # Should only get deploy task's inputs (not build task's inputs)
+        self.assertEqual(len(result.items), 1)
+        self.assertEqual(result.items[0].label, "config")
+
 
 class TestMain(unittest.TestCase):
     """Tests for main entry point."""

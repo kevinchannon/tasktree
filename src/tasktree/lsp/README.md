@@ -69,10 +69,27 @@ tasks:
 
 **Important**: `arg.*` completions are scoped to the task containing the cursor. Arguments from other tasks are not suggested.
 
+#### Named Inputs (`self.inputs.*`)
+
+Complete named inputs defined in the current task (context-aware, only inside `cmd` fields):
+
+```yaml
+tasks:
+  build:
+    inputs:
+      - source: src/main.c
+      - header: include/defs.h
+    cmd: gcc {{ self.inputs.█  # Completes: source, header
+```
+
+**Important**:
+- Only **named** inputs are completed (e.g., `- source: path`). Anonymous inputs (e.g., `- path`) are not included.
+- `self.inputs.*` completions are scoped to the task containing the cursor. Inputs from other tasks are not suggested.
+
 ### Intelligent Context Awareness
 
 - **Prefix filtering**: Completions filter by partial match (e.g., `{{ tt.time` → only `timestamp`, `timestamp_unix`)
-- **Task scoping**: `arg.*` completions only appear inside task `cmd` fields and are scoped to that task's arguments
+- **Task scoping**: `arg.*` and `self.inputs.*` completions only appear inside task `cmd` fields and are scoped to that task's arguments/inputs
 - **Template boundaries**: No completions after closing `}}` braces
 - **Graceful degradation**: Works with incomplete/malformed YAML during editing
 
@@ -252,7 +269,7 @@ The following features are planned but not yet implemented:
 
 - Environment variable completion (`env.*`)
 - Dependency output completion (`dep.*.outputs.*`)
-- Self-reference completion (`self.inputs.*`, `self.outputs.*`)
+- Self-reference output completion (`self.outputs.*`)
 - Task name completion in `deps` lists
 - Diagnostics (undefined variables, missing dependencies, circular deps)
 - Go-to-definition for task references and imports

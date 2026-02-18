@@ -199,3 +199,157 @@ def extract_task_args(text: str, task_name: str) -> list[str]:
         logger.debug(f"YAML parse failed for task args extraction: {e}")
         arg_names = _extract_task_args_heuristic(text, task_name)
         return sorted(arg_names)
+
+
+def _extract_task_inputs_heuristic(text: str, task_name: str) -> list[str]:
+    """Extract named inputs from potentially incomplete YAML using heuristics.
+
+    This function is used as a fallback when yaml.safe_load() fails due to
+    incomplete or malformed YAML (common during LSP editing). It uses regex
+    patterns to identify named input identifiers from the text structure.
+
+    Only extracts NAMED inputs (e.g., "source: path/to/file" or "{ source: ... }"),
+    not anonymous inputs (e.g., "- path/to/file"). Anonymous inputs cannot be
+    referenced via {{ self.inputs.* }} syntax.
+
+    Handles both formats:
+    - Dict format: inputs: [{ source: "path" }, { header: "path" }]
+    - Key-value format: inputs:\n  - source: path\n  - header: path
+
+    Limitations:
+    - Searches up to 20 lines after task definition (performance trade-off)
+    - May not handle complex nested structures correctly
+    - Best-effort extraction that prioritizes availability over accuracy
+    - Should only be used when yaml.safe_load() fails
+
+    Args:
+        text: The YAML document text (potentially incomplete)
+        task_name: The name of the task to extract inputs from (exact match required)
+
+    Returns:
+        List of named input identifiers found for the task (may contain duplicates).
+        Returns empty list if task not found or no inputs field found.
+    """
+    input_names = []
+
+    # Escape the task name for regex matching
+    escaped_task = re.escape(task_name)
+
+    # Find the task definition line
+    lines = text.split('\n')
+    task_line_idx = None
+
+    for i, line in enumerate(lines):
+        # Match task name as a key (with colon)
+        if re.search(escaped_task + r'\s*:', line):
+            task_line_idx = i
+            break
+
+    if task_line_idx is None:
+        return []
+
+    # Now search forward for inputs field
+    # Pattern 1: Flow-style list - inputs: [{ source: ... }, ...]
+    flow_pattern = r'inputs\s*:\s*\[([^\]]*)'
+
+    # Search from task line onwards
+    for i in range(task_line_idx, min(task_line_idx + 20, len(lines))):
+        line = lines[i]
+
+        # Check for flow-style inputs
+        flow_match = re.search(flow_pattern, line)
+        if flow_match:
+            # Extract inputs from the list
+            inputs_content = flow_match.group(1)
+            # Look for dict entries: { name: ... }
+            # Match opening brace, followed by identifier and colon
+            dict_pattern = r'\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:'
+            for match in re.finditer(dict_pattern, inputs_content):
+                input_names.append(match.group(1))
+            break
+
+        # Check for block-style inputs start
+        if re.match(r'\s+inputs\s*:\s*$', line):
+            # Next lines should be list items
+            for j in range(i + 1, min(i + 15, len(lines))):
+                item_line = lines[j]
+                # Match list item with dict: "  - { name: ... }" or "  - name: ..."
+                # First try dict format
+                dict_item_match = re.match(r'\s+-\s*\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:', item_line)
+                if dict_item_match:
+                    input_names.append(dict_item_match.group(1))
+                    continue
+
+                # Try key-value format: "  - name: value"
+                kv_item_match = re.match(r'\s+-\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*:', item_line)
+                if kv_item_match:
+                    input_names.append(kv_item_match.group(1))
+                    continue
+
+                # Check if we hit another field (stop parsing inputs)
+                if re.match(r'\s+[a-zA-Z]', item_line) and not re.match(r'\s+-', item_line):
+                    break
+            break
+
+    return input_names
+
+
+def extract_task_inputs(text: str, task_name: str) -> list[str]:
+    """Extract named input identifiers for a specific task from tasktree YAML text.
+
+    Only extracts NAMED inputs (e.g., "source: path/to/file"), not anonymous
+    inputs (e.g., "- path/to/file"). This is because only named inputs can be
+    referenced via {{ self.inputs.name }} syntax.
+
+    Named inputs can be specified in two formats:
+    1. Dict format: { name: "path/to/file" }
+    2. Key-value format: name: path/to/file
+
+    Edge cases:
+    - Imported/namespaced tasks: Requires the full namespaced name (e.g., "build.compile")
+    - Private tasks: Returns inputs regardless of private: true setting
+    - Anonymous inputs: Ignored (returns empty list if task has only anonymous inputs)
+    - Missing inputs: Returns empty list if task has no inputs defined
+    - Invalid task name: Returns empty list if task doesn't exist
+
+    Args:
+        text: The YAML document text (may be incomplete during editing)
+        task_name: The name of the task to extract inputs from
+
+    Returns:
+        Alphabetically sorted list of named input identifiers defined for the task.
+        Returns empty list if task not found, has no inputs, or YAML is unparseable.
+    """
+    try:
+        data = yaml.safe_load(text)
+        if not isinstance(data, dict):
+            return []
+
+        tasks = data.get("tasks", {})
+        if not isinstance(tasks, dict):
+            return []
+
+        task = tasks.get(task_name)
+        if not isinstance(task, dict):
+            return []
+
+        inputs = task.get("inputs", [])
+        if not isinstance(inputs, list):
+            return []
+
+        # Extract named input identifiers from the inputs list
+        # Named inputs are dicts with the input name as key
+        # Anonymous inputs are strings (we skip these)
+        input_names = []
+        for input_item in inputs:
+            if isinstance(input_item, dict):
+                # Each dict should have the input name as key
+                input_names.extend(input_item.keys())
+
+        return sorted(input_names)
+    except (yaml.YAMLError, AttributeError) as e:
+        # YAML parsing failed (likely incomplete YAML during editing)
+        # Fall back to heuristic regex-based extraction
+        logger.debug(f"YAML parse failed for task inputs extraction: {e}")
+        input_names = _extract_task_inputs_heuristic(text, task_name)
+        return sorted(input_names)
