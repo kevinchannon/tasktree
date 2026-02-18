@@ -553,7 +553,7 @@ class TestCreateServer(unittest.TestCase):
         self.assertEqual(arg_names, {"name", "version"})
 
     def test_completion_arg_not_in_cmd_field(self):
-        """Test that arg.* completion is not provided outside cmd field."""
+        """Test that arg.* completion IS provided in deps field (for parameterized deps)."""
         server = create_server()
         open_handler = server.handlers["textDocument/didOpen"]
         completion_handler = server.handlers["textDocument/completion"]
@@ -569,7 +569,7 @@ class TestCreateServer(unittest.TestCase):
         )
         open_handler(open_params)
 
-        # Request completion in deps field (not cmd)
+        # Request completion in deps field (parameterized dependencies support arg.*)
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
             position=Position(line=4, character=len("    deps: {{ arg.")),
@@ -577,8 +577,9 @@ class TestCreateServer(unittest.TestCase):
 
         result = completion_handler(completion_params)
 
-        # Should get no completions (arg.* only valid in cmd fields)
-        self.assertEqual(len(result.items), 0)
+        # Should get arg completion (arg.* is valid in deps fields for parameterized dependencies)
+        self.assertEqual(len(result.items), 1)
+        self.assertEqual(result.items[0].label, "name")
 
     def test_completion_arg_dict_format(self):
         """Test arg.* completion with dict-format args (with types/defaults)."""
@@ -728,7 +729,7 @@ class TestCreateServer(unittest.TestCase):
         self.assertEqual(input_names, {"header", "source"})
 
     def test_completion_self_inputs_not_in_cmd_field(self):
-        """Test that self.inputs.* completion only works in cmd fields."""
+        """Test that self.inputs.* completion works in deps fields."""
         server = create_server()
         open_handler = server.handlers["textDocument/didOpen"]
         completion_handler = server.handlers["textDocument/completion"]
@@ -752,8 +753,9 @@ class TestCreateServer(unittest.TestCase):
 
         result = completion_handler(completion_params)
 
-        # Should get no completions (not in cmd field)
-        self.assertEqual(len(result.items), 0)
+        # Should get completions (self.inputs.* works in deps fields too)
+        self.assertEqual(len(result.items), 1)
+        self.assertEqual(result.items[0].label, "source")
 
     def test_completion_self_inputs_filtered_by_prefix(self):
         """Test that self.inputs.* completion filters by prefix."""

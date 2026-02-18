@@ -647,6 +647,73 @@ class TestLSPCompletionIntegration(unittest.TestCase):
         arg_names = {item.label for item in result.items}
         self.assertEqual(arg_names, {"build_dir", "mode"})
 
+    def test_arg_completion_in_outputs_field(self):
+        """Test that arg.* completion works in outputs field."""
+        # Open a document with a task that has args and outputs
+        open_handler = self.server.handlers["textDocument/didOpen"]
+        open_handler(
+            DidOpenTextDocumentParams(
+                text_document=TextDocumentItem(
+                    uri="file:///test.yaml",
+                    language_id="yaml",
+                    version=1,
+                    text="""tasks:
+  deploy:
+    args:
+      - app_name
+      - version
+    outputs: ["deploy-{{ arg.""",
+                )
+            )
+        )
+
+        # Request completion in outputs field after "{{ arg."
+        completion_handler = self.server.handlers["textDocument/completion"]
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test.yaml"),
+            position=Position(line=5, character=len('    outputs: ["deploy-{{ arg.')),
+        )
+        result = completion_handler(completion_params)
+
+        # Verify we get args in outputs field
+        self.assertEqual(len(result.items), 2)
+        arg_names = {item.label for item in result.items}
+        self.assertEqual(arg_names, {"app_name", "version"})
+
+    def test_arg_completion_in_deps_field(self):
+        """Test that arg.* completion works in deps field."""
+        # Open a document with a task that has args and deps
+        open_handler = self.server.handlers["textDocument/didOpen"]
+        open_handler(
+            DidOpenTextDocumentParams(
+                text_document=TextDocumentItem(
+                    uri="file:///test.yaml",
+                    language_id="yaml",
+                    version=1,
+                    text="""tasks:
+  consumer:
+    args:
+      - mode
+      - target
+    deps:
+      - process: [{{ arg.""",
+                )
+            )
+        )
+
+        # Request completion in deps field after "{{ arg."
+        completion_handler = self.server.handlers["textDocument/completion"]
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test.yaml"),
+            position=Position(line=6, character=len("      - process: [{{ arg.")),
+        )
+        result = completion_handler(completion_params)
+
+        # Verify we get args in deps field
+        self.assertEqual(len(result.items), 2)
+        arg_names = {item.label for item in result.items}
+        self.assertEqual(arg_names, {"mode", "target"})
+
 
 if __name__ == "__main__":
     unittest.main()

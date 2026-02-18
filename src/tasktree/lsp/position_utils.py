@@ -5,8 +5,38 @@ import yaml
 from lsprotocol.types import Position
 
 
+def _is_position_valid(text: str, position: Position) -> tuple[list[str], str] | None:
+    """Check if position is within document bounds and return lines and current line.
+
+    Args:
+        text: The full document text
+        position: The position to check (line and character)
+
+    Returns:
+        Tuple of (lines, current_line) if position is valid, None otherwise
+    """
+    lines = text.split("\n")
+
+    # Check if position is within document bounds
+    if position.line >= len(lines):
+        return None
+
+    line = lines[position.line]
+    # Allow position at end of line (cursor after last character)
+    if position.character > len(line):
+        return None
+
+    return (lines, line)
+
+
 def is_in_cmd_field(text: str, position: Position) -> bool:
     """Check if the given position is inside a cmd field value.
+
+    Handles both single-line and multi-line formats:
+    - cmd: echo hello
+    - cmd: |
+        echo line 1
+        echo line 2
 
     Args:
         text: The full document text
@@ -15,19 +45,13 @@ def is_in_cmd_field(text: str, position: Position) -> bool:
     Returns:
         True if the position is inside a cmd field value, False otherwise
     """
-    lines = text.split("\n")
-
-    # Check if position is within document bounds
-    if position.line >= len(lines):
+    result = _is_position_valid(text, position)
+    if result is None:
         return False
 
-    line = lines[position.line]
-    # Allow position at end of line (cursor after last character)
-    if position.character > len(line):
-        return False
+    lines, line = result
 
-    # Simple heuristic: if we're on a line that contains "cmd:" followed by text,
-    # and the position is after "cmd:", we're in a cmd field
+    # Check if we're on a line that contains "cmd:" followed by text (single-line format)
     cmd_match = re.match(r'^(\s*)cmd:\s*(.*)$', line)
     if cmd_match:
         # Find where the value starts (after "cmd:")
@@ -37,6 +61,21 @@ def is_in_cmd_field(text: str, position: Position) -> bool:
 
         # Position is in cmd field if it's after "cmd:" on this line
         return position.character >= value_start
+
+    # Check if we're in a multi-line cmd block (cmd: | or cmd: >)
+    # Walk backwards to find if we're inside a cmd section
+    for i in range(position.line, -1, -1):
+        prev_line = lines[i]
+
+        # Check if we hit the cmd: line with block scalar indicator
+        if re.match(r'^(\s*)cmd:\s*[|>][-+]?\s*$', prev_line):
+            # We're inside the cmd section
+            # Position is valid anywhere on continuation lines
+            return True
+
+        # If we hit another field, we're not in cmd
+        if re.match(r'^(\s*)[a-zA-Z_][a-zA-Z0-9_]*:\s*', prev_line):
+            return False
 
     return False
 
@@ -51,16 +90,11 @@ def is_in_working_dir_field(text: str, position: Position) -> bool:
     Returns:
         True if the position is inside a working_dir field value, False otherwise
     """
-    lines = text.split("\n")
-
-    # Check if position is within document bounds
-    if position.line >= len(lines):
+    result = _is_position_valid(text, position)
+    if result is None:
         return False
 
-    line = lines[position.line]
-    # Allow position at end of line (cursor after last character)
-    if position.character > len(line):
-        return False
+    lines, line = result
 
     # Check if we're on a line that contains "working_dir:" followed by text
     working_dir_match = re.match(r'^(\s*)working_dir:\s*(.*)$', line)
@@ -76,12 +110,105 @@ def is_in_working_dir_field(text: str, position: Position) -> bool:
     return False
 
 
+def _is_in_list_field(text: str, position: Position, field_name: str) -> bool:
+    """Check if the given position is inside a list field value (generic helper).
+
+    Handles both single-line and list formats:
+    - field_name: ["value"]
+    - field_name:
+        - "value"
+
+    Args:
+        text: The full document text
+        position: The position to check (line and character)
+        field_name: The name of the field to check (e.g., "outputs", "deps", "inputs")
+
+    Returns:
+        True if the position is inside the field value, False otherwise
+    """
+    result = _is_position_valid(text, position)
+    if result is None:
+        return False
+
+    lines, line = result
+
+    # Check if we're on a line that contains "field_name:" followed by text (single-line format)
+    field_match = re.match(rf'^(\s*){re.escape(field_name)}:\s*(.*)$', line)
+    if field_match:
+        # Find where the value starts (after "field_name:")
+        indent = field_match.group(1)
+        prefix = f"{indent}{field_name}:"
+        value_start = len(prefix)
+
+        # Position is in field if it's after "field_name:" on this line
+        return position.character >= value_start
+
+    # Check if we're in a list item under field_name (multi-line format)
+    # Walk backwards to find if we're inside the field section
+    for i in range(position.line, -1, -1):
+        prev_line = lines[i]
+
+        # Check if we hit the field_name: line
+        if re.match(rf'^(\s*){re.escape(field_name)}:\s*$', prev_line):
+            # We're inside the field section - check if current line is a list item
+            list_item_match = re.match(r'^(\s*)-\s+', line)
+            if list_item_match:
+                # Position must be after the "- " part
+                return position.character >= len(list_item_match.group(0))
+            return False
+
+        # If we hit another field (at any indentation level), stop searching
+        # This assumes tasktree YAML doesn't have nested structures within list fields
+        if re.match(r'^(\s*)[a-zA-Z_][a-zA-Z0-9_]*:\s*', prev_line):
+            return False
+
+    return False
+
+
+def is_in_outputs_field(text: str, position: Position) -> bool:
+    """Check if the given position is inside an outputs field value.
+
+    Handles both single-line and list formats:
+    - outputs: ["file-{{ arg.name }}.txt"]
+    - outputs:
+        - "file-{{ arg.name }}.txt"
+
+    Args:
+        text: The full document text
+        position: The position to check (line and character)
+
+    Returns:
+        True if the position is inside an outputs field value, False otherwise
+    """
+    return _is_in_list_field(text, position, "outputs")
+
+
+def is_in_deps_field(text: str, position: Position) -> bool:
+    """Check if the given position is inside a deps field value.
+
+    Handles both single-line and list formats:
+    - deps: [task({{ arg.value }})]
+    - deps:
+        - task: [{{ arg.value }}]
+
+    Args:
+        text: The full document text
+        position: The position to check (line and character)
+
+    Returns:
+        True if the position is inside a deps field value, False otherwise
+    """
+    return _is_in_list_field(text, position, "deps")
+
+
 def is_in_substitutable_field(text: str, position: Position) -> bool:
     """Check if position is in a field that supports arg.* and self.* substitutions.
 
     These substitutions are valid in:
     - cmd field
     - working_dir field
+    - outputs field (for output paths with arg templates)
+    - deps field (for parameterized dependency arguments)
     - args[].default field (argument defaults)
 
     Args:
@@ -91,8 +218,11 @@ def is_in_substitutable_field(text: str, position: Position) -> bool:
     Returns:
         True if the position is in a field supporting substitutions, False otherwise
     """
-    # Check cmd and working_dir fields
-    if is_in_cmd_field(text, position) or is_in_working_dir_field(text, position):
+    # Check cmd, working_dir, outputs, and deps fields
+    if (is_in_cmd_field(text, position) or
+        is_in_working_dir_field(text, position) or
+        is_in_outputs_field(text, position) or
+        is_in_deps_field(text, position)):
         return True
 
     # Check if we're in an args default field

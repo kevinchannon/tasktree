@@ -67,11 +67,25 @@ tasks:
     cmd: cargo build --{{ arg.█  # Completes: build_type, target
 ```
 
-**Important**: `arg.*` completions are scoped to the task containing the cursor. Arguments from other tasks are not suggested.
+**Important**:
+- `arg.*` completions are scoped to the task containing the cursor. Arguments from other tasks are not suggested.
+- `arg.*` completions are available in: `cmd`, `working_dir`, `outputs`, `deps`, and `args[].default` fields
+
+**Example in different fields**:
+```yaml
+tasks:
+  deploy:
+    args: [app_name, version]
+    outputs: ["deploy-{{ arg.app_name }}.log"]  # arg.* works in outputs
+    deps:
+      - process: [{{ arg.version }}]  # arg.* works in deps (parameterized dependencies)
+    working_dir: /tmp/{{ arg.app_name }}  # arg.* works in working_dir
+    cmd: echo "Deploy {{ arg.app_name }}"  # arg.* works in cmd
+```
 
 #### Named Inputs (`self.inputs.*`)
 
-Complete named inputs defined in the current task (context-aware, only inside `cmd` fields):
+Complete named inputs defined in the current task (context-aware, available in substitutable fields):
 
 ```yaml
 tasks:
@@ -89,7 +103,8 @@ tasks:
 ### Intelligent Context Awareness
 
 - **Prefix filtering**: Completions filter by partial match (e.g., `{{ tt.time` → only `timestamp`, `timestamp_unix`)
-- **Task scoping**: `arg.*` and `self.inputs.*` completions only appear inside task `cmd` fields and are scoped to that task's arguments/inputs
+- **Task scoping**: `arg.*` and `self.inputs.*` completions are scoped to the task containing the cursor
+- **Field-aware**: `arg.*` completions are only available in fields that support argument substitution: `cmd`, `working_dir`, `outputs`, `deps`, and `args[].default`
 - **Template boundaries**: No completions after closing `}}` braces
 - **Graceful degradation**: Works with incomplete/malformed YAML during editing
 
@@ -296,7 +311,7 @@ The following features are planned but not yet implemented:
 ### No completions appearing
 
 1. Ensure you're typing inside a tasktree file (`.tt`, `.tasks`, `tasktree.yaml`)
-2. For `arg.*` completions, ensure cursor is inside a task's `cmd` field
+2. For `arg.*` completions, ensure cursor is inside a supported field (`cmd`, `working_dir`, `outputs`, `deps`, or `args[].default`)
 3. Check that you're using the correct template syntax: `{{ prefix. }}`
 4. Try closing and reopening the file to trigger re-parsing
 
