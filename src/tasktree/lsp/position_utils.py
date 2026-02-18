@@ -76,6 +76,65 @@ def is_in_working_dir_field(text: str, position: Position) -> bool:
     return False
 
 
+def _is_in_list_field(text: str, position: Position, field_name: str) -> bool:
+    """Check if the given position is inside a list field value (generic helper).
+
+    Handles both single-line and list formats:
+    - field_name: ["value"]
+    - field_name:
+        - "value"
+
+    Args:
+        text: The full document text
+        position: The position to check (line and character)
+        field_name: The name of the field to check (e.g., "outputs", "deps", "inputs")
+
+    Returns:
+        True if the position is inside the field value, False otherwise
+    """
+    lines = text.split("\n")
+
+    # Check if position is within document bounds
+    if position.line >= len(lines):
+        return False
+
+    line = lines[position.line]
+    # Allow position at end of line (cursor after last character)
+    if position.character > len(line):
+        return False
+
+    # Check if we're on a line that contains "field_name:" followed by text (single-line format)
+    field_match = re.match(rf'^(\s*){re.escape(field_name)}:\s*(.*)$', line)
+    if field_match:
+        # Find where the value starts (after "field_name:")
+        indent = field_match.group(1)
+        prefix = f"{indent}{field_name}:"
+        value_start = len(prefix)
+
+        # Position is in field if it's after "field_name:" on this line
+        return position.character >= value_start
+
+    # Check if we're in a list item under field_name (multi-line format)
+    # Walk backwards to find if we're inside the field section
+    for i in range(position.line, -1, -1):
+        prev_line = lines[i]
+
+        # Check if we hit the field_name: line
+        if re.match(rf'^(\s*){re.escape(field_name)}:\s*$', prev_line):
+            # We're inside the field section - check if current line is a list item
+            list_item_match = re.match(r'^(\s*)-\s+', line)
+            if list_item_match:
+                # Position must be after the "- " part
+                return position.character >= len(list_item_match.group(0))
+            return False
+
+        # If we hit another field at the same or lower indentation, we're not in this field
+        if re.match(r'^(\s*)[a-zA-Z_][a-zA-Z0-9_]*:\s*', prev_line):
+            return False
+
+    return False
+
+
 def is_in_outputs_field(text: str, position: Position) -> bool:
     """Check if the given position is inside an outputs field value.
 
@@ -91,47 +150,7 @@ def is_in_outputs_field(text: str, position: Position) -> bool:
     Returns:
         True if the position is inside an outputs field value, False otherwise
     """
-    lines = text.split("\n")
-
-    # Check if position is within document bounds
-    if position.line >= len(lines):
-        return False
-
-    line = lines[position.line]
-    # Allow position at end of line (cursor after last character)
-    if position.character > len(line):
-        return False
-
-    # Check if we're on a line that contains "outputs:" followed by text (single-line format)
-    outputs_match = re.match(r'^(\s*)outputs:\s*(.*)$', line)
-    if outputs_match:
-        # Find where the value starts (after "outputs:")
-        indent = outputs_match.group(1)
-        prefix = f"{indent}outputs:"
-        value_start = len(prefix)
-
-        # Position is in outputs field if it's after "outputs:" on this line
-        return position.character >= value_start
-
-    # Check if we're in a list item under outputs (multi-line format)
-    # Walk backwards to find if we're inside an outputs section
-    for i in range(position.line, -1, -1):
-        prev_line = lines[i]
-
-        # Check if we hit the outputs: line
-        if re.match(r'^(\s*)outputs:\s*$', prev_line):
-            # We're inside the outputs section - check if current line is a list item
-            list_item_match = re.match(r'^(\s*)-\s+', line)
-            if list_item_match:
-                # Position must be after the "- " part
-                return position.character >= len(list_item_match.group(0))
-            return False
-
-        # If we hit another field at the same or lower indentation, we're not in outputs
-        if re.match(r'^(\s*)[a-zA-Z_][a-zA-Z0-9_]*:\s*', prev_line):
-            return False
-
-    return False
+    return _is_in_list_field(text, position, "outputs")
 
 
 def is_in_deps_field(text: str, position: Position) -> bool:
@@ -149,47 +168,7 @@ def is_in_deps_field(text: str, position: Position) -> bool:
     Returns:
         True if the position is inside a deps field value, False otherwise
     """
-    lines = text.split("\n")
-
-    # Check if position is within document bounds
-    if position.line >= len(lines):
-        return False
-
-    line = lines[position.line]
-    # Allow position at end of line (cursor after last character)
-    if position.character > len(line):
-        return False
-
-    # Check if we're on a line that contains "deps:" followed by text (single-line format)
-    deps_match = re.match(r'^(\s*)deps:\s*(.*)$', line)
-    if deps_match:
-        # Find where the value starts (after "deps:")
-        indent = deps_match.group(1)
-        prefix = f"{indent}deps:"
-        value_start = len(prefix)
-
-        # Position is in deps field if it's after "deps:" on this line
-        return position.character >= value_start
-
-    # Check if we're in a list item under deps (multi-line format)
-    # Walk backwards to find if we're inside a deps section
-    for i in range(position.line, -1, -1):
-        prev_line = lines[i]
-
-        # Check if we hit the deps: line
-        if re.match(r'^(\s*)deps:\s*$', prev_line):
-            # We're inside the deps section - check if current line is a list item
-            list_item_match = re.match(r'^(\s*)-\s+', line)
-            if list_item_match:
-                # Position must be after the "- " part
-                return position.character >= len(list_item_match.group(0))
-            return False
-
-        # If we hit another field at the same or lower indentation, we're not in deps
-        if re.match(r'^(\s*)[a-zA-Z_][a-zA-Z0-9_]*:\s*', prev_line):
-            return False
-
-    return False
+    return _is_in_list_field(text, position, "deps")
 
 
 def is_in_substitutable_field(text: str, position: Position) -> bool:

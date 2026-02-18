@@ -8,7 +8,72 @@ from tasktree.lsp.position_utils import (
     is_in_substitutable_field,
     get_prefix_at_position,
     get_task_at_position,
+    _is_in_list_field,
 )
+
+
+class TestIsInListField(unittest.TestCase):
+    """Tests for _is_in_list_field helper function."""
+
+    def test_position_in_single_line_format(self):
+        """Test that position in single-line format returns True."""
+        text = "tasks:\n  hello:\n    outputs: [\"file.txt\"]"
+        position = Position(line=2, character=len("    outputs: "))
+        self.assertTrue(_is_in_list_field(text, position, "outputs"))
+
+    def test_position_in_multi_line_format(self):
+        """Test that position in multi-line format returns True."""
+        text = "tasks:\n  hello:\n    outputs:\n      - file.txt"
+        position = Position(line=3, character=len("      - file"))
+        self.assertTrue(_is_in_list_field(text, position, "outputs"))
+
+    def test_position_before_field_name(self):
+        """Test that position before field name returns False."""
+        text = "tasks:\n  hello:\n    outputs: [\"file.txt\"]"
+        position = Position(line=2, character=len("    "))
+        self.assertFalse(_is_in_list_field(text, position, "outputs"))
+
+    def test_position_in_different_field(self):
+        """Test that position in different field returns False."""
+        text = "tasks:\n  hello:\n    deps: [task1]"
+        position = Position(line=2, character=len("    deps: "))
+        self.assertFalse(_is_in_list_field(text, position, "outputs"))
+
+    def test_position_out_of_bounds(self):
+        """Test that out of bounds position returns False."""
+        text = "tasks:\n  hello:\n    outputs: []"
+        position = Position(line=10, character=0)
+        self.assertFalse(_is_in_list_field(text, position, "outputs"))
+
+    def test_position_beyond_line_length(self):
+        """Test that position beyond line length returns False."""
+        text = "tasks:\n  hello:\n    outputs: []"
+        position = Position(line=2, character=100)
+        self.assertFalse(_is_in_list_field(text, position, "outputs"))
+
+    def test_generic_field_name_inputs(self):
+        """Test that helper works for 'inputs' field."""
+        text = "tasks:\n  hello:\n    inputs: [\"*.txt\"]"
+        position = Position(line=2, character=len("    inputs: "))
+        self.assertTrue(_is_in_list_field(text, position, "inputs"))
+
+    def test_generic_field_name_deps(self):
+        """Test that helper works for 'deps' field."""
+        text = "tasks:\n  hello:\n    deps: [task1]"
+        position = Position(line=2, character=len("    deps: "))
+        self.assertTrue(_is_in_list_field(text, position, "deps"))
+
+    def test_multi_line_list_item_before_dash(self):
+        """Test that position before dash in list item returns False."""
+        text = "tasks:\n  hello:\n    outputs:\n      - file.txt"
+        position = Position(line=3, character=len("    "))
+        self.assertFalse(_is_in_list_field(text, position, "outputs"))
+
+    def test_multi_line_list_item_after_dash(self):
+        """Test that position after dash in list item returns True."""
+        text = "tasks:\n  hello:\n    outputs:\n      - file.txt"
+        position = Position(line=3, character=len("      - "))
+        self.assertTrue(_is_in_list_field(text, position, "outputs"))
 
 
 class TestIsInCmdField(unittest.TestCase):
