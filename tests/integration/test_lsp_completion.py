@@ -649,13 +649,9 @@ class TestLSPCompletionIntegration(unittest.TestCase):
 
     def test_arg_completion_in_outputs_field(self):
         """Test that arg.* completion works in outputs field."""
-        server, initialize_handler, did_open_handler, completion_handler = self._create_handlers()
-
-        # Initialize the server
-        initialize_handler(self._create_initialize_params())
-
         # Open a document with a task that has args and outputs
-        did_open_handler(
+        open_handler = self.server.handlers["textDocument/didOpen"]
+        open_handler(
             DidOpenTextDocumentParams(
                 text_document=TextDocumentItem(
                     uri="file:///test.yaml",
@@ -672,6 +668,7 @@ class TestLSPCompletionIntegration(unittest.TestCase):
         )
 
         # Request completion in outputs field after "{{ arg."
+        completion_handler = self.server.handlers["textDocument/completion"]
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test.yaml"),
             position=Position(line=5, character=len('    outputs: ["deploy-{{ arg.')),
@@ -685,13 +682,9 @@ class TestLSPCompletionIntegration(unittest.TestCase):
 
     def test_arg_completion_in_deps_field(self):
         """Test that arg.* completion works in deps field."""
-        server, initialize_handler, did_open_handler, completion_handler = self._create_handlers()
-
-        # Initialize the server
-        initialize_handler(self._create_initialize_params())
-
         # Open a document with a task that has args and deps
-        did_open_handler(
+        open_handler = self.server.handlers["textDocument/didOpen"]
+        open_handler(
             DidOpenTextDocumentParams(
                 text_document=TextDocumentItem(
                     uri="file:///test.yaml",
@@ -709,6 +702,7 @@ class TestLSPCompletionIntegration(unittest.TestCase):
         )
 
         # Request completion in deps field after "{{ arg."
+        completion_handler = self.server.handlers["textDocument/completion"]
         completion_params = CompletionParams(
             text_document=TextDocumentIdentifier(uri="file:///test.yaml"),
             position=Position(line=6, character=len("      - process: [{{ arg.")),
