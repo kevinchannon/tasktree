@@ -324,11 +324,12 @@ When adding a new completion prefix (e.g., `env.*`, `dep.*`, `self.*`):
 - ✅ `tt.*` completion - Built-in variables (8 variables from executor.py)
 - ✅ `var.*` completion - User-defined variables (from variables section)
 - ✅ `arg.*` completion - Task arguments (context-aware, scoped to current task)
+- ✅ `env.*` completion - Environment variables (from current process env, sorted alphabetically, no scoping)
+- ✅ `self.inputs.*` completion - Named task inputs (task-scoped, named only)
+- ✅ `self.outputs.*` completion - Named task outputs (task-scoped, named only)
 
 **Not Yet Implemented:**
-- ❌ `env.*` completion - Environment variables
 - ❌ `dep.*.outputs.*` completion - Dependency outputs
-- ❌ `self.inputs.*` / `self.outputs.*` completion - Self-references
 - ❌ Task name completion in `deps` lists
 - ❌ Diagnostics (undefined variables, circular deps, etc.)
 - ❌ Go-to-definition for task references
