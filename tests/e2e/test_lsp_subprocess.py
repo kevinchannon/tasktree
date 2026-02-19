@@ -331,6 +331,80 @@ class TestLSPSubprocess(unittest.TestCase):
             proc.terminate()
             proc.wait(timeout=5)
 
+    def test_lsp_self_outputs_completion_e2e(self):
+        """Test end-to-end self.outputs.* completion workflow via subprocess."""
+        project_root = Path(__file__).parent.parent.parent
+
+        # Spawn the server
+        proc = subprocess.Popen(
+            [sys.executable, "-m", "tasktree.lsp.server"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            cwd=project_root,
+        )
+
+        try:
+            # Initialize
+            self._send_request(
+                proc,
+                "initialize",
+                {
+                    "processId": 12345,
+                    "rootUri": "file:///test/project",
+                    "capabilities": {},
+                },
+            )
+            init_response = self._read_response(proc)
+            self.assertIsNotNone(init_response)
+
+            # Open document with named outputs
+            self._send_notification(
+                proc,
+                "textDocument/didOpen",
+                {
+                    "textDocument": {
+                        "uri": "file:///test/tasktree.yaml",
+                        "languageId": "yaml",
+                        "version": 1,
+                        "text": "tasks:\n  build:\n    outputs:\n      - binary: dist/app\n      - log: logs/build.log\n    cmd: echo {{ self.outputs.",
+                    }
+                },
+            )
+
+            # Request completion
+            # Line 5 is: "    cmd: echo {{ self.outputs." (length: 30)
+            self._send_request(
+                proc,
+                "textDocument/completion",
+                {
+                    "textDocument": {"uri": "file:///test/tasktree.yaml"},
+                    "position": {"line": 5, "character": 30},
+                },
+            )
+
+            # Read completion response
+            completion_response = self._read_response(proc)
+
+            # Verify completions
+            self.assertIsNotNone(completion_response)
+            self.assertIn("result", completion_response)
+            result = completion_response["result"]
+
+            # Should get both named outputs
+            self.assertEqual(len(result["items"]), 2)
+            output_names = {item["label"] for item in result["items"]}
+            self.assertEqual(output_names, {"binary", "log"})
+
+            # Shutdown
+            self._send_request(proc, "shutdown", {})
+            self._read_response(proc)
+            self._send_notification(proc, "exit", {})
+
+        finally:
+            proc.terminate()
+            proc.wait(timeout=5)
+
 
 if __name__ == "__main__":
     unittest.main()

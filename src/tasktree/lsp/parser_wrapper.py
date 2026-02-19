@@ -353,3 +353,157 @@ def extract_task_inputs(text: str, task_name: str) -> list[str]:
         logger.debug(f"YAML parse failed for task inputs extraction: {e}")
         input_names = _extract_task_inputs_heuristic(text, task_name)
         return sorted(input_names)
+
+
+def _extract_task_outputs_heuristic(text: str, task_name: str) -> list[str]:
+    """Extract named outputs from potentially incomplete YAML using heuristics.
+
+    This function is used as a fallback when yaml.safe_load() fails due to
+    incomplete or malformed YAML (common during LSP editing). It uses regex
+    patterns to identify named output identifiers from the text structure.
+
+    Only extracts NAMED outputs (e.g., "binary: path/to/file" or "{ binary: ... }"),
+    not anonymous outputs (e.g., "- path/to/file"). Anonymous outputs cannot be
+    referenced via {{ self.outputs.* }} syntax.
+
+    Handles both formats:
+    - Dict format: outputs: [{ binary: "path" }, { log: "path" }]
+    - Key-value format: outputs:\n  - binary: path\n  - log: path
+
+    Limitations:
+    - Searches up to 20 lines after task definition (performance trade-off)
+    - May not handle complex nested structures correctly
+    - Best-effort extraction that prioritizes availability over accuracy
+    - Should only be used when yaml.safe_load() fails
+
+    Args:
+        text: The YAML document text (potentially incomplete)
+        task_name: The name of the task to extract outputs from (exact match required)
+
+    Returns:
+        List of named output identifiers found for the task (may contain duplicates).
+        Returns empty list if task not found or no outputs field found.
+    """
+    output_names = []
+
+    # Escape the task name for regex matching
+    escaped_task = re.escape(task_name)
+
+    # Find the task definition line
+    lines = text.split('\n')
+    task_line_idx = None
+
+    for i, line in enumerate(lines):
+        # Match task name as a key (with colon)
+        if re.search(escaped_task + r'\s*:', line):
+            task_line_idx = i
+            break
+
+    if task_line_idx is None:
+        return []
+
+    # Now search forward for outputs field
+    # Pattern 1: Flow-style list - outputs: [{ binary: ... }, ...]
+    flow_pattern = r'outputs\s*:\s*\[([^\]]*)'
+
+    # Search from task line onwards
+    for i in range(task_line_idx, min(task_line_idx + 20, len(lines))):
+        line = lines[i]
+
+        # Check for flow-style outputs
+        flow_match = re.search(flow_pattern, line)
+        if flow_match:
+            # Extract outputs from the list
+            outputs_content = flow_match.group(1)
+            # Look for dict entries: { name: ... }
+            # Match opening brace, followed by identifier and colon
+            dict_pattern = r'\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:'
+            for match in re.finditer(dict_pattern, outputs_content):
+                output_names.append(match.group(1))
+            break
+
+        # Check for block-style outputs start
+        if re.match(r'\s+outputs\s*:\s*$', line):
+            # Next lines should be list items
+            for j in range(i + 1, min(i + 15, len(lines))):
+                item_line = lines[j]
+                # Match list item with dict: "  - { name: ... }" or "  - name: ..."
+                # First try dict format
+                dict_item_match = re.match(r'\s+-\s*\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:', item_line)
+                if dict_item_match:
+                    output_names.append(dict_item_match.group(1))
+                    continue
+
+                # Try key-value format: "  - name: value"
+                kv_item_match = re.match(r'\s+-\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*:', item_line)
+                if kv_item_match:
+                    output_names.append(kv_item_match.group(1))
+                    continue
+
+                # Check if we hit another field (stop parsing outputs)
+                if re.match(r'\s+[a-zA-Z]', item_line) and not re.match(r'\s+-', item_line):
+                    break
+            break
+
+    return output_names
+
+
+def extract_task_outputs(text: str, task_name: str) -> list[str]:
+    """Extract named output identifiers for a specific task from tasktree YAML text.
+
+    Only extracts NAMED outputs (e.g., "binary: path/to/file"), not anonymous
+    outputs (e.g., "- path/to/file"). This is because only named outputs can be
+    referenced via {{ self.outputs.name }} syntax.
+
+    Named outputs can be specified in two formats:
+    1. Dict format: { name: "path/to/file" }
+    2. Key-value format: name: path/to/file
+
+    Edge cases:
+    - Imported/namespaced tasks: Requires the full namespaced name (e.g., "build.compile")
+    - Private tasks: Returns outputs regardless of private: true setting
+    - Anonymous outputs: Ignored (returns empty list if task has only anonymous outputs)
+    - Missing outputs: Returns empty list if task has no outputs defined
+    - Invalid task name: Returns empty list if task doesn't exist
+
+    Args:
+        text: The YAML document text (may be incomplete during editing)
+        task_name: The name of the task to extract outputs from
+
+    Returns:
+        Alphabetically sorted list of named output identifiers defined for the task.
+        Returns empty list if task not found, has no outputs, or YAML is unparseable.
+    """
+    try:
+        data = yaml.safe_load(text)
+        if not isinstance(data, dict):
+            return []
+
+        tasks = data.get("tasks", {})
+        if not isinstance(tasks, dict):
+            return []
+
+        task = tasks.get(task_name)
+        if not isinstance(task, dict):
+            return []
+
+        outputs = task.get("outputs", [])
+        if not isinstance(outputs, list):
+            return []
+
+        # Extract named output identifiers from the outputs list
+        # Named outputs are dicts with the output name as key
+        # Anonymous outputs are strings (we skip these)
+        output_names = []
+        for output_item in outputs:
+            if isinstance(output_item, dict):
+                # Each dict should have the output name as key
+                output_names.extend(output_item.keys())
+
+        return sorted(output_names)
+    except (yaml.YAMLError, AttributeError) as e:
+        # YAML parsing failed (likely incomplete YAML during editing)
+        # Fall back to heuristic regex-based extraction
+        logger.debug(f"YAML parse failed for task outputs extraction: {e}")
+        output_names = _extract_task_outputs_heuristic(text, task_name)
+        return sorted(output_names)
