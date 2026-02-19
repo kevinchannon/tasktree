@@ -1049,6 +1049,159 @@ class TestCreateServer(unittest.TestCase):
         self.assertEqual(result.items[0].label, "log")
 
 
+    def test_completion_env_returns_env_vars(self):
+        """Test that env.* completion returns environment variable names."""
+        import os
+        server = create_server()
+        open_handler = server.handlers["textDocument/didOpen"]
+        completion_handler = server.handlers["textDocument/completion"]
+
+        # Open a document with env. prefix in cmd
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  build:\n    cmd: echo {{ env.",
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion at "{{ env."
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
+            position=Position(line=2, character=len("    cmd: echo {{ env.")),
+        )
+
+        result = completion_handler(completion_params)
+
+        # Should return env var names (PATH is virtually always set)
+        self.assertIsInstance(result.items, list)
+        var_names = {item.label for item in result.items}
+        self.assertIn("PATH", var_names)
+        # Should contain all env vars
+        self.assertEqual(var_names, set(os.environ.keys()))
+
+    def test_completion_env_sorted_alphabetically(self):
+        """Test that env.* completion items are in alphabetical order."""
+        server = create_server()
+        open_handler = server.handlers["textDocument/didOpen"]
+        completion_handler = server.handlers["textDocument/completion"]
+
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  build:\n    cmd: echo {{ env.",
+            )
+        )
+        open_handler(open_params)
+
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
+            position=Position(line=2, character=len("    cmd: echo {{ env.")),
+        )
+
+        result = completion_handler(completion_params)
+
+        labels = [item.label for item in result.items]
+        self.assertEqual(labels, sorted(labels))
+
+    def test_completion_env_filtered_by_prefix(self):
+        """Test that env.* completion filters by partial prefix."""
+        import os
+        server = create_server()
+        open_handler = server.handlers["textDocument/didOpen"]
+        completion_handler = server.handlers["textDocument/completion"]
+
+        # Open document with partial env var name (PATH)
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  build:\n    cmd: echo {{ env.PATH",
+            )
+        )
+        open_handler(open_params)
+
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
+            position=Position(line=2, character=len("    cmd: echo {{ env.PATH")),
+        )
+
+        result = completion_handler(completion_params)
+
+        # All returned items should start with "PATH"
+        for item in result.items:
+            self.assertTrue(
+                item.label.startswith("PATH"),
+                f"Expected label starting with 'PATH', got '{item.label}'"
+            )
+        # PATH itself should be present (it's always set)
+        var_names = {item.label for item in result.items}
+        self.assertIn("PATH", var_names)
+
+    def test_completion_env_no_scoping_outside_cmd(self):
+        """Test that env.* completion works even outside cmd fields (no scoping)."""
+        import os
+        server = create_server()
+        open_handler = server.handlers["textDocument/didOpen"]
+        completion_handler = server.handlers["textDocument/completion"]
+
+        # Open a document with env. outside of cmd (in working_dir)
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  build:\n    working_dir: {{ env.",
+            )
+        )
+        open_handler(open_params)
+
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
+            position=Position(line=2, character=len("    working_dir: {{ env.")),
+        )
+
+        result = completion_handler(completion_params)
+
+        # Should still return env vars (no scoping restriction)
+        var_names = {item.label for item in result.items}
+        self.assertIn("PATH", var_names)
+
+    def test_completion_env_at_top_level(self):
+        """Test that env.* completion works at top level (variables section)."""
+        import os
+        server = create_server()
+        open_handler = server.handlers["textDocument/didOpen"]
+        completion_handler = server.handlers["textDocument/completion"]
+
+        # Open document with env. in variables section
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text='variables:\n  my_var:\n    eval: "echo {{ env.',
+            )
+        )
+        open_handler(open_params)
+
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml"),
+            position=Position(line=2, character=len('    eval: "echo {{ env.')),
+        )
+
+        result = completion_handler(completion_params)
+
+        # Should return env vars even in variables section
+        var_names = {item.label for item in result.items}
+        self.assertIn("PATH", var_names)
+
+
 class TestMain(unittest.TestCase):
     """Tests for main entry point."""
 
