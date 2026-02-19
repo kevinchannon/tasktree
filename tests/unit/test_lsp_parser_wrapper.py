@@ -1,14 +1,117 @@
 """Unit tests for LSP parser wrapper."""
 
+import os
 import unittest
 from tasktree.lsp.parser_wrapper import (
+    parse_yaml_data,
     extract_variables,
     extract_task_args,
     extract_task_inputs,
     extract_task_outputs,
+    get_env_var_names,
     _extract_task_inputs_heuristic,
     _extract_task_outputs_heuristic,
 )
+
+
+class TestParseYamlData(unittest.TestCase):
+    """Test parse_yaml_data utility function."""
+
+    def test_parse_valid_yaml(self):
+        """Test parsing valid YAML returns dict."""
+        text = "tasks:\n  build:\n    cmd: echo hello\n"
+        result = parse_yaml_data(text)
+        self.assertIsNotNone(result)
+        self.assertIsInstance(result, dict)
+        self.assertIn("tasks", result)
+
+    def test_parse_invalid_yaml_returns_none(self):
+        """Test parsing invalid YAML returns None."""
+        text = "invalid: yaml: content\n  - malformed\n"
+        result = parse_yaml_data(text)
+        self.assertIsNone(result)
+
+    def test_parse_empty_document_returns_none(self):
+        """Test parsing empty document returns None (yaml.safe_load returns None)."""
+        result = parse_yaml_data("")
+        self.assertIsNone(result)
+
+    def test_parse_non_dict_returns_none(self):
+        """Test parsing non-dict YAML (e.g. a list) returns None."""
+        result = parse_yaml_data("- item1\n- item2\n")
+        self.assertIsNone(result)
+
+    def test_parse_complete_tasktree_yaml(self):
+        """Test parsing complete tasktree YAML returns full data."""
+        text = """
+variables:
+  foo: bar
+tasks:
+  build:
+    cmd: echo hello
+"""
+        result = parse_yaml_data(text)
+        self.assertIsNotNone(result)
+        self.assertIn("variables", result)
+        self.assertIn("tasks", result)
+
+
+class TestExtractVariablesWithPreParsedData(unittest.TestCase):
+    """Test extract_variables with pre-parsed data parameter."""
+
+    def test_extract_with_pre_parsed_data(self):
+        """Test that extract_variables works with pre-parsed data."""
+        text = "variables:\n  foo: bar\n  baz: qux\n"
+        data = parse_yaml_data(text)
+        result = extract_variables(text, data=data)
+        self.assertEqual(sorted(result), ["baz", "foo"])
+
+    def test_extract_with_none_data_parses_text(self):
+        """Test that extract_variables parses text when data is None."""
+        text = "variables:\n  foo: bar\n"
+        result = extract_variables(text, data=None)
+        self.assertEqual(result, ["foo"])
+
+    def test_extract_with_empty_data_returns_empty(self):
+        """Test that extract_variables returns empty when data has no variables."""
+        data = {"tasks": {"build": {"cmd": "echo hello"}}}
+        result = extract_variables("", data=data)
+        self.assertEqual(result, [])
+
+
+class TestGetEnvVarNames(unittest.TestCase):
+    """Test get_env_var_names function."""
+
+    def test_returns_list(self):
+        """Test that get_env_var_names returns a list."""
+        result = get_env_var_names()
+        self.assertIsInstance(result, list)
+
+    def test_returns_sorted_list(self):
+        """Test that the returned list is alphabetically sorted."""
+        result = get_env_var_names()
+        self.assertEqual(result, sorted(result))
+
+    def test_includes_known_env_vars(self):
+        """Test that known environment variables are included."""
+        # PATH is virtually always set
+        result = get_env_var_names()
+        self.assertIn("PATH", result)
+
+    def test_reflects_current_environment(self):
+        """Test that the list reflects os.environ."""
+        result = get_env_var_names()
+        self.assertEqual(set(result), set(os.environ.keys()))
+
+    def test_custom_env_var_included(self):
+        """Test that a newly set environment variable appears in results."""
+        test_var = "TASKTREE_LSP_TEST_VAR_12345"
+        os.environ[test_var] = "test_value"
+        try:
+            result = get_env_var_names()
+            self.assertIn(test_var, result)
+        finally:
+            del os.environ[test_var]
 
 
 class TestExtractVariables(unittest.TestCase):
