@@ -858,5 +858,154 @@ class TestLSPCompletionIntegration(unittest.TestCase):
         self.assertEqual(arg_names, {"mode", "target"})
 
 
+    def test_full_workflow_env_completion(self):
+        """Test complete workflow for env.* environment variable completion."""
+        import os
+
+        # Initialize
+        init_handler = self.server.handlers["initialize"]
+        init_params = InitializeParams(
+            process_id=12345, root_uri="file:///test/project", capabilities={}
+        )
+        init_result = init_handler(init_params)
+        self.assertIsNotNone(init_result.capabilities.completion_provider)
+
+        # Open document
+        open_handler = self.server.handlers["textDocument/didOpen"]
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/project/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  build:\n    cmd: echo {{ env.",
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion
+        completion_handler = self.server.handlers["textDocument/completion"]
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(
+                uri="file:///test/project/tasktree.yaml"
+            ),
+            position=Position(line=2, character=len("    cmd: echo {{ env.")),
+        )
+        result = completion_handler(completion_params)
+
+        # Verify completions include all env vars
+        var_names = {item.label for item in result.items}
+        self.assertEqual(var_names, set(os.environ.keys()))
+        # Results should be alphabetically sorted
+        labels = [item.label for item in result.items]
+        self.assertEqual(labels, sorted(labels))
+
+    def test_env_completion_filtered_by_prefix(self):
+        """Test that env.* completion filters by partial prefix."""
+        # Open document with "PATH" partial prefix
+        open_handler = self.server.handlers["textDocument/didOpen"]
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/project/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  build:\n    cmd: echo {{ env.PATH",
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion
+        completion_handler = self.server.handlers["textDocument/completion"]
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(
+                uri="file:///test/project/tasktree.yaml"
+            ),
+            position=Position(line=2, character=len("    cmd: echo {{ env.PATH")),
+        )
+        result = completion_handler(completion_params)
+
+        # All results should start with "PATH"
+        for item in result.items:
+            self.assertTrue(item.label.startswith("PATH"))
+
+    def test_env_completion_no_scoping_in_various_fields(self):
+        """Test that env.* completion works in all YAML fields (no scoping)."""
+        import os
+
+        # Open document with env. in variables section (not in a task)
+        open_handler = self.server.handlers["textDocument/didOpen"]
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/project/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text='variables:\n  home:\n    eval: "echo {{ env.',
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion in variables section
+        completion_handler = self.server.handlers["textDocument/completion"]
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(
+                uri="file:///test/project/tasktree.yaml"
+            ),
+            position=Position(line=2, character=len('    eval: "echo {{ env.')),
+        )
+        result = completion_handler(completion_params)
+
+        # Should return all env vars (no scoping restriction for env.*)
+        var_names = {item.label for item in result.items}
+        self.assertEqual(var_names, set(os.environ.keys()))
+
+    def test_env_completion_updates_after_document_change(self):
+        """Test that env.* completion works correctly after document change."""
+        import os
+
+        # Open document (without env. prefix initially)
+        open_handler = self.server.handlers["textDocument/didOpen"]
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/project/build.tt",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  build:\n    cmd: echo hello",
+            )
+        )
+        open_handler(open_params)
+
+        # Change document to add env. prefix
+        from lsprotocol.types import (
+            DidChangeTextDocumentParams,
+            VersionedTextDocumentIdentifier,
+        )
+
+        class ChangeEvent:
+            def __init__(self, text):
+                self.text = text
+
+        change_handler = self.server.handlers["textDocument/didChange"]
+        change_params = DidChangeTextDocumentParams(
+            text_document=VersionedTextDocumentIdentifier(
+                uri="file:///test/project/build.tt", version=2
+            ),
+            content_changes=[
+                ChangeEvent(text="tasks:\n  build:\n    cmd: echo {{ env.PATH")
+            ],
+        )
+        change_handler(change_params)
+
+        # Request completion
+        completion_handler = self.server.handlers["textDocument/completion"]
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/project/build.tt"),
+            position=Position(line=2, character=len("    cmd: echo {{ env.PATH")),
+        )
+        result = completion_handler(completion_params)
+
+        # All results should start with "PATH" (filtered by prefix)
+        for item in result.items:
+            self.assertTrue(item.label.startswith("PATH"))
+
+
 if __name__ == "__main__":
     unittest.main()
