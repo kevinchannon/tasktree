@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import tasktree
 import tasktree.lsp.server
-from tasktree.lsp.server import TasktreeLanguageServer, create_server, main
+from tasktree.lsp.server import TasktreeLanguageServer, create_server, main, _is_inside_open_parens
 from lsprotocol.types import (
     InitializeParams,
     CompletionOptions,
@@ -1359,6 +1359,61 @@ class TestDepsTaskNameCompletion(unittest.TestCase):
         self.assertTrue(len(result.items) > 0)
         for item in result.items:
             self.assertEqual(item.kind, CompletionItemKind.Reference)
+
+    def test_no_task_name_completion_inside_parameterized_dep_args(self):
+        """Test that task names are NOT offered inside parameterised dep arguments.
+
+        When the cursor is after an opening '(' (e.g. ``compile(arg1, ``),
+        the user is typing a positional argument value, not a task name.
+        Task-name completions must be suppressed in that context.
+        """
+        text = (
+            "tasks:\n"
+            "  compile:\n"
+            "    cmd: echo compile\n"
+            "  build:\n"
+            "    cmd: echo build\n"
+            "  test:\n"
+            "    deps:\n"
+            "      - compile(arg1, "
+        )
+        self._open_doc(text)
+        # Cursor is inside the parentheses of compile(arg1, ...)
+        result = self._complete_at(7, len("      - compile(arg1, "))
+        task_name_items = [i for i in result.items if i.kind == CompletionItemKind.Reference]
+        self.assertEqual(task_name_items, [], "Task names must not appear inside dep argument parens")
+
+
+class TestIsInsideOpenParens(unittest.TestCase):
+    """Unit tests for _is_inside_open_parens helper."""
+
+    def test_no_parens_returns_false(self):
+        """Prefix with no parentheses is not inside open parens."""
+        self.assertFalse(_is_inside_open_parens("    - build"))
+
+    def test_open_paren_returns_true(self):
+        """Prefix ending inside an open paren group returns True."""
+        self.assertTrue(_is_inside_open_parens("    - compile("))
+
+    def test_open_paren_with_content_returns_true(self):
+        """Prefix with content inside parens returns True."""
+        self.assertTrue(_is_inside_open_parens("    - compile(arg1, "))
+
+    def test_closed_parens_returns_false(self):
+        """Prefix with balanced parentheses returns False."""
+        self.assertFalse(_is_inside_open_parens("    - compile(arg1)"))
+
+    def test_closed_parens_with_trailing_text_returns_false(self):
+        """Prefix after closed parens (e.g. next dep) returns False."""
+        self.assertFalse(_is_inside_open_parens("    - compile(arg1), other"))
+
+    def test_empty_prefix_returns_false(self):
+        """Empty prefix returns False."""
+        self.assertFalse(_is_inside_open_parens(""))
+
+    def test_nested_parens_returns_true(self):
+        """Nested unmatched parens still return True."""
+        self.assertTrue(_is_inside_open_parens("    - f(a, g("))
 
 
 if __name__ == "__main__":

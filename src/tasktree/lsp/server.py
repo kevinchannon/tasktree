@@ -40,6 +40,33 @@ from tasktree.lsp.parser_wrapper import (
 )
 
 
+def _is_inside_open_parens(prefix: str) -> bool:
+    """Check if the cursor is inside unmatched parentheses in the prefix.
+
+    Used to suppress task-name completions when the cursor is inside a
+    parameterised dep argument list, e.g.::
+
+        deps: [compile(arg1, <cursor>)]
+
+    In that context the user is typing an argument value, not a task name,
+    so offering task-name completions would be unhelpful.
+
+    Args:
+        prefix: Text from the start of the line up to the cursor position
+
+    Returns:
+        True if there are more opening parentheses than closing ones in the
+        prefix (i.e. the cursor is inside an open paren group).
+    """
+    depth = 0
+    for ch in prefix:
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+    return depth > 0
+
+
 def _uri_to_path(uri: str) -> str | None:
     """Convert a file:// URI to a filesystem path.
 
@@ -339,11 +366,16 @@ def create_server() -> TasktreeLanguageServer:
                 prefix, "{{ self.outputs.", outputs, "Task output"
             )
 
-        # Task name completion in deps field (when not inside a {{ }} template).
+        # Task name completion in deps field (when not inside a {{ }} template
+        # and not inside parentheses of a parameterised dep argument list).
         # All template-prefix checks above have already returned, so if we reach
         # here and the cursor is in a deps field we know the user is typing a
-        # plain task name (not a template variable).
-        if is_in_deps_field(text, position) and not is_inside_open_template(prefix):
+        # plain task name (not a template variable or a positional argument value).
+        if (
+            is_in_deps_field(text, position)
+            and not is_inside_open_template(prefix)
+            and not _is_inside_open_parens(prefix)
+        ):
             # Resolve the document path so we can follow imports
             file_path = _uri_to_path(uri)
             base_path = str(Path(file_path).parent) if file_path else None
