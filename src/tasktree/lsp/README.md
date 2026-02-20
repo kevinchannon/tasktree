@@ -83,6 +83,30 @@ tasks:
     cmd: echo "Deploy {{ arg.app_name }}"  # arg.* works in cmd
 ```
 
+#### Environment Variables (`env.*`)
+
+Complete environment variable names from the current process environment (no scoping, valid anywhere in the file):
+
+```yaml
+tasks:
+  build:
+    cmd: gcc -o app {{ env.█  # Completes: all environment variable names (HOME, PATH, USER, etc.)
+```
+
+Also works outside task sections:
+
+```yaml
+variables:
+  home_dir:
+    eval: "echo {{ env.HOME  # Completes: HOME and other env vars starting with "HOM"
+```
+
+**Important**:
+- `env.*` completions are sourced from the **current process environment** at completion time
+- The list may be long (100+ entries). Use prefix filtering to narrow results (e.g., `{{ env.PATH` → only `PATH`, `PATHEXT`, etc.)
+- Unlike `arg.*` and `self.*`, there is **no scoping restriction** — env vars are valid anywhere in the file
+- Results are always returned in **alphabetical order**
+
 #### Named Inputs (`self.inputs.*`)
 
 Complete named inputs defined in the current task (context-aware, available in substitutable fields):
@@ -122,8 +146,10 @@ tasks:
 - **Prefix filtering**: Completions filter by partial match (e.g., `{{ tt.time` → only `timestamp`, `timestamp_unix`)
 - **Task scoping**: `arg.*`, `self.inputs.*`, and `self.outputs.*` completions are scoped to the task containing the cursor
 - **Field-aware**: `arg.*`, `self.inputs.*`, and `self.outputs.*` completions are only available in fields that support substitution: `cmd`, `working_dir`, `outputs`, `deps`, and `args[].default`
+- **No scoping for env/var/tt**: `env.*`, `var.*`, and `tt.*` completions are available anywhere in the file
 - **Template boundaries**: No completions after closing `}}` braces
 - **Graceful degradation**: Works with incomplete/malformed YAML during editing
+- **Single parse per request**: YAML is parsed once per completion request and shared across all extraction functions for efficiency
 
 ## Installation
 
@@ -265,7 +291,10 @@ Once configured, the LSP server will automatically provide completions as you ty
 1. Open a tasktree file (`.tt`, `.tasks`, `tasktree.yaml`, `.tasktree-config.yml`)
 2. Type `{{ tt.` inside any YAML field → Get built-in variable completions
 3. Type `{{ var.` inside any YAML field → Get user-defined variable completions
-4. Type `{{ arg.` inside a task's `cmd` field → Get that task's argument completions
+4. Type `{{ env.` inside any YAML field → Get environment variable completions (sorted alphabetically)
+5. Type `{{ arg.` inside a supported task field → Get that task's argument completions
+6. Type `{{ self.inputs.` inside a supported field → Get current task's named input completions
+7. Type `{{ self.outputs.` inside a supported field → Get current task's named output completions
 
 Completions update automatically as you modify the file (adding/removing variables, arguments, etc.).
 
@@ -299,7 +328,6 @@ src/tasktree/lsp/
 
 The following features are planned but not yet implemented:
 
-- Environment variable completion (`env.*`)
 - Dependency output completion (`dep.*.outputs.*`)
 - Task name completion in `deps` lists
 - Diagnostics (undefined variables, missing dependencies, circular deps)

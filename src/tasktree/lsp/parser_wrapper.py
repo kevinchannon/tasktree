@@ -1,13 +1,37 @@
 """Parser wrapper for LSP to extract identifiers from tasktree YAML files."""
 
 import logging
+import os
 import re
 import yaml
 
 logger = logging.getLogger(__name__)
 
 
-def extract_variables(text: str) -> list[str]:
+def parse_yaml_data(text: str) -> dict | None:
+    """Parse YAML text and return the document data dict, or None if parsing fails.
+
+    This is the single entry point for YAML parsing in the LSP. Callers that
+    need multiple extractions from the same document should call this once and
+    pass the result to each extraction function to avoid redundant parsing.
+
+    Args:
+        text: The YAML document text (may be incomplete during editing)
+
+    Returns:
+        Parsed data dict if successful, None if YAML is invalid or not a dict.
+    """
+    try:
+        data = yaml.safe_load(text)
+        if isinstance(data, dict):
+            return data
+        return None
+    except yaml.YAMLError as e:
+        logger.debug(f"YAML parse failed: {e}")
+        return None
+
+
+def extract_variables(text: str, data: dict | None = None) -> list[str]:
     """Extract variable names from tasktree YAML text.
 
     Extracts variable names from the variables section, handling all variable
@@ -20,26 +44,25 @@ def extract_variables(text: str) -> list[str]:
     - Invalid YAML: Returns empty list and logs debug message
 
     Args:
-        text: The YAML document text (may be incomplete during editing)
+        text: The YAML document text (may be incomplete during editing).
+              Note: text is only used if data is None (i.e., no pre-parsed data provided).
+        data: Optional pre-parsed YAML data dict. If provided, skips parsing text.
+              Pass the result of parse_yaml_data(text) to avoid redundant parsing.
 
     Returns:
         Alphabetically sorted list of variable names defined in the document.
         Returns empty list if no variables section or YAML is unparseable.
     """
-    try:
-        data = yaml.safe_load(text)
-        if not isinstance(data, dict):
-            return []
-
-        variables = data.get("variables", {})
-        if not isinstance(variables, dict):
-            return []
-
-        return sorted(variables.keys())
-    except (yaml.YAMLError, AttributeError) as e:
-        # If YAML parsing fails, return empty list (graceful degradation)
-        logger.debug(f"YAML parse failed for variable extraction: {e}")
+    if data is None:
+        data = parse_yaml_data(text)
+    if data is None:
         return []
+
+    variables = data.get("variables", {})
+    if not isinstance(variables, dict):
+        return []
+
+    return sorted(variables.keys())
 
 
 def _extract_task_args_heuristic(text: str, task_name: str) -> list[str]:
@@ -142,10 +165,10 @@ def _extract_task_args_heuristic(text: str, task_name: str) -> list[str]:
     return arg_names
 
 
-def extract_task_args(text: str, task_name: str) -> list[str]:
+def extract_task_args(text: str, task_name: str, data: dict | None = None) -> list[str]:
     """Extract argument names for a specific task from tasktree YAML text.
 
-    For complete YAML, uses yaml.safe_load() for accurate parsing.
+    For complete YAML, uses parse_yaml_data() for accurate parsing.
     For incomplete YAML (common during LSP editing), falls back to heuristic
     regex-based extraction.
 
@@ -160,16 +183,18 @@ def extract_task_args(text: str, task_name: str) -> list[str]:
     Args:
         text: The YAML document text (may be incomplete during editing)
         task_name: The name of the task to extract arguments from
+        data: Optional pre-parsed YAML data dict. If provided, skips parsing text.
+              Pass the result of parse_yaml_data(text) to avoid redundant parsing.
+              Falls back to heuristic extraction if data is None and parsing fails.
 
     Returns:
         Alphabetically sorted list of argument names defined for the task.
         Returns empty list if task not found, has no args, or YAML is unparseable.
     """
-    try:
-        data = yaml.safe_load(text)
-        if not isinstance(data, dict):
-            return []
+    if data is None:
+        data = parse_yaml_data(text)
 
+    if data is not None:
         tasks = data.get("tasks", {})
         if not isinstance(tasks, dict):
             return []
@@ -193,12 +218,12 @@ def extract_task_args(text: str, task_name: str) -> list[str]:
                 arg_names.extend(arg.keys())
 
         return sorted(arg_names)
-    except (yaml.YAMLError, AttributeError) as e:
-        # YAML parsing failed (likely incomplete YAML during editing)
-        # Fall back to heuristic extraction
-        logger.debug(f"YAML parse failed for task args extraction: {e}")
-        arg_names = _extract_task_args_heuristic(text, task_name)
-        return sorted(arg_names)
+
+    # YAML parsing failed (likely incomplete YAML during editing)
+    # Fall back to heuristic extraction
+    logger.debug("YAML parse unavailable, falling back to heuristic extraction for task '%s'", task_name)
+    arg_names = _extract_task_args_heuristic(text, task_name)
+    return sorted(arg_names)
 
 
 def _extract_task_inputs_heuristic(text: str, task_name: str) -> list[str]:
@@ -294,7 +319,7 @@ def _extract_task_inputs_heuristic(text: str, task_name: str) -> list[str]:
     return input_names
 
 
-def extract_task_inputs(text: str, task_name: str) -> list[str]:
+def extract_task_inputs(text: str, task_name: str, data: dict | None = None) -> list[str]:
     """Extract named input identifiers for a specific task from tasktree YAML text.
 
     Only extracts NAMED inputs (e.g., "source: path/to/file"), not anonymous
@@ -315,16 +340,18 @@ def extract_task_inputs(text: str, task_name: str) -> list[str]:
     Args:
         text: The YAML document text (may be incomplete during editing)
         task_name: The name of the task to extract inputs from
+        data: Optional pre-parsed YAML data dict. If provided, skips parsing text.
+              Pass the result of parse_yaml_data(text) to avoid redundant parsing.
+              Falls back to heuristic extraction if data is None and parsing fails.
 
     Returns:
         Alphabetically sorted list of named input identifiers defined for the task.
         Returns empty list if task not found, has no inputs, or YAML is unparseable.
     """
-    try:
-        data = yaml.safe_load(text)
-        if not isinstance(data, dict):
-            return []
+    if data is None:
+        data = parse_yaml_data(text)
 
+    if data is not None:
         tasks = data.get("tasks", {})
         if not isinstance(tasks, dict):
             return []
@@ -347,12 +374,12 @@ def extract_task_inputs(text: str, task_name: str) -> list[str]:
                 input_names.extend(input_item.keys())
 
         return sorted(input_names)
-    except (yaml.YAMLError, AttributeError) as e:
-        # YAML parsing failed (likely incomplete YAML during editing)
-        # Fall back to heuristic regex-based extraction
-        logger.debug(f"YAML parse failed for task inputs extraction: {e}")
-        input_names = _extract_task_inputs_heuristic(text, task_name)
-        return sorted(input_names)
+
+    # YAML parsing failed (likely incomplete YAML during editing)
+    # Fall back to heuristic regex-based extraction
+    logger.debug("YAML parse unavailable, falling back to heuristic extraction for task '%s'", task_name)
+    input_names = _extract_task_inputs_heuristic(text, task_name)
+    return sorted(input_names)
 
 
 def _extract_task_outputs_heuristic(text: str, task_name: str) -> list[str]:
@@ -448,7 +475,7 @@ def _extract_task_outputs_heuristic(text: str, task_name: str) -> list[str]:
     return output_names
 
 
-def extract_task_outputs(text: str, task_name: str) -> list[str]:
+def extract_task_outputs(text: str, task_name: str, data: dict | None = None) -> list[str]:
     """Extract named output identifiers for a specific task from tasktree YAML text.
 
     Only extracts NAMED outputs (e.g., "binary: path/to/file"), not anonymous
@@ -469,16 +496,18 @@ def extract_task_outputs(text: str, task_name: str) -> list[str]:
     Args:
         text: The YAML document text (may be incomplete during editing)
         task_name: The name of the task to extract outputs from
+        data: Optional pre-parsed YAML data dict. If provided, skips parsing text.
+              Pass the result of parse_yaml_data(text) to avoid redundant parsing.
+              Falls back to heuristic extraction if data is None and parsing fails.
 
     Returns:
         Alphabetically sorted list of named output identifiers defined for the task.
         Returns empty list if task not found, has no outputs, or YAML is unparseable.
     """
-    try:
-        data = yaml.safe_load(text)
-        if not isinstance(data, dict):
-            return []
+    if data is None:
+        data = parse_yaml_data(text)
 
+    if data is not None:
         tasks = data.get("tasks", {})
         if not isinstance(tasks, dict):
             return []
@@ -501,9 +530,24 @@ def extract_task_outputs(text: str, task_name: str) -> list[str]:
                 output_names.extend(output_item.keys())
 
         return sorted(output_names)
-    except (yaml.YAMLError, AttributeError) as e:
-        # YAML parsing failed (likely incomplete YAML during editing)
-        # Fall back to heuristic regex-based extraction
-        logger.debug(f"YAML parse failed for task outputs extraction: {e}")
-        output_names = _extract_task_outputs_heuristic(text, task_name)
-        return sorted(output_names)
+
+    # YAML parsing failed (likely incomplete YAML during editing)
+    # Fall back to heuristic regex-based extraction
+    logger.debug("YAML parse unavailable, falling back to heuristic extraction for task '%s'", task_name)
+    output_names = _extract_task_outputs_heuristic(text, task_name)
+    return sorted(output_names)
+
+
+def get_env_var_names() -> list[str]:
+    """Get sorted list of environment variable names from the current process environment.
+
+    Returns all environment variable names available to the current process,
+    sorted alphabetically. This is used for {{ env.* }} completion suggestions.
+
+    The list may be long (100+ entries on typical systems), so completions are
+    filtered by prefix in the completion handler.
+
+    Returns:
+        Alphabetically sorted list of environment variable names.
+    """
+    return sorted(os.environ.keys())

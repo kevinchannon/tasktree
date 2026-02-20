@@ -24,10 +24,12 @@ from tasktree.lsp.position_utils import (
     get_task_at_position,
 )
 from tasktree.lsp.parser_wrapper import (
+    parse_yaml_data,
     extract_variables,
     extract_task_args,
     extract_task_inputs,
     extract_task_outputs,
+    get_env_var_names,
 )
 
 __all__ = ["TasktreeLanguageServer", "main"]
@@ -182,15 +184,18 @@ def create_server() -> TasktreeLanguageServer:
         Currently supports:
         - tt.* built-in variable completion
         - var.* user-defined variable completion
-        - arg.* task argument completion (only inside task cmd fields)
-        - self.inputs.* named input completion (only inside task cmd fields)
-        - self.outputs.* named output completion (only inside task cmd fields)
+        - arg.* task argument completion (only inside substitutable fields)
+        - env.* environment variable completion (valid anywhere in the file)
+        - self.inputs.* named input completion (only inside substitutable fields)
+        - self.outputs.* named output completion (only inside substitutable fields)
 
         Completion behavior:
         - Completions filter by partial match after the prefix (e.g., "{{ var.my" → only "my*" variables)
         - Returns empty list if template is already closed (cursor after }})
         - Trailing }} in partial names are automatically stripped for matching
-        - arg.*, self.inputs.*, and self.outputs.* completions are only provided when cursor is inside a task's cmd field
+        - arg.*, self.inputs.*, and self.outputs.* completions are scoped to the current task
+        - env.* completions come from the current process environment (sorted alphabetically)
+        - YAML is parsed at most once per completion request and shared across all extraction calls
 
         Args:
             params: Completion request parameters containing document URI and cursor position
@@ -210,22 +215,34 @@ def create_server() -> TasktreeLanguageServer:
         # Get the prefix up to the cursor
         prefix = get_prefix_at_position(text, position)
 
-        # Try tt.* built-in variable completion
+        # Try tt.* built-in variable completion (uses only constants, no YAML parse needed)
         if "{{ tt." in prefix:
             return _complete_template_variables(
                 prefix, "{{ tt.", BUILTIN_VARIABLES, "Built-in"
             )
 
+        # Parse YAML once and share the result across all extraction calls that need it.
+        # This avoids redundant yaml.safe_load calls for the same document text.
+        # parse_yaml_data returns None if the text is invalid/incomplete YAML;
+        # extraction functions handle None by falling back to heuristic regex extraction.
+        data = parse_yaml_data(text)
+
         # Try var.* user-defined variable completion
         if "{{ var." in prefix:
-            variables = extract_variables(text)
+            variables = extract_variables(text, data)
             return _complete_template_variables(
                 prefix, "{{ var.", variables, "User"
             )
 
-        # Try arg.* task argument completion (cmd, working_dir, args defaults)
+        # Try env.* environment variable completion (valid anywhere, no scoping)
+        if "{{ env." in prefix:
+            env_vars = get_env_var_names()
+            return _complete_template_variables(
+                prefix, "{{ env.", env_vars, "Environment"
+            )
+
+        # Try arg.* task argument completion (cmd, working_dir, outputs, deps, args defaults)
         if "{{ arg." in prefix:
-            # arg.* is valid in cmd, working_dir, and args[].default fields
             if not is_in_substitutable_field(text, position):
                 return CompletionList(is_incomplete=False, items=[])
 
@@ -234,15 +251,14 @@ def create_server() -> TasktreeLanguageServer:
             if task_name is None:
                 return CompletionList(is_incomplete=False, items=[])
 
-            # Extract args for this task
-            args = extract_task_args(text, task_name)
+            # Extract args for this task, sharing the pre-parsed YAML data
+            args = extract_task_args(text, task_name, data)
             return _complete_template_variables(
                 prefix, "{{ arg.", args, "Task argument"
             )
 
-        # Try self.inputs.* named input completion (cmd, working_dir, args defaults)
+        # Try self.inputs.* named input completion
         if "{{ self.inputs." in prefix:
-            # self.inputs.* is valid in cmd, working_dir, and args[].default fields
             if not is_in_substitutable_field(text, position):
                 return CompletionList(is_incomplete=False, items=[])
 
@@ -251,15 +267,14 @@ def create_server() -> TasktreeLanguageServer:
             if task_name is None:
                 return CompletionList(is_incomplete=False, items=[])
 
-            # Extract named inputs for this task
-            inputs = extract_task_inputs(text, task_name)
+            # Extract named inputs for this task, sharing the pre-parsed YAML data
+            inputs = extract_task_inputs(text, task_name, data)
             return _complete_template_variables(
                 prefix, "{{ self.inputs.", inputs, "Task input"
             )
 
-        # Try self.outputs.* named output completion (cmd, working_dir, args defaults)
+        # Try self.outputs.* named output completion
         if "{{ self.outputs." in prefix:
-            # self.outputs.* is valid in cmd, working_dir, and args[].default fields
             if not is_in_substitutable_field(text, position):
                 return CompletionList(is_incomplete=False, items=[])
 
@@ -268,8 +283,8 @@ def create_server() -> TasktreeLanguageServer:
             if task_name is None:
                 return CompletionList(is_incomplete=False, items=[])
 
-            # Extract named outputs for this task
-            outputs = extract_task_outputs(text, task_name)
+            # Extract named outputs for this task, sharing the pre-parsed YAML data
+            outputs = extract_task_outputs(text, task_name, data)
             return _complete_template_variables(
                 prefix, "{{ self.outputs.", outputs, "Task output"
             )
