@@ -91,7 +91,7 @@ class TestLSPCompletionIntegration(unittest.TestCase):
                 uri="file:///test/project/build.tt", version=2
             ),
             content_changes=[
-                Mock(text="tasks:\n  test:\n    cmd: echo {{ tt.proj}")
+                Mock(text="tasks:\n  test:\n    cmd: echo {{ tt.proj")
             ],
         )
         change_handler(change_params)
