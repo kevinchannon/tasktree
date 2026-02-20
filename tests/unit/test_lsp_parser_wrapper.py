@@ -2,6 +2,9 @@
 
 import os
 import unittest
+import tempfile
+from pathlib import Path
+
 from tasktree.lsp.parser_wrapper import (
     parse_yaml_data,
     extract_variables,
@@ -9,8 +12,10 @@ from tasktree.lsp.parser_wrapper import (
     extract_task_inputs,
     extract_task_outputs,
     get_env_var_names,
+    extract_task_names,
     _extract_task_inputs_heuristic,
     _extract_task_outputs_heuristic,
+    _extract_local_task_names_heuristic,
 )
 
 
@@ -671,6 +676,139 @@ class TestExtractTaskOutputsHeuristic(unittest.TestCase):
         # Should use heuristic fallback and still find named outputs
         self.assertIn("binary", result)
         self.assertIn("log", result)
+
+
+class TestExtractTaskNames(unittest.TestCase):
+    """Tests for extract_task_names function."""
+
+    def test_extract_task_names_from_valid_yaml(self):
+        """Test extracting task names from valid YAML."""
+        text = """tasks:
+  build:
+    cmd: echo build
+  test:
+    cmd: echo test
+  deploy:
+    cmd: echo deploy
+"""
+        result = extract_task_names(text)
+        self.assertEqual(result, ["build", "deploy", "test"])
+
+    def test_extract_task_names_empty_tasks(self):
+        """Test extracting task names when tasks section is empty."""
+        text = "tasks: {}\n"
+        result = extract_task_names(text)
+        self.assertEqual(result, [])
+
+    def test_extract_task_names_no_tasks_section(self):
+        """Test extracting task names when no tasks section exists."""
+        text = "variables:\n  foo: bar\n"
+        result = extract_task_names(text)
+        self.assertEqual(result, [])
+
+    def test_extract_task_names_invalid_yaml_falls_back_to_heuristic(self):
+        """Test that invalid YAML falls back to heuristic extraction."""
+        # Incomplete YAML with an unclosed string
+        text = "tasks:\n  build:\n    cmd: echo 'hello\n  test:\n    cmd: echo test\n"
+        result = extract_task_names(text)
+        # Heuristic should find at least the task names
+        self.assertIn("build", result)
+        self.assertIn("test", result)
+
+    def test_extract_task_names_with_preparsed_data(self):
+        """Test that pre-parsed data is used instead of re-parsing."""
+        text = "tasks:\n  build:\n    cmd: echo build\n"
+        data = parse_yaml_data(text)
+        result = extract_task_names(text, data=data)
+        self.assertEqual(result, ["build"])
+
+    def test_extract_task_names_sorted_alphabetically(self):
+        """Test that task names are returned in sorted order."""
+        text = """tasks:
+  zebra:
+    cmd: echo z
+  alpha:
+    cmd: echo a
+  middle:
+    cmd: echo m
+"""
+        result = extract_task_names(text)
+        self.assertEqual(result, ["alpha", "middle", "zebra"])
+
+    def test_extract_task_names_with_imports(self):
+        """Test extracting task names including from imported files."""
+        # Create a temporary directory with an imported tasks file
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Write the imported tasks file
+            imported_file = Path(tmpdir) / "utils.tasks"
+            imported_file.write_text(
+                "tasks:\n  util_task:\n    cmd: echo util\n  helper:\n    cmd: echo help\n"
+            )
+
+            # Main file references the import
+            text = f"""tasks:
+  main_task:
+    cmd: echo main
+imports:
+  - file: utils.tasks
+    as: utils
+"""
+            result = extract_task_names(text, base_path=tmpdir)
+            self.assertIn("main_task", result)
+            self.assertIn("utils.util_task", result)
+            self.assertIn("utils.helper", result)
+
+    def test_extract_task_names_without_base_path_skips_imports(self):
+        """Test that imports are not followed when base_path is None."""
+        text = """tasks:
+  main_task:
+    cmd: echo main
+imports:
+  - file: utils.tasks
+    as: utils
+"""
+        result = extract_task_names(text, base_path=None)
+        self.assertEqual(result, ["main_task"])
+
+    def test_extract_task_names_missing_import_file_is_skipped(self):
+        """Test that missing import files are silently skipped."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            text = """tasks:
+  local_task:
+    cmd: echo local
+imports:
+  - file: nonexistent.tasks
+    as: missing
+"""
+            result = extract_task_names(text, base_path=tmpdir)
+            # Should only return local tasks; the missing import is silently skipped
+            self.assertEqual(result, ["local_task"])
+
+
+class TestExtractLocalTaskNamesHeuristic(unittest.TestCase):
+    """Tests for _extract_local_task_names_heuristic function."""
+
+    def test_extracts_task_names_from_standard_yaml(self):
+        """Test extracting task names from standard YAML format."""
+        text = "tasks:\n  build:\n    cmd: echo\n  test:\n    cmd: pytest\n"
+        result = _extract_local_task_names_heuristic(text)
+        self.assertIn("build", result)
+        self.assertIn("test", result)
+
+    def test_filters_known_field_names(self):
+        """Test that known field names are not included as task names."""
+        text = "tasks:\n  build:\n    cmd: echo\n    deps: []\n    args: []\n"
+        result = _extract_local_task_names_heuristic(text)
+        self.assertIn("build", result)
+        self.assertNotIn("cmd", result)
+        self.assertNotIn("deps", result)
+        self.assertNotIn("args", result)
+
+    def test_returns_empty_for_no_tasks_section(self):
+        """Test returns empty list when there is no tasks section."""
+        text = "variables:\n  foo: bar\n"
+        result = _extract_local_task_names_heuristic(text)
+        self.assertEqual(result, [])
 
 
 if __name__ == "__main__":

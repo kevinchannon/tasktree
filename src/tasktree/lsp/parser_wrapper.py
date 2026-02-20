@@ -3,6 +3,7 @@
 import logging
 import os
 import re
+from pathlib import Path
 import yaml
 
 logger = logging.getLogger(__name__)
@@ -551,3 +552,131 @@ def get_env_var_names() -> list[str]:
         Alphabetically sorted list of environment variable names.
     """
     return sorted(os.environ.keys())
+
+
+def _extract_local_task_names_heuristic(text: str) -> list[str]:
+    """Extract local task names from incomplete YAML using heuristics.
+
+    Fallback for when yaml.safe_load() fails (e.g. during editing).
+    Only extracts task names defined directly in the tasks: section of this
+    file. Does not extract task names from imported files.
+
+    Filters out known task field names to avoid false positives.
+
+    Args:
+        text: The YAML document text (potentially incomplete)
+
+    Returns:
+        Sorted list of task names found. May contain false positives for
+        complex or unusual YAML structures.
+    """
+    lines = text.split("\n")
+    task_names = []
+    in_tasks_section = False
+    known_fields = {
+        "cmd", "args", "deps", "desc", "inputs", "outputs",
+        "working_dir", "run_in", "private", "pin_runner",
+    }
+
+    for line in lines:
+        if re.match(r"^\s*tasks\s*:\s*$", line):
+            in_tasks_section = True
+            continue
+        # A non-indented key means we left the tasks section
+        if in_tasks_section and re.match(r"^[a-zA-Z]", line):
+            in_tasks_section = False
+            continue
+        if in_tasks_section:
+            # Tasks are indented exactly two spaces under the tasks: key
+            match = re.match(r"^  (\S+?)\s*:\s*", line)
+            if match and match.group(1) not in known_fields:
+                task_names.append(match.group(1))
+
+    return sorted(task_names)
+
+
+def _extend_with_imported_task_names(
+    data: dict, base_path: str, task_names: list[str]
+) -> None:
+    """Append namespaced task names from imported files into task_names.
+
+    Reads each file listed in the imports section and adds its task names
+    with the namespace prefix (e.g. "build.compile" for namespace "build").
+    Files that cannot be read or parsed are silently skipped.
+
+    Args:
+        data: Pre-parsed YAML data dict for the current file
+        base_path: Directory of the current file (for resolving relative paths)
+        task_names: List to extend in-place with imported task names
+    """
+    imports = data.get("imports", [])
+    if not isinstance(imports, list):
+        return
+
+    for import_spec in imports:
+        if not isinstance(import_spec, dict):
+            continue
+        import_file = import_spec.get("file", "")
+        namespace = import_spec.get("as", "")
+        if not import_file or not namespace:
+            continue
+
+        try:
+            import_path = Path(base_path) / import_file
+            if not import_path.exists():
+                continue
+            imported_text = import_path.read_text(encoding="utf-8")
+            imported_data = parse_yaml_data(imported_text)
+            if not isinstance(imported_data, dict):
+                continue
+            imported_tasks = imported_data.get("tasks", {})
+            if isinstance(imported_tasks, dict):
+                for task_name in imported_tasks.keys():
+                    task_names.append(f"{namespace}.{task_name}")
+        except OSError as e:
+            logger.debug("Could not read import file %s: %s", import_file, e)
+
+
+def extract_task_names(
+    text: str, data: dict | None = None, base_path: str | None = None
+) -> list[str]:
+    """Extract task names from a tasktree YAML file, including from imports.
+
+    Returns task names defined in the local tasks section, plus namespaced
+    task names from each imported file referenced in the imports section
+    (e.g. "namespace.task_name" for imports[].as: namespace).
+
+    For incomplete YAML (common during LSP editing), falls back to heuristic
+    regex extraction of local task names only (imports are not followed when
+    YAML parsing fails).
+
+    Edge cases:
+    - Imported files that do not exist or cannot be parsed are silently skipped
+    - Duplicate task names (same name in local and imported) are both included
+    - base_path=None: imported task names are omitted (only local tasks returned)
+
+    Args:
+        text: The YAML document text (may be incomplete during editing)
+        data: Optional pre-parsed YAML data dict. If provided, skips parsing text.
+              Pass the result of parse_yaml_data(text) to avoid redundant parsing.
+        base_path: Directory of the current file, used to resolve relative import
+                   paths. If None, only local task names are returned.
+
+    Returns:
+        Sorted list of all available task names.
+        Returns empty list if no tasks section or YAML is unparseable.
+    """
+    if data is None:
+        data = parse_yaml_data(text)
+
+    if data is None:
+        # Fallback: heuristic extraction of local tasks only
+        return _extract_local_task_names_heuristic(text)
+
+    tasks = data.get("tasks", {})
+    task_names = list(tasks.keys()) if isinstance(tasks, dict) else []
+
+    if base_path is not None:
+        _extend_with_imported_task_names(data, base_path, task_names)
+
+    return sorted(task_names)
