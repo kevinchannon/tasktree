@@ -1228,5 +1228,131 @@ class TestMain(unittest.TestCase):
         self.assertIn("main()", source)
 
 
+class TestDepsTaskNameCompletion(unittest.TestCase):
+    """Tests for task name completion inside deps fields."""
+
+    def setUp(self):
+        """Create a server and helper objects for each test."""
+        self.server = create_server()
+        self.open_handler = self.server.handlers["textDocument/didOpen"]
+        self.completion_handler = self.server.handlers["textDocument/completion"]
+        self.uri = "file:///test/tasktree.yaml"
+
+    def _open_doc(self, text: str) -> None:
+        self.open_handler(DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri=self.uri, language_id="yaml", version=1, text=text,
+            )
+        ))
+
+    def _complete_at(self, line: int, character: int) -> CompletionList:
+        return self.completion_handler(CompletionParams(
+            text_document=TextDocumentIdentifier(uri=self.uri),
+            position=Position(line=line, character=character),
+        ))
+
+    def test_task_names_offered_in_deps_field(self):
+        """Test that task names are offered when cursor is in deps field."""
+        text = (
+            "tasks:\n"
+            "  build:\n"
+            "    cmd: echo build\n"
+            "  test:\n"
+            "    deps:\n"
+            "      - "
+        )
+        self._open_doc(text)
+        # Cursor at end of "      - " (after the dash-space)
+        result = self._complete_at(5, len("      - "))
+        labels = {item.label for item in result.items}
+        self.assertIn("build", labels)
+
+    def test_current_task_excluded_from_deps(self):
+        """Test that the current task is excluded from its own deps completions."""
+        text = (
+            "tasks:\n"
+            "  build:\n"
+            "    cmd: echo build\n"
+            "  test:\n"
+            "    deps:\n"
+            "      - "
+        )
+        self._open_doc(text)
+        result = self._complete_at(5, len("      - "))
+        labels = {item.label for item in result.items}
+        # 'test' is the current task, should NOT be in completions
+        self.assertNotIn("test", labels)
+        # 'build' is a sibling task, should be offered
+        self.assertIn("build", labels)
+
+    def test_deps_completions_filtered_by_partial(self):
+        """Test that deps completions filter by partially typed task name."""
+        text = (
+            "tasks:\n"
+            "  build:\n"
+            "    cmd: echo build\n"
+            "  bundle:\n"
+            "    cmd: echo bundle\n"
+            "  test:\n"
+            "    deps:\n"
+            "      - bu"
+        )
+        self._open_doc(text)
+        result = self._complete_at(7, len("      - bu"))
+        labels = {item.label for item in result.items}
+        self.assertIn("build", labels)
+        self.assertIn("bundle", labels)
+        self.assertNotIn("test", labels)
+
+    def test_no_task_name_completion_inside_template(self):
+        """Test that task name completion is suppressed inside {{ }} templates."""
+        text = (
+            "tasks:\n"
+            "  build:\n"
+            "    args: [env]\n"
+            "    cmd: echo build\n"
+            "  test:\n"
+            "    deps:\n"
+            "      - build({{ arg."
+        )
+        self._open_doc(text)
+        result = self._complete_at(6, len("      - build({{ arg."))
+        # Should be arg.* completions (from the template), not task names
+        # (No arg completions either since 'test' task has no args, but crucially
+        #  no task name completions either)
+        for item in result.items:
+            self.assertNotEqual(item.kind, CompletionItemKind.Reference)
+
+    def test_deps_completion_inline_flow_style(self):
+        """Test task name completion in single-line deps: [task1, ...]."""
+        text = (
+            "tasks:\n"
+            "  build:\n"
+            "    cmd: echo build\n"
+            "  test:\n"
+            "    deps: [bu"
+        )
+        self._open_doc(text)
+        result = self._complete_at(4, len("    deps: [bu"))
+        labels = {item.label for item in result.items}
+        self.assertIn("build", labels)
+
+    def test_deps_completion_items_have_reference_kind(self):
+        """Test that task name completion items have CompletionItemKind.Reference."""
+        text = (
+            "tasks:\n"
+            "  build:\n"
+            "    cmd: echo build\n"
+            "  test:\n"
+            "    deps:\n"
+            "      - "
+        )
+        self._open_doc(text)
+        result = self._complete_at(5, len("      - "))
+        self.assertTrue(len(result.items) > 0)
+        for item in result.items:
+            self.assertEqual(item.kind, CompletionItemKind.Reference)
+
+
 if __name__ == "__main__":
     unittest.main()
