@@ -215,17 +215,17 @@ def create_server() -> TasktreeLanguageServer:
         # Get the prefix up to the cursor
         prefix = get_prefix_at_position(text, position)
 
+        # Try tt.* built-in variable completion (uses only constants, no YAML parse needed)
+        if "{{ tt." in prefix:
+            return _complete_template_variables(
+                prefix, "{{ tt.", BUILTIN_VARIABLES, "Built-in"
+            )
+
         # Parse YAML once and share the result across all extraction calls that need it.
         # This avoids redundant yaml.safe_load calls for the same document text.
         # parse_yaml_data returns None if the text is invalid/incomplete YAML;
         # extraction functions handle None by falling back to heuristic regex extraction.
         data = parse_yaml_data(text)
-
-        # Try tt.* built-in variable completion
-        if "{{ tt." in prefix:
-            return _complete_template_variables(
-                prefix, "{{ tt.", BUILTIN_VARIABLES, "Built-in"
-            )
 
         # Try var.* user-defined variable completion
         if "{{ var." in prefix:
