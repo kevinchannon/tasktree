@@ -784,6 +784,29 @@ imports:
             # Should only return local tasks; the missing import is silently skipped
             self.assertEqual(result, ["local_task"])
 
+    def test_extract_task_names_import_without_namespace_is_skipped(self):
+        """Test that import entries without an 'as:' namespace are silently skipped.
+
+        The _extend_with_imported_task_names helper requires both 'file' and
+        'as' keys to resolve an import.  An entry missing 'as' is silently
+        skipped so that a bad import spec does not crash the LSP server.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create the imported file (it exists on disk, only 'as:' is absent)
+            imported_file = Path(tmpdir) / "utils.tasks"
+            imported_file.write_text("tasks:\n  util_task:\n    cmd: echo util\n")
+
+            # Main file imports without 'as:' namespace
+            text = f"""tasks:
+  main_task:
+    cmd: echo main
+imports:
+  - file: utils.tasks
+"""
+            result = extract_task_names(text, base_path=tmpdir)
+            # Import without namespace is silently skipped; only local task returned
+            self.assertEqual(result, ["main_task"])
+
 
 class TestExtractLocalTaskNamesHeuristic(unittest.TestCase):
     """Tests for _extract_local_task_names_heuristic function."""

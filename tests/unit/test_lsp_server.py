@@ -1306,21 +1306,27 @@ class TestDepsTaskNameCompletion(unittest.TestCase):
         self.assertNotIn("test", labels)
 
     def test_no_task_name_completion_inside_template(self):
-        """Test that task name completion is suppressed inside {{ }} templates."""
+        """Test that task name completion is suppressed inside {{ }} templates.
+
+        The 'test' task has an arg ('mode') so that arg.* completions *would*
+        appear — making the assertion non-vacuous: we verify that those items
+        have kind Variable (not Reference), and that no task-name items sneak in.
+        """
         text = (
             "tasks:\n"
             "  build:\n"
             "    args: [env]\n"
             "    cmd: echo build\n"
             "  test:\n"
+            "    args: [mode]\n"
             "    deps:\n"
             "      - build({{ arg."
         )
         self._open_doc(text)
-        result = self._complete_at(6, len("      - build({{ arg."))
-        # Should be arg.* completions (from the template), not task names
-        # (No arg completions either since 'test' task has no args, but crucially
-        #  no task name completions either)
+        result = self._complete_at(7, len("      - build({{ arg."))
+        # 'test' has arg 'mode', so at least one completion item should appear
+        self.assertGreater(len(result.items), 0, "Expected arg completions to appear")
+        # All completions must be variable kind — no task-name (Reference) items
         for item in result.items:
             self.assertNotEqual(item.kind, CompletionItemKind.Reference)
 
