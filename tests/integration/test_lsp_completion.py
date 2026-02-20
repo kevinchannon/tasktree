@@ -1062,6 +1062,56 @@ class TestDepsTaskNameCompletionIntegration(unittest.TestCase):
         # Newly added task should appear
         self.assertIn("package", labels)
 
+    def test_deps_completions_filtered_by_partial_name(self):
+        """Test partial-name filtering in deps completions (integration-level coverage).
+
+        This mirrors the unit-level test_deps_completions_filtered_by_partial
+        but exercises the full initialize -> open -> complete workflow to confirm
+        partial filtering works end-to-end.
+        """
+        # Initialize
+        init_handler = self.server.handlers["initialize"]
+        init_handler(InitializeParams(
+            process_id=12345, root_uri="file:///test/project", capabilities={}
+        ))
+
+        # Open document with multiple tasks whose names share a common prefix
+        open_handler = self.server.handlers["textDocument/didOpen"]
+        open_handler(DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/project/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text=(
+                    "tasks:\n"
+                    "  compile:\n"
+                    "    cmd: gcc main.c\n"
+                    "  compress:\n"
+                    "    cmd: gzip output\n"
+                    "  lint:\n"
+                    "    cmd: flake8 .\n"
+                    "  build:\n"
+                    "    deps:\n"
+                    "      - co"
+                ),
+            )
+        ))
+
+        # Request completion with partial prefix "co" (should match compile, compress)
+        completion_handler = self.server.handlers["textDocument/completion"]
+        result = completion_handler(CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/project/tasktree.yaml"),
+            position=Position(line=9, character=len("      - co")),
+        ))
+
+        labels = {item.label for item in result.items}
+        # Only tasks starting with "co" should be returned
+        self.assertIn("compile", labels)
+        self.assertIn("compress", labels)
+        # Tasks not matching the prefix must be absent
+        self.assertNotIn("lint", labels)
+        self.assertNotIn("build", labels)
+
     def test_deps_with_imported_tasks(self):
         """Test that imported task names appear with namespace prefix in deps."""
         with tempfile.TemporaryDirectory() as tmpdir:
