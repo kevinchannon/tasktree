@@ -26,7 +26,7 @@ def parse_yaml_data(text: str) -> dict | None:
         if isinstance(data, dict):
             return data
         return None
-    except (yaml.YAMLError, AttributeError) as e:
+    except yaml.YAMLError as e:
         logger.debug(f"YAML parse failed: {e}")
         return None
 
@@ -44,7 +44,8 @@ def extract_variables(text: str, data: dict | None = None) -> list[str]:
     - Invalid YAML: Returns empty list and logs debug message
 
     Args:
-        text: The YAML document text (may be incomplete during editing)
+        text: The YAML document text (may be incomplete during editing).
+              Note: text is only used if data is None (i.e., no pre-parsed data provided).
         data: Optional pre-parsed YAML data dict. If provided, skips parsing text.
               Pass the result of parse_yaml_data(text) to avoid redundant parsing.
 
@@ -220,6 +221,7 @@ def extract_task_args(text: str, task_name: str, data: dict | None = None) -> li
 
     # YAML parsing failed (likely incomplete YAML during editing)
     # Fall back to heuristic extraction
+    logger.debug("YAML parse unavailable, falling back to heuristic extraction for task '%s'", task_name)
     arg_names = _extract_task_args_heuristic(text, task_name)
     return sorted(arg_names)
 
@@ -375,6 +377,7 @@ def extract_task_inputs(text: str, task_name: str, data: dict | None = None) -> 
 
     # YAML parsing failed (likely incomplete YAML during editing)
     # Fall back to heuristic regex-based extraction
+    logger.debug("YAML parse unavailable, falling back to heuristic extraction for task '%s'", task_name)
     input_names = _extract_task_inputs_heuristic(text, task_name)
     return sorted(input_names)
 
@@ -530,6 +533,7 @@ def extract_task_outputs(text: str, task_name: str, data: dict | None = None) ->
 
     # YAML parsing failed (likely incomplete YAML during editing)
     # Fall back to heuristic regex-based extraction
+    logger.debug("YAML parse unavailable, falling back to heuristic extraction for task '%s'", task_name)
     output_names = _extract_task_outputs_heuristic(text, task_name)
     return sorted(output_names)
 
