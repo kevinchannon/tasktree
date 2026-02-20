@@ -603,6 +603,12 @@ def _extend_with_imported_task_names(
     Reads each file listed in the imports section and adds its task names
     with the namespace prefix (e.g. "build.compile" for namespace "build").
     Files that cannot be read or parsed are silently skipped.
+    Import entries without an "as:" namespace key are silently skipped.
+
+    Limitation:
+        Only one level of imports is resolved. If an imported file itself
+        imports further files (nested imports), those nested task names are
+        NOT included in the completion list.
 
     Args:
         data: Pre-parsed YAML data dict for the current file

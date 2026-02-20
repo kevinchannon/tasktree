@@ -48,10 +48,15 @@ def _uri_to_path(uri: str) -> str | None:
 
     Returns:
         Filesystem path string, or None if the URI is not a file:// URI.
+
+    Note:
+        On Windows, "file:///C:/path" would produce "/C:/path" (missing drive letter).
+        This project primarily targets Unix/macOS, so this limitation is accepted.
     """
     if uri.startswith("file://"):
         return unquote(uri[len("file://"):])
     return None
+
 
 __all__ = ["TasktreeLanguageServer", "main"]
 
@@ -352,6 +357,11 @@ def create_server() -> TasktreeLanguageServer:
 
             # Filter by whatever partial name the user has already typed
             partial = _get_deps_partial_from_prefix(prefix)
+            # CompletionItemKind.Reference is used here because lsprotocol does not
+            # define a dedicated "task" kind.  Reference is the closest semantic fit
+            # (a task name that is being referenced in a dependency list) and
+            # produces a distinct icon in most editors, making task completions
+            # visually distinguishable from variable completions (Kind.Variable).
             items = [
                 CompletionItem(
                     label=task_name,
