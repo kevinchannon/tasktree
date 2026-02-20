@@ -12,7 +12,6 @@ from lsprotocol.types import (
     VersionedTextDocumentIdentifier,
     CompletionParams,
     TextDocumentItem,
-    TextDocumentContentChangeEvent,
     TextDocumentIdentifier,
     Position,
 )
@@ -1036,7 +1035,7 @@ class TestDepsTaskNameCompletionIntegration(unittest.TestCase):
                 uri="file:///test/project/tasks.tt", version=2
             ),
             content_changes=[
-                TextDocumentContentChangeEvent(
+                Mock(
                     text=(
                         "tasks:\n"
                         "  build:\n"
