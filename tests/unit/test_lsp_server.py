@@ -1,7 +1,8 @@
 """Tests for LSP server module."""
 
+import os
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import tasktree
 import tasktree.lsp.server
@@ -148,16 +149,11 @@ class TestCreateServer(unittest.TestCase):
         open_handler(open_params)
 
         # Now change it
-        # In lsprotocol 2025.0.0+, for full sync mode we use a simple object with text attribute
-        class ChangeEvent:
-            def __init__(self, text):
-                self.text = text
-
         change_params = DidChangeTextDocumentParams(
             text_document=VersionedTextDocumentIdentifier(
                 uri="file:///test/tasktree.yaml", version=2
             ),
-            content_changes=[ChangeEvent(text="tasks:\n  hello:\n    cmd: echo world")],
+            content_changes=[Mock(text="tasks:\n  hello:\n    cmd: echo world")],
         )
         change_handler(change_params)
 
@@ -1051,7 +1047,6 @@ class TestCreateServer(unittest.TestCase):
 
     def test_completion_env_returns_env_vars(self):
         """Test that env.* completion returns environment variable names."""
-        import os
         server = create_server()
         open_handler = server.handlers["textDocument/didOpen"]
         completion_handler = server.handlers["textDocument/completion"]
@@ -1110,7 +1105,6 @@ class TestCreateServer(unittest.TestCase):
 
     def test_completion_env_filtered_by_prefix(self):
         """Test that env.* completion filters by partial prefix."""
-        import os
         server = create_server()
         open_handler = server.handlers["textDocument/didOpen"]
         completion_handler = server.handlers["textDocument/completion"]
@@ -1143,9 +1137,8 @@ class TestCreateServer(unittest.TestCase):
         var_names = {item.label for item in result.items}
         self.assertIn("PATH", var_names)
 
-    def test_completion_env_no_scoping_outside_cmd(self):
-        """Test that env.* completion works even outside cmd fields (no scoping)."""
-        import os
+    def test_completion_env_works_in_working_dir_field(self):
+        """Test that env.* completion works in working_dir field."""
         server = create_server()
         open_handler = server.handlers["textDocument/didOpen"]
         completion_handler = server.handlers["textDocument/completion"]
@@ -1174,7 +1167,6 @@ class TestCreateServer(unittest.TestCase):
 
     def test_completion_env_at_top_level(self):
         """Test that env.* completion works at top level (variables section)."""
-        import os
         server = create_server()
         open_handler = server.handlers["textDocument/didOpen"]
         completion_handler = server.handlers["textDocument/completion"]

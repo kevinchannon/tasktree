@@ -408,7 +408,6 @@ class TestLSPSubprocess(unittest.TestCase):
 
     def test_lsp_env_completion_e2e(self):
         """Test end-to-end env.* completion workflow via subprocess."""
-        import os
         project_root = Path(__file__).parent.parent.parent
 
         # Spawn the server

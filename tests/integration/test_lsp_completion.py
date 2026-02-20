@@ -1,9 +1,13 @@
 """Integration tests for LSP completion feature."""
 
+import os
 import unittest
+from unittest.mock import Mock
 from lsprotocol.types import (
     InitializeParams,
     DidOpenTextDocumentParams,
+    DidChangeTextDocumentParams,
+    VersionedTextDocumentIdentifier,
     CompletionParams,
     TextDocumentItem,
     TextDocumentIdentifier,
@@ -81,23 +85,13 @@ class TestLSPCompletionIntegration(unittest.TestCase):
         open_handler(open_params)
 
         # Change document to add tt. prefix
-        from lsprotocol.types import (
-            DidChangeTextDocumentParams,
-            VersionedTextDocumentIdentifier,
-        )
-
-        # In lsprotocol 2025.0.0+, for full sync mode we use a simple object with text attribute
-        class ChangeEvent:
-            def __init__(self, text):
-                self.text = text
-
         change_handler = self.server.handlers["textDocument/didChange"]
         change_params = DidChangeTextDocumentParams(
             text_document=VersionedTextDocumentIdentifier(
                 uri="file:///test/project/build.tt", version=2
             ),
             content_changes=[
-                ChangeEvent(text="tasks:\n  test:\n    cmd: echo {{ tt.proj")
+                Mock(text="tasks:\n  test:\n    cmd: echo {{ tt.proj}")
             ],
         )
         change_handler(change_params)
@@ -297,24 +291,13 @@ class TestLSPCompletionIntegration(unittest.TestCase):
         open_handler(open_params)
 
         # Change document to add var. prefix
-        from lsprotocol.types import (
-            DidChangeTextDocumentParams,
-            VersionedTextDocumentIdentifier,
-        )
-
-        class ChangeEvent:
-            def __init__(self, text):
-                self.text = text
-
         change_handler = self.server.handlers["textDocument/didChange"]
         change_params = DidChangeTextDocumentParams(
             text_document=VersionedTextDocumentIdentifier(
                 uri="file:///test/project/build.tt", version=2
             ),
             content_changes=[
-                ChangeEvent(
-                    text="variables:\n  foo: bar\n  foobar: baz\ntasks:\n  test:\n    cmd: echo {{ var.foo"
-                )
+                Mock(text="variables:\n  foo: bar\n  foobar: baz\ntasks:\n  test:\n    cmd: echo {{ var.foo")
             ],
         )
         change_handler(change_params)
@@ -440,24 +423,13 @@ class TestLSPCompletionIntegration(unittest.TestCase):
         open_handler(open_params)
 
         # Change document to add self.inputs. prefix and more inputs
-        from lsprotocol.types import (
-            DidChangeTextDocumentParams,
-            VersionedTextDocumentIdentifier,
-        )
-
-        class ChangeEvent:
-            def __init__(self, text):
-                self.text = text
-
         change_handler = self.server.handlers["textDocument/didChange"]
         change_params = DidChangeTextDocumentParams(
             text_document=VersionedTextDocumentIdentifier(
                 uri="file:///test/project/build.tt", version=2
             ),
             content_changes=[
-                ChangeEvent(
-                    text="tasks:\n  test:\n    inputs:\n      - source: src/main.c\n      - header: include/defs.h\n    cmd: echo {{ self.inputs."
-                )
+                Mock(text="tasks:\n  test:\n    inputs:\n      - source: src/main.c\n      - header: include/defs.h\n    cmd: echo {{ self.inputs.")
             ],
         )
         change_handler(change_params)
@@ -660,24 +632,13 @@ class TestLSPCompletionIntegration(unittest.TestCase):
         open_handler(open_params)
 
         # Change document to add self.outputs. prefix and more outputs
-        from lsprotocol.types import (
-            DidChangeTextDocumentParams,
-            VersionedTextDocumentIdentifier,
-        )
-
-        class ChangeEvent:
-            def __init__(self, text):
-                self.text = text
-
         change_handler = self.server.handlers["textDocument/didChange"]
         change_params = DidChangeTextDocumentParams(
             text_document=VersionedTextDocumentIdentifier(
                 uri="file:///test/project/build.tt", version=2
             ),
             content_changes=[
-                ChangeEvent(
-                    text="tasks:\n  test:\n    outputs:\n      - binary: dist/app\n      - log: logs/test.log\n    cmd: echo {{ self.outputs."
-                )
+                Mock(text="tasks:\n  test:\n    outputs:\n      - binary: dist/app\n      - log: logs/test.log\n    cmd: echo {{ self.outputs.")
             ],
         )
         change_handler(change_params)
@@ -860,8 +821,6 @@ class TestLSPCompletionIntegration(unittest.TestCase):
 
     def test_full_workflow_env_completion(self):
         """Test complete workflow for env.* environment variable completion."""
-        import os
-
         # Initialize
         init_handler = self.server.handlers["initialize"]
         init_params = InitializeParams(
@@ -929,8 +888,6 @@ class TestLSPCompletionIntegration(unittest.TestCase):
 
     def test_env_completion_no_scoping_in_various_fields(self):
         """Test that env.* completion works in all YAML fields (no scoping)."""
-        import os
-
         # Open document with env. in variables section (not in a task)
         open_handler = self.server.handlers["textDocument/didOpen"]
         open_params = DidOpenTextDocumentParams(
@@ -959,8 +916,6 @@ class TestLSPCompletionIntegration(unittest.TestCase):
 
     def test_env_completion_updates_after_document_change(self):
         """Test that env.* completion works correctly after document change."""
-        import os
-
         # Open document (without env. prefix initially)
         open_handler = self.server.handlers["textDocument/didOpen"]
         open_params = DidOpenTextDocumentParams(
@@ -974,22 +929,13 @@ class TestLSPCompletionIntegration(unittest.TestCase):
         open_handler(open_params)
 
         # Change document to add env. prefix
-        from lsprotocol.types import (
-            DidChangeTextDocumentParams,
-            VersionedTextDocumentIdentifier,
-        )
-
-        class ChangeEvent:
-            def __init__(self, text):
-                self.text = text
-
         change_handler = self.server.handlers["textDocument/didChange"]
         change_params = DidChangeTextDocumentParams(
             text_document=VersionedTextDocumentIdentifier(
                 uri="file:///test/project/build.tt", version=2
             ),
             content_changes=[
-                ChangeEvent(text="tasks:\n  build:\n    cmd: echo {{ env.PATH")
+                Mock(text="tasks:\n  build:\n    cmd: echo {{ env.PATH")
             ],
         )
         change_handler(change_params)
