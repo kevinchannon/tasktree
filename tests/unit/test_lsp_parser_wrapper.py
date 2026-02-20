@@ -810,6 +810,33 @@ class TestExtractLocalTaskNamesHeuristic(unittest.TestCase):
         result = _extract_local_task_names_heuristic(text)
         self.assertEqual(result, [])
 
+    def test_returns_empty_for_4_space_indented_tasks(self):
+        """Test that tasks with 4-space indentation are not detected (known limitation).
+
+        The heuristic regex requires exactly 2-space indentation. Files using
+        4-space (or any other) indentation will produce no results from this
+        fallback.  The primary parser (yaml.safe_load) handles such files
+        correctly; the heuristic is only invoked for incomplete/invalid YAML.
+        """
+        text = "tasks:\n    build:\n        cmd: echo\n    test:\n        cmd: pytest\n"
+        result = _extract_local_task_names_heuristic(text)
+        # 4-space indentation is not handled by the heuristic
+        self.assertEqual(result, [])
+
+    def test_returns_empty_for_flow_style_yaml(self):
+        """Test that flow-style YAML task definitions are not detected (known limitation).
+
+        In a flow-style file the structure may be a single line such as:
+            tasks: {build: {cmd: echo build}, test: {cmd: pytest}}
+        The line-by-line regex heuristic cannot parse this format.  The
+        primary parser (yaml.safe_load) handles flow-style files correctly;
+        the heuristic is only used when yaml.safe_load fails.
+        """
+        text = "tasks: {build: {cmd: echo build}, test: {cmd: pytest}}"
+        result = _extract_local_task_names_heuristic(text)
+        # Flow-style YAML is not handled by this heuristic
+        self.assertEqual(result, [])
+
 
 if __name__ == "__main__":
     unittest.main()

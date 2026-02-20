@@ -563,6 +563,16 @@ def _extract_local_task_names_heuristic(text: str) -> list[str]:
 
     Filters out known task field names to avoid false positives.
 
+    Limitations:
+    - Requires exactly 2-space indentation under the ``tasks:`` key.
+      Tasks indented with 4 spaces, tabs, or any other width will not be
+      detected by this heuristic.
+    - Does not handle flow-style YAML (e.g.
+      ``tasks: {build: {cmd: echo}, test: {cmd: pytest}}``).
+      In a flow-style file the entire structure may be a single line,
+      which the line-by-line regex cannot parse.
+    - Should only be used when yaml.safe_load() fails.
+
     Args:
         text: The YAML document text (potentially incomplete)
 
