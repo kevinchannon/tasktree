@@ -10,6 +10,7 @@ from tasktree.lsp.server import TasktreeLanguageServer, create_server, main
 from lsprotocol.types import (
     InitializeParams,
     CompletionOptions,
+    CompletionItemKind,
     TextDocumentSyncKind,
     DidOpenTextDocumentParams,
     DidChangeTextDocumentParams,
