@@ -123,6 +123,22 @@ class TestExampleRecipe(unittest.TestCase):
             result_file = project_root / "processed" / "result.txt"
             self.assertTrue(result_file.exists(), "transform output not present after re-run")
 
+    def test_summarize_task_uses_dep_outputs_template(self):
+        """summarize task references dep.transform.outputs.result via dep.* template."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = copy_example(Path(tmpdir))
+
+            result = run_tasktree_cli(["summarize"], cwd=project_root)
+
+            self.assertEqual(
+                result.returncode,
+                0,
+                f"summarize failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
+            )
+            summary = project_root / "processed" / "summary.txt"
+            self.assertTrue(summary.exists(), "summary.txt not created")
+            self.assertIn("Result file:", summary.read_text())
+
     def test_package_task_runs_parameterised_deps(self):
         """package task exercises parameterised dependencies (build called with different args)."""
         with TemporaryDirectory() as tmpdir:
