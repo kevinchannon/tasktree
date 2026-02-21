@@ -70,6 +70,17 @@ tasks:
       tr '[:lower:]' '[:upper:]' < {{ self.inputs.source }} > {{ self.outputs.result }}
       echo "Done" >> {{ self.outputs.log }}
 
+  summarize:
+    desc: Create a summary from transformed output (demonstrates dep.* template usage)
+    deps: [transform]
+    outputs: [processed/summary.txt]
+    cmd: |
+      {
+        echo "=== Summary ==="
+        echo "Result file: {{ dep.transform.outputs.result }}"
+        echo "Characters: $(wc -c < {{ dep.transform.outputs.result }})"
+      } > processed/summary.txt
+
   prepare-output:
     desc: Create the output directory on the host (required before Docker volume mounts)
     outputs:
