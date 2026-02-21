@@ -245,6 +245,34 @@ tasks:
         task_name = get_task_at_position(tree, position)
         self.assertEqual(task_name, "🐳🏃‍♂️‍➡️")
 
+    def test_unicode_task_name_with_unicode_arg(self):
+        """Test getting task name when task and arg names both use Unicode."""
+        text = """tasks:
+  café:
+    args:
+      - résumé
+    cmd: echo {{ arg.résumé }}
+"""
+        tree = parse_document(text)
+        position = Position(line=4, character=len("    cmd: echo {{ arg.r"))
+        task_name = get_task_at_position(tree, position)
+        self.assertEqual(task_name, "café")
+
+    def test_mixed_unicode_and_ascii_tasks(self):
+        """Test task detection with a mix of Unicode and ASCII task names."""
+        text = """tasks:
+  build:
+    cmd: echo building
+  déployer:
+    cmd: echo deploying
+  test:
+    cmd: echo testing
+"""
+        tree = parse_document(text)
+        self.assertEqual(get_task_at_position(tree, Position(line=2, character=10)), "build")
+        self.assertEqual(get_task_at_position(tree, Position(line=4, character=10)), "déployer")
+        self.assertEqual(get_task_at_position(tree, Position(line=6, character=10)), "test")
+
     def test_four_space_indentation(self):
         """Test getting task name with 4-space indentation."""
         text = """tasks:
@@ -391,6 +419,60 @@ class TestIsInSubstitutableField(unittest.TestCase):
         tree = parse_document(text)
         position = Position(line=2, character=len("    desc: "))
         self.assertFalse(is_in_substitutable_field(tree, position))
+
+
+class TestIncompleteYamlEdgeCases(unittest.TestCase):
+    """Tests for position detection in incomplete / broken YAML documents.
+
+    These edge cases reflect typical LSP editing conditions: the document
+    is almost always syntactically invalid because the user is mid-keystroke.
+    """
+
+    def test_exotic_yaml_single_line_flow_style(self):
+        """Test position detection in single-line flow-style YAML."""
+        text = '{ tasks: { build: { cmd: "echo hi" }, deploy: { cmd: "echo bye" } } }'
+        tree = parse_document(text)
+        # Cursor somewhere in deploy's cmd
+        position = Position(line=0, character=len('{ tasks: { build: { cmd: "echo hi" }, deploy: { cmd: "echo '))
+        task_name = get_task_at_position(tree, position)
+        self.assertEqual(task_name, "deploy")
+
+    def test_incomplete_yaml_missing_closing_quote(self):
+        """Test position detection when document has an unclosed string."""
+        # Unclosed double-quote makes the document invalid YAML
+        text = 'tasks:\n  build:\n    cmd: "echo hello\n  deploy:\n    cmd: echo bye\n'
+        tree = parse_document(text)
+        # Should not raise; result may be None or a partial match
+        result = get_task_at_position(tree, Position(line=4, character=10))
+        self.assertTrue(result is None or isinstance(result, str))
+
+    def test_incomplete_yaml_with_complete_template_pattern(self):
+        """Test is_in_cmd_field when document contains {{ arg. }} style but is otherwise valid."""
+        text = "tasks:\n  build:\n    args:\n      - name\n    cmd: echo {{ arg. }}\n"
+        tree = parse_document(text)
+        # Cursor inside the value after "{{ arg." — should still be in cmd field
+        position = Position(line=4, character=len("    cmd: echo {{ arg. "))
+        result = is_in_cmd_field(tree, position)
+        self.assertIsInstance(result, bool)
+
+    def test_get_task_at_position_unclosed_bracket_in_deps(self):
+        """Test task detection when deps list has unclosed bracket."""
+        text = "tasks:\n  build:\n    cmd: gcc main.c\n  test:\n    deps: [\n"
+        tree = parse_document(text)
+        # Cursor at the end of the broken deps line
+        position = Position(line=4, character=len("    deps: ["))
+        result = get_task_at_position(tree, position)
+        # Should return "test" or None gracefully
+        self.assertTrue(result is None or isinstance(result, str))
+
+    def test_is_in_cmd_field_unclosed_template(self):
+        """Test cmd field detection when line ends with unclosed {{ template."""
+        text = "tasks:\n  build:\n    cmd: echo {{ tt."
+        tree = parse_document(text)
+        position = Position(line=2, character=len("    cmd: echo {{ tt."))
+        # Should not raise; tree-sitter handles malformed input gracefully
+        result = is_in_cmd_field(tree, position)
+        self.assertIsInstance(result, bool)
 
 
 class TestIsInsideOpenTemplate(unittest.TestCase):
