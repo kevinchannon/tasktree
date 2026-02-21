@@ -292,6 +292,15 @@ tasks:
         task_name = get_task_at_position(tree, position)
         self.assertEqual(task_name, "deploy")
 
+    def test_position_out_of_bounds_returns_none(self):
+        """Test that a cursor position past the end of the document returns None."""
+        text = "tasks:\n  build:\n    cmd: echo hello\n"
+        tree = parse_document(text)
+        # Line 100 does not exist in a 4-line document
+        position = Position(line=100, character=0)
+        result = get_task_at_position(tree, position)
+        self.assertIsNone(result)
+
 
 class TestIsInWorkingDirField(unittest.TestCase):
     """Tests for is_in_working_dir_field function."""
