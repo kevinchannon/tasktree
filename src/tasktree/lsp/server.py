@@ -23,6 +23,7 @@ from lsprotocol.types import (
 import tasktree
 from tasktree.lsp.builtin_variables import BUILTIN_VARIABLES
 from tasktree.lsp.ts_context import parse_document
+from tree_sitter import Tree
 from tasktree.lsp.position_utils import (
     get_prefix_at_position,
     is_in_substitutable_field,
@@ -113,7 +114,7 @@ class TasktreeLanguageServer(LanguageServer):
         # Trees are re-parsed on every textDocument/didOpen and
         # textDocument/didChange notification so completion always has
         # access to the latest structural information.
-        self.trees: dict = {}
+        self.trees: dict[str, Tree] = {}
         # Store handler references for testing
         self.handlers: dict[str, callable] = {}
 
