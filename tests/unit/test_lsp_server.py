@@ -14,11 +14,12 @@ from lsprotocol.types import (
     TextDocumentSyncKind,
     DidOpenTextDocumentParams,
     DidChangeTextDocumentParams,
+    DidCloseTextDocumentParams,
     TextDocumentItem,
+    TextDocumentIdentifier,
     VersionedTextDocumentIdentifier,
     TextDocumentContentChangeEvent,
     CompletionParams,
-    TextDocumentIdentifier,
     Position,
     CompletionList,
 )
@@ -163,6 +164,62 @@ class TestCreateServer(unittest.TestCase):
             server.documents["file:///test/tasktree.yaml"],
             "tasks:\n  hello:\n    cmd: echo world",
         )
+
+    def test_did_close_handler_registered(self):
+        """Test that the did_close handler is registered."""
+        server = create_server()
+        self.assertIn("textDocument/didClose", server.handlers)
+
+    def test_did_close_removes_document(self):
+        """Test that did_close removes the document from server.documents."""
+        server = create_server()
+        open_handler = server.handlers["textDocument/didOpen"]
+        close_handler = server.handlers["textDocument/didClose"]
+
+        open_handler(DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  hello:\n    cmd: echo hello",
+            )
+        ))
+        self.assertIn("file:///test/tasktree.yaml", server.documents)
+
+        close_handler(DidCloseTextDocumentParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml")
+        ))
+        self.assertNotIn("file:///test/tasktree.yaml", server.documents)
+
+    def test_did_close_removes_tree(self):
+        """Test that did_close removes the cached parse tree from server.trees."""
+        server = create_server()
+        open_handler = server.handlers["textDocument/didOpen"]
+        close_handler = server.handlers["textDocument/didClose"]
+
+        open_handler(DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text="tasks:\n  hello:\n    cmd: echo hello",
+            )
+        ))
+        self.assertIn("file:///test/tasktree.yaml", server.trees)
+
+        close_handler(DidCloseTextDocumentParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/tasktree.yaml")
+        ))
+        self.assertNotIn("file:///test/tasktree.yaml", server.trees)
+
+    def test_did_close_unknown_uri_does_not_raise(self):
+        """Test that closing an unknown URI is handled gracefully."""
+        server = create_server()
+        close_handler = server.handlers["textDocument/didClose"]
+        # Should not raise even if the URI was never opened
+        close_handler(DidCloseTextDocumentParams(
+            text_document=TextDocumentIdentifier(uri="file:///never/opened.yaml")
+        ))
 
     def test_completion_handler_registered(self):
         """Test that the completion handler is registered."""
