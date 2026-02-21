@@ -123,6 +123,23 @@ class TestExampleRecipe(unittest.TestCase):
             result_file = project_root / "processed" / "result.txt"
             self.assertTrue(result_file.exists(), "transform output not present after re-run")
 
+    def test_package_task_runs_parameterised_deps(self):
+        """package task exercises parameterised dependencies (build called with different args)."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = copy_example(Path(tmpdir))
+
+            result = run_tasktree_cli(["package"], cwd=project_root)
+
+            self.assertEqual(
+                result.returncode,
+                0,
+                f"package failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
+            )
+            # All three parameterised build variants must have been invoked
+            self.assertIn("Running: build", result.stdout)
+            archive = project_root / "archive.tar.gz"
+            self.assertTrue(archive.exists(), "archive.tar.gz not created by package task")
+
     @unittest.skipUnless(is_docker_available(), "Docker not available")
     def test_docker_echo_task_creates_output(self):
         """docker-echo task creates an output file via a Docker container."""
