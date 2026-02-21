@@ -550,8 +550,31 @@ def is_in_substitutable_field(tree: Tree, line: int, col: int) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Helper: re-parse without a broken template (ERROR-recovery fallback)
+# Helpers: re-parse without broken content (ERROR-recovery fallbacks)
 # ---------------------------------------------------------------------------
+
+
+def _tree_without_last_line(tree: Tree) -> Tree | None:
+    """Return a cleaned parse tree with the last non-empty line removed.
+
+    Used when the document root is an ERROR node due to a broken last line
+    (e.g. ``deps: [bu`` — an unclosed ``[`` with no ``{{`` template).
+    Removing the last line often restores a structurally valid document.
+
+    Returns ``None`` when the source is unavailable or stripping leaves no
+    useful content.
+    """
+    source_bytes = tree.root_node.text
+    if source_bytes is None:
+        return None
+    text = source_bytes.decode("utf-8")
+    last_newline = text.rfind("\n")
+    if last_newline == -1:
+        return None  # single-line document; nothing useful to keep
+    cleaned = text[:last_newline]
+    if not cleaned.strip():
+        return None
+    return parse_document(cleaned)
 
 
 def _tree_without_broken_template(tree: Tree) -> Tree | None:
@@ -769,6 +792,22 @@ def extract_task_names(
     """
     try:
         tasks_mapping = _find_section_mapping(tree.root_node, "tasks")
+
+        # If the tree is all ERROR (broken YAML), try re-parsing with the
+        # broken content removed so we can still query task structure.
+        if tasks_mapping is None:
+            for candidate in (
+                _tree_without_broken_template(tree),
+                _tree_without_last_line(tree),
+            ):
+                if candidate is not None:
+                    tasks_mapping = _find_section_mapping(
+                        candidate.root_node, "tasks"
+                    )
+                    if tasks_mapping is not None:
+                        tree = candidate  # use clean tree for imports too
+                        break
+
         task_names: list[str] = []
 
         if tasks_mapping is not None:
