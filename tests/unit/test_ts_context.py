@@ -17,6 +17,11 @@ from tasktree.lsp.ts_context import (
 )
 
 
+def _tree(text: str):
+    """Convenience wrapper around parse_document for use in test methods."""
+    return parse_document(text)
+
+
 # ---------------------------------------------------------------------------
 # parse_document
 # ---------------------------------------------------------------------------
@@ -59,16 +64,13 @@ class TestGetTaskAtPosition(unittest.TestCase):
         "      - compile\n"
     )
 
-    def _tree(self, text):
-        return parse_document(text)
-
     def test_returns_task_when_cursor_in_cmd(self):
-        tree = self._tree("tasks:\n  build:\n    cmd: echo hello\n")
+        tree = _tree("tasks:\n  build:\n    cmd: echo hello\n")
         result = get_task_at_position(tree, 2, 10)
         self.assertEqual(result, "build")
 
     def test_returns_correct_task_for_multiple_tasks(self):
-        tree = self._tree(self.BLOCK_YAML)
+        tree = _tree(self.BLOCK_YAML)
         # Cursor in compile's cmd line
         self.assertEqual(get_task_at_position(tree, 2, 10), "compile")
         # Cursor in link's cmd line
@@ -77,15 +79,15 @@ class TestGetTaskAtPosition(unittest.TestCase):
         self.assertEqual(get_task_at_position(tree, 7, 8), "build")
 
     def test_returns_none_when_no_tasks_section(self):
-        tree = self._tree("variables:\n  foo: bar\n")
+        tree = _tree("variables:\n  foo: bar\n")
         self.assertIsNone(get_task_at_position(tree, 1, 5))
 
     def test_returns_none_for_empty_document(self):
-        tree = self._tree("")
+        tree = _tree("")
         self.assertIsNone(get_task_at_position(tree, 0, 0))
 
     def test_returns_task_for_flow_style(self):
-        tree = self._tree(
+        tree = _tree(
             "{ tasks: { task-1: { cmd: echo hello }, task-2: { cmd: hi } } }"
         )
         # In flow-style, task-2 starts later in the line
@@ -94,7 +96,7 @@ class TestGetTaskAtPosition(unittest.TestCase):
         self.assertEqual(result, "task-2")
 
     def test_returns_none_for_broken_yaml_no_tasks(self):
-        tree = self._tree("{ variables: { foo: bar } }")
+        tree = _tree("{ variables: { foo: bar } }")
         self.assertIsNone(get_task_at_position(tree, 0, 0))
 
     def test_handles_severely_broken_yaml(self):
@@ -112,44 +114,41 @@ class TestGetTaskAtPosition(unittest.TestCase):
 
 
 class TestIsInField(unittest.TestCase):
-    def _tree(self, text):
-        return parse_document(text)
-
     def test_cursor_in_cmd_value(self):
-        tree = self._tree("tasks:\n  build:\n    cmd: echo hello\n")
+        tree = _tree("tasks:\n  build:\n    cmd: echo hello\n")
         self.assertTrue(is_in_field(tree, 2, 10, "cmd"))
 
     def test_cursor_on_cmd_key_not_in_value(self):
-        tree = self._tree("tasks:\n  build:\n    cmd: echo hello\n")
+        tree = _tree("tasks:\n  build:\n    cmd: echo hello\n")
         # Position 4 is on "cmd" itself (before the colon)
         self.assertFalse(is_in_field(tree, 2, 4, "cmd"))
 
     def test_cursor_in_working_dir_value(self):
-        tree = self._tree("tasks:\n  build:\n    working_dir: /tmp\n")
+        tree = _tree("tasks:\n  build:\n    working_dir: /tmp\n")
         self.assertTrue(is_in_field(tree, 2, 18, "working_dir"))
 
     def test_cursor_in_deps_value_flow(self):
-        tree = self._tree("tasks:\n  build:\n    deps: [compile]\n")
+        tree = _tree("tasks:\n  build:\n    deps: [compile]\n")
         self.assertTrue(is_in_field(tree, 2, 15, "deps"))
 
     def test_cursor_in_deps_block(self):
         text = "tasks:\n  build:\n    deps:\n      - compile\n"
-        tree = self._tree(text)
+        tree = _tree(text)
         # Cursor on "compile" at line 3
         self.assertTrue(is_in_field(tree, 3, 8, "deps"))
 
     def test_cursor_not_in_field_wrong_name(self):
-        tree = self._tree("tasks:\n  build:\n    cmd: echo hello\n")
+        tree = _tree("tasks:\n  build:\n    cmd: echo hello\n")
         self.assertFalse(is_in_field(tree, 2, 10, "deps"))
 
     def test_broken_yaml_does_not_crash(self):
-        tree = self._tree("{ tasks: { build: { cmd: echo ")
+        tree = _tree("{ tasks: { build: { cmd: echo ")
         # Should not raise
         result = is_in_field(tree, 0, 25, "cmd")
         self.assertIsInstance(result, bool)
 
     def test_empty_document_returns_false(self):
-        tree = self._tree("")
+        tree = _tree("")
         self.assertFalse(is_in_field(tree, 0, 0, "cmd"))
 
 
@@ -159,24 +158,21 @@ class TestIsInField(unittest.TestCase):
 
 
 class TestIsInSubstitutableField(unittest.TestCase):
-    def _tree(self, text):
-        return parse_document(text)
-
     def test_cmd_is_substitutable(self):
-        tree = self._tree("tasks:\n  build:\n    cmd: echo hello\n")
+        tree = _tree("tasks:\n  build:\n    cmd: echo hello\n")
         self.assertTrue(is_in_substitutable_field(tree, 2, 10))
 
     def test_working_dir_is_substitutable(self):
-        tree = self._tree("tasks:\n  build:\n    working_dir: /tmp\n")
+        tree = _tree("tasks:\n  build:\n    working_dir: /tmp\n")
         self.assertTrue(is_in_substitutable_field(tree, 2, 18))
 
     def test_outputs_is_substitutable(self):
-        tree = self._tree("tasks:\n  build:\n    outputs:\n      - dist/app\n")
+        tree = _tree("tasks:\n  build:\n    outputs:\n      - dist/app\n")
         self.assertTrue(is_in_substitutable_field(tree, 3, 8))
 
     def test_deps_is_substitutable(self):
         text = "tasks:\n  build:\n    deps:\n      - compile\n"
-        tree = self._tree(text)
+        tree = _tree(text)
         self.assertTrue(is_in_substitutable_field(tree, 3, 8))
 
     def test_default_field_is_substitutable(self):
@@ -184,16 +180,16 @@ class TestIsInSubstitutableField(unittest.TestCase):
             "tasks:\n  build:\n    args:\n"
             "      - conf_path: { default: value }\n"
         )
-        tree = self._tree(text)
+        tree = _tree(text)
         # Cursor somewhere after "default: " on line 3
         self.assertTrue(is_in_substitutable_field(tree, 3, 32))
 
     def test_desc_field_is_not_substitutable(self):
-        tree = self._tree("tasks:\n  build:\n    desc: hello\n")
+        tree = _tree("tasks:\n  build:\n    desc: hello\n")
         self.assertFalse(is_in_substitutable_field(tree, 2, 12))
 
     def test_empty_document_returns_false(self):
-        tree = self._tree("")
+        tree = _tree("")
         self.assertFalse(is_in_substitutable_field(tree, 0, 0))
 
 
@@ -203,12 +199,9 @@ class TestIsInSubstitutableField(unittest.TestCase):
 
 
 class TestExtractVariables(unittest.TestCase):
-    def _tree(self, text):
-        return parse_document(text)
-
     def test_extracts_simple_variables(self):
         text = "variables:\n  foo: bar\n  baz: qux\n"
-        result = extract_variables(self._tree(text))
+        result = extract_variables(_tree(text))
         self.assertEqual(result, ["baz", "foo"])
 
     def test_extracts_complex_variables(self):
@@ -220,19 +213,19 @@ class TestExtractVariables(unittest.TestCase):
             "  from_eval:\n"
             '    eval: "echo hi"\n'
         )
-        result = extract_variables(self._tree(text))
+        result = extract_variables(_tree(text))
         self.assertEqual(sorted(result), ["from_env", "from_eval", "simple"])
 
     def test_no_variables_section(self):
-        result = extract_variables(self._tree("tasks:\n  build:\n    cmd: hi\n"))
+        result = extract_variables(_tree("tasks:\n  build:\n    cmd: hi\n"))
         self.assertEqual(result, [])
 
     def test_empty_document(self):
-        result = extract_variables(self._tree(""))
+        result = extract_variables(_tree(""))
         self.assertEqual(result, [])
 
     def test_broken_yaml(self):
-        result = extract_variables(self._tree("{ variables: { foo: bar"), )
+        result = extract_variables(_tree("{ variables: { foo: bar"), )
         # May or may not find the variable; should not raise
         self.assertIsInstance(result, list)
 
@@ -261,12 +254,9 @@ class TestExtractVariables(unittest.TestCase):
 
 
 class TestExtractTaskArgs(unittest.TestCase):
-    def _tree(self, text):
-        return parse_document(text)
-
     def test_string_format_args(self):
         text = "tasks:\n  build:\n    args:\n      - name\n      - version\n"
-        result = extract_task_args(self._tree(text), "build")
+        result = extract_task_args(_tree(text), "build")
         self.assertEqual(result, ["name", "version"])
 
     def test_dict_format_args(self):
@@ -277,7 +267,7 @@ class TestExtractTaskArgs(unittest.TestCase):
             "      - target:\n"
             "          type: str\n"
         )
-        result = extract_task_args(self._tree(text), "build")
+        result = extract_task_args(_tree(text), "build")
         self.assertEqual(result, ["build_type", "target"])
 
     def test_mixed_format_args(self):
@@ -288,22 +278,22 @@ class TestExtractTaskArgs(unittest.TestCase):
             '          default: "debug"\n'
             "      - version\n"
         )
-        result = extract_task_args(self._tree(text), "build")
+        result = extract_task_args(_tree(text), "build")
         self.assertEqual(result, ["build_type", "name", "version"])
 
     def test_no_args(self):
         text = "tasks:\n  build:\n    cmd: echo hi\n"
-        result = extract_task_args(self._tree(text), "build")
+        result = extract_task_args(_tree(text), "build")
         self.assertEqual(result, [])
 
     def test_task_not_found(self):
         text = "tasks:\n  build:\n    args:\n      - name\n"
-        result = extract_task_args(self._tree(text), "deploy")
+        result = extract_task_args(_tree(text), "deploy")
         self.assertEqual(result, [])
 
     def test_empty_args_list(self):
         text = "tasks:\n  build:\n    args: []\n"
-        result = extract_task_args(self._tree(text), "build")
+        result = extract_task_args(_tree(text), "build")
         self.assertEqual(result, [])
 
     def test_broken_yaml_returns_list(self):
@@ -324,7 +314,7 @@ class TestExtractTaskArgs(unittest.TestCase):
             "  build:\n    args:\n      - build_arg\n"
             "  test:\n    args:\n      - test_arg\n"
         )
-        tree = self._tree(text)
+        tree = _tree(text)
         self.assertEqual(extract_task_args(tree, "build"), ["build_arg"])
         self.assertEqual(extract_task_args(tree, "test"), ["test_arg"])
 
@@ -335,16 +325,13 @@ class TestExtractTaskArgs(unittest.TestCase):
 
 
 class TestExtractTaskInputs(unittest.TestCase):
-    def _tree(self, text):
-        return parse_document(text)
-
     def test_named_inputs_kv_format(self):
         text = (
             "tasks:\n  build:\n    inputs:\n"
             "      - source: src/main.c\n"
             "      - header: include/defs.h\n"
         )
-        result = extract_task_inputs(self._tree(text), "build")
+        result = extract_task_inputs(_tree(text), "build")
         self.assertEqual(result, ["header", "source"])
 
     def test_skip_anonymous_inputs(self):
@@ -353,7 +340,7 @@ class TestExtractTaskInputs(unittest.TestCase):
             "      - src/main.c\n"
             "      - include/defs.h\n"
         )
-        result = extract_task_inputs(self._tree(text), "build")
+        result = extract_task_inputs(_tree(text), "build")
         self.assertEqual(result, [])
 
     def test_mixed_named_and_anonymous(self):
@@ -364,17 +351,17 @@ class TestExtractTaskInputs(unittest.TestCase):
             "      - include/defs.h\n"
             "      - header: include/lib.h\n"
         )
-        result = extract_task_inputs(self._tree(text), "build")
+        result = extract_task_inputs(_tree(text), "build")
         self.assertEqual(result, ["header", "source"])
 
     def test_no_inputs_section(self):
         text = "tasks:\n  build:\n    cmd: echo hello\n"
-        result = extract_task_inputs(self._tree(text), "build")
+        result = extract_task_inputs(_tree(text), "build")
         self.assertEqual(result, [])
 
     def test_task_not_found(self):
         text = "tasks:\n  build:\n    inputs:\n      - source: src/main.c\n"
-        result = extract_task_inputs(self._tree(text), "deploy")
+        result = extract_task_inputs(_tree(text), "deploy")
         self.assertEqual(result, [])
 
     def test_does_not_return_inputs_from_other_task(self):
@@ -383,7 +370,7 @@ class TestExtractTaskInputs(unittest.TestCase):
             "  build:\n    inputs:\n      - source: src/main.c\n"
             "  test:\n    inputs:\n      - fixture: tests/data.json\n"
         )
-        tree = self._tree(text)
+        tree = _tree(text)
         self.assertEqual(extract_task_inputs(tree, "build"), ["source"])
         self.assertEqual(extract_task_inputs(tree, "test"), ["fixture"])
 
@@ -410,16 +397,13 @@ class TestExtractTaskInputs(unittest.TestCase):
 
 
 class TestExtractTaskOutputs(unittest.TestCase):
-    def _tree(self, text):
-        return parse_document(text)
-
     def test_named_outputs_kv_format(self):
         text = (
             "tasks:\n  build:\n    outputs:\n"
             "      - binary: dist/app\n"
             "      - log: logs/build.log\n"
         )
-        result = extract_task_outputs(self._tree(text), "build")
+        result = extract_task_outputs(_tree(text), "build")
         self.assertEqual(result, ["binary", "log"])
 
     def test_skip_anonymous_outputs(self):
@@ -428,7 +412,7 @@ class TestExtractTaskOutputs(unittest.TestCase):
             "      - dist/app\n"
             "      - logs/build.log\n"
         )
-        result = extract_task_outputs(self._tree(text), "build")
+        result = extract_task_outputs(_tree(text), "build")
         self.assertEqual(result, [])
 
     def test_mixed_named_and_anonymous(self):
@@ -439,17 +423,17 @@ class TestExtractTaskOutputs(unittest.TestCase):
             "      - logs/*.log\n"
             "      - report: reports/build.html\n"
         )
-        result = extract_task_outputs(self._tree(text), "build")
+        result = extract_task_outputs(_tree(text), "build")
         self.assertEqual(result, ["binary", "report"])
 
     def test_no_outputs_section(self):
         text = "tasks:\n  build:\n    cmd: echo hello\n"
-        result = extract_task_outputs(self._tree(text), "build")
+        result = extract_task_outputs(_tree(text), "build")
         self.assertEqual(result, [])
 
     def test_task_not_found(self):
         text = "tasks:\n  build:\n    outputs:\n      - binary: dist/app\n"
-        result = extract_task_outputs(self._tree(text), "deploy")
+        result = extract_task_outputs(_tree(text), "deploy")
         self.assertEqual(result, [])
 
     def test_does_not_return_outputs_from_other_task(self):
@@ -458,7 +442,7 @@ class TestExtractTaskOutputs(unittest.TestCase):
             "  build:\n    outputs:\n      - binary: dist/app\n"
             "  test:\n    outputs:\n      - report: test-report.html\n"
         )
-        tree = self._tree(text)
+        tree = _tree(text)
         self.assertEqual(extract_task_outputs(tree, "build"), ["binary"])
         self.assertEqual(extract_task_outputs(tree, "test"), ["report"])
 
@@ -480,9 +464,6 @@ class TestExtractTaskOutputs(unittest.TestCase):
 
 
 class TestExtractTaskNames(unittest.TestCase):
-    def _tree(self, text):
-        return parse_document(text)
-
     def test_block_style_task_names(self):
         text = (
             "tasks:\n"
@@ -490,21 +471,21 @@ class TestExtractTaskNames(unittest.TestCase):
             "  link:\n    cmd: ld main.o\n"
             "  build:\n    deps: [compile, link]\n"
         )
-        result = extract_task_names(self._tree(text))
+        result = extract_task_names(_tree(text))
         self.assertEqual(result, ["build", "compile", "link"])
 
     def test_flow_style_task_names(self):
         text = "{ tasks: { task-1: { cmd: echo hi }, task-2: { cmd: echo bye } } }"
-        result = extract_task_names(self._tree(text))
+        result = extract_task_names(_tree(text))
         self.assertIn("task-1", result)
         self.assertIn("task-2", result)
 
     def test_no_tasks_section(self):
-        result = extract_task_names(self._tree("variables:\n  foo: bar\n"))
+        result = extract_task_names(_tree("variables:\n  foo: bar\n"))
         self.assertEqual(result, [])
 
     def test_empty_document(self):
-        result = extract_task_names(self._tree(""))
+        result = extract_task_names(_tree(""))
         self.assertEqual(result, [])
 
     def test_broken_yaml_partial_result(self):
