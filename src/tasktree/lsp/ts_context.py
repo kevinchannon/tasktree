@@ -372,6 +372,11 @@ def get_task_at_position(tree: Tree, line: int, col: int) -> str | None:
         Task name string, or ``None`` if no task contains the position.
     """
     try:
+        # Reject positions beyond the end of the document (consistent with
+        # the old text-based implementation that returned None in this case).
+        if line > tree.root_node.end_point[0]:
+            return None
+
         tasks_mapping = _find_section_mapping(tree.root_node, "tasks")
         if tasks_mapping is None:
             return _get_task_at_position_by_text(tree, line)
