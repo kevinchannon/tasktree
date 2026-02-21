@@ -1,8 +1,10 @@
 runners:
+  # Declare the default runner by name (tasks without run_in: use this runner)
+  default: bash-strict
+
   # Default runner: bash with strict mode enabled
   bash-strict:
     shell: /bin/bash
-    default: true
     preamble: |
       set -euo pipefail
 
