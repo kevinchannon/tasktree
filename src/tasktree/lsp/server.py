@@ -21,16 +21,15 @@ from lsprotocol.types import (
 
 import tasktree
 from tasktree.lsp.builtin_variables import BUILTIN_VARIABLES
+from tasktree.lsp.ts_context import parse_document
 from tasktree.lsp.position_utils import (
     get_prefix_at_position,
-    is_in_cmd_field,
     is_in_substitutable_field,
     is_in_deps_field,
     is_inside_open_template,
     get_task_at_position,
 )
 from tasktree.lsp.parser_wrapper import (
-    parse_yaml_data,
     extract_variables,
     extract_task_args,
     extract_task_inputs,
@@ -109,6 +108,11 @@ class TasktreeLanguageServer(LanguageServer):
         super().__init__(name, version)
         # Store document contents in memory
         self.documents: dict[str, str] = {}
+        # Cache tree-sitter parse trees, one per open document URI.
+        # Trees are re-parsed on every textDocument/didOpen and
+        # textDocument/didChange notification so completion always has
+        # access to the latest structural information.
+        self.trees: dict = {}
         # Store handler references for testing
         self.handlers: dict[str, callable] = {}
 
@@ -151,7 +155,8 @@ def create_server() -> TasktreeLanguageServer:
     def did_open(params: DidOpenTextDocumentParams) -> None:
         """Handle document open notification.
 
-        Stores the document text in memory for later processing.
+        Stores the document text and its tree-sitter parse tree in memory
+        for later processing.
 
         Args:
             params: Document open parameters containing URI and initial text content
@@ -159,13 +164,15 @@ def create_server() -> TasktreeLanguageServer:
         uri = params.text_document.uri
         text = params.text_document.text
         server.documents[uri] = text
+        server.trees[uri] = parse_document(text)
 
     @server.feature("textDocument/didChange")
     def did_change(params: DidChangeTextDocumentParams) -> None:
         """Handle document change notification.
 
-        Updates the stored document text when changes occur. Operates in
-        full sync mode where the entire document content is sent.
+        Updates the stored document text and re-parses the tree-sitter tree
+        when changes occur.  Operates in full sync mode where the entire
+        document content is sent.
 
         Args:
             params: Document change parameters containing URI and content changes
@@ -173,7 +180,9 @@ def create_server() -> TasktreeLanguageServer:
         uri = params.text_document.uri
         # In full sync mode, we get the entire document in the first change
         if params.content_changes:
-            server.documents[uri] = params.content_changes[0].text
+            text = params.content_changes[0].text
+            server.documents[uri] = text
+            server.trees[uri] = parse_document(text)
 
     def _get_deps_partial_from_prefix(prefix: str) -> str:
         """Extract the partial task name being typed in a deps field.
@@ -272,7 +281,8 @@ def create_server() -> TasktreeLanguageServer:
         - Trailing }} in partial names are automatically stripped for matching
         - arg.*, self.inputs.*, and self.outputs.* completions are scoped to the current task
         - env.* completions come from the current process environment (sorted alphabetically)
-        - YAML is parsed at most once per completion request and shared across all extraction calls
+        - The tree-sitter parse tree is cached per document and reused across all
+          extraction and position calls within a single completion request
 
         Args:
             params: Completion request parameters containing document URI and cursor position
@@ -283,30 +293,30 @@ def create_server() -> TasktreeLanguageServer:
         uri = params.text_document.uri
         position = params.position
 
-        # Get the document text
+        # Get the document text and cached tree
         if uri not in server.documents:
             return CompletionList(is_incomplete=False, items=[])
 
         text = server.documents[uri]
+        tree = server.trees.get(uri)
+        if tree is None:
+            # Fallback: parse on demand if tree was not cached (should not
+            # happen in normal operation after didOpen / didChange)
+            tree = parse_document(text)
+            server.trees[uri] = tree
 
         # Get the prefix up to the cursor
         prefix = get_prefix_at_position(text, position)
 
-        # Try tt.* built-in variable completion (uses only constants, no YAML parse needed)
+        # Try tt.* built-in variable completion (uses only constants, no parse needed)
         if "{{ tt." in prefix:
             return _complete_template_variables(
                 prefix, "{{ tt.", BUILTIN_VARIABLES, "Built-in"
             )
 
-        # Parse YAML once and share the result across all extraction calls that need it.
-        # This avoids redundant yaml.safe_load calls for the same document text.
-        # parse_yaml_data returns None if the text is invalid/incomplete YAML;
-        # extraction functions handle None by falling back to heuristic regex extraction.
-        data = parse_yaml_data(text)
-
         # Try var.* user-defined variable completion
         if "{{ var." in prefix:
-            variables = extract_variables(text, data)
+            variables = extract_variables(tree)
             return _complete_template_variables(
                 prefix, "{{ var.", variables, "User"
             )
@@ -320,48 +330,43 @@ def create_server() -> TasktreeLanguageServer:
 
         # Try arg.* task argument completion (cmd, working_dir, outputs, deps, args defaults)
         if "{{ arg." in prefix:
-            if not is_in_substitutable_field(text, position):
+            if not is_in_substitutable_field(tree, position):
                 return CompletionList(is_incomplete=False, items=[])
 
             # Get the task name at this position
-            task_name = get_task_at_position(text, position)
+            task_name = get_task_at_position(tree, position)
             if task_name is None:
                 return CompletionList(is_incomplete=False, items=[])
 
-            # Extract args for this task, sharing the pre-parsed YAML data
-            args = extract_task_args(text, task_name, data)
+            args = extract_task_args(tree, task_name)
             return _complete_template_variables(
                 prefix, "{{ arg.", args, "Task argument"
             )
 
         # Try self.inputs.* named input completion
         if "{{ self.inputs." in prefix:
-            if not is_in_substitutable_field(text, position):
+            if not is_in_substitutable_field(tree, position):
                 return CompletionList(is_incomplete=False, items=[])
 
-            # Get the task name at this position
-            task_name = get_task_at_position(text, position)
+            task_name = get_task_at_position(tree, position)
             if task_name is None:
                 return CompletionList(is_incomplete=False, items=[])
 
-            # Extract named inputs for this task, sharing the pre-parsed YAML data
-            inputs = extract_task_inputs(text, task_name, data)
+            inputs = extract_task_inputs(tree, task_name)
             return _complete_template_variables(
                 prefix, "{{ self.inputs.", inputs, "Task input"
             )
 
         # Try self.outputs.* named output completion
         if "{{ self.outputs." in prefix:
-            if not is_in_substitutable_field(text, position):
+            if not is_in_substitutable_field(tree, position):
                 return CompletionList(is_incomplete=False, items=[])
 
-            # Get the task name at this position
-            task_name = get_task_at_position(text, position)
+            task_name = get_task_at_position(tree, position)
             if task_name is None:
                 return CompletionList(is_incomplete=False, items=[])
 
-            # Extract named outputs for this task, sharing the pre-parsed YAML data
-            outputs = extract_task_outputs(text, task_name, data)
+            outputs = extract_task_outputs(tree, task_name)
             return _complete_template_variables(
                 prefix, "{{ self.outputs.", outputs, "Task output"
             )
@@ -372,7 +377,7 @@ def create_server() -> TasktreeLanguageServer:
         # here and the cursor is in a deps field we know the user is typing a
         # plain task name (not a template variable or a positional argument value).
         if (
-            is_in_deps_field(text, position)
+            is_in_deps_field(tree, position)
             and not is_inside_open_template(prefix)
             and not _is_inside_open_parens(prefix)
         ):
@@ -381,10 +386,10 @@ def create_server() -> TasktreeLanguageServer:
             base_path = str(Path(file_path).parent) if file_path else None
 
             # Get all available task names, including from imported files
-            all_task_names = extract_task_names(text, data, base_path)
+            all_task_names = extract_task_names(tree, base_path)
 
             # Exclude the current task (a task cannot depend on itself)
-            current_task = get_task_at_position(text, position)
+            current_task = get_task_at_position(tree, position)
             available_tasks = [t for t in all_task_names if t != current_task]
 
             # Filter by whatever partial name the user has already typed
