@@ -121,7 +121,8 @@ class TestExampleRecipe(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = copy_example(Path(tmpdir))
 
-            result = run_tasktree_cli(["docker-echo"], cwd=project_root)
+            # Use a generous timeout: cold CI runners may need time to pull/build the image
+            result = run_tasktree_cli(["docker-echo"], cwd=project_root, timeout=120)
 
             self.assertEqual(
                 result.returncode,
