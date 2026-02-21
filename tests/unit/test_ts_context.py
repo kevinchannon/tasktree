@@ -241,6 +241,19 @@ class TestExtractVariables(unittest.TestCase):
         result = extract_variables(parse_document(text))
         self.assertIsInstance(result, list)
 
+    def test_incomplete_yaml_unclosed_template_in_variable_value(self):
+        """Variables section remains parseable even with unclosed {{ in a value."""
+        text = "variables:\n  foo: bar\n  baz: value {{ var.\ntasks:\n  build:\n    cmd: echo\n"
+        result = extract_variables(parse_document(text))
+        # foo and baz should be found (tree-sitter recovers)
+        self.assertIsInstance(result, list)
+
+    def test_incomplete_yaml_missing_value(self):
+        """Variables section with a key but no value (cursor right after colon)."""
+        text = "variables:\n  foo:\ntasks:\n  build:\n    cmd: echo\n"
+        result = extract_variables(parse_document(text))
+        self.assertIsInstance(result, list)
+
 
 # ---------------------------------------------------------------------------
 # extract_task_args
@@ -297,6 +310,13 @@ class TestExtractTaskArgs(unittest.TestCase):
         text = "tasks:\n  build:\n    args:\n      - name\n      - ver"
         result = extract_task_args(parse_document(text), "build")
         self.assertIsInstance(result, list)
+
+    def test_incomplete_yaml_unclosed_template_in_cmd(self):
+        """Args are still found when cmd contains an unclosed {{ template."""
+        text = "tasks:\n  build:\n    args:\n      - name\n      - version\n    cmd: echo {{ arg."
+        result = extract_task_args(parse_document(text), "build")
+        # The _tree_without_broken_template fallback should recover these
+        self.assertEqual(sorted(result), ["name", "version"])
 
     def test_does_not_return_args_from_other_task(self):
         text = (
@@ -372,6 +392,17 @@ class TestExtractTaskInputs(unittest.TestCase):
         result = extract_task_inputs(parse_document(text), "build")
         self.assertIsInstance(result, list)
 
+    def test_incomplete_yaml_unclosed_template_in_cmd_inputs(self):
+        """Named inputs are still found when cmd contains an unclosed {{ template."""
+        text = (
+            "tasks:\n  build:\n    inputs:\n"
+            "      - source: src/main.c\n"
+            "      - header: include/defs.h\n"
+            "    cmd: echo {{ self.inputs."
+        )
+        result = extract_task_inputs(parse_document(text), "build")
+        self.assertEqual(sorted(result), ["header", "source"])
+
 
 # ---------------------------------------------------------------------------
 # extract_task_outputs
@@ -430,6 +461,17 @@ class TestExtractTaskOutputs(unittest.TestCase):
         tree = self._tree(text)
         self.assertEqual(extract_task_outputs(tree, "build"), ["binary"])
         self.assertEqual(extract_task_outputs(tree, "test"), ["report"])
+
+    def test_incomplete_yaml_unclosed_template_in_cmd_outputs(self):
+        """Named outputs are still found when cmd contains an unclosed {{ template."""
+        text = (
+            "tasks:\n  build:\n    outputs:\n"
+            "      - binary: dist/app\n"
+            "      - log: logs/build.log\n"
+            "    cmd: echo {{ self.outputs."
+        )
+        result = extract_task_outputs(parse_document(text), "build")
+        self.assertEqual(sorted(result), ["binary", "log"])
 
 
 # ---------------------------------------------------------------------------
@@ -498,6 +540,22 @@ class TestExtractTaskNames(unittest.TestCase):
         )
         result = extract_task_names(parse_document(text), base_path=None)
         self.assertEqual(result, ["build"])
+
+    def test_incomplete_yaml_unclosed_template_in_deps(self):
+        """Task names are found even when a deps field has an unclosed {{ template."""
+        text = "tasks:\n  build:\n    cmd: gcc main.c\n  test:\n    deps: [{{ tt."
+        result = extract_task_names(parse_document(text))
+        # At minimum 'build' should be recoverable via the fallback strategies
+        self.assertIsInstance(result, list)
+        self.assertIn("build", result)
+
+    def test_incomplete_yaml_task_names_with_unclosed_bracket_in_deps(self):
+        """Task names are found when the last task's deps list is unclosed."""
+        text = "tasks:\n  compile:\n    cmd: gcc\n  build:\n    deps: ["
+        result = extract_task_names(parse_document(text))
+        self.assertIsInstance(result, list)
+        # 'compile' should be findable; 'build' may or may not be recovered
+        self.assertIn("compile", result)
 
 
 if __name__ == "__main__":
