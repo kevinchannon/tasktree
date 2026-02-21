@@ -275,6 +275,82 @@ def _find_field_value_in_mapping(
 # ---------------------------------------------------------------------------
 
 
+def _get_task_at_position_by_text(
+    tree: Tree, line: int
+) -> str | None:
+    """Text-based fallback for task-at-position detection.
+
+    Used when tree-sitter error-recovery collapses the document into a
+    single ERROR node and loses the ``tasks:`` mapping structure.
+
+    Scans source lines up to ``line`` to find the ``tasks:`` section, then
+    returns the most recent task name found at the task-indentation level
+    at or before ``line``.
+
+    Args:
+        tree: Tree-sitter parse tree (source bytes from root_node.text).
+        line: Zero-based cursor line (inclusive upper bound).
+
+    Returns:
+        Task name string, or ``None`` if detection fails.
+    """
+    try:
+        source_bytes = tree.root_node.text
+        if source_bytes is None:
+            return None
+        lines = source_bytes.decode("utf-8").splitlines()
+
+        tasks_indent: int | None = None
+        task_indent: int | None = None
+        best_task: str | None = None
+
+        for idx, text in enumerate(lines):
+            if idx > line:
+                break
+            if not text.strip():
+                continue
+
+            indent = len(text) - len(text.lstrip())
+            stripped = text.lstrip()
+
+            # Detect (or re-detect) the tasks: section.
+            if stripped.startswith("tasks:"):
+                tasks_indent = indent
+                task_indent = None
+                best_task = None
+                continue
+
+            if tasks_indent is None:
+                continue
+
+            # A root-level key that is not tasks: means we left the section.
+            if indent <= tasks_indent:
+                tasks_indent = None
+                task_indent = None
+                best_task = None
+                continue
+
+            # Determine task indentation from the first task-level entry and
+            # capture it as a task name candidate immediately.
+            if task_indent is None:
+                if not stripped.startswith("-") and ":" in stripped:
+                    task_indent = indent
+                    key = stripped.split(":", 1)[0].strip()
+                    if key and " " not in key:
+                        best_task = key
+                continue
+
+            # Lines at the task indentation level are task name entries.
+            if indent == task_indent and not stripped.startswith("-") and ":" in stripped:
+                key = stripped.split(":", 1)[0].strip()
+                if key and " " not in key:
+                    best_task = key
+
+        return best_task
+    except Exception:
+        return None
+
+
 def get_task_at_position(tree: Tree, line: int, col: int) -> str | None:
     """Find the task whose definition contains the cursor position.
 
@@ -283,7 +359,9 @@ def get_task_at_position(tree: Tree, line: int, col: int) -> str | None:
 
     The algorithm finds the task whose ``block_mapping_pair`` (or
     ``flow_pair``) in the ``tasks:`` mapping starts closest to — but not
-    after — the cursor position.
+    after — the cursor position.  When tree-sitter error-recovery has lost
+    the mapping structure (entire document in one ERROR node), falls back
+    to a line-based text scan via :func:`_get_task_at_position_by_text`.
 
     Args:
         tree:  Tree-sitter parse tree for the document.
@@ -296,7 +374,7 @@ def get_task_at_position(tree: Tree, line: int, col: int) -> str | None:
     try:
         tasks_mapping = _find_section_mapping(tree.root_node, "tasks")
         if tasks_mapping is None:
-            return None
+            return _get_task_at_position_by_text(tree, line)
 
         cursor_pt = (line, col)
         best_task: str | None = None
@@ -317,16 +395,73 @@ def get_task_at_position(tree: Tree, line: int, col: int) -> str | None:
         return None
 
 
+def _is_in_field_by_text(
+    tree: Tree, line: int, col: int, field_name: str
+) -> bool:
+    """Text-based fallback for field detection.
+
+    Used when tree-sitter error-recovery collapses the document into a
+    single ERROR node and loses the mapping-pair structure (e.g. when the
+    document contains an unclosed ``{{ template }}``).
+
+    Inspects the source lines to determine whether the cursor is in the
+    value portion of the named field.  Handles:
+
+    * Single-line values:  ``working_dir: {{ arg.`` — field key on the
+      same line as the cursor.
+    * Multi-line values (block scalars / sequences):  the field key is on
+      a previous line at a lower indentation level than the cursor.
+
+    Args:
+        tree:       Tree-sitter parse tree (source bytes from root_node.text).
+        line:       Zero-based cursor line.
+        col:        Zero-based cursor column.
+        field_name: Field key to detect.
+
+    Returns:
+        True if the cursor appears to be in the value of the named field.
+    """
+    try:
+        source_bytes = tree.root_node.text
+        if source_bytes is None:
+            return False
+        lines = source_bytes.decode("utf-8").splitlines()
+        if line >= len(lines):
+            return False
+
+        current_text = lines[line]
+        current_indent = len(current_text) - len(current_text.lstrip())
+        stripped = current_text.lstrip()
+        field_prefix = f"{field_name}:"
+
+        # Cursor on the same line as the field key (single-line value).
+        if stripped.startswith(field_prefix):
+            key_end_col = current_indent + len(field_name) + 1  # past ':'
+            return col > key_end_col
+
+        # Cursor on a continuation line — walk back to find the field key.
+        for prev_idx in range(line - 1, -1, -1):
+            prev_text = lines[prev_idx]
+            if not prev_text.strip():
+                continue  # skip blank lines
+            prev_indent = len(prev_text) - len(prev_text.lstrip())
+            if prev_indent < current_indent:
+                # Found a less-indented line — this is the enclosing field.
+                return prev_text.lstrip().startswith(field_prefix)
+            # Same or higher indentation: sibling or descendant; keep looking.
+
+        return False
+    except Exception:
+        return False
+
+
 def is_in_field(tree: Tree, line: int, col: int, field_name: str) -> bool:
     """Return True if the cursor is inside the *value* of the named field.
 
-    Walks up the ancestor chain from the deepest node at ``(line, col)``,
-    looking for a mapping pair whose key matches ``field_name``.  The
-    cursor must be in the value portion (after the key and colon) to
-    return True.
-
-    Works for both block-style and flow-style YAML, and for broken input
-    where tree-sitter has created ERROR nodes.
+    First tries the tree-sitter ancestor-walk approach (works for valid or
+    partially-broken YAML).  When error-recovery has collapsed the document
+    into a single ERROR node (e.g. after an unclosed ``{{`` template), falls
+    back to a text-based line scan via :func:`_is_in_field_by_text`.
 
     Args:
         tree:        Tree-sitter parse tree.
@@ -338,8 +473,13 @@ def is_in_field(tree: Tree, line: int, col: int, field_name: str) -> bool:
         True if the cursor is in the value of the named field.
     """
     try:
+        # LSP positions point AFTER the last typed character.  Using col
+        # directly with descendant_for_point_range can fall past the end of
+        # line content, returning a high-level (document/root) node instead
+        # of the actual content node.  Clamp to col-1 for the lookup.
+        lookup_col = max(0, col - 1)
         node = tree.root_node.descendant_for_point_range(
-            (line, col), (line, col)
+            (line, lookup_col), (line, lookup_col)
         )
         if node is None:
             return False
@@ -356,7 +496,8 @@ def is_in_field(tree: Tree, line: int, col: int, field_name: str) -> bool:
                     return False
             current = current.parent
 
-        return False
+        # Fallback: tree-sitter error-recovery may have collapsed structure.
+        return _is_in_field_by_text(tree, line, col, field_name)
     except Exception as e:
         logger.debug("is_in_field(%r) failed: %s", field_name, e)
         return False
@@ -378,8 +519,11 @@ def is_in_substitutable_field(tree: Tree, line: int, col: int) -> bool:
         True if the cursor is in a substitutable field.
     """
     try:
+        # LSP positions point AFTER the last typed character; clamp to col-1
+        # so descendant_for_point_range finds the actual content node.
+        lookup_col = max(0, col - 1)
         node = tree.root_node.descendant_for_point_range(
-            (line, col), (line, col)
+            (line, lookup_col), (line, lookup_col)
         )
         if node is None:
             return False
@@ -395,10 +539,53 @@ def is_in_substitutable_field(tree: Tree, line: int, col: int) -> bool:
                             return True
             current = current.parent
 
-        return False
+        # Fallback: tree-sitter error-recovery may have collapsed structure.
+        return any(
+            _is_in_field_by_text(tree, line, col, f)
+            for f in _SUBSTITUTABLE_FIELDS
+        )
     except Exception as e:
         logger.debug("is_in_substitutable_field failed: %s", e)
         return False
+
+
+# ---------------------------------------------------------------------------
+# Helper: re-parse without a broken template (ERROR-recovery fallback)
+# ---------------------------------------------------------------------------
+
+
+def _tree_without_broken_template(tree: Tree) -> Tree | None:
+    """Return a cleaned parse tree with any unclosed ``{{ }}`` removed.
+
+    When the cursor is inside an incomplete template (e.g. ``{{ arg.``),
+    the YAML becomes syntactically invalid and tree-sitter collapses the
+    whole document into a single ERROR node, losing structural information.
+
+    Strategy: strip back to the newline preceding the line that contains
+    the unclosed ``{{``.  Removing the whole broken line (which may also
+    have unclosed ``[`` or ``"`` characters) reliably restores a parseable
+    document whose task/section structure is intact.
+
+    Returns ``None`` when no unclosed template is found, when the source
+    is unavailable, or when stripping leaves no useful content.
+    """
+    source_bytes = tree.root_node.text
+    if source_bytes is None:
+        return None
+    text = source_bytes.decode("utf-8")
+    last_open = text.rfind("{{")
+    if last_open == -1 or "}}" in text[last_open:]:
+        return None  # no unclosed template
+
+    # Find the newline immediately before the broken {{.
+    # Everything up to (and including) that newline is valid YAML.
+    prev_newline = text.rfind("\n", 0, last_open)
+    if prev_newline == -1:
+        return None  # {{ is on the very first line; nothing useful to keep
+    cleaned = text[: prev_newline + 1]
+    if not cleaned.strip():
+        return None
+    return parse_document(cleaned)
 
 
 # ---------------------------------------------------------------------------
@@ -486,6 +673,10 @@ def extract_task_args(tree: Tree, task_name: str) -> list[str]:
     try:
         task_mapping = _find_task_mapping(tree, task_name)
         if task_mapping is None:
+            clean = _tree_without_broken_template(tree)
+            if clean is not None:
+                task_mapping = _find_task_mapping(clean, task_name)
+        if task_mapping is None:
             return []
         args_value = _find_field_value_in_mapping(task_mapping, "args")
         if args_value is None:
@@ -513,6 +704,10 @@ def extract_task_inputs(tree: Tree, task_name: str) -> list[str]:
     try:
         task_mapping = _find_task_mapping(tree, task_name)
         if task_mapping is None:
+            clean = _tree_without_broken_template(tree)
+            if clean is not None:
+                task_mapping = _find_task_mapping(clean, task_name)
+        if task_mapping is None:
             return []
         inputs_value = _find_field_value_in_mapping(task_mapping, "inputs")
         if inputs_value is None:
@@ -539,6 +734,10 @@ def extract_task_outputs(tree: Tree, task_name: str) -> list[str]:
     """
     try:
         task_mapping = _find_task_mapping(tree, task_name)
+        if task_mapping is None:
+            clean = _tree_without_broken_template(tree)
+            if clean is not None:
+                task_mapping = _find_task_mapping(clean, task_name)
         if task_mapping is None:
             return []
         outputs_value = _find_field_value_in_mapping(task_mapping, "outputs")
