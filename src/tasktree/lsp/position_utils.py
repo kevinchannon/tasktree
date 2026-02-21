@@ -431,6 +431,29 @@ def get_task_at_position(text: str, position: Position) -> str | None:
     return _find_task_containing_position(task_names, lines, position)
 
 
+def is_inside_open_template(prefix: str) -> bool:
+    """Check if the cursor is inside an unclosed {{ }} template expression.
+
+    Scans the prefix (text from line start to cursor) for the last occurrence
+    of "{{". If found, checks whether the corresponding "}}" appears after it.
+    If no "}}" follows the opening "{{", the cursor is inside an open template.
+
+    This is used to distinguish between:
+    - Cursor typing a task name in a deps list: "  - build_ta"  (no open template)
+    - Cursor typing inside a template in deps:  "  - {{ arg."  (inside open template)
+
+    Args:
+        prefix: Text from the start of the line up to the cursor position
+
+    Returns:
+        True if the cursor is inside an unclosed {{ }} template, False otherwise.
+    """
+    last_open_idx = prefix.rfind("{{")
+    if last_open_idx == -1:
+        return False
+    return "}}" not in prefix[last_open_idx:]
+
+
 def get_prefix_at_position(text: str, position: Position) -> str:
     """Get the text prefix up to the cursor position.
 

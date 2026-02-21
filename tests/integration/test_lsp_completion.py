@@ -1,7 +1,9 @@
 """Integration tests for LSP completion feature."""
 
 import os
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import Mock
 from lsprotocol.types import (
     InitializeParams,
@@ -951,6 +953,202 @@ class TestLSPCompletionIntegration(unittest.TestCase):
         # All results should start with "PATH" (filtered by prefix)
         for item in result.items:
             self.assertTrue(item.label.startswith("PATH"))
+
+
+class TestDepsTaskNameCompletionIntegration(unittest.TestCase):
+    """Integration tests for task name completion in deps fields."""
+
+    def setUp(self):
+        self.server = create_server()
+
+    def test_full_workflow_deps_task_name_completion(self):
+        """Test complete workflow: initialize -> open -> complete task names in deps."""
+        # Initialize
+        init_handler = self.server.handlers["initialize"]
+        init_params = InitializeParams(
+            process_id=12345, root_uri="file:///test/project", capabilities={}
+        )
+        init_result = init_handler(init_params)
+        self.assertIsNotNone(init_result.capabilities.completion_provider)
+
+        # Open document with multiple tasks
+        open_handler = self.server.handlers["textDocument/didOpen"]
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/project/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text=(
+                    "tasks:\n"
+                    "  compile:\n"
+                    "    cmd: gcc main.c\n"
+                    "  link:\n"
+                    "    cmd: ld main.o\n"
+                    "  build:\n"
+                    "    deps:\n"
+                    "      - "
+                ),
+            )
+        )
+        open_handler(open_params)
+
+        # Request completion at the deps list item
+        completion_handler = self.server.handlers["textDocument/completion"]
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(
+                uri="file:///test/project/tasktree.yaml"
+            ),
+            position=Position(line=7, character=len("      - ")),
+        )
+        result = completion_handler(completion_params)
+
+        labels = {item.label for item in result.items}
+        self.assertIn("compile", labels)
+        self.assertIn("link", labels)
+        # Current task 'build' should NOT appear
+        self.assertNotIn("build", labels)
+
+    def test_deps_completions_update_after_document_change(self):
+        """Test that deps completions reflect task list changes after document edit."""
+        open_handler = self.server.handlers["textDocument/didOpen"]
+        open_params = DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/project/tasks.tt",
+                language_id="yaml",
+                version=1,
+                text=(
+                    "tasks:\n"
+                    "  build:\n"
+                    "    cmd: echo build\n"
+                    "  test:\n"
+                    "    deps:\n"
+                    "      - "
+                ),
+            )
+        )
+        open_handler(open_params)
+
+        # Add a new task via document change
+        change_handler = self.server.handlers["textDocument/didChange"]
+        change_params = DidChangeTextDocumentParams(
+            text_document=VersionedTextDocumentIdentifier(
+                uri="file:///test/project/tasks.tt", version=2
+            ),
+            content_changes=[
+                Mock(
+                    text=(
+                        "tasks:\n"
+                        "  build:\n"
+                        "    cmd: echo build\n"
+                        "  package:\n"
+                        "    cmd: echo package\n"
+                        "  test:\n"
+                        "    deps:\n"
+                        "      - "
+                    )
+                )
+            ],
+        )
+        change_handler(change_params)
+
+        completion_handler = self.server.handlers["textDocument/completion"]
+        completion_params = CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/project/tasks.tt"),
+            position=Position(line=7, character=len("      - ")),
+        )
+        result = completion_handler(completion_params)
+
+        labels = {item.label for item in result.items}
+        # Newly added task should appear
+        self.assertIn("package", labels)
+
+    def test_deps_completions_filtered_by_partial_name(self):
+        """Test partial-name filtering in deps completions (integration-level coverage).
+
+        This mirrors the unit-level test_deps_completions_filtered_by_partial
+        but exercises the full initialize -> open -> complete workflow to confirm
+        partial filtering works end-to-end.
+        """
+        # Initialize
+        init_handler = self.server.handlers["initialize"]
+        init_handler(InitializeParams(
+            process_id=12345, root_uri="file:///test/project", capabilities={}
+        ))
+
+        # Open document with multiple tasks whose names share a common prefix
+        open_handler = self.server.handlers["textDocument/didOpen"]
+        open_handler(DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri="file:///test/project/tasktree.yaml",
+                language_id="yaml",
+                version=1,
+                text=(
+                    "tasks:\n"
+                    "  compile:\n"
+                    "    cmd: gcc main.c\n"
+                    "  compress:\n"
+                    "    cmd: gzip output\n"
+                    "  lint:\n"
+                    "    cmd: flake8 .\n"
+                    "  build:\n"
+                    "    deps:\n"
+                    "      - co"
+                ),
+            )
+        ))
+
+        # Request completion with partial prefix "co" (should match compile, compress)
+        completion_handler = self.server.handlers["textDocument/completion"]
+        result = completion_handler(CompletionParams(
+            text_document=TextDocumentIdentifier(uri="file:///test/project/tasktree.yaml"),
+            position=Position(line=9, character=len("      - co")),
+        ))
+
+        labels = {item.label for item in result.items}
+        # Only tasks starting with "co" should be returned
+        self.assertIn("compile", labels)
+        self.assertIn("compress", labels)
+        # Tasks not matching the prefix must be absent
+        self.assertNotIn("lint", labels)
+        self.assertNotIn("build", labels)
+
+    def test_deps_with_imported_tasks(self):
+        """Test that imported task names appear with namespace prefix in deps."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Write the imported tasks file
+            imported = Path(tmpdir) / "utils.tasks"
+            imported.write_text(
+                "tasks:\n  clean:\n    cmd: rm -rf build/\n"
+            )
+
+            doc_uri = f"file://{tmpdir}/main.tt"
+            text = (
+                "tasks:\n"
+                "  build:\n"
+                "    cmd: echo build\n"
+                "  test:\n"
+                "    deps:\n"
+                "      - "
+                f"\nimports:\n  - file: utils.tasks\n    as: utils\n"
+            )
+            open_handler = self.server.handlers["textDocument/didOpen"]
+            open_handler(DidOpenTextDocumentParams(
+                text_document=TextDocumentItem(
+                    uri=doc_uri, language_id="yaml", version=1, text=text,
+                )
+            ))
+
+            completion_handler = self.server.handlers["textDocument/completion"]
+            result = completion_handler(CompletionParams(
+                text_document=TextDocumentIdentifier(uri=doc_uri),
+                position=Position(line=5, character=len("      - ")),
+            ))
+
+            labels = {item.label for item in result.items}
+            # Local task should appear
+            self.assertIn("build", labels)
+            # Imported task should appear with namespace prefix
+            self.assertIn("utils.clean", labels)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,9 @@
 """Tasktree LSP server main entry point."""
 
+import re
+from pathlib import Path
+from urllib.parse import unquote
+
 from pygls.lsp.server import LanguageServer
 from lsprotocol.types import (
     InitializeParams,
@@ -21,6 +25,8 @@ from tasktree.lsp.position_utils import (
     get_prefix_at_position,
     is_in_cmd_field,
     is_in_substitutable_field,
+    is_in_deps_field,
+    is_inside_open_template,
     get_task_at_position,
 )
 from tasktree.lsp.parser_wrapper import (
@@ -29,8 +35,55 @@ from tasktree.lsp.parser_wrapper import (
     extract_task_args,
     extract_task_inputs,
     extract_task_outputs,
+    extract_task_names,
     get_env_var_names,
 )
+
+
+def _is_inside_open_parens(prefix: str) -> bool:
+    """Check if the cursor is inside unmatched parentheses in the prefix.
+
+    Used to suppress task-name completions when the cursor is inside a
+    parameterised dep argument list, e.g.::
+
+        deps: [compile(arg1, <cursor>)]
+
+    In that context the user is typing an argument value, not a task name,
+    so offering task-name completions would be unhelpful.
+
+    Args:
+        prefix: Text from the start of the line up to the cursor position
+
+    Returns:
+        True if there are more opening parentheses than closing ones in the
+        prefix (i.e. the cursor is inside an open paren group).
+    """
+    depth = 0
+    for ch in prefix:
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+    return depth > 0
+
+
+def _uri_to_path(uri: str) -> str | None:
+    """Convert a file:// URI to a filesystem path.
+
+    Args:
+        uri: Document URI (e.g. "file:///home/user/project/tasktree.yaml")
+
+    Returns:
+        Filesystem path string, or None if the URI is not a file:// URI.
+
+    Note:
+        On Windows, "file:///C:/path" would produce "/C:/path" (missing drive letter).
+        This project primarily targets Unix/macOS, so this limitation is accepted.
+    """
+    if uri.startswith("file://"):
+        return unquote(uri[len("file://"):])
+    return None
+
 
 __all__ = ["TasktreeLanguageServer", "main"]
 
@@ -122,6 +175,29 @@ def create_server() -> TasktreeLanguageServer:
         if params.content_changes:
             server.documents[uri] = params.content_changes[0].text
 
+    def _get_deps_partial_from_prefix(prefix: str) -> str:
+        """Extract the partial task name being typed in a deps field.
+
+        Handles both multi-line list items ("  - task_partial") and
+        single-line flow style ("deps: [task1, task_partial").
+
+        Args:
+            prefix: Text from the start of the line up to the cursor
+
+        Returns:
+            The partial task name string (may be empty if cursor is right
+            after a separator with no typed characters yet).
+        """
+        # Multi-line list item: "    - task_partial"
+        list_item_match = re.search(r"-\s+(\S*)$", prefix)
+        if list_item_match:
+            return list_item_match.group(1)
+        # Single-line flow style: "deps: [task1, task_partial" or "deps: [task_partial"
+        flow_match = re.search(r"[\[,]\s*(\S*)$", prefix)
+        if flow_match:
+            return flow_match.group(1)
+        return ""
+
     def _complete_template_variables(
         prefix: str,
         template_prefix: str,
@@ -188,6 +264,7 @@ def create_server() -> TasktreeLanguageServer:
         - env.* environment variable completion (valid anywhere in the file)
         - self.inputs.* named input completion (only inside substitutable fields)
         - self.outputs.* named output completion (only inside substitutable fields)
+        - Task name completion inside deps fields (excludes current task)
 
         Completion behavior:
         - Completions filter by partial match after the prefix (e.g., "{{ var.my" → only "my*" variables)
@@ -288,6 +365,46 @@ def create_server() -> TasktreeLanguageServer:
             return _complete_template_variables(
                 prefix, "{{ self.outputs.", outputs, "Task output"
             )
+
+        # Task name completion in deps field (when not inside a {{ }} template
+        # and not inside parentheses of a parameterised dep argument list).
+        # All template-prefix checks above have already returned, so if we reach
+        # here and the cursor is in a deps field we know the user is typing a
+        # plain task name (not a template variable or a positional argument value).
+        if (
+            is_in_deps_field(text, position)
+            and not is_inside_open_template(prefix)
+            and not _is_inside_open_parens(prefix)
+        ):
+            # Resolve the document path so we can follow imports
+            file_path = _uri_to_path(uri)
+            base_path = str(Path(file_path).parent) if file_path else None
+
+            # Get all available task names, including from imported files
+            all_task_names = extract_task_names(text, data, base_path)
+
+            # Exclude the current task (a task cannot depend on itself)
+            current_task = get_task_at_position(text, position)
+            available_tasks = [t for t in all_task_names if t != current_task]
+
+            # Filter by whatever partial name the user has already typed
+            partial = _get_deps_partial_from_prefix(prefix)
+            # CompletionItemKind.Reference is used here because lsprotocol does not
+            # define a dedicated "task" kind.  Reference is the closest semantic fit
+            # (a task name that is being referenced in a dependency list) and
+            # produces a distinct icon in most editors, making task completions
+            # visually distinguishable from variable completions (Kind.Variable).
+            items = [
+                CompletionItem(
+                    label=task_name,
+                    kind=CompletionItemKind.Reference,
+                    detail=f"Task: {task_name}",
+                    insert_text=task_name,
+                )
+                for task_name in available_tasks
+                if task_name.startswith(partial)
+            ]
+            return CompletionList(is_incomplete=False, items=items)
 
         return CompletionList(is_incomplete=False, items=[])
 

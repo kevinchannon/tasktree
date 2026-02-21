@@ -6,6 +6,7 @@ from tasktree.lsp.position_utils import (
     is_in_cmd_field,
     is_in_working_dir_field,
     is_in_substitutable_field,
+    is_inside_open_template,
     get_prefix_at_position,
     get_task_at_position,
     _is_in_list_field,
@@ -539,6 +540,42 @@ class TestIsInSubstitutableField(unittest.TestCase):
         text = "tasks:\n  hello:\n    desc: Some description"
         position = Position(line=2, character=len("    desc: "))
         self.assertFalse(is_in_substitutable_field(text, position))
+
+
+class TestIsInsideOpenTemplate(unittest.TestCase):
+    """Tests for is_inside_open_template function."""
+
+    def test_no_template_returns_false(self):
+        """Test that plain text with no {{ returns False."""
+        self.assertFalse(is_inside_open_template("  - build"))
+
+    def test_open_double_brace_only_returns_true(self):
+        """Test that bare {{ with no closing }} returns True."""
+        self.assertTrue(is_inside_open_template("    cmd: echo {{"))
+
+    def test_open_template_with_prefix_returns_true(self):
+        """Test that {{ tt. without closing }} returns True."""
+        self.assertTrue(is_inside_open_template("    cmd: echo {{ tt."))
+
+    def test_closed_template_returns_false(self):
+        """Test that a fully closed {{ }} template returns False."""
+        self.assertFalse(is_inside_open_template("    cmd: echo {{ tt.task_name }}"))
+
+    def test_closed_template_then_open_returns_true(self):
+        """Test detection when a closed template is followed by a new open one."""
+        self.assertTrue(is_inside_open_template("    cmd: {{ tt.a }} and {{ var."))
+
+    def test_empty_prefix_returns_false(self):
+        """Test that empty string returns False."""
+        self.assertFalse(is_inside_open_template(""))
+
+    def test_open_template_at_start_of_deps_item(self):
+        """Test that {{ at start of a deps list item returns True."""
+        self.assertTrue(is_inside_open_template("  - {{"))
+
+    def test_open_template_with_arg_prefix(self):
+        """Test that {{ arg. prefix is detected as inside open template."""
+        self.assertTrue(is_inside_open_template("  - dep_task({{ arg.env"))
 
 
 if __name__ == "__main__":

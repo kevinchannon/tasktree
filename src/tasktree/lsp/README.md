@@ -141,13 +141,55 @@ tasks:
 - Only **named** outputs are completed (e.g., `- binary: path`). Anonymous outputs (e.g., `- path`) are not included.
 - `self.outputs.*` completions are scoped to the task containing the cursor. Outputs from other tasks are not suggested.
 
+#### Task Names in `deps` Lists
+
+Complete task names when editing a `deps` list entry (not inside a `{{ }}` template):
+
+```yaml
+tasks:
+  compile:
+    cmd: gcc main.c
+  link:
+    cmd: ld main.o
+  build:
+    deps:
+      - █  # Completes: compile, link  (current task 'build' is excluded)
+```
+
+Also works in flow-style:
+```yaml
+tasks:
+  compile:
+    cmd: gcc main.c
+  build:
+    deps: [█  # Completes: compile
+```
+
+**Important**:
+- Completions are **not** offered inside `{{ }}` template expressions (e.g., `- process({{ arg.` still offers `arg.*` completions, not task names).
+- The **current task is excluded** from its own deps completions (a task cannot depend on itself).
+- **Imported tasks** are included with their namespace prefix. For example, if a file imports `utils.tasks` with `as: utils`, the task `clean` from that file appears as `utils.clean`.
+
+```yaml
+imports:
+  - file: utils.tasks
+    as: utils
+
+tasks:
+  main:
+    deps:
+      - █  # Completes: utils.clean (plus other local tasks)
+```
+
 ### Intelligent Context Awareness
 
 - **Prefix filtering**: Completions filter by partial match (e.g., `{{ tt.time` → only `timestamp`, `timestamp_unix`)
 - **Task scoping**: `arg.*`, `self.inputs.*`, and `self.outputs.*` completions are scoped to the task containing the cursor
 - **Field-aware**: `arg.*`, `self.inputs.*`, and `self.outputs.*` completions are only available in fields that support substitution: `cmd`, `working_dir`, `outputs`, `deps`, and `args[].default`
 - **No scoping for env/var/tt**: `env.*`, `var.*`, and `tt.*` completions are available anywhere in the file
-- **Template boundaries**: No completions after closing `}}` braces
+- **Template boundaries**: No completions after closing `}}` braces; task name completions are suppressed inside open `{{ }}` templates
+- **Self-exclusion in deps**: The current task is never offered as its own dependency
+- **Import-aware task names**: Task names from imported files are included with namespace prefix
 - **Graceful degradation**: Works with incomplete/malformed YAML during editing
 - **Single parse per request**: YAML is parsed once per completion request and shared across all extraction functions for efficiency
 
@@ -295,6 +337,7 @@ Once configured, the LSP server will automatically provide completions as you ty
 5. Type `{{ arg.` inside a supported task field → Get that task's argument completions
 6. Type `{{ self.inputs.` inside a supported field → Get current task's named input completions
 7. Type `{{ self.outputs.` inside a supported field → Get current task's named output completions
+8. Edit a `deps` list entry (not inside `{{ }}`) → Get task name completions with self-exclusion
 
 Completions update automatically as you modify the file (adding/removing variables, arguments, etc.).
 
@@ -329,7 +372,6 @@ src/tasktree/lsp/
 The following features are planned but not yet implemented:
 
 - Dependency output completion (`dep.*.outputs.*`)
-- Task name completion in `deps` lists
 - Diagnostics (undefined variables, missing dependencies, circular deps)
 - Go-to-definition for task references and imports
 - Hover documentation for variables and tasks

@@ -6,10 +6,11 @@ from unittest.mock import MagicMock, Mock, patch
 
 import tasktree
 import tasktree.lsp.server
-from tasktree.lsp.server import TasktreeLanguageServer, create_server, main
+from tasktree.lsp.server import TasktreeLanguageServer, create_server, main, _is_inside_open_parens
 from lsprotocol.types import (
     InitializeParams,
     CompletionOptions,
+    CompletionItemKind,
     TextDocumentSyncKind,
     DidOpenTextDocumentParams,
     DidChangeTextDocumentParams,
@@ -1226,6 +1227,193 @@ class TestMain(unittest.TestCase):
         source = inspect.getsource(tasktree.lsp.server)
         self.assertIn('if __name__ == "__main__":', source)
         self.assertIn("main()", source)
+
+
+class TestDepsTaskNameCompletion(unittest.TestCase):
+    """Tests for task name completion inside deps fields."""
+
+    def setUp(self):
+        """Create a server and helper objects for each test."""
+        self.server = create_server()
+        self.open_handler = self.server.handlers["textDocument/didOpen"]
+        self.completion_handler = self.server.handlers["textDocument/completion"]
+        self.uri = "file:///test/tasktree.yaml"
+
+    def _open_doc(self, text: str) -> None:
+        self.open_handler(DidOpenTextDocumentParams(
+            text_document=TextDocumentItem(
+                uri=self.uri, language_id="yaml", version=1, text=text,
+            )
+        ))
+
+    def _complete_at(self, line: int, character: int) -> CompletionList:
+        return self.completion_handler(CompletionParams(
+            text_document=TextDocumentIdentifier(uri=self.uri),
+            position=Position(line=line, character=character),
+        ))
+
+    def test_task_names_offered_in_deps_field(self):
+        """Test that task names are offered when cursor is in deps field."""
+        text = (
+            "tasks:\n"
+            "  build:\n"
+            "    cmd: echo build\n"
+            "  test:\n"
+            "    deps:\n"
+            "      - "
+        )
+        self._open_doc(text)
+        # Cursor at end of "      - " (after the dash-space)
+        result = self._complete_at(5, len("      - "))
+        labels = {item.label for item in result.items}
+        self.assertIn("build", labels)
+
+    def test_current_task_excluded_from_deps(self):
+        """Test that the current task is excluded from its own deps completions."""
+        text = (
+            "tasks:\n"
+            "  build:\n"
+            "    cmd: echo build\n"
+            "  test:\n"
+            "    deps:\n"
+            "      - "
+        )
+        self._open_doc(text)
+        result = self._complete_at(5, len("      - "))
+        labels = {item.label for item in result.items}
+        # 'test' is the current task, should NOT be in completions
+        self.assertNotIn("test", labels)
+        # 'build' is a sibling task, should be offered
+        self.assertIn("build", labels)
+
+    def test_deps_completions_filtered_by_partial(self):
+        """Test that deps completions filter by partially typed task name."""
+        text = (
+            "tasks:\n"
+            "  build:\n"
+            "    cmd: echo build\n"
+            "  bundle:\n"
+            "    cmd: echo bundle\n"
+            "  test:\n"
+            "    deps:\n"
+            "      - bu"
+        )
+        self._open_doc(text)
+        result = self._complete_at(7, len("      - bu"))
+        labels = {item.label for item in result.items}
+        self.assertIn("build", labels)
+        self.assertIn("bundle", labels)
+        self.assertNotIn("test", labels)
+
+    def test_no_task_name_completion_inside_template(self):
+        """Test that task name completion is suppressed inside {{ }} templates.
+
+        The 'test' task has an arg ('mode') so that arg.* completions *would*
+        appear — making the assertion non-vacuous: we verify that those items
+        have kind Variable (not Reference), and that no task-name items sneak in.
+        """
+        text = (
+            "tasks:\n"
+            "  build:\n"
+            "    args: [env]\n"
+            "    cmd: echo build\n"
+            "  test:\n"
+            "    args: [mode]\n"
+            "    deps:\n"
+            "      - build({{ arg."
+        )
+        self._open_doc(text)
+        result = self._complete_at(7, len("      - build({{ arg."))
+        # 'test' has arg 'mode', so at least one completion item should appear
+        self.assertGreater(len(result.items), 0, "Expected arg completions to appear")
+        # All completions must be variable kind — no task-name (Reference) items
+        for item in result.items:
+            self.assertNotEqual(item.kind, CompletionItemKind.Reference)
+
+    def test_deps_completion_inline_flow_style(self):
+        """Test task name completion in single-line deps: [task1, ...]."""
+        text = (
+            "tasks:\n"
+            "  build:\n"
+            "    cmd: echo build\n"
+            "  test:\n"
+            "    deps: [bu"
+        )
+        self._open_doc(text)
+        result = self._complete_at(4, len("    deps: [bu"))
+        labels = {item.label for item in result.items}
+        self.assertIn("build", labels)
+
+    def test_deps_completion_items_have_reference_kind(self):
+        """Test that task name completion items have CompletionItemKind.Reference."""
+        text = (
+            "tasks:\n"
+            "  build:\n"
+            "    cmd: echo build\n"
+            "  test:\n"
+            "    deps:\n"
+            "      - "
+        )
+        self._open_doc(text)
+        result = self._complete_at(5, len("      - "))
+        self.assertTrue(len(result.items) > 0)
+        for item in result.items:
+            self.assertEqual(item.kind, CompletionItemKind.Reference)
+
+    def test_no_task_name_completion_inside_parameterized_dep_args(self):
+        """Test that task names are NOT offered inside parameterised dep arguments.
+
+        When the cursor is after an opening '(' (e.g. ``compile(arg1, ``),
+        the user is typing a positional argument value, not a task name.
+        Task-name completions must be suppressed in that context.
+        """
+        text = (
+            "tasks:\n"
+            "  compile:\n"
+            "    cmd: echo compile\n"
+            "  build:\n"
+            "    cmd: echo build\n"
+            "  test:\n"
+            "    deps:\n"
+            "      - compile(arg1, "
+        )
+        self._open_doc(text)
+        # Cursor is inside the parentheses of compile(arg1, ...)
+        result = self._complete_at(7, len("      - compile(arg1, "))
+        task_name_items = [i for i in result.items if i.kind == CompletionItemKind.Reference]
+        self.assertEqual(task_name_items, [], "Task names must not appear inside dep argument parens")
+
+
+class TestIsInsideOpenParens(unittest.TestCase):
+    """Unit tests for _is_inside_open_parens helper."""
+
+    def test_no_parens_returns_false(self):
+        """Prefix with no parentheses is not inside open parens."""
+        self.assertFalse(_is_inside_open_parens("    - build"))
+
+    def test_open_paren_returns_true(self):
+        """Prefix ending inside an open paren group returns True."""
+        self.assertTrue(_is_inside_open_parens("    - compile("))
+
+    def test_open_paren_with_content_returns_true(self):
+        """Prefix with content inside parens returns True."""
+        self.assertTrue(_is_inside_open_parens("    - compile(arg1, "))
+
+    def test_closed_parens_returns_false(self):
+        """Prefix with balanced parentheses returns False."""
+        self.assertFalse(_is_inside_open_parens("    - compile(arg1)"))
+
+    def test_closed_parens_with_trailing_text_returns_false(self):
+        """Prefix after closed parens (e.g. next dep) returns False."""
+        self.assertFalse(_is_inside_open_parens("    - compile(arg1), other"))
+
+    def test_empty_prefix_returns_false(self):
+        """Empty prefix returns False."""
+        self.assertFalse(_is_inside_open_parens(""))
+
+    def test_nested_parens_returns_true(self):
+        """Nested unmatched parens still return True."""
+        self.assertTrue(_is_inside_open_parens("    - f(a, g("))
 
 
 if __name__ == "__main__":

@@ -327,10 +327,10 @@ When adding a new completion prefix (e.g., `env.*`, `dep.*`, `self.*`):
 - ✅ `env.*` completion - Environment variables (from current process env, sorted alphabetically, no scoping)
 - ✅ `self.inputs.*` completion - Named task inputs (task-scoped, named only)
 - ✅ `self.outputs.*` completion - Named task outputs (task-scoped, named only)
+- ✅ Task name completion in `deps` lists - with self-exclusion and import-aware namespacing
 
 **Not Yet Implemented:**
 - ❌ `dep.*.outputs.*` completion - Dependency outputs
-- ❌ Task name completion in `deps` lists
 - ❌ Diagnostics (undefined variables, circular deps, etc.)
 - ❌ Go-to-definition for task references
 - ❌ Hover documentation for variables/tasks
