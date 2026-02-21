@@ -89,11 +89,11 @@ class TestExampleRecipe(unittest.TestCase):
             project_root = copy_example(Path(tmpdir))
 
             # First run
-            result = run_tasktree_cli(["build"], cwd=project_root)
+            result = run_tasktree_cli(["transform"], cwd=project_root)
             self.assertEqual(
                 result.returncode,
                 0,
-                f"First build failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
+                f"First transform failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
             )
             state_file = project_root / ".tasktree-state"
             self.assertTrue(state_file.exists(), "state file not created after first run")
@@ -107,13 +107,21 @@ class TestExampleRecipe(unittest.TestCase):
             )
             self.assertFalse(state_file.exists(), "state file still present after --clean")
 
-            # Run a different task after the state is cleared
+            # Re-run after clean — task must execute again (not be skipped)
             result = run_tasktree_cli(["transform"], cwd=project_root)
             self.assertEqual(
                 result.returncode,
                 0,
                 f"transform after --clean failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
             )
+            # "Running:" appears in stdout when a task actually executes (not when skipped)
+            self.assertIn(
+                "Running: transform",
+                result.stdout,
+                "transform was skipped after --clean instead of re-running",
+            )
+            result_file = project_root / "processed" / "result.txt"
+            self.assertTrue(result_file.exists(), "transform output not present after re-run")
 
     @unittest.skipUnless(is_docker_available(), "Docker not available")
     def test_docker_echo_task_creates_output(self):
