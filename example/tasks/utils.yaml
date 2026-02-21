@@ -1,0 +1,34 @@
+runners:
+  # A bash runner used by pinned tasks in this file.
+  # Even if the importing file applies a blanket run_in override,
+  # pinned tasks will continue to use this runner.
+  bash-utils:
+    shell: /bin/bash
+    preamble: |
+      set -euo pipefail
+
+tasks:
+  show-info:
+    desc: Display project information using built-in tt variables
+    cmd: |
+      echo "Task:        {{ tt.task_name }}"
+      echo "Project root: {{ tt.project_root }}"
+      echo "Working dir:  {{ tt.working_dir }}"
+      echo "Timestamp:    {{ tt.timestamp }}"
+
+  generate-report:
+    desc: Generate a build report (pinned to bash-utils runner - immune to import-level overrides)
+    run_in: bash-utils
+    pin_runner: true
+    outputs:
+      - report: reports/build-report.txt
+    cmd: |
+      mkdir -p reports
+      {
+        echo "Build Report"
+        echo "============"
+        echo "Generated: {{ tt.timestamp }}"
+        echo "User:      {{ tt.user_name }}"
+        echo "Task:      {{ tt.task_name }}"
+      } > {{ self.outputs.report }}
+      echo "Report written to {{ self.outputs.report }}"
