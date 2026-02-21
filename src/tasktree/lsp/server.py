@@ -13,6 +13,7 @@ from lsprotocol.types import (
     TextDocumentSyncKind,
     DidOpenTextDocumentParams,
     DidChangeTextDocumentParams,
+    DidCloseTextDocumentParams,
     CompletionParams,
     CompletionList,
     CompletionItem,
@@ -183,6 +184,20 @@ def create_server() -> TasktreeLanguageServer:
             text = params.content_changes[0].text
             server.documents[uri] = text
             server.trees[uri] = parse_document(text)
+
+    @server.feature("textDocument/didClose")
+    def did_close(params: DidCloseTextDocumentParams) -> None:
+        """Handle document close notification.
+
+        Removes the closed document and its cached tree-sitter parse tree
+        from memory to prevent unbounded growth in long-running sessions.
+
+        Args:
+            params: Document close parameters containing the document URI
+        """
+        uri = params.text_document.uri
+        server.documents.pop(uri, None)
+        server.trees.pop(uri, None)
 
     def _get_deps_partial_from_prefix(prefix: str) -> str:
         """Extract the partial task name being typed in a deps field.
@@ -419,6 +434,7 @@ def create_server() -> TasktreeLanguageServer:
     server.handlers["exit"] = exit
     server.handlers["textDocument/didOpen"] = did_open
     server.handlers["textDocument/didChange"] = did_change
+    server.handlers["textDocument/didClose"] = did_close
     server.handlers["textDocument/completion"] = completion
 
     return server
