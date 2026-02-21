@@ -68,12 +68,20 @@ tasks:
       tr '[:lower:]' '[:upper:]' < {{ self.inputs.source }} > {{ self.outputs.result }}
       echo "Done" >> {{ self.outputs.log }}
 
+  prepare-output:
+    desc: Create the output directory on the host (required before Docker volume mounts)
+    outputs:
+      - dir_marker: output/.ready
+    cmd: |
+      mkdir -p output
+      touch output/.ready
+
   docker-echo:
     desc: Run a command inside an Alpine Docker container
+    deps: [prepare-output]
     run_in: alpine
     outputs: [output/docker-result.txt]
     cmd: |
-      mkdir -p /workspace/output
       echo "Hello from Docker! Project={{ var.project_name }} Build={{ var.build_number }}" \
         > /workspace/output/docker-result.txt
 
