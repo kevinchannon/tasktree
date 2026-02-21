@@ -597,6 +597,12 @@ def _tree_without_broken_template(tree: Tree) -> Tree | None:
         return None
     text = source_bytes.decode("utf-8")
     last_open = text.rfind("{{")
+    # Assumption: if `}}` appears anywhere after the last `{{` in the document,
+    # the template is considered closed and no stripping is needed.  This is
+    # correct for the common LSP editing case (the user is still typing inside
+    # the incomplete template), but would give a false positive if `{{` appears
+    # inside a YAML quoted string that happens to be the *last* `{{` in the
+    # document.  That edge case is accepted as a minor known limitation.
     if last_open == -1 or "}}" in text[last_open:]:
         return None  # no unclosed template
 
