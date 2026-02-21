@@ -18,7 +18,10 @@ runners:
 variables:
   # Value from environment variable with fallback default
   log_level: { env: LOG_LEVEL, default: "info" }
-  # Value from a shell command evaluated at runtime
+  # Value from a shell command evaluated at runtime.
+  # NOTE: using `date` means build_number changes every day, so the build task
+  # hash changes daily and incremental skipping will not trigger across days.
+  # This is intentional here — it illustrates eval variables in a visible way.
   build_number: { eval: "date +%Y%m%d" }
   # Value read directly from a file
   project_name: { read: project-name.txt }
