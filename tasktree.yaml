@@ -17,7 +17,7 @@ tasks:
     cmd: echo "✓ All checks passed!"
 
   run-tests:
-    desc: "Run unit tests"
+    desc: "Run a specific test suite"
     args:
       - suite: { choices: [ "unit", "integration", "e2e"] }
     inputs: [ "src/**/*.py", "tests/{{ arg.suite }}/*.py" ]
@@ -30,11 +30,13 @@ tasks:
     cmd: "echo unit tests pass"
 
   integration-test:
+    desc: "Run integration tests"
     deps:
       - run-tests: [ "integration" ]
     cmd: "echo Integration tests pass"
 
   e2e-test:
+    desc: "Run end-to-end tests"
     deps:
       - run-tests: [ "e2e" ]
     cmd: "echo End-to-end tests pass"
