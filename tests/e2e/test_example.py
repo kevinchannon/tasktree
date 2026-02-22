@@ -24,6 +24,8 @@ class TestExampleRecipe(unittest.TestCase):
         """build task produces an output file under build/."""
         with TemporaryDirectory() as tmpdir:
             project_root = copy_example(Path(tmpdir))
+            build_num_path = project_root / "build_num.txt"
+            build_num_path.write_text("0")
 
             result = run_tasktree_cli(["build"], cwd=project_root)
 
