@@ -5,6 +5,7 @@ runners:
   # Default runner: bash with strict mode enabled
   bash-strict:
     shell: /bin/bash
+    args: [ "-c" ]
     preamble: |
       set -euo pipefail
 
@@ -19,10 +20,7 @@ variables:
   # Value from environment variable with fallback default
   log_level: { env: LOG_LEVEL, default: "info" }
   # Value from a shell command evaluated at runtime.
-  # NOTE: using `date` means build_number changes every day, so the build task
-  # hash changes daily and incremental skipping will not trigger across days.
-  # This is intentional here — it illustrates eval variables in a visible way.
-  build_number: { eval: "date +%Y%m%d" }
+  build_number: { eval: "echo -n $(( $(cat build_num.txt) + 1 ))" }
   # Value read directly from a file
   project_name: { read: project-name.txt }
 
@@ -58,7 +56,9 @@ tasks:
       - build: ["release"]
       - build: { build_type: "release", target: "ppc" }
     outputs: [archive.tar.gz]
-    cmd: echo "making archive.tar.gz..."
+    cmd: |
+      echo "making archive.tar.gz..."
+      touch archive.tar.gz
 
   transform:
     desc: Transform source data (demonstrates named inputs/outputs and self-references)
