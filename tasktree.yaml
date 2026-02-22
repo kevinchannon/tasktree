@@ -8,6 +8,7 @@ runners:
 tasks:
   dev-setup:
     desc: Install development dependencies
+    inputs: [ "pyproject.toml", ".python-version" ]
     cmd: uv sync --extra dev
 
   check:
@@ -15,16 +16,35 @@ tasks:
     deps: [test, build, check-lint, check-format]
     cmd: echo "✓ All checks passed!"
 
+  run-tests:
+    desc: "Run a specific test suite"
+    args:
+      - suite: { choices: [ "unit", "integration", "e2e"] }
+    inputs: [ "src/**/*.py", "tests/{{ arg.suite }}/*.py" ]
+    cmd: "PYTHONPATH=tests uv run pytest tests/{{ arg.suite }}"
+
+  unit-test:
+    desc: "Run unit tests"
+    deps:
+      - run-tests: [ "unit" ]
+    cmd: "echo unit tests pass"
+
+  integration-test:
+    desc: "Run integration tests"
+    deps:
+      - run-tests: [ "integration" ]
+    cmd: "echo Integration tests pass"
+
+  e2e-test:
+    desc: "Run end-to-end tests"
+    deps:
+      - run-tests: [ "e2e" ]
+    cmd: "echo End-to-end tests pass"
+
   test:
-    desc: Run the test suite
-    inputs: [src/**/*.py, tests/**/*.py]
-    cmd: |
-      set -e
-      
-      # These are invoked separately so that they fail faster
-      PYTHONPATH=tests uv run pytest tests/unit
-      PYTHONPATH=tests uv run pytest tests/integration
-      PYTHONPATH=tests uv run pytest tests/e2e
+    desc: "Run all test suites"
+    deps: [ "unit-test", "integration-test", "e2e-test"]
+    cmd: "echo All tests passed"
 
   coverage:
     desc: Run tests with coverage check

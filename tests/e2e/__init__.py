@@ -15,6 +15,7 @@ def run_tasktree_cli(
     args: list[str],
     cwd: Path,
     env: Optional[dict[str, str]] = None,
+    timeout: int = 30,
 ) -> subprocess.CompletedProcess:
     """Execute tasktree CLI via subprocess.
 
@@ -41,7 +42,7 @@ def run_tasktree_cli(
         capture_output=True,
         text=True,
         env=exec_env,
-        timeout=30,
+        timeout=timeout,
     )
     return result
 

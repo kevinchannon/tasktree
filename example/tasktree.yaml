@@ -1,64 +1,108 @@
+runners:
+  # Declare the default runner by name (tasks without run_in: use this runner)
+  default: bash-strict
+
+  # Default runner: bash with strict mode enabled
+  bash-strict:
+    shell: /bin/bash
+    args: [ "-c" ]
+    preamble: |
+      set -euo pipefail
+
+  # Docker runner: uses an Alpine image for containerised tasks
+  alpine:
+    dockerfile: ./Dockerfile
+    context: .
+    volumes:
+      - ./output:/workspace/output
+
 variables:
+  # Value from environment variable with fallback default
   log_level: { env: LOG_LEVEL, default: "info" }
+  # Value from a shell command evaluated at runtime.
+  build_number: { eval: "echo -n $(( $(cat build_num.txt) + 1 ))" }
+  # Value read directly from a file
+  project_name: { read: project-name.txt }
+
+imports:
+  - file: tasks/utils.yaml
+    as: utils
 
 tasks:
   build:
-    desc: Building outputs (imagine this is a call to Cargo, or gcc, or something)
+    desc: Build outputs for a given type and target architecture
     args:
       - build_type:
-          choices: [ "debug", "release", "{{ var.log_level }}" ]
-          default: "{{ var.log_level }}"
+          choices: ["debug", "release"]
+          default: "debug"
       - target:
-           type: str
-           choices:
-             - "x86"
-             - "x86_64"
-             - "arm"
-             - "ppc"
-           default: "x86_64"
+          type: str
+          choices:
+            - "x86"
+            - "x86_64"
+            - "arm"
+            - "ppc"
+          default: "x86_64"
     outputs: [build/**]
     cmd: |
-      echo building for {{ arg.target }}...
-      cd build
-      echo "code and stuff" > output-{{ arg.build_type }}-{{ arg.target }}.txt
+      echo "Building {{ var.project_name }} (build #{{ var.build_number }}) for {{ arg.target }}..."
+      mkdir -p build
+      echo "code and stuff" > build/output-{{ arg.build_type }}-{{ arg.target }}.txt
 
   package:
-    desc: Create archive
+    desc: Create an archive from multiple build variants
     deps:
-      - build: [ "debug", "x86" ]
-      - build: [ "release" ]
+      - build: ["debug", "x86"]
+      - build: ["release"]
       - build: { build_type: "release", target: "ppc" }
     outputs: [archive.tar.gz]
-    cmd: echo "making archive.tar.gz..."
+    cmd: |
+      echo "making archive.tar.gz..."
+      touch archive.tar.gz
 
   transform:
-    desc: Transform data using self-references (demonstrates named inputs/outputs)
+    desc: Transform source data (demonstrates named inputs/outputs and self-references)
     inputs:
-      - source: build/output-debug-x86_64.txt  # Named input - can reference with {{ self.inputs.source }}
-      - config: config.yaml                     # Named input
+      - source: source.txt  # Named input - reference with {{ self.inputs.source }}
     outputs:
-      - result: processed/result.txt            # Named output - can reference with {{ self.outputs.result }}
-      - log: processed/transform.log            # Named output
+      - result: processed/result.txt   # Named output - reference with {{ self.outputs.result }}
+      - log: processed/transform.log   # Named output
     cmd: |
       mkdir -p processed
-      echo "Processing {{ self.inputs.source }} with config {{ self.inputs.config }}" > {{ self.outputs.log }}
-      cat {{ self.inputs.source }} | tr '[:lower:]' '[:upper:]' > {{ self.outputs.result }}
+      echo "Processing {{ self.inputs.source }} [log_level={{ var.log_level }}]" > {{ self.outputs.log }}
+      tr '[:lower:]' '[:upper:]' < {{ self.inputs.source }} > {{ self.outputs.result }}
       echo "Done" >> {{ self.outputs.log }}
 
-  deploy:
-    desc: Deploy using dependency outputs and self-references
+  summarize:
+    desc: Create a summary from transformed output (demonstrates dep.* template usage)
     deps: [transform]
-    inputs:
-      - manifest: deploy-manifest.yaml
-    outputs:
-      - deployed: deployed/app.tar.gz
+    outputs: [processed/summary.txt]
     cmd: |
-      mkdir -p deployed
-      echo "Deploying with manifest {{ self.inputs.manifest }}"
-      tar czf {{ self.outputs.deployed }} {{ dep.transform.outputs.result }} {{ self.inputs.manifest }}
-      echo "Deployed to {{ self.outputs.deployed }}"
+      {
+        echo "=== Summary ==="
+        echo "Result file: {{ dep.transform.outputs.result }}"
+        echo "Characters: $(wc -c < {{ dep.transform.outputs.result }})"
+      } > processed/summary.txt
+
+  prepare-output:
+    desc: Create the output directory on the host (required before Docker volume mounts)
+    outputs:
+      - dir_marker: output/.ready
+    cmd: |
+      mkdir -p output
+      touch output/.ready
+
+  docker-echo:
+    desc: Run a command inside an Alpine Docker container
+    deps: [prepare-output]
+    run_in: alpine
+    outputs: [output/docker-result.txt]
+    cmd: |
+      echo "Hello from Docker! Project={{ var.project_name }} Build={{ var.build_number }}" \
+        > /workspace/output/docker-result.txt
 
   clean:
-    desc: Clean generated files
-    inputs: [ archive.tar.gz ]
-    cmd: rm -f archive.tar.gz
+    desc: Remove all generated files
+    cmd: |
+      rm -rf build/ processed/ output/ archive.tar.gz reports/
+      echo "Cleaned."
