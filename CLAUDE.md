@@ -144,8 +144,8 @@ tasks:
     pin_runner: true  # Lock this task's runner, immune to import-level overrides
 
 runners:
+  default: runner-name  # Declare the default runner by name (optional)
   runner-name:
-    default: true  # Make this the default runner
     shell: /bin/bash  # Shell runner
     preamble: |  # Optional preamble prepended to all commands
       set -euo pipefail
