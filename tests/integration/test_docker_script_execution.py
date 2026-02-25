@@ -46,10 +46,11 @@ runners:
   builder:
     dockerfile: ./Dockerfile
     context: .
-    shell: /bin/sh
-    preamble: |
-      set -euo pipefail
-      echo "Preamble executed" > output/preamble.txt
+    shell:
+      cmd: [sh, -c]
+      preamble: |
+        set -euo pipefail
+        echo "Preamble executed" > output/preamble.txt
     volumes: ["./output:/workspace/output"]
 
 tasks:
@@ -106,8 +107,8 @@ runners:
   builder:
     dockerfile: ./Dockerfile
     context: .
-    shell: /bin/sh
-    args: ["-e"]  # Exit on error
+    shell:
+      cmd: [sh, -e, -c]
     volumes: ["./output:/workspace/output"]
 
 tasks:

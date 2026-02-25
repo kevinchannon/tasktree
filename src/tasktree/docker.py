@@ -161,10 +161,8 @@ class DockerManager:
                 str(dockerfile_path),
             ]
 
-            # Add build args if environment has them (docker environments use dict for args)
-            if isinstance(env.args, dict):
-                for arg_name, arg_value in env.args.items():
-                    docker_build_cmd.extend(["--build-arg", f"{arg_name}={arg_value}"])
+            # Add build args if environment has them
+            docker_build_cmd.extend(env.args.build)
 
             docker_build_cmd.append(str(context_path))
 
@@ -217,10 +215,15 @@ class DockerManager:
         # Ensure image is built (returns tag and ID)
         image_tag, image_id = self.ensure_image_built(env, process_runner)
 
-        # Determine shell and shell args
-        shell = env.shell or "sh"
-        # Only use args as shell args if it's a list; dict args are build args only
-        shell_args = env.args if isinstance(env.args, list) else []
+        # Determine shell and shell args from ShellConfig (default to sh if not set)
+        if env.shell is not None:
+            shell = env.shell.cmd[0]
+            shell_args = env.shell.cmd[1:]
+            preamble = env.shell.preamble
+        else:
+            shell = "sh"
+            shell_args = ["-c"]
+            preamble = ""
 
         # Determine script extension and shebang behavior based on container shell
         script_ext = _get_container_script_extension(shell)
@@ -234,7 +237,6 @@ class DockerManager:
         # Create temp script on host with preamble and command, then mount into container.
         # The script extension and shebang behavior are determined by the container shell type,
         # not the host platform (e.g., Windows containers use .bat even on Linux hosts).
-        preamble = env.preamble or ""
         try:
             with TempScript(
                 logger=self._logger,
@@ -253,7 +255,7 @@ class DockerManager:
                     gid = os.getgid()
                     docker_cmd.extend(["--user", f"{uid}:{gid}"])
 
-                docker_cmd.extend(env.extra_args)
+                docker_cmd.extend(env.args.run)
 
                 # Mount temp script into container at unique path (read-only for security)
                 docker_cmd.extend(["-v", f"{script_path}:{container_script_path}:ro"])

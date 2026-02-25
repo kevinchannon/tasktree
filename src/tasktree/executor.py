@@ -23,7 +23,7 @@ from tasktree.graph import (
 )
 from tasktree.hasher import hash_args, hash_task, make_cache_key
 from tasktree.logging import Logger, LogLevel
-from tasktree.parser import Recipe, Task, Runner
+from tasktree.parser import Recipe, Task, Runner, ShellConfig, SHELL_LOOKUP
 from tasktree.process_runner import ProcessRunner, TaskOutputTypes
 from tasktree.state import StateManager, TaskState
 from tasktree.hasher import hash_runner_definition
@@ -350,9 +350,15 @@ class Executor:
         # Start with platform default
         is_windows = platform.system() == "Windows"
         if is_windows:
-            platform_default = Runner(name="__platform_default__", shell="cmd", args=["/c"])
+            platform_default = Runner(
+                name="__platform_default__",
+                shell=ShellConfig(cmd=SHELL_LOOKUP["cmd.exe"]),
+            )
         else:
-            platform_default = Runner(name="__platform_default__", shell="bash", args=["-c"])
+            platform_default = Runner(
+                name="__platform_default__",
+                shell=ShellConfig(cmd=SHELL_LOOKUP["bash"]),
+            )
 
         session_default = platform_default
 
@@ -431,7 +437,7 @@ class Executor:
         # Return session default runner name
         return self.get_session_default_runner().name
 
-    def _resolve_runner(self, task: Task) -> tuple[str, str]:
+    def _resolve_runner(self, task: Task) -> ShellConfig:
         """
         Resolve which runner to use for a task.
 
@@ -445,7 +451,7 @@ class Executor:
         task: Task to resolve environment for
 
         Returns:
-        Tuple of (shell, preamble)
+        ShellConfig for the resolved runner
         """
         # Check for global override first
         env_name = self.recipe.global_runner_override
@@ -461,13 +467,13 @@ class Executor:
         # If we have a runner name, look it up
         if env_name:
             env = self.recipe.get_runner(env_name)
-            if env:
-                return env.shell, env.preamble
-            # If runner not found, fall through to platform default
+            if env and env.shell is not None:
+                return env.shell
+            # If runner not found or has no shell, fall through to platform default
 
         # Use platform default
         default_runner = self.get_session_default_runner()
-        return default_runner.shell, default_runner.preamble
+        return default_runner.shell
 
     def check_task_status(
         self,
@@ -988,21 +994,20 @@ class Executor:
         else:
             # Shell execution path - either local or inside existing container
             if current_containerized_runner and env:
-                # Get shell/preamble from task's runner definition
+                # Get shell config from task's runner definition
                 # env_name was already validated at lines 715-733 above
                 assert env is not None, "Runner should exist after validation"
-                shell = env.shell or "sh"
-                preamble = env.preamble or ""
+                shell_config = env.shell or ShellConfig(cmd=SHELL_LOOKUP["sh"])
             else:
                 # Normal shell resolution
-                shell, preamble = self._resolve_runner(task)
+                shell_config = self._resolve_runner(task)
 
             self._run_command_as_script(
                 cmd,
                 working_dir,
                 task.name,
-                shell,
-                preamble,
+                shell_config.cmd[0],
+                shell_config.preamble,
                 process_runner,
                 exported_env_vars,
                 updated_chain,
@@ -1183,66 +1188,37 @@ class Executor:
             else ""
         )
 
-        # Substitute in build args (for Docker environments, args is a dict)
-        # Apply builtin vars first, then env vars
-        if isinstance(env.args, dict):
-            substituted_args = {
-                key: self._substitute_env(
-                    self._substitute_builtin(str(value), builtin_vars)
-                )
-                for key, value in env.args.items()
-            }
-        else:
-            substituted_args = env.args
+        def subst(s: str) -> str:
+            return self._substitute_env(self._substitute_builtin(s, builtin_vars))
 
-        # Substitute in extra_args (builtin vars first, then env vars)
-        substituted_extra_args = (
-            [
-                self._substitute_env(self._substitute_builtin(arg, builtin_vars))
-                for arg in env.extra_args
-            ]
-            if env.extra_args
-            else []
-        )
+        # Substitute in docker build args
+        substituted_build_args = [subst(arg) for arg in env.args.build]
 
-        # Substitute in preamble (builtin vars first, then env vars)
-        substituted_preamble = (
-            self._substitute_env(self._substitute_builtin(env.preamble, builtin_vars))
-            if env.preamble
-            else ""
-        )
+        # Substitute in docker run args
+        substituted_run_args = [subst(arg) for arg in env.args.run]
 
-        # Substitute in shell (builtin vars first, then env vars)
-        substituted_shell = (
-            self._substitute_env(self._substitute_builtin(env.shell, builtin_vars))
-            if env.shell
-            else ""
-        )
+        # Substitute in shell config (cmd items and preamble)
+        substituted_shell = None
+        if env.shell is not None:
+            substituted_cmd = [subst(item) for item in env.shell.cmd]
+            substituted_preamble = subst(env.shell.preamble) if env.shell.preamble else ""
+            substituted_shell = ShellConfig(cmd=substituted_cmd, preamble=substituted_preamble)
 
         # Substitute in dockerfile (builtin vars first, then env vars)
-        substituted_dockerfile = (
-            self._substitute_env(self._substitute_builtin(env.dockerfile, builtin_vars))
-            if env.dockerfile
-            else ""
-        )
+        substituted_dockerfile = subst(env.dockerfile) if env.dockerfile else ""
 
         # Substitute in context (builtin vars first, then env vars)
-        substituted_context = (
-            self._substitute_env(self._substitute_builtin(env.context, builtin_vars))
-            if env.context
-            else ""
-        )
+        substituted_context = subst(env.context) if env.context else ""
 
         # Create new environment with substituted values
+        from tasktree.parser import DockerArgs
         return replace(
             env,
             volumes=substituted_volumes,
             env_vars=substituted_env_vars,
             ports=substituted_ports,
             working_dir=substituted_working_dir,
-            args=substituted_args,
-            extra_args=substituted_extra_args,
-            preamble=substituted_preamble,
+            args=DockerArgs(build=substituted_build_args, run=substituted_run_args),
             shell=substituted_shell,
             dockerfile=substituted_dockerfile,
             context=substituted_context,

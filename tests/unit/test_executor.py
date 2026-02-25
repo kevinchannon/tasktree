@@ -1328,11 +1328,11 @@ class TestRunnerResolution(unittest.TestCase):
             state_manager = StateManager(project_root)
 
             # Create runners
-            from tasktree.parser import Runner
+            from tasktree.parser import Runner, ShellConfig, SHELL_LOOKUP
 
             runners = {
-                "prod": Runner(name="prod", shell="sh", args=["-c"]),
-                "dev": Runner(name="dev", shell="bash", args=["-c"]),
+                "prod": Runner(name="prod", shell=ShellConfig(cmd=SHELL_LOOKUP["sh"])),
+                "dev": Runner(name="dev", shell=ShellConfig(cmd=SHELL_LOOKUP["bash"])),
             }
 
             # Create task with explicit run_in and recipe with default_runner
@@ -1360,11 +1360,11 @@ class TestRunnerResolution(unittest.TestCase):
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
 
-            from tasktree.parser import Runner
+            from tasktree.parser import Runner, ShellConfig, SHELL_LOOKUP
 
             runners = {
-                "prod": Runner(name="prod", shell="sh", args=["-c"]),
-                "dev": Runner(name="dev", shell="bash", args=["-c"]),
+                "prod": Runner(name="prod", shell=ShellConfig(cmd=SHELL_LOOKUP["sh"])),
+                "dev": Runner(name="dev", shell=ShellConfig(cmd=SHELL_LOOKUP["bash"])),
             }
 
             tasks = {"build": Task(name="build", cmd="echo hello", run_in="dev")}
@@ -1390,9 +1390,9 @@ class TestRunnerResolution(unittest.TestCase):
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
 
-            from tasktree.parser import Runner
+            from tasktree.parser import Runner, ShellConfig, SHELL_LOOKUP
 
-            runners = {"prod": Runner(name="prod", shell="sh", args=["-c"])}
+            runners = {"prod": Runner(name="prod", shell=ShellConfig(cmd=SHELL_LOOKUP["sh"]))}
 
             tasks = {"build": Task(name="build", cmd="echo hello")}  # No run_in
             recipe = Recipe(
@@ -1438,11 +1438,12 @@ class TestRunnerResolution(unittest.TestCase):
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
 
-            from tasktree.parser import Runner
+            from tasktree.parser import Runner, ShellConfig, SHELL_LOOKUP
 
             runners = {
                 "zsh_runner": Runner(
-                    name="zsh_runner", shell="zsh", args=["-c"], preamble="set -e\n"
+                    name="zsh_runner",
+                    shell=ShellConfig(cmd=SHELL_LOOKUP["zsh"], preamble="set -e\n"),
                 )
             }
 
@@ -1455,9 +1456,9 @@ class TestRunnerResolution(unittest.TestCase):
             )
             executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
-            shell, preamble = executor._resolve_runner(tasks["build"])
-            self.assertEqual(shell, "zsh")
-            self.assertEqual(preamble, "set -e\n")
+            shell_config = executor._resolve_runner(tasks["build"])
+            self.assertEqual(shell_config.cmd, ["zsh", "-c"])
+            self.assertEqual(shell_config.preamble, "set -e\n")
 
     @patch("platform.system")
     def test_resolve_runner_falls_back_to_platform_default(self, mock_system):
@@ -1481,9 +1482,9 @@ class TestRunnerResolution(unittest.TestCase):
             )
             executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
-            shell, preamble = executor._resolve_runner(tasks["build"])
-            self.assertEqual(shell, "bash")
-            self.assertEqual(preamble, "")
+            shell_config = executor._resolve_runner(tasks["build"])
+            self.assertEqual(shell_config.cmd, ["bash", "-c"])
+            self.assertEqual(shell_config.preamble, "")
 
         # Test Windows platform
         mock_system.return_value = "Windows"
@@ -1501,9 +1502,9 @@ class TestRunnerResolution(unittest.TestCase):
             )
             executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
-            shell, preamble = executor._resolve_runner(tasks["build"])
-            self.assertEqual(shell, "cmd")
-            self.assertEqual(preamble, "")
+            shell_config = executor._resolve_runner(tasks["build"])
+            self.assertEqual(shell_config.cmd, ["cmd.exe", "/c"])
+            self.assertEqual(shell_config.preamble, "")
 
     @patch("tasktree.temp_script.os.chmod")
     def test_task_execution_uses_custom_shell(self, _fake_chmod):
@@ -1526,9 +1527,9 @@ class TestRunnerResolution(unittest.TestCase):
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
 
-            from tasktree.parser import Runner
+            from tasktree.parser import Runner, ShellConfig, SHELL_LOOKUP
 
-            runners = {"fish": Runner(name="fish", shell="fish", args=["-c"])}
+            runners = {"fish": Runner(name="fish", shell=ShellConfig(cmd=SHELL_LOOKUP["fish"]))}
 
             tasks = {"build": Task(name="build", cmd="echo hello", run_in="fish")}
             recipe = Recipe(
@@ -1834,9 +1835,9 @@ class TestExecutorProcessRunner(unittest.TestCase):
 
     def test_substitute_runner_fields_includes_extra_args(self):
         """
-        Test that _substitute_builtin_in_runner substitutes variables in extra_args.
+        Test that _substitute_builtin_in_runner substitutes variables in docker run args.
         """
-        from tasktree.parser import Runner
+        from tasktree.parser import Runner, ShellConfig, SHELL_LOOKUP
 
         os.environ["MEMORY_LIMIT"] = "1024m"
         os.environ["CPU_LIMIT"] = "2"
@@ -1855,16 +1856,17 @@ class TestExecutorProcessRunner(unittest.TestCase):
                     recipe, state_manager, logger_stub, make_process_runner
                 )
 
-                # Create runner with variables in extra_args
+                # Create runner with variables in docker run args
+                from tasktree.parser import DockerArgs
                 runner = Runner(
                     name="test",
                     dockerfile="Dockerfile",
                     context=".",
-                    extra_args=[
+                    args=DockerArgs(run=[
                         "--memory={{ env.MEMORY_LIMIT }}",
                         "--cpus={{ env.CPU_LIMIT }}",
                         "--network=host",
-                    ],
+                    ]),
                 )
 
                 builtin_vars = {
@@ -1879,7 +1881,7 @@ class TestExecutorProcessRunner(unittest.TestCase):
 
                 # Verify substitution occurred
                 self.assertEqual(
-                    substituted_runner.extra_args,
+                    substituted_runner.args.run,
                     ["--memory=1024m", "--cpus=2", "--network=host"],
                 )
         finally:
@@ -1888,9 +1890,9 @@ class TestExecutorProcessRunner(unittest.TestCase):
 
     def test_substitute_runner_fields_includes_preamble_shell_dockerfile_context(self):
         """
-        Test that _substitute_builtin_in_runner substitutes variables in preamble, shell, dockerfile, and context.
+        Test that _substitute_builtin_in_runner substitutes variables in shell config, dockerfile, and context.
         """
-        from tasktree.parser import Runner
+        from tasktree.parser import Runner, ShellConfig
 
         os.environ["BUILD_DIR"] = "docker"
         os.environ["CUSTOM_SHELL"] = "/bin/bash"
@@ -1909,11 +1911,13 @@ class TestExecutorProcessRunner(unittest.TestCase):
                     recipe, state_manager, logger_stub, make_process_runner
                 )
 
-                # Create runner with variables in preamble, shell, dockerfile, context
+                # Create runner with variables in shell preamble, cmd, dockerfile, context
                 runner = Runner(
                     name="test",
-                    preamble="set -e\nexport BUILD_DIR={{ env.BUILD_DIR }}\n",
-                    shell="{{ env.CUSTOM_SHELL }}",
+                    shell=ShellConfig(
+                        cmd=["{{ env.CUSTOM_SHELL }}", "-c"],
+                        preamble="set -e\nexport BUILD_DIR={{ env.BUILD_DIR }}\n",
+                    ),
                     dockerfile="{{ env.BUILD_DIR }}/Dockerfile",
                     context="{{ tt.project_root }}/{{ env.BUILD_DIR }}",
                 )
@@ -1929,10 +1933,11 @@ class TestExecutorProcessRunner(unittest.TestCase):
                 )
 
                 # Verify substitution occurred
+                self.assertIsNotNone(substituted_runner.shell)
                 self.assertEqual(
-                    substituted_runner.preamble, "set -e\nexport BUILD_DIR=docker\n"
+                    substituted_runner.shell.preamble, "set -e\nexport BUILD_DIR=docker\n"
                 )
-                self.assertEqual(substituted_runner.shell, "/bin/bash")
+                self.assertEqual(substituted_runner.shell.cmd, ["/bin/bash", "-c"])
                 self.assertEqual(substituted_runner.dockerfile, "docker/Dockerfile")
                 self.assertEqual(substituted_runner.context, f"{project_root}/docker")
         finally:
@@ -2029,8 +2034,9 @@ class TestGetSessionDefaultRunner(unittest.TestCase):
                 """
 runners:
   default:
-    shell: zsh
-    preamble: set -e
+    shell:
+      cmd: [zsh, -c]
+      preamble: set -e
 """
             )
 
@@ -2044,8 +2050,8 @@ runners:
             runner = executor.get_session_default_runner(start_dir=project_root)
 
             self.assertEqual(runner.name, "default")
-            self.assertEqual(runner.shell, "zsh")
-            self.assertEqual(runner.preamble, "set -e")
+            self.assertEqual(runner.shell.cmd, ["zsh", "-c"])
+            self.assertEqual(runner.shell.preamble, "set -e")
 
     @patch("platform.system")
     def test_falls_back_to_platform_default_when_no_config(self, mock_system):
@@ -2148,8 +2154,9 @@ runners:
                 """
 runners:
   default:
-    shell: zsh
-    preamble: set -euo pipefail
+    shell:
+      cmd: [zsh, -c]
+      preamble: set -euo pipefail
 """
             )
             mock_get_user_config.return_value = user_config_path
@@ -2166,8 +2173,8 @@ runners:
             runner = executor.get_session_default_runner(start_dir=project_root)
 
             self.assertEqual(runner.name, "default")
-            self.assertEqual(runner.shell, "zsh")
-            self.assertEqual(runner.preamble, "set -euo pipefail")
+            self.assertEqual(runner.shell.cmd, ["zsh", "-c"])
+            self.assertEqual(runner.shell.preamble, "set -euo pipefail")
 
     @patch("platform.system")
     @patch("tasktree.config.get_user_config_path")
@@ -2300,8 +2307,9 @@ runners:
                 """
 runners:
   default:
-    shell: fish
-    preamble: set -eu
+    shell:
+      cmd: [fish, -c]
+      preamble: set -eu
 """
             )
             mock_get_machine_config.return_value = machine_config_path
@@ -2318,8 +2326,8 @@ runners:
             runner = executor.get_session_default_runner(start_dir=project_root)
 
             self.assertEqual(runner.name, "default")
-            self.assertEqual(runner.shell, "fish")
-            self.assertEqual(runner.preamble, "set -eu")
+            self.assertEqual(runner.shell.cmd, ["fish", "-c"])
+            self.assertEqual(runner.shell.preamble, "set -eu")
 
     @patch("platform.system")
     @patch("tasktree.config.get_machine_config_path")

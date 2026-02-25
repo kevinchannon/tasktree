@@ -56,12 +56,13 @@ runners:
   builder:
     dockerfile: ./Dockerfile
     context: .
-    shell: /bin/sh
+    shell: sh
     volumes: ["./output:/workspace/output"]
     args:
-      BUILD_VERSION: "1.2.3"
-      BUILD_DATE: "2024-01-01"
-      PYTHON_VERSION: "3.12"
+      build:
+        - "--build-arg BUILD_VERSION=1.2.3"
+        - "--build-arg BUILD_DATE=2024-01-01"
+        - "--build-arg PYTHON_VERSION=3.12"
 
 tasks:
   build:

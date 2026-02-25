@@ -46,9 +46,10 @@ class TestConfigHierarchy(unittest.TestCase):
             config_file.write_text("""
 runners:
   default:
-    shell: bash
-    preamble: |
-      echo "PROJECT CONFIG"
+    shell:
+      cmd: [bash, -c]
+      preamble: |
+        echo "PROJECT CONFIG"
 """)
 
             # Create tasktree.yaml
@@ -82,8 +83,9 @@ tasks:
             config_file.write_text("""
 runners:
   default:
-    shell: bash
-    preamble: echo "PROJECT CONFIG"
+    shell:
+      cmd: [bash, -c]
+      preamble: echo "PROJECT CONFIG"
 """)
 
             # Create tasktree.yaml with different default runner
@@ -92,8 +94,9 @@ runners:
 runners:
   default: custom
   custom:
-    shell: bash
-    preamble: echo "RECIPE DEFAULT"
+    shell:
+      cmd: [bash, -c]
+      preamble: echo "RECIPE DEFAULT"
 
 tasks:
   test:
@@ -123,8 +126,9 @@ tasks:
             config_file.write_text("""
 runners:
   default:
-    shell: bash
-    preamble: echo "PROJECT CONFIG"
+    shell:
+      cmd: [bash, -c]
+      preamble: echo "PROJECT CONFIG"
 """)
 
             # Create tasktree.yaml with task-specific runner
@@ -133,12 +137,14 @@ runners:
 runners:
   default: custom
   custom:
-    shell: bash
-    preamble: echo "RECIPE DEFAULT"
+    shell:
+      cmd: [bash, -c]
+      preamble: echo "RECIPE DEFAULT"
 
   task-specific:
-    shell: bash
-    preamble: echo "TASK SPECIFIC"
+    shell:
+      cmd: [bash, -c]
+      preamble: echo "TASK SPECIFIC"
 
 tasks:
   test:
@@ -170,8 +176,9 @@ tasks:
             config_file.write_text("""
 runners:
   default:
-    shell: bash
-    preamble: echo "PROJECT CONFIG"
+    shell:
+      cmd: [bash, -c]
+      preamble: echo "PROJECT CONFIG"
 """)
 
             # Create tasktree.yaml with task-specific runner and recipe default
@@ -180,16 +187,19 @@ runners:
 runners:
   default: recipe-default
   recipe-default:
-    shell: bash
-    preamble: echo "RECIPE DEFAULT"
+    shell:
+      cmd: [bash, -c]
+      preamble: echo "RECIPE DEFAULT"
 
   task-specific:
-    shell: bash
-    preamble: echo "TASK SPECIFIC"
+    shell:
+      cmd: [bash, -c]
+      preamble: echo "TASK SPECIFIC"
 
   cli-override:
-    shell: bash
-    preamble: echo "CLI OVERRIDE"
+    shell:
+      cmd: [bash, -c]
+      preamble: echo "CLI OVERRIDE"
 
 tasks:
   test:
@@ -255,8 +265,9 @@ tasks:
             user_config_file.write_text("""
 runners:
   default:
-    shell: bash
-    preamble: echo "USER CONFIG"
+    shell:
+      cmd: [bash, -c]
+      preamble: echo "USER CONFIG"
 """)
             mock_user_config.return_value = user_config_file
 
@@ -293,8 +304,9 @@ tasks:
             user_config_file.write_text("""
 runners:
   default:
-    shell: bash
-    preamble: echo "USER CONFIG"
+    shell:
+      cmd: [bash, -c]
+      preamble: echo "USER CONFIG"
 """)
             mock_user_config.return_value = user_config_file
 
@@ -303,8 +315,9 @@ runners:
             project_config.write_text("""
 runners:
   default:
-    shell: bash
-    preamble: echo "PROJECT CONFIG"
+    shell:
+      cmd: [bash, -c]
+      preamble: echo "PROJECT CONFIG"
 """)
 
             # Create tasktree.yaml
@@ -344,8 +357,9 @@ tasks:
             machine_config_file.write_text("""
 runners:
   default:
-    shell: bash
-    preamble: echo "MACHINE CONFIG"
+    shell:
+      cmd: [bash, -c]
+      preamble: echo "MACHINE CONFIG"
 """)
             mock_machine_config.return_value = machine_config_file
 
@@ -354,8 +368,9 @@ runners:
             user_config_file.write_text("""
 runners:
   default:
-    shell: bash
-    preamble: echo "USER CONFIG"
+    shell:
+      cmd: [bash, -c]
+      preamble: echo "USER CONFIG"
 """)
             mock_user_config.return_value = user_config_file
 
@@ -364,8 +379,9 @@ runners:
             project_config.write_text("""
 runners:
   default:
-    shell: bash
-    preamble: echo "PROJECT CONFIG"
+    shell:
+      cmd: [bash, -c]
+      preamble: echo "PROJECT CONFIG"
 """)
 
             # Create tasktree.yaml
@@ -400,8 +416,9 @@ tasks:
             config_file.write_text("""
 runners:
   default:
-    shell: bash
-    preamble: echo "PROJECT CONFIG"
+    shell:
+      cmd: [bash, -c]
+      preamble: echo "PROJECT CONFIG"
 """)
 
             # Create nested directory structure

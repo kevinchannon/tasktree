@@ -152,9 +152,10 @@ runners:
     dockerfile: ./Dockerfile
     context: .
     volumes: ["./output:/workspace/output"]
-    extra_args:
-      - "--memory=512m"
-      - "--cpus=1"
+    args:
+      run:
+        - "--memory=512m"
+        - "--cpus=1"
 
 tasks:
   limited:

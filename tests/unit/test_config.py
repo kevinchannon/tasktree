@@ -158,7 +158,30 @@ class TestParseConfigFile(unittest.TestCase):
 
     def test_valid_shell_runner(self):
         """
-        Test that parse_config_file correctly parses a valid shell runner.
+        Test that parse_config_file correctly parses a valid shell runner (bare string).
+        """
+        with TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.yml"
+            config_path.write_text(
+                """runners:
+  default:
+    shell:
+      cmd: bash
+      preamble: set -euo pipefail
+"""
+            )
+            result = parse_config_file(config_path)
+            self.assertIsNotNone(result)
+            self.assertIsInstance(result, Runner)
+            self.assertEqual(result.name, "default")
+            self.assertIsNotNone(result.shell)
+            self.assertEqual(result.shell.cmd, ["bash", "-c"])
+            self.assertEqual(result.shell.preamble, "set -euo pipefail")
+            self.assertEqual(result.dockerfile, "")
+
+    def test_valid_shell_runner_bare_string(self):
+        """
+        Test that parse_config_file correctly parses a shell runner with bare string shorthand.
         """
         with TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.yml"
@@ -166,16 +189,13 @@ class TestParseConfigFile(unittest.TestCase):
                 """runners:
   default:
     shell: bash
-    preamble: set -euo pipefail
 """
             )
             result = parse_config_file(config_path)
             self.assertIsNotNone(result)
-            self.assertIsInstance(result, Runner)
-            self.assertEqual(result.name, "default")
-            self.assertEqual(result.shell, "bash")
-            self.assertEqual(result.preamble, "set -euo pipefail")
-            self.assertEqual(result.dockerfile, "")
+            self.assertIsNotNone(result.shell)
+            self.assertEqual(result.shell.cmd, ["bash", "-c"])
+            self.assertEqual(result.shell.preamble, "")
 
     def test_valid_dockerfile_runner(self):
         """
@@ -196,7 +216,7 @@ class TestParseConfigFile(unittest.TestCase):
             self.assertEqual(result.name, "default")
             self.assertEqual(result.dockerfile, "docker/Dockerfile")
             self.assertEqual(result.context, "docker")
-            self.assertEqual(result.shell, "")
+            self.assertIsNone(result.shell)
 
     def test_runner_with_all_fields(self):
         """
@@ -207,9 +227,12 @@ class TestParseConfigFile(unittest.TestCase):
             config_path.write_text(
                 """runners:
   default:
-    shell: zsh
-    args: ["-c"]
-    preamble: export FOO=bar
+    shell:
+      cmd: ["/bin/zsh", "-c"]
+      preamble: export FOO=bar
+    args:
+      build: ["--no-cache"]
+      run: ["--network=host"]
     working_dir: /workspace
     dockerfile: Dockerfile
     context: .
@@ -219,23 +242,22 @@ class TestParseConfigFile(unittest.TestCase):
       - "8080:80"
     env_vars:
       VAR1: value1
-    extra_args:
-      - --network=host
     run_as_root: true
 """
             )
             result = parse_config_file(config_path)
             self.assertIsNotNone(result)
-            self.assertEqual(result.shell, "zsh")
-            self.assertEqual(result.args, ["-c"])
-            self.assertEqual(result.preamble, "export FOO=bar")
+            self.assertIsNotNone(result.shell)
+            self.assertEqual(result.shell.cmd, ["/bin/zsh", "-c"])
+            self.assertEqual(result.shell.preamble, "export FOO=bar")
+            self.assertEqual(result.args.build, ["--no-cache"])
+            self.assertEqual(result.args.run, ["--network=host"])
             self.assertEqual(result.working_dir, "/workspace")
             self.assertEqual(result.dockerfile, "Dockerfile")
             self.assertEqual(result.context, ".")
             self.assertEqual(result.volumes, ["/host:/container:ro"])
             self.assertEqual(result.ports, ["8080:80"])
             self.assertEqual(result.env_vars, {"VAR1": "value1"})
-            self.assertEqual(result.extra_args, ["--network=host"])
             self.assertTrue(result.run_as_root)
 
     def test_malformed_yaml_raises_error(self):
@@ -320,7 +342,7 @@ class TestParseConfigFile(unittest.TestCase):
             config_path.write_text(
                 """runners:
   default:
-    preamble: echo hello
+    working_dir: /workspace
 """
             )
             with self.assertRaises(ConfigError) as ctx:
@@ -343,9 +365,11 @@ class TestParseConfigFile(unittest.TestCase):
             )
             result = parse_config_file(config_path)
             self.assertIsNotNone(result)
-            self.assertEqual(result.shell, "bash")
-            self.assertEqual(result.preamble, "")
-            self.assertEqual(result.args, [])
+            self.assertIsNotNone(result.shell)
+            self.assertEqual(result.shell.cmd, ["bash", "-c"])
+            self.assertEqual(result.shell.preamble, "")
+            self.assertEqual(result.args.build, [])
+            self.assertEqual(result.args.run, [])
 
     def test_dockerfile_runner_with_minimal_config(self):
         """
@@ -437,26 +461,27 @@ class TestConfigFieldValidation(unittest.TestCase):
     Tests for field type validation in config files.
     """
 
-    def test_shell_must_be_string(self):
+    def test_unknown_shell_name_raises_error(self):
         """
-        Test that parse_config_file raises ConfigError when 'shell' is not a string.
+        Test that parse_config_file raises ConfigError when shell name is not in SHELL_LOOKUP.
         """
         with TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.yml"
             config_path.write_text(
                 """runners:
   default:
-    shell: 123
+    shell: myshell
 """
             )
             with self.assertRaises(ConfigError) as ctx:
                 parse_config_file(config_path)
-            self.assertIn("'shell' must be a string", str(ctx.exception))
+            self.assertIn("unknown shell", str(ctx.exception))
+            self.assertIn("myshell", str(ctx.exception))
             self.assertIn(str(config_path), str(ctx.exception))
 
-    def test_args_must_be_list(self):
+    def test_args_must_be_dict(self):
         """
-        Test that parse_config_file raises ConfigError when 'args' is not a list.
+        Test that parse_config_file raises ConfigError when 'args' is not a dict.
         """
         with TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.yml"
@@ -464,30 +489,12 @@ class TestConfigFieldValidation(unittest.TestCase):
                 """runners:
   default:
     shell: bash
-    args: "-c"
+    args: ["--rm"]
 """
             )
             with self.assertRaises(ConfigError) as ctx:
                 parse_config_file(config_path)
-            self.assertIn("'args' must be a list", str(ctx.exception))
-            self.assertIn(str(config_path), str(ctx.exception))
-
-    def test_preamble_must_be_string(self):
-        """
-        Test that parse_config_file raises ConfigError when 'preamble' is not a string.
-        """
-        with TemporaryDirectory() as tmpdir:
-            config_path = Path(tmpdir) / "config.yml"
-            config_path.write_text(
-                """runners:
-  default:
-    shell: bash
-    preamble: [set, -e]
-"""
-            )
-            with self.assertRaises(ConfigError) as ctx:
-                parse_config_file(config_path)
-            self.assertIn("'preamble' must be a string", str(ctx.exception))
+            self.assertIn("'args' must be a dict", str(ctx.exception))
             self.assertIn(str(config_path), str(ctx.exception))
 
     def test_working_dir_must_be_string(self):
@@ -601,25 +608,6 @@ class TestConfigFieldValidation(unittest.TestCase):
             self.assertIn("'env_vars' must be a dictionary", str(ctx.exception))
             self.assertIn(str(config_path), str(ctx.exception))
 
-    def test_extra_args_must_be_list(self):
-        """
-        Test that parse_config_file raises ConfigError when 'extra_args' is not a list.
-        """
-        with TemporaryDirectory() as tmpdir:
-            config_path = Path(tmpdir) / "config.yml"
-            config_path.write_text(
-                """runners:
-  default:
-    dockerfile: Dockerfile
-    context: .
-    extra_args: "--network=host"
-"""
-            )
-            with self.assertRaises(ConfigError) as ctx:
-                parse_config_file(config_path)
-            self.assertIn("'extra_args' must be a list", str(ctx.exception))
-            self.assertIn(str(config_path), str(ctx.exception))
-
     def test_run_as_root_must_be_bool(self):
         """
         Test that parse_config_file raises ConfigError when 'run_as_root' is not a boolean.
@@ -669,9 +657,9 @@ class TestErrorMessageContext(unittest.TestCase):
             ("runners:\n  default: not-a-dict", "Runner 'default' must be a dictionary"),
             ("runners:\n  default:\n    preamble: test", "must specify either 'shell'"),
             ("runners:\n  default:\n    shell: 123", "'shell' must be a string"),
-            ("runners:\n  default:\n    shell: bash\n    args: not-a-list", "'args' must be a list"),
+            ("runners:\n  default:\n    shell: bash\n    args: not-a-list", "'args' must be a dict"),
             (
-                "runners:\n  default:\n    shell: bash\n    preamble: [list]",
+                "runners:\n  default:\n    shell:\n      cmd: [bash, -c]\n      preamble: [list]",
                 "'preamble' must be a string",
             ),
             (

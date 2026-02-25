@@ -15,7 +15,7 @@ from tasktree.docker import (
     parse_base_image_digests,
     resolve_container_working_dir,
 )
-from tasktree.parser import Runner
+from tasktree.parser import DockerArgs, Runner, ShellConfig
 from tasktree.process_runner import TaskOutputTypes, make_process_runner
 
 
@@ -176,49 +176,37 @@ class TestIsDockerRunner(unittest.TestCase):
         """
         runner = Runner(
             name="bash",
-            shell="bash",
-            args=["-c"],
+            shell=ShellConfig(cmd=["bash", "-c"]),
         )
         self.assertFalse(is_docker_runner(runner))
 
-    def test_shell_runner_with_list_args(self):
+    def test_shell_runner_with_explicit_cmd(self):
         """
-        Test that shell runners still work with list args (backward compatibility).
+        Test that shell runners work with explicit cmd list in ShellConfig.
         """
-        # Shell runners should use list args for shell arguments
         runner = Runner(
             name="bash",
-            shell="bash",
-            args=["-c", "-e"],  # List of shell arguments
+            shell=ShellConfig(cmd=["bash", "-c", "-e"]),
         )
 
         # Verify it's recognized as a shell runner (not Docker)
         self.assertFalse(is_docker_runner(runner))
+        self.assertEqual(runner.shell.cmd, ["bash", "-c", "-e"])
 
-        # Verify args are stored as a list
-        self.assertIsInstance(runner.args, list)
-        self.assertEqual(runner.args, ["-c", "-e"])
-
-    def test_docker_runner_with_dict_args(self):
+    def test_docker_runner_with_build_args(self):
         """
-        Test that Docker runners use dict args for build arguments.
+        Test that Docker runners use DockerArgs for build arguments.
         """
-        # Docker runners should use dict args for build arguments
         runner = Runner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
-            args={"BUILD_VERSION": "1.0.0", "BUILD_DATE": "2024-01-01"},
+            args=DockerArgs(build=["--build-arg", "BUILD_VERSION=1.0.0"]),
         )
 
         # Verify it's recognized as a Docker runner
         self.assertTrue(is_docker_runner(runner))
-
-        # Verify args are stored as a dict
-        self.assertIsInstance(runner.args, dict)
-        self.assertEqual(
-            runner.args, {"BUILD_VERSION": "1.0.0", "BUILD_DATE": "2024-01-01"}
-        )
+        self.assertEqual(runner.args.build, ["--build-arg", "BUILD_VERSION=1.0.0"])
 
 
 class TestWindowsShellDetection(unittest.TestCase):
@@ -404,13 +392,13 @@ class TestDockerManager(unittest.TestCase):
     @patch("tasktree.docker.subprocess.run")
     def test_build_command_with_build_args(self, mock_run):
         """
-        Test that docker build command includes --build-arg flags.
+        Test that docker build command passes args.build list to docker build.
         """
         env = Runner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
-            args={"FOO": "fooable", "bar": "you're barred!"},
+            args=DockerArgs(build=["--no-cache", "-q"]),
         )
 
         # Mock docker inspect returning image ID
@@ -434,35 +422,21 @@ class TestDockerManager(unittest.TestCase):
         # Verify basic command structure
         self.assertEqual(build_call_args[0], "docker")
         self.assertEqual(build_call_args[1], "build")
-        self.assertEqual(build_call_args[2], "-t")
-        self.assertEqual(build_call_args[3], "tt-env-builder")
-        self.assertEqual(build_call_args[4], "-f")
 
-        # Verify build args are included
-        self.assertIn("--build-arg", build_call_args)
-
-        # Find all build arg pairs
-        build_args = {}
-        for i, arg in enumerate(build_call_args):
-            if arg == "--build-arg":
-                arg_pair = build_call_args[i + 1]
-                key, value = arg_pair.split("=", 1)
-                build_args[key] = value
-
-        # Verify expected build args
-        self.assertEqual(build_args["FOO"], "fooable")
-        self.assertEqual(build_args["bar"], "you're barred!")
+        # Verify build args are included verbatim
+        self.assertIn("--no-cache", build_call_args)
+        self.assertIn("-q", build_call_args)
 
     @patch("tasktree.docker.subprocess.run")
     def test_build_command_with_empty_build_args(self, mock_run):
         """
-        Test that docker build command works with empty build args dict.
+        Test that docker build command works with empty build args.
         """
         env = Runner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
-            args={},
+            args=DockerArgs(),
         )
 
         # Mock docker inspect returning image ID
@@ -487,57 +461,9 @@ class TestDockerManager(unittest.TestCase):
         self.assertEqual(build_call_args[0], "docker")
         self.assertEqual(build_call_args[1], "build")
 
-        # Verify NO build args are included
-        self.assertNotIn("--build-arg", build_call_args)
-
-    @patch("tasktree.docker.subprocess.run")
-    def test_build_command_with_special_characters_in_args(self, mock_run):
-        """
-        Test that build args with special characters are handled correctly.
-        """
-        env = Runner(
-            name="builder",
-            dockerfile="./Dockerfile",
-            context=".",
-            args={
-                "API_KEY": "sk-1234_abcd-5678",
-                "MESSAGE": "Hello, World!",
-                "PATH_WITH_SPACES": "/path/to/my files",
-                "SPECIAL_CHARS": "test=value&foo=bar",
-            },
-        )
-
-        # Mock docker inspect returning image ID
-        def mock_run_side_effect(*args, **_kwargs):
-            cmd = args[0]
-            if "inspect" in cmd:
-                result = Mock()
-                result.stdout = "sha256:abc123def456\n"
-                return result
-            return None
-
-        mock_run.side_effect = mock_run_side_effect
-
-        self.manager.ensure_image_built(
-            env, make_process_runner(TaskOutputTypes.ALL, logger_stub)
-        )
-
-        # Check that docker build was called (2nd call, after docker --version)
-        build_call_args = mock_run.call_args_list[1][0][0]
-
-        # Find all build arg pairs
-        build_args = {}
-        for i, arg in enumerate(build_call_args):
-            if arg == "--build-arg":
-                arg_pair = build_call_args[i + 1]
-                key, value = arg_pair.split("=", 1)
-                build_args[key] = value
-
-        # Verify special characters are preserved
-        self.assertEqual(build_args["API_KEY"], "sk-1234_abcd-5678")
-        self.assertEqual(build_args["MESSAGE"], "Hello, World!")
-        self.assertEqual(build_args["PATH_WITH_SPACES"], "/path/to/my files")
-        self.assertEqual(build_args["SPECIAL_CHARS"], "test=value&foo=bar")
+        # Verify NO extra flags are included (just the base structure)
+        self.assertNotIn("--no-cache", build_call_args)
+        self.assertNotIn("-q", build_call_args)
 
     def test_resolve_volume_mount_relative(self):
         """
@@ -615,7 +541,7 @@ class TestDockerManager(unittest.TestCase):
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
-            shell="sh",
+            shell=ShellConfig(cmd=["sh", "-c"]),
         )
 
         # Mock docker --version, docker build, docker inspect, and docker run
@@ -658,7 +584,7 @@ class TestDockerManager(unittest.TestCase):
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
-            shell="sh",
+            shell=ShellConfig(cmd=["sh", "-c"]),
         )
 
         # Mock docker --version, docker build, docker inspect, and docker run
@@ -713,7 +639,7 @@ class TestDockerManager(unittest.TestCase):
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
-            shell="bash",
+            shell=ShellConfig(cmd=["bash", "-c"]),
         )
 
         # Mock docker --version, docker build, docker inspect, and docker run
@@ -759,7 +685,7 @@ class TestDockerManager(unittest.TestCase):
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
-            shell="sh",
+            shell=ShellConfig(cmd=["sh", "-c"]),
         )
 
         # Mock docker --version, docker build, docker inspect, and docker run
@@ -806,7 +732,7 @@ class TestDockerManager(unittest.TestCase):
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
-            shell="sh",
+            shell=ShellConfig(cmd=["sh", "-c"]),
             run_as_root=True,  # Explicitly request root
         )
 
@@ -838,9 +764,9 @@ class TestDockerManager(unittest.TestCase):
 
     @patch("tasktree.docker.subprocess.run")
     @patch("tasktree.docker.platform.system")
-    def test_run_in_container_includes_extra_args(self, mock_platform, mock_run):
+    def test_run_in_container_includes_run_args(self, mock_platform, mock_run):
         """
-        Test that extra_args are properly included in docker run command.
+        Test that args.run are properly included in docker run command.
         """
         mock_platform.return_value = "Windows"  # Skip user flag for simplicity
 
@@ -848,8 +774,8 @@ class TestDockerManager(unittest.TestCase):
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
-            shell="sh",
-            extra_args=["--memory=512m", "--cpus=1", "--network=host"],
+            shell=ShellConfig(cmd=["sh", "-c"]),
+            args=DockerArgs(run=["--memory=512m", "--cpus=1", "--network=host"]),
         )
 
         # Mock docker --version, docker build, docker inspect, and docker run
@@ -875,13 +801,13 @@ class TestDockerManager(unittest.TestCase):
         # Find the docker run call (should be the 4th call)
         run_call_args = mock_run.call_args_list[3][0][0]
 
-        # Verify extra_args are included in the command
+        # Verify run args are included in the command
         self.assertIn("--memory=512m", run_call_args)
         self.assertIn("--cpus=1", run_call_args)
         self.assertIn("--network=host", run_call_args)
 
-        # Verify extra_args appear before the image tag
-        # Command structure: docker run --rm [extra_args] [volumes] [ports] [env] [image] [shell] -c [cmd]
+        # Verify run args appear before the image tag
+        # Command structure: docker run --rm [run_args] [volumes] [ports] [env] [image] [shell] -c [cmd]
         image_index = run_call_args.index("tt-env-builder")
         memory_index = run_call_args.index("--memory=512m")
         cpus_index = run_call_args.index("--cpus=1")
@@ -894,53 +820,9 @@ class TestDockerManager(unittest.TestCase):
 
     @patch("tasktree.docker.subprocess.run")
     @patch("tasktree.docker.platform.system")
-    def test_run_in_container_with_empty_extra_args(self, mock_platform, mock_run):
+    def test_run_in_container_with_empty_run_args(self, mock_platform, mock_run):
         """
-        Test that empty extra_args list works correctly.
-        """
-        mock_platform.return_value = "Windows"
-
-        env = Runner(
-            name="builder",
-            dockerfile="./Dockerfile",
-            context=".",
-            shell="sh",
-            extra_args=[],  # Empty list
-        )
-
-        # Mock docker --version, docker build, docker inspect, and docker run
-        def mock_run_side_effect(*args, **_kwargs):
-            cmd = args[0]
-            if "inspect" in cmd:
-                result = Mock()
-                result.stdout = "sha256:abc123def456\n"
-                return result
-            return Mock()
-
-        mock_run.side_effect = mock_run_side_effect
-
-        process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
-        self.manager.run_in_container(
-            env=env,
-            cmd="echo hello",
-            working_dir=Path("/fake/project"),
-            container_working_dir="/workspace",
-            process_runner=process_runner,
-        )
-
-        # Should succeed without errors
-        run_call_args = mock_run.call_args_list[3][0][0]
-
-        # Basic command structure should be present
-        self.assertEqual(run_call_args[0], "docker")
-        self.assertEqual(run_call_args[1], "run")
-        self.assertIn("tt-env-builder", run_call_args)
-
-    @patch("tasktree.docker.subprocess.run")
-    @patch("tasktree.docker.platform.system")
-    def test_run_in_container_with_shell_args(self, mock_platform, mock_run):
-        """
-        Test that shell args list works correctly.
+        Test that empty args.run list works correctly.
         """
         mock_platform.return_value = "Windows"
 
@@ -948,8 +830,7 @@ class TestDockerManager(unittest.TestCase):
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
-            shell="sh",
-            args=["-euo", "pipefail"],
+            shell=ShellConfig(cmd=["sh", "-c"]),
         )
 
         # Mock docker --version, docker build, docker inspect, and docker run
@@ -998,7 +879,7 @@ class TestDockerManager(unittest.TestCase):
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
-            shell="sh",
+            shell=ShellConfig(cmd=["sh", "-c"]),
             volumes=["/fake/project:/workspace"],  # Already substituted
         )
 
@@ -1048,8 +929,7 @@ class TestDockerManager(unittest.TestCase):
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
-            shell="bash",
-            preamble="set -euo pipefail\n",
+            shell=ShellConfig(cmd=["bash", "-c"], preamble="set -euo pipefail\n"),
         )
 
         # Mock docker --version, docker build, docker inspect, and docker run
@@ -1079,59 +959,6 @@ class TestDockerManager(unittest.TestCase):
 
     @patch("tasktree.docker.subprocess.run")
     @patch("tasktree.docker.platform.system")
-    def test_run_in_container_with_shell_args_list(self, mock_platform, mock_run):
-        """
-        Test that shell args (as list) are passed to docker command.
-        """
-        mock_platform.return_value = "Linux"
-
-        env = Runner(
-            name="builder",
-            dockerfile="./Dockerfile",
-            context=".",
-            shell="bash",
-            args=["-e", "-u"],  # Shell args as list
-        )
-
-        # Mock docker --version, docker build, docker inspect, and docker run
-        def mock_run_side_effect(*args, **_kwargs):
-            cmd = args[0]
-            if "inspect" in cmd:
-                result = Mock()
-                result.stdout = "sha256:abc123def456\n"
-                return result
-            return Mock()
-
-        mock_run.side_effect = mock_run_side_effect
-
-        process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
-        self.manager.run_in_container(
-            env=env,
-            cmd="echo hello",
-            working_dir=Path("/fake/project"),
-            container_working_dir="/workspace",
-            process_runner=process_runner,
-        )
-
-        # Find the docker run call
-        run_call_args = mock_run.call_args_list[3][0][0]
-
-        # Verify shell args are in the command before the script path
-        # Command should end with: [..., "bash", "-e", "-u", "/tmp/tt-script-{uuid}.sh"]
-        self.assertIn("-e", run_call_args)
-        self.assertIn("-u", run_call_args)
-
-        # Find positions
-        bash_idx = run_call_args.index("bash")
-        e_idx = run_call_args.index("-e")
-        u_idx = run_call_args.index("-u")
-
-        # Verify order: bash comes before -e and -u
-        self.assertLess(bash_idx, e_idx)
-        self.assertLess(bash_idx, u_idx)
-
-    @patch("tasktree.docker.subprocess.run")
-    @patch("tasktree.docker.platform.system")
     def test_run_in_container_with_windows_shell(self, mock_platform, mock_run):
         """
         Test that Windows shells (cmd.exe) use appropriate script extension and no shebang.
@@ -1142,7 +969,7 @@ class TestDockerManager(unittest.TestCase):
             name="builder",
             dockerfile="./Dockerfile.windows",
             context=".",
-            shell="cmd.exe",
+            shell=ShellConfig(cmd=["cmd.exe", "/c"]),
         )
 
         # Mock docker --version, docker build, docker inspect, and docker run
@@ -1185,7 +1012,7 @@ class TestDockerManager(unittest.TestCase):
             name="builder",
             dockerfile="./Dockerfile.windows",
             context=".",
-            shell="powershell",
+            shell=ShellConfig(cmd=["powershell", "-Command"]),
         )
 
         # Mock docker --version, docker build, docker inspect, and docker run
@@ -1315,7 +1142,7 @@ class TestDockerManager(unittest.TestCase):
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
-            shell="bash",
+            shell=ShellConfig(cmd=["bash", "-c"]),
         )
 
         # Mock docker --version, docker build, docker inspect
@@ -1358,7 +1185,7 @@ class TestDockerManager(unittest.TestCase):
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
-            shell="bash",
+            shell=ShellConfig(cmd=["bash", "-c"]),
         )
 
         # Mock docker --version, docker build, docker inspect, and failing docker run

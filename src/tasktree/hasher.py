@@ -169,19 +169,17 @@ def hash_runner_definition(env) -> str:
     Returns:
     16-character hash of runner definition
     """
-    # Import inside function to avoid circular dependency
-
-    # Handle args - can be list (shell args) or dict (docker build args)
-    args_value = env.args
-    if isinstance(env.args, dict):
-        args_value = dict(sorted(env.args.items()))  # Sort dict for determinism
-    elif isinstance(env.args, list):
-        args_value = sorted(env.args)  # Sort list for determinism
+    shell_data = None
+    if env.shell is not None:
+        shell_data = {
+            "cmd": sorted(env.shell.cmd),
+            "preamble": env.shell.preamble,
+        }
 
     data = {
-        "shell": env.shell,
-        "args": args_value,
-        "preamble": env.preamble,
+        "shell": shell_data,
+        "args_build": sorted(env.args.build),
+        "args_run": sorted(env.args.run),
         "dockerfile": env.dockerfile,
         "context": env.context,
         "volumes": sorted(env.volumes),

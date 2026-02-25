@@ -124,10 +124,11 @@ tasks:
                 recipe_file.write_text(f"""
 runners:
   strict:
-    shell: bash
-    preamble: |
-      set -e
-      export TEST_VAR="from_preamble"
+    shell:
+      cmd: [bash, -c]
+      preamble: |
+        set -e
+        export TEST_VAR="from_preamble"
 
 tasks:
   test-preamble:
@@ -171,10 +172,11 @@ tasks:
                 recipe_file.write_text(f"""
 runners:
   strict:
-    shell: bash
-    preamble: |
-      set -e
-      MY_VAR="preamble_value"
+    shell:
+      cmd: [bash, -c]
+      preamble: |
+        set -e
+        MY_VAR="preamble_value"
 
 tasks:
   test-multi-preamble:
