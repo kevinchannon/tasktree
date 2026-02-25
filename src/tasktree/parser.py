@@ -63,6 +63,19 @@ class ShellConfig:
 
 
 @dataclass
+class DockerArgs:
+    """
+    Arguments passed to Docker build and run commands.
+
+    Replaces the old overloaded 'args' and 'extra_args' fields with explicit,
+    named sub-keys for each Docker command.
+    """
+
+    build: list[str] = field(default_factory=list)  # Arguments for 'docker build'
+    run: list[str] = field(default_factory=list)  # Arguments for 'docker run'
+
+
+@dataclass
 class ParsedFileResult:
     """
     Result of parsing a single YAML file, including tasks, runners, and raw variables.
