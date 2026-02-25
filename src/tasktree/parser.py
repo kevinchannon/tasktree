@@ -37,6 +37,31 @@ class CircularImportError(Exception):
     pass
 
 
+# Built-in lookup table mapping shell names to their conventional invocation arguments.
+# Used when 'shell' is specified as a bare string shorthand.
+SHELL_LOOKUP: dict[str, list[str]] = {
+    "bash": ["bash", "-c"],
+    "sh": ["sh", "-c"],
+    "zsh": ["zsh", "-c"],
+    "fish": ["fish", "-c"],
+    "cmd.exe": ["cmd.exe", "/c"],
+    "powershell": ["powershell", "-Command"],
+}
+
+
+@dataclass
+class ShellConfig:
+    """
+    Shell invocation configuration for a runner.
+
+    Describes the shell executable and its arguments, plus an optional preamble
+    prepended to every task command run in this shell.
+    """
+
+    cmd: list[str]  # Full invocation list, e.g. ["bash", "-c"]
+    preamble: str = ""  # Optional preamble prepended to every task body
+
+
 @dataclass
 class ParsedFileResult:
     """
