@@ -2,8 +2,9 @@
 runners:
   default: bash-strict
   bash-strict:
-    shell: /usr/bin/bash
-    preamble: set -euo pipefail
+    shell:
+      cmd: bash
+      preamble: set -euo pipefail
 
 tasks:
   dev-setup:
