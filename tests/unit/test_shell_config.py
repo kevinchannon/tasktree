@@ -1,8 +1,8 @@
-"""Unit tests for ShellConfig dataclass and SHELL_LOOKUP table."""
+"""Unit tests for ShellConfig dataclass, SHELL_LOOKUP table, and parse_shell_config."""
 
 import unittest
 
-from tasktree.parser import SHELL_LOOKUP, ShellConfig
+from tasktree.parser import SHELL_LOOKUP, ShellConfig, parse_shell_config
 
 
 class TestShellLookup(unittest.TestCase):
@@ -87,6 +87,71 @@ class TestShellConfig(unittest.TestCase):
         config1 = ShellConfig(cmd=["bash", "-c"], preamble="set -e")
         config2 = ShellConfig(cmd=["bash", "-c"], preamble="set -euo pipefail")
         self.assertNotEqual(config1, config2)
+
+
+class TestParseShellConfig(unittest.TestCase):
+    """Tests for the parse_shell_config function."""
+
+    def test_bare_string_shorthand_looks_up_shell_lookup(self):
+        """Test that a bare string shell name is resolved via SHELL_LOOKUP."""
+        config = parse_shell_config("bash", "test-runner")
+        self.assertEqual(config.cmd, ["bash", "-c"])
+        self.assertEqual(config.preamble, "")
+
+    def test_bare_string_shorthand_returns_independent_copy(self):
+        """Test that the returned cmd list is a copy, not the SHELL_LOOKUP entry."""
+        config = parse_shell_config("bash", "test-runner")
+        config.cmd.append("--extra")
+        # SHELL_LOOKUP must not be mutated
+        self.assertEqual(SHELL_LOOKUP["bash"], ["bash", "-c"])
+
+    def test_cmd_as_string_shorthand(self):
+        """Test that shell: {cmd: zsh} is resolved via SHELL_LOOKUP."""
+        config = parse_shell_config({"cmd": "zsh"}, "test-runner")
+        self.assertEqual(config.cmd, ["zsh", "-c"])
+
+    def test_cmd_as_string_returns_independent_copy(self):
+        """Test that cmd-as-string returns a copy, not the SHELL_LOOKUP entry."""
+        config = parse_shell_config({"cmd": "sh"}, "test-runner")
+        config.cmd.append("--extra")
+        self.assertEqual(SHELL_LOOKUP["sh"], ["sh", "-c"])
+
+    def test_cmd_as_list_verbatim(self):
+        """Test that shell: {cmd: [/usr/local/bin/bash, -c]} is passed through as-is."""
+        config = parse_shell_config({"cmd": ["/usr/local/bin/bash", "-c"]}, "test-runner")
+        self.assertEqual(config.cmd, ["/usr/local/bin/bash", "-c"])
+
+    def test_cmd_as_list_with_preamble(self):
+        """Test that preamble is parsed alongside cmd list."""
+        config = parse_shell_config({"cmd": ["bash", "-c"], "preamble": "set -euo pipefail"}, "test-runner")
+        self.assertEqual(config.cmd, ["bash", "-c"])
+        self.assertEqual(config.preamble, "set -euo pipefail")
+
+    def test_unknown_shell_string_raises_value_error(self):
+        """Test that an unknown bare shell name raises ValueError."""
+        with self.assertRaises(ValueError) as cm:
+            parse_shell_config("tcsh", "test-runner")
+        self.assertIn("unknown shell", str(cm.exception))
+        self.assertIn("tcsh", str(cm.exception))
+
+    def test_unknown_shell_cmd_string_raises_value_error(self):
+        """Test that an unknown shell name in cmd raises ValueError."""
+        with self.assertRaises(ValueError) as cm:
+            parse_shell_config({"cmd": "tcsh"}, "test-runner")
+        self.assertIn("unknown shell", str(cm.exception))
+
+    def test_non_string_cmd_raises_value_error(self):
+        """Test that a non-string, non-list cmd raises ValueError."""
+        with self.assertRaises(ValueError) as cm:
+            parse_shell_config({"cmd": 42}, "test-runner")
+        self.assertIn("must be a string or list", str(cm.exception))
+
+    def test_non_string_preamble_raises_value_error(self):
+        """Test that a non-string preamble raises ValueError."""
+        with self.assertRaises(ValueError) as cm:
+            parse_shell_config({"cmd": ["bash", "-c"], "preamble": 123}, "test-runner")
+        self.assertIn("preamble", str(cm.exception))
+        self.assertIn("must be a string", str(cm.exception))
 
 
 if __name__ == "__main__":

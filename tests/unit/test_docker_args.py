@@ -1,8 +1,8 @@
-"""Unit tests for DockerArgs dataclass."""
+"""Unit tests for DockerArgs dataclass and parse_docker_args function."""
 
 import unittest
 
-from tasktree.parser import DockerArgs
+from tasktree.parser import DockerArgs, parse_docker_args
 
 
 class TestDockerArgs(unittest.TestCase):
@@ -57,6 +57,36 @@ class TestDockerArgs(unittest.TestCase):
         args2 = DockerArgs()
         # args2.build should still be empty (separate default_factory list)
         self.assertEqual(args2.build, [])
+
+
+class TestParseDockerArgs(unittest.TestCase):
+    """Tests for the parse_docker_args function (item-type validation)."""
+
+    def test_non_string_build_item_raises_value_error(self):
+        """Test that a non-string item in args.build raises ValueError."""
+        with self.assertRaises(ValueError) as cm:
+            parse_docker_args({"build": [123]}, "test-runner")
+        self.assertIn("args.build[0]", str(cm.exception))
+        self.assertIn("must be a string", str(cm.exception))
+
+    def test_non_string_run_item_raises_value_error(self):
+        """Test that a non-string item in args.run raises ValueError."""
+        with self.assertRaises(ValueError) as cm:
+            parse_docker_args({"run": [None]}, "test-runner")
+        self.assertIn("args.run[0]", str(cm.exception))
+        self.assertIn("must be a string", str(cm.exception))
+
+    def test_valid_string_items_pass(self):
+        """Test that valid string items are accepted."""
+        args = parse_docker_args({"build": ["--no-cache"], "run": ["--rm"]}, "test-runner")
+        self.assertEqual(args.build, ["--no-cache"])
+        self.assertEqual(args.run, ["--rm"])
+
+    def test_none_returns_empty_docker_args(self):
+        """Test that None returns a default DockerArgs."""
+        args = parse_docker_args(None, "test-runner")
+        self.assertEqual(args.build, [])
+        self.assertEqual(args.run, [])
 
 
 if __name__ == "__main__":
