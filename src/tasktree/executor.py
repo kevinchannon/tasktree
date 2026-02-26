@@ -23,7 +23,7 @@ from tasktree.graph import (
 )
 from tasktree.hasher import hash_args, hash_task, make_cache_key
 from tasktree.logging import Logger, LogLevel
-from tasktree.parser import Recipe, Task, Runner, ShellConfig, SHELL_LOOKUP
+from tasktree.parser import DockerArgs, Recipe, Task, Runner, ShellConfig, SHELL_LOOKUP
 from tasktree.process_runner import ProcessRunner, TaskOutputTypes
 from tasktree.state import StateManager, TaskState
 from tasktree.hasher import hash_runner_definition
@@ -352,12 +352,12 @@ class Executor:
         if is_windows:
             platform_default = Runner(
                 name="__platform_default__",
-                shell=ShellConfig(cmd=SHELL_LOOKUP["cmd.exe"]),
+                shell=ShellConfig(cmd=list(SHELL_LOOKUP["cmd.exe"])),
             )
         else:
             platform_default = Runner(
                 name="__platform_default__",
-                shell=ShellConfig(cmd=SHELL_LOOKUP["bash"]),
+                shell=ShellConfig(cmd=list(SHELL_LOOKUP["bash"])),
             )
 
         session_default = platform_default
@@ -1211,7 +1211,6 @@ class Executor:
         substituted_context = subst(env.context) if env.context else ""
 
         # Create new environment with substituted values
-        from tasktree.parser import DockerArgs
         return replace(
             env,
             volumes=substituted_volumes,

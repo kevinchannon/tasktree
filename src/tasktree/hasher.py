@@ -172,7 +172,7 @@ def hash_runner_definition(env) -> str:
     shell_data = None
     if env.shell is not None:
         shell_data = {
-            "cmd": sorted(env.shell.cmd),
+            "cmd": env.shell.cmd,
             "preamble": env.shell.preamble,
         }
 
