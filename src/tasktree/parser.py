@@ -1856,6 +1856,11 @@ def _parse_runners_from_data(
         env_vars = env_config.get("env_vars", {})
         run_as_root = env_config.get("run_as_root", False)
 
+        if not isinstance(volumes, list):
+            raise ValueError(f"Runner '{env_name}': 'volumes' must be a list")
+        if not isinstance(env_vars, dict):
+            raise ValueError(f"Runner '{env_name}': 'env_vars' must be a dictionary")
+
         # SKIP variable substitution in runner fields - defer to lazy evaluation
         # Runner fields may contain {{ var.* }} placeholders
 
