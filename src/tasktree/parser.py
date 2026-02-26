@@ -11,7 +11,7 @@ import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 from collections.abc import KeysView
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 import typer
 import yaml
@@ -37,6 +37,44 @@ class CircularImportError(Exception):
     pass
 
 
+# Built-in lookup table mapping shell names to their conventional invocation arguments.
+# Used when 'shell' is specified as a bare string shorthand.
+SHELL_LOOKUP: dict[str, list[str]] = {
+    "bash": ["bash", "-c"],
+    "sh": ["sh", "-c"],
+    "zsh": ["zsh", "-c"],
+    "fish": ["fish", "-c"],
+    "cmd.exe": ["cmd.exe", "/c"],
+    "powershell": ["powershell", "-Command"],
+}
+
+
+@dataclass
+class ShellConfig:
+    """
+    Shell invocation configuration for a runner.
+
+    Describes the shell executable and its arguments, plus an optional preamble
+    prepended to every task command run in this shell.
+    """
+
+    cmd: list[str]  # Full invocation list, e.g. ["bash", "-c"]
+    preamble: str = ""  # Optional preamble prepended to every task body
+
+
+@dataclass
+class DockerArgs:
+    """
+    Arguments passed to Docker build and run commands.
+
+    Replaces the old overloaded 'args' and 'extra_args' fields with explicit,
+    named sub-keys for each Docker command.
+    """
+
+    build: list[str] = field(default_factory=list)  # Arguments for 'docker build'
+    run: list[str] = field(default_factory=list)  # Arguments for 'docker run'
+
+
 @dataclass
 class ParsedFileResult:
     """
@@ -57,14 +95,12 @@ class Runner:
     Can be either a shell runner or a Docker runner:
     - Shell runner: has 'shell' field, executes directly on host
     - Docker runner: has 'dockerfile' field, executes in container
+    Both runner types may define a 'shell' for the shell used to run tasks.
     """
 
     name: str
-    shell: str = ""  # Path to shell (required for shell envs, optional for Docker)
-    args: list[str] | dict[str, str] = field(
-        default_factory=list
-    )  # Shell args (list) or Docker build args (dict)
-    preamble: str = ""
+    shell: ShellConfig | None = None  # Shell configuration (cmd and preamble)
+    args: DockerArgs = field(default_factory=DockerArgs)  # Docker build/run arguments
     # Docker-specific fields (presence of dockerfile indicates Docker environment)
     dockerfile: str = ""  # Path to Dockerfile
     context: str = ""  # Path to build context directory
@@ -72,17 +108,7 @@ class Runner:
     ports: list[str] = field(default_factory=list)  # Port mappings
     env_vars: dict[str, str] = field(default_factory=dict)  # Environment variables
     working_dir: str = ""  # Working directory (container or host)
-    extra_args: List[str] = field(
-        default_factory=list
-    )  # Any extra arguments to pass to docker
     run_as_root: bool = False  # If True, skip user mapping (run as root in container)
-
-    def __post_init__(self):
-        """
-        Ensure args is in the correct format.
-        """
-        if isinstance(self.args, str):
-            self.args = [self.args]
 
 
 @dataclass
@@ -549,9 +575,9 @@ class Recipe:
 
         # Substitute evaluated variables into all runners
         for env in self.runners.values():
-            if env.preamble:
-                env.preamble = substitute_variables(
-                    env.preamble, self.evaluated_variables
+            if env.shell is not None and env.shell.preamble:
+                env.shell.preamble = substitute_variables(
+                    env.shell.preamble, self.evaluated_variables
                 )
 
             # Substitute in volumes
@@ -581,12 +607,19 @@ class Recipe:
                     env.working_dir, self.evaluated_variables
                 )
 
-            # Substitute in build args (dict for Docker environments)
-            if env.args and isinstance(env.args, dict):
-                env.args = {
-                    key: substitute_variables(str(value), self.evaluated_variables)
-                    for key, value in env.args.items()
-                }
+            # Substitute in docker build args
+            if env.args.build:
+                env.args.build = [
+                    substitute_variables(arg, self.evaluated_variables)
+                    for arg in env.args.build
+                ]
+
+            # Substitute in docker run args
+            if env.args.run:
+                env.args.run = [
+                    substitute_variables(arg, self.evaluated_variables)
+                    for arg in env.args.run
+                ]
 
         # Mark as evaluated
         self._variables_evaluated = True
@@ -901,7 +934,8 @@ def _rewrite_runner_variable_references(runner: "Runner", namespace: str) -> Non
     Modifies the runner in place.
     """
     assert namespace, "namespace must not be empty"
-    runner.preamble = _rewrite_variable_references(runner.preamble, namespace)
+    if runner.shell is not None:
+        runner.shell.preamble = _rewrite_variable_references(runner.shell.preamble, namespace)
     runner.dockerfile = _rewrite_variable_references(runner.dockerfile, namespace)
     runner.context = _rewrite_variable_references(runner.context, namespace)
     runner.working_dir = _rewrite_variable_references(runner.working_dir, namespace)
@@ -910,7 +944,8 @@ def _rewrite_runner_variable_references(runner: "Runner", namespace: str) -> Non
     runner.env_vars = {
         k: _rewrite_variable_references(v, namespace) for k, v in runner.env_vars.items()
     }
-    runner.extra_args = [_rewrite_variable_references(a, namespace) for a in runner.extra_args]
+    runner.args.build = [_rewrite_variable_references(a, namespace) for a in runner.args.build]
+    runner.args.run = [_rewrite_variable_references(a, namespace) for a in runner.args.run]
 
 
 def _infer_variable_type(value: Any) -> str:
@@ -1265,9 +1300,8 @@ def _resolve_eval_variable(
     Raises:
     ValueError: If command fails or cannot be executed
     """
-    # Determine shell to use
-    shell = None
-    shell_args = []
+    # Determine shell command list to use
+    cmd_list = None
 
     # Check if recipe has default_runner specified
     if recipe_data and "runners" in recipe_data:
@@ -1277,17 +1311,18 @@ def _resolve_eval_variable(
             if default_runner_name and default_runner_name in env_data:
                 env_config = env_data[default_runner_name]
                 if isinstance(env_config, dict):
-                    shell = env_config.get("shell", "")
-                    shell_args = env_config.get("args", [])
-                    if isinstance(shell_args, str):
-                        shell_args = [shell_args]
+                    shell_value = env_config.get("shell")
+                    if shell_value is not None:
+                        try:
+                            shell_config = parse_shell_config(shell_value, default_runner_name)
+                            cmd_list = shell_config.cmd + [command]
+                        except ValueError:
+                            pass  # Fall through to platform default
 
-    # Use platform default if no environment specified or not found
-    if not shell:
-        shell, shell_args = _get_default_shell_and_args()
-
-    # Build command list
-    cmd_list = [shell] + shell_args + [command]
+    # Use platform default if no runner specified or shell config invalid
+    if cmd_list is None:
+        default_shell, default_args = _get_default_shell_and_args()
+        cmd_list = [default_shell] + default_args + [command]
 
     # Execute from recipe file directory
     working_dir = recipe_file_path.parent
@@ -1303,7 +1338,7 @@ def _resolve_eval_variable(
     except FileNotFoundError:
         raise ValueError(
             f"Failed to execute command for variable '{var_name}'.\n"
-            f"Shell not found: {shell}\n\n"
+            f"Shell not found: {cmd_list[0]}\n\n"
             f"Command: {command}\n\n"
             f"Ensure the shell is installed and available in PATH."
         )
@@ -1670,6 +1705,106 @@ def _evaluate_variable_subset(
     return resolved
 
 
+def parse_shell_config(shell_value: Any, runner_name: str) -> ShellConfig:
+    """
+    Parse a shell configuration value from YAML into a ShellConfig.
+
+    Accepts:
+    - A bare string (looked up in SHELL_LOOKUP; raises ValueError if unknown)
+    - A dict with 'cmd' (str or list) and optional 'preamble'
+
+    Args:
+    shell_value: The YAML value of the 'shell' key
+    runner_name: Runner name (for error messages)
+
+    Returns:
+    ShellConfig with resolved cmd list and preamble
+    """
+    if isinstance(shell_value, str):
+        if shell_value not in SHELL_LOOKUP:
+            known = ", ".join(SHELL_LOOKUP)
+            raise ValueError(
+                f"Runner '{runner_name}': unknown shell '{shell_value}'. "
+                f"Known shells: {known}. "
+                f"Use shell: {{cmd: [...]}} to specify a custom shell invocation."
+            )
+        return ShellConfig(cmd=list(SHELL_LOOKUP[shell_value]))
+
+    if isinstance(shell_value, dict):
+        cmd_value = shell_value.get("cmd", "")
+        if isinstance(cmd_value, list):
+            cmd = cmd_value
+        elif isinstance(cmd_value, str):
+            if cmd_value not in SHELL_LOOKUP:
+                known = ", ".join(SHELL_LOOKUP)
+                raise ValueError(
+                    f"Runner '{runner_name}': unknown shell '{cmd_value}'. "
+                    f"Known shells: {known}. "
+                    f"Use cmd: [...] to specify a custom shell invocation."
+                )
+            cmd = list(SHELL_LOOKUP[cmd_value])
+        else:
+            raise ValueError(
+                f"Runner '{runner_name}': shell 'cmd' must be a string or list of strings"
+            )
+        preamble = shell_value.get("preamble", "")
+        if not isinstance(preamble, str):
+            raise ValueError(
+                f"Runner '{runner_name}': 'preamble' must be a string"
+            )
+        return ShellConfig(cmd=cmd, preamble=preamble)
+
+    raise ValueError(
+        f"Runner '{runner_name}': 'shell' must be a string or dict "
+        f"(with 'cmd' and optional 'preamble')"
+    )
+
+
+def parse_docker_args(args_value: Any, runner_name: str) -> DockerArgs:
+    """
+    Parse docker args configuration from YAML into a DockerArgs.
+
+    Accepts a dict with optional 'build' and 'run' keys, each a list of strings.
+
+    Args:
+    args_value: The YAML value of the 'args' key (or None if absent)
+    runner_name: Runner name (for error messages)
+
+    Returns:
+    DockerArgs with build and run argument lists
+    """
+    if args_value is None:
+        return DockerArgs()
+
+    if not isinstance(args_value, dict):
+        raise ValueError(
+            f"Runner '{runner_name}': 'args' must be a dict with 'build' and/or 'run' keys"
+        )
+
+    build = args_value.get("build", [])
+    run = args_value.get("run", [])
+
+    if not isinstance(build, list):
+        raise ValueError(f"Runner '{runner_name}': 'args.build' must be a list of strings")
+    if not isinstance(run, list):
+        raise ValueError(f"Runner '{runner_name}': 'args.run' must be a list of strings")
+
+    for i, item in enumerate(build):
+        if not isinstance(item, str):
+            raise ValueError(
+                f"Runner '{runner_name}': 'args.build[{i}]' must be a string, "
+                f"got {type(item).__name__}: {item!r}"
+            )
+    for i, item in enumerate(run):
+        if not isinstance(item, str):
+            raise ValueError(
+                f"Runner '{runner_name}': 'args.run[{i}]' must be a string, "
+                f"got {type(item).__name__}: {item!r}"
+            )
+
+    return DockerArgs(build=build, run=run)
+
+
 def _parse_runners_from_data(
     data: dict[str, Any], project_root: Path
 ) -> tuple[dict[str, Runner], str]:
@@ -1704,14 +1839,14 @@ def _parse_runners_from_data(
         if not isinstance(env_config, dict):
             raise ValueError(f"Runner '{env_name}' must be a dictionary")
 
-        # Parse common runner configuration
-        shell = env_config.get("shell", "")
-        args = env_config.get("args", [])
-        preamble = env_config.get("preamble", "")
-        working_dir = env_config.get("working_dir", "")
+        # Parse shell configuration (required for shell runners, optional for Docker)
+        shell_value = env_config.get("shell")
+        shell_config = parse_shell_config(shell_value, env_name) if shell_value is not None else None
 
-        # SKIP variable substitution in preamble - defer to lazy evaluation
-        # preamble may contain {{ var.* }} placeholders
+        # Parse docker args
+        args_config = parse_docker_args(env_config.get("args"), env_name)
+
+        working_dir = env_config.get("working_dir", "")
 
         # Parse Docker-specific fields
         dockerfile = env_config.get("dockerfile", "")
@@ -1719,14 +1854,13 @@ def _parse_runners_from_data(
         volumes = env_config.get("volumes", [])
         ports = env_config.get("ports", [])
         env_vars = env_config.get("env_vars", {})
-        extra_args = env_config.get("extra_args", [])
         run_as_root = env_config.get("run_as_root", False)
 
         # SKIP variable substitution in runner fields - defer to lazy evaluation
         # Runner fields may contain {{ var.* }} placeholders
 
         # Validate runner type
-        if not shell and not dockerfile:
+        if shell_config is None and not dockerfile:
             raise ValueError(
                 f"Runner '{env_name}' must specify either 'shell' "
                 f"(for shell runners) or 'dockerfile' (for Docker runners)"
@@ -1761,16 +1895,14 @@ def _parse_runners_from_data(
 
         runners[env_name] = Runner(
             name=env_name,
-            shell=shell,
-            args=args,
-            preamble=preamble,
+            shell=shell_config,
+            args=args_config,
             dockerfile=dockerfile,
             context=context,
             volumes=volumes,
             ports=ports,
             env_vars=env_vars,
             working_dir=working_dir,
-            extra_args=extra_args,
             run_as_root=run_as_root,
         )
 
@@ -2072,10 +2204,9 @@ def collect_reachable_variables(
                         for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(env.working_dir):
                             variables.add(match.group(1))
 
-                    if 0 != len(env.extra_args):
-                        for e in env.extra_args:
-                            for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(e):
-                                variables.add(match.group(1))
+                    for arg in env.args.build + env.args.run:
+                        for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(arg):
+                            variables.add(match.group(1))
 
     return variables
 

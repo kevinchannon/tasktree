@@ -1205,7 +1205,7 @@ imports:
             (Path(tmpdir) / "build.yaml").write_text(
                 "runners:\n"
                 "  shell:\n"
-                "    shell: /bin/bash\n"
+                "    shell: bash\n"
                 "tasks:\n"
                 "  compile:\n"
                 "    cmd: gcc main.c\n"
@@ -1230,7 +1230,7 @@ imports:
             # Runner should be namespaced as build.shell
             self.assertIn("build.shell", recipe.runners)
             self.assertEqual(recipe.runners["build.shell"].name, "build.shell")
-            self.assertEqual(recipe.runners["build.shell"].shell, "/bin/bash")
+            self.assertEqual(recipe.runners["build.shell"].shell.cmd, ["bash", "-c"])
 
     def test_import_rewrites_run_in_with_namespace(self):
         """Test that run_in in imported tasks is rewritten with namespace prefix."""
@@ -1239,7 +1239,7 @@ imports:
             (Path(tmpdir) / "build.yaml").write_text(
                 "runners:\n"
                 "  shell:\n"
-                "    shell: /bin/bash\n"
+                "    shell: bash\n"
                 "tasks:\n"
                 "  compile:\n"
                 "    run_in: shell\n"
@@ -1374,8 +1374,9 @@ imports:
                 "  setup_cmd: set -e\n"
                 "runners:\n"
                 "  shell:\n"
-                "    shell: /bin/bash\n"
-                "    preamble: '{{ var.setup_cmd }}'\n"
+                "    shell:\n"
+                "      cmd: [bash, -c]\n"
+                "      preamble: '{{ var.setup_cmd }}'\n"
                 "tasks:\n"
                 "  compile:\n"
                 "    run_in: shell\n"
@@ -1398,7 +1399,7 @@ imports:
 
             # The variable reference was rewritten to build.setup_cmd and resolved
             runner = recipe.runners["build.shell"]
-            self.assertEqual(runner.preamble, "set -e")
+            self.assertEqual(runner.shell.preamble, "set -e")
 
     def test_only_pinned_runner_imported(self):
         """Test that only runners from pinned tasks are imported."""
@@ -1408,9 +1409,9 @@ imports:
             (Path(tmpdir) / "build.yaml").write_text(
                 "runners:\n"
                 "  runner_a:\n"
-                "    shell: /bin/sh\n"
+                "    shell: sh\n"
                 "  runner_b:\n"
-                "    shell: /bin/bash\n"
+                "    shell: bash\n"
                 "tasks:\n"
                 "  task1:\n"
                 "    run_in: runner_a\n"
@@ -1446,7 +1447,7 @@ imports:
             (Path(tmpdir) / "common.yaml").write_text(
                 "runners:\n"
                 "  shell:\n"
-                "    shell: /bin/sh\n"
+                "    shell: sh\n"
                 "tasks:\n"
                 "  util:\n"
                 "    cmd: echo common\n"
@@ -1494,7 +1495,7 @@ imports:
             (Path(tmpdir) / "build.yaml").write_text(
                 "runners:\n"
                 "  shell:\n"
-                "    shell: /bin/bash\n"
+                "    shell: bash\n"
                 "tasks:\n"
                 "  task1:\n"
                 "    cmd: echo test\n"
@@ -1939,14 +1940,13 @@ class TestEnvironmentParsing(unittest.TestCase):
 runners:
   default: bash-strict
   bash-strict:
-    shell: bash
-    args: ['-c']
-    preamble: |
-      set -euo pipefail
+    shell:
+      cmd: [bash, -c]
+      preamble: set -euo pipefail
 
   python:
-    shell: python
-    args: ['-c']
+    shell:
+      cmd: [python, -c]
 
 tasks:
   test:
@@ -1966,15 +1966,13 @@ tasks:
             # Check bash-strict environment
             bash_env = recipe.runners["bash-strict"]
             self.assertEqual(bash_env.name, "bash-strict")
-            self.assertEqual(bash_env.shell, "bash")
-            self.assertEqual(bash_env.args, ["-c"])
-            self.assertIn("set -euo pipefail", bash_env.preamble)
+            self.assertEqual(bash_env.shell.cmd, ["bash", "-c"])
+            self.assertIn("set -euo pipefail", bash_env.shell.preamble)
 
             # Check python environment
             py_env = recipe.runners["python"]
             self.assertEqual(py_env.name, "python")
-            self.assertEqual(py_env.shell, "python")
-            self.assertEqual(py_env.args, ["-c"])
+            self.assertEqual(py_env.shell.cmd, ["python", "-c"])
 
     def test_parse_recipe_without_environments(self):
         """
@@ -2006,8 +2004,7 @@ tasks:
 
             recipe_path.write_text("""
 runners:
-  bad-env:
-    args: ['-c']
+  bad-env: {}
 
 tasks:
   test:
@@ -2125,8 +2122,7 @@ imports:
             recipe_path.write_text("""
 runners:
   bash-strict:
-    shell: /bin/bash
-    args: ['-e', '-u']
+    shell: bash
 """)
 
             recipe = parse_recipe(recipe_path)
@@ -2553,11 +2549,11 @@ class TestRunnerNameValidation(unittest.TestCase):
             recipe_path.write_text("""
 runners:
   my-env:
-    shell: /bin/bash
+    shell: bash
   docker_python:
-    shell: /bin/sh
+    shell: sh
   ENV123:
-    shell: /bin/zsh
+    shell: zsh
 
 tasks:
   test:
@@ -2578,9 +2574,9 @@ tasks:
             recipe_path.write_text("""
 runners:
   🚀:
-    shell: /bin/bash
+    shell: bash
   環境:
-    shell: /bin/sh
+    shell: sh
 
 tasks:
   test:
@@ -2601,9 +2597,9 @@ tasks:
             recipe_path.write_text("""
 runners:
   bad.runner:
-    shell: /bin/bash
+    shell: bash
   good_runner:
-    shell: /bin/sh
+    shell: sh
 
 tasks:
   test:
@@ -2660,7 +2656,7 @@ tasks:
             recipe_path.write_text("""
 runners:
   bad.runner:
-    shell: /bin/bash
+    shell: bash
 
 tasks:
   test:
@@ -2700,7 +2696,7 @@ tasks:
             recipe_path.write_text("""
 runners:
   my-runner:
-    shell: /bin/bash
+    shell: bash
 
 tasks:
   test:
@@ -2721,7 +2717,7 @@ tasks:
             recipe_path.write_text("""
 runners:
   my-runner:
-    shell: /bin/bash
+    shell: bash
 
 tasks:
   unreachable:
@@ -3400,7 +3396,6 @@ runners:
   default: bash-env
   bash-env:
     shell: bash
-    args: ["-c"]
 
 variables:
   result: { eval: "echo test" }
@@ -4551,7 +4546,7 @@ tasks:
             recipe_path.write_text("""
 runners:
   docker:
-    shell: /bin/bash
+    shell: bash
 
 imports:
   - file: imported.yaml
@@ -4596,7 +4591,7 @@ tasks:
             level1_path.write_text("""
 runners:
   level1_runner:
-    shell: /bin/bash
+    shell: bash
 
 imports:
   - file: level2.yaml
@@ -4612,9 +4607,9 @@ tasks:
             recipe_path.write_text("""
 runners:
   root_runner:
-    shell: /bin/bash
+    shell: bash
   level1_runner:
-    shell: /bin/bash
+    shell: bash
 
 imports:
   - file: level1.yaml

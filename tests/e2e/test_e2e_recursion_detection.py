@@ -114,8 +114,9 @@ runners:
   docker-env:
     dockerfile: Dockerfile
     context: .
-    shell: /bin/bash
-    preamble: "set -e"
+    shell:
+      cmd: [bash, -c]
+      preamble: "set -e"
     volumes:
       - ".:/workspace"
       - "{src_dir}:/app/src:ro"

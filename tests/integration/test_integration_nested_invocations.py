@@ -510,7 +510,7 @@ runners:
   build:
     dockerfile: Dockerfile
     context: .
-    shell: /bin/bash
+    shell: bash
     volumes:
       - ".:/workspace"
       - "{src_dir}:/app/src:ro"
@@ -586,7 +586,7 @@ runners:
   build:
     dockerfile: Dockerfile.build
     context: .
-    shell: /bin/bash
+    shell: bash
     volumes:
       - ".:/workspace"
       - "{src_dir}:/app/src:ro"
@@ -594,7 +594,7 @@ runners:
   test:
     dockerfile: Dockerfile.test
     context: .
-    shell: /bin/bash
+    shell: bash
     volumes:
       - ".:/workspace"
       - "{src_dir}:/app/src:ro"
@@ -649,14 +649,15 @@ runners:
   build:
     dockerfile: Dockerfile
     context: .
-    shell: /bin/bash
+    shell: bash
     volumes:
       - ".:/workspace"
       - "{src_dir}:/app/src:ro"
 
   lint:
-    shell: /bin/sh
-    preamble: "set -e"
+    shell:
+      cmd: [sh, -c]
+      preamble: "set -e"
 
 tasks:
   child:
@@ -714,7 +715,7 @@ runners:
   build:
     dockerfile: Dockerfile
     context: .
-    shell: /bin/bash
+    shell: bash
     volumes:
       - ".:/workspace"
       - "{src_dir}:/app/src:ro"
@@ -775,7 +776,7 @@ runners:
   build:
     dockerfile: Dockerfile
     context: .
-    shell: /bin/bash
+    shell: bash
     volumes:
       - ".:/workspace"
       - "{src_dir}:/app/src:ro"
@@ -832,7 +833,7 @@ runners:
   build:
     dockerfile: Dockerfile
     context: .
-    shell: /bin/bash
+    shell: bash
     volumes:
       - ".:/workspace"
       - "{src_dir}:/app/src:ro"

@@ -6,7 +6,7 @@ from pathlib import Path
 from helpers.logging import logger_stub
 from tasktree.executor import Executor
 from tasktree.hasher import hash_runner_definition
-from tasktree.parser import Runner, Recipe, Task
+from tasktree.parser import DockerArgs, Runner, Recipe, ShellConfig, Task
 from tasktree.process_runner import TaskOutputTypes, make_process_runner
 from tasktree.state import StateManager, TaskState
 
@@ -23,9 +23,7 @@ class TestHashRunnerDefinition(unittest.TestCase):
 
         runner = Runner(
             name="test",
-            shell="/bin/bash",
-            args=["-c"],
-            preamble="set -e",
+            shell=ShellConfig(cmd=["bash", "-c"], preamble="set -e"),
         )
 
         hash1 = hash_runner_definition(runner)
@@ -41,13 +39,11 @@ class TestHashRunnerDefinition(unittest.TestCase):
 
         runner1 = Runner(
             name="test",
-            shell="/bin/bash",
-            args=["-c"],
+            shell=ShellConfig(cmd=["bash", "-c"]),
         )
         runner2 = Runner(
             name="test",
-            shell="/bin/zsh",
-            args=["-c"],
+            shell=ShellConfig(cmd=["zsh", "-c"]),
         )
 
         hash1 = hash_runner_definition(runner1)
@@ -57,18 +53,20 @@ class TestHashRunnerDefinition(unittest.TestCase):
 
     def test_hash_runner_definition_args_change(self):
         """
-        Test that changing args produces different hash.
+        Test that changing docker run args produces different hash.
         """
 
         runner1 = Runner(
             name="test",
-            shell="/bin/bash",
-            args=["-c"],
+            dockerfile="Dockerfile",
+            context=".",
+            args=DockerArgs(run=["--rm"]),
         )
         runner2 = Runner(
             name="test",
-            shell="/bin/bash",
-            args=["-e", "-c"],
+            dockerfile="Dockerfile",
+            context=".",
+            args=DockerArgs(run=["--rm", "--network=host"]),
         )
 
         hash1 = hash_runner_definition(runner1)
@@ -83,15 +81,11 @@ class TestHashRunnerDefinition(unittest.TestCase):
 
         runner1 = Runner(
             name="test",
-            shell="/bin/bash",
-            args=["-c"],
-            preamble="",
+            shell=ShellConfig(cmd=["bash", "-c"], preamble=""),
         )
         runner2 = Runner(
             name="test",
-            shell="/bin/bash",
-            args=["-c"],
-            preamble="set -e",
+            shell=ShellConfig(cmd=["bash", "-c"], preamble="set -e"),
         )
 
         hash1 = hash_runner_definition(runner1)
@@ -123,18 +117,20 @@ class TestHashRunnerDefinition(unittest.TestCase):
 
     def test_hash_runner_definition_args_order_independent(self):
         """
-        Test that args order doesn't matter (they're sorted).
+        Test that docker run args order doesn't matter (they're sorted in hash).
         """
 
         runner1 = Runner(
             name="test",
-            shell="/bin/bash",
-            args=["-e", "-c"],
+            dockerfile="Dockerfile",
+            context=".",
+            args=DockerArgs(run=["--rm", "--network=host"]),
         )
         runner2 = Runner(
             name="test",
-            shell="/bin/bash",
-            args=["-c", "-e"],
+            dockerfile="Dockerfile",
+            context=".",
+            args=DockerArgs(run=["--network=host", "--rm"]),
         )
 
         hash1 = hash_runner_definition(runner1)
@@ -155,8 +151,7 @@ class TestCheckRunnerChanged(unittest.TestCase):
         self.project_root = Path("/tmp/test")
         self.runner = Runner(
             name="test",
-            shell="/bin/bash",
-            args=["-c"],
+            shell=ShellConfig(cmd=["bash", "-c"]),
         )
         self.recipe = Recipe(
             tasks={},
@@ -232,15 +227,14 @@ class TestCheckRunnerChanged(unittest.TestCase):
         task = Task(name="test", cmd="echo test", run_in="test")
 
         # Store old hash
-        old_runner = Runner(name="test", shell="/bin/bash", args=["-c"])
+        old_runner = Runner(name="test", shell=ShellConfig(cmd=["bash", "-c"]))
         old_hash = hash_runner_definition(old_runner)
         cached_state = TaskState(
             last_run=123.0, input_state={"_runner_hash_test": old_hash}
         )
 
         # Recipe now has modified runner
-        # (self.runner has same shell, but let's modify the recipe)
-        self.recipe.runners["test"] = Runner(name="test", shell="/bin/zsh", args=["-c"])
+        self.recipe.runners["test"] = Runner(name="test", shell=ShellConfig(cmd=["zsh", "-c"]))
 
         result = self.executor._check_runner_changed(
             task,
@@ -308,9 +302,6 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         Test that missing cached image ID returns True (first run).
         """
 
-        # TODO why is this not used?
-        # task = Task(name="test", cmd="echo test", run_in="builder")
-
         # Cached state has runner hash but no image ID (old state file)
         from tasktree.hasher import hash_runner_definition
 
@@ -340,9 +331,6 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         Test that matching image ID returns False.
         """
 
-        # TODO why is this not used?
-        #  task = Task(name="test", cmd="echo test", run_in="builder")
-
         # Cached state with image ID
         image_id = "sha256:abc123"
         cached_state = TaskState(
@@ -369,9 +357,6 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         """
         Test that different image ID returns True (unpinned base updated).
         """
-
-        # TODO why is this not used?
-        # task = Task(name="test", cmd="echo test", run_in="builder")
 
         # Cached state with old image ID
         old_image_id = "sha256:abc123"

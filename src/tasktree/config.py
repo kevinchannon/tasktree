@@ -10,7 +10,7 @@ from typing import Optional
 import platformdirs
 import yaml
 
-from tasktree.parser import Runner
+from tasktree.parser import DockerArgs, Runner, parse_docker_args, parse_shell_config
 
 __all__ = [
     "get_user_config_path",
@@ -158,8 +158,8 @@ def parse_config_file(path: Path) -> Optional[Runner]:
 
     Example:
         >>> runner = parse_config_file(Path(".tasktree-config.yml"))
-        >>> if runner:
-        ...     print(f"Using {runner.shell} shell")
+        >>> if runner and runner.shell:
+        ...     print(f"Using {runner.shell.cmd[0]} shell")
 
     Config File Examples:
 
@@ -186,10 +186,11 @@ def parse_config_file(path: Path) -> Optional[Runner]:
             ```yaml
             runners:
               default:
-                shell: /bin/bash
-                preamble: |
-                  set -euo pipefail
-                  export PATH=$PATH:$HOME/bin
+                shell:
+                  cmd: bash
+                  preamble: |
+                    set -euo pipefail
+                    export PATH=$PATH:$HOME/bin
             ```
 
     Note:
@@ -270,24 +271,20 @@ def parse_config_file(path: Path) -> Optional[Runner]:
             f"Error in config file '{path}': Runner 'default' must be a dictionary"
         )
 
-    # Parse runner fields with type validation
-    shell = runner_config.get("shell", "")
-    if not isinstance(shell, str):
-        raise ConfigError(
-            f"Error in config file '{path}': Field 'shell' must be a string"
-        )
+    # Parse shell configuration
+    shell_value = runner_config.get("shell")
+    shell_config = None
+    if shell_value is not None:
+        try:
+            shell_config = parse_shell_config(shell_value, "default")
+        except ValueError as e:
+            raise ConfigError(f"Error in config file '{path}': {e}") from e
 
-    args = runner_config.get("args", [])
-    if not isinstance(args, list):
-        raise ConfigError(
-            f"Error in config file '{path}': Field 'args' must be a list"
-        )
-
-    preamble = runner_config.get("preamble", "")
-    if not isinstance(preamble, str):
-        raise ConfigError(
-            f"Error in config file '{path}': Field 'preamble' must be a string"
-        )
+    # Parse docker args
+    try:
+        args_config = parse_docker_args(runner_config.get("args"), "default")
+    except ValueError as e:
+        raise ConfigError(f"Error in config file '{path}': {e}") from e
 
     working_dir = runner_config.get("working_dir", "")
     if not isinstance(working_dir, str):
@@ -326,12 +323,6 @@ def parse_config_file(path: Path) -> Optional[Runner]:
             f"Error in config file '{path}': Field 'env_vars' must be a dictionary"
         )
 
-    extra_args = runner_config.get("extra_args", [])
-    if not isinstance(extra_args, list):
-        raise ConfigError(
-            f"Error in config file '{path}': Field 'extra_args' must be a list"
-        )
-
     run_as_root = runner_config.get("run_as_root", False)
     if not isinstance(run_as_root, bool):
         raise ConfigError(
@@ -339,7 +330,7 @@ def parse_config_file(path: Path) -> Optional[Runner]:
         )
 
     # Validate runner type (must have either shell or dockerfile)
-    if not shell and not dockerfile:
+    if shell_config is None and not dockerfile:
         raise ConfigError(
             f"Error in config file '{path}': Runner 'default' must specify either "
             f"'shell' (for shell runners) or 'dockerfile' (for Docker runners)"
@@ -352,15 +343,13 @@ def parse_config_file(path: Path) -> Optional[Runner]:
     # Create and return the Runner object
     return Runner(
         name="default",
-        shell=shell,
-        args=args,
-        preamble=preamble,
+        shell=shell_config,
+        args=args_config,
         dockerfile=dockerfile,
         context=context,
         volumes=volumes,
         ports=ports,
         env_vars=env_vars,
         working_dir=working_dir,
-        extra_args=extra_args,
         run_as_root=run_as_root,
     )
