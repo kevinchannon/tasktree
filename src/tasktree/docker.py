@@ -281,8 +281,9 @@ class DockerManager:
                 # Add image tag
                 docker_cmd.append(image_tag)
 
-                # Execute script with shell
-                docker_cmd.extend([shell, *shell_args, container_script_path])
+                # Execute script directly with shell (no shell flags like -c;
+                # those are for inline commands, not script file execution)
+                docker_cmd.extend([shell, container_script_path])
 
                 # Execute
                 try:

@@ -10,7 +10,7 @@ from typing import Optional
 import platformdirs
 import yaml
 
-from tasktree.parser import DockerArgs, Runner, _parse_docker_args, _parse_shell_config
+from tasktree.parser import DockerArgs, Runner, parse_docker_args, parse_shell_config
 
 __all__ = [
     "get_user_config_path",
@@ -276,13 +276,13 @@ def parse_config_file(path: Path) -> Optional[Runner]:
     shell_config = None
     if shell_value is not None:
         try:
-            shell_config = _parse_shell_config(shell_value, "default")
+            shell_config = parse_shell_config(shell_value, "default")
         except ValueError as e:
             raise ConfigError(f"Error in config file '{path}': {e}") from e
 
     # Parse docker args
     try:
-        args_config = _parse_docker_args(runner_config.get("args"), "default")
+        args_config = parse_docker_args(runner_config.get("args"), "default")
     except ValueError as e:
         raise ConfigError(f"Error in config file '{path}': {e}") from e
 
