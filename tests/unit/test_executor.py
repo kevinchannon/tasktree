@@ -2070,8 +2070,8 @@ runners:
             runner = executor.get_session_default_runner(start_dir=project_root)
 
             self.assertEqual(runner.name, "__platform_default__")
-            self.assertEqual(runner.shell, "bash")
-            self.assertEqual(runner.args, ["-c"])
+            self.assertEqual(runner.shell.cmd, ["bash", "-c"])
+            self.assertEqual(runner.shell.preamble, "")
 
     @patch("platform.system")
     def test_handles_config_parse_errors_gracefully(self, mock_system):
@@ -2097,8 +2097,8 @@ runners:
 
             # Should fall back to platform default on parse error
             self.assertEqual(runner.name, "__platform_default__")
-            self.assertEqual(runner.shell, "bash")
-            self.assertEqual(runner.args, ["-c"])
+            self.assertEqual(runner.shell.cmd, ["bash", "-c"])
+            self.assertEqual(runner.shell.preamble, "")
 
     @patch("platform.system")
     def test_searches_parent_directories_for_config(self, mock_system):
