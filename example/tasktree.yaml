@@ -4,10 +4,10 @@ runners:
 
   # Default runner: bash with strict mode enabled
   bash-strict:
-    shell: /bin/bash
-    args: [ "-c" ]
-    preamble: |
-      set -euo pipefail
+    shell:
+      cmd: ["/bin/bash", "-c"]
+      preamble: |
+        set -euo pipefail
 
   # Docker runner: uses an Alpine image for containerised tasks
   alpine:

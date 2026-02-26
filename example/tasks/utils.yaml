@@ -3,9 +3,10 @@ runners:
   # Even if the importing file applies a blanket run_in override,
   # pinned tasks will continue to use this runner.
   bash-utils:
-    shell: /bin/bash
-    preamble: |
-      set -euo pipefail
+    shell:
+      cmd: ["/bin/bash", "-c"]
+      preamble: |
+        set -euo pipefail
 
 tasks:
   show-info:
