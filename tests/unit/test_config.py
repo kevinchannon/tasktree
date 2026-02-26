@@ -670,6 +670,10 @@ class TestErrorMessageContext(unittest.TestCase):
                 "runners:\n  default:\n    dockerfile: Dockerfile\n    context: .\n    env_vars: [list]",
                 "'env_vars' must be a dictionary",
             ),
+            (
+                "runners:\n  default:\n    dockerfile: Dockerfile\n    context: .\n    ports: not-a-list",
+                "'ports' must be a list",
+            ),
         ]
 
         with TemporaryDirectory() as tmpdir:

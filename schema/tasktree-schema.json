@@ -44,35 +44,55 @@
           "type": "object",
           "properties": {
             "shell": {
-              "type": "string",
-              "description": "Path to the shell executable (e.g., /bin/bash, python3, pwsh). Required for shell runners, optional for Docker runners (defaults to 'sh' inside container)."
-            },
-            "args": {
-              "description": "Arguments to pass to the shell (for shell runners) or Docker build arguments (for Docker runners)",
+              "description": "Shell configuration. A bare string name (e.g. 'bash') is looked up in the built-in table; a dict accepts 'cmd' (string or list) and optional 'preamble'.",
               "oneOf": [
                 {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  },
-                  "description": "Shell arguments (e.g., ['-c'] for bash)"
+                  "type": "string",
+                  "description": "Known shell name (bash, sh, zsh, fish, cmd.exe, powershell)"
                 },
                 {
                   "type": "object",
-                  "additionalProperties": {
-                    "type": "string"
+                  "properties": {
+                    "cmd": {
+                      "description": "Shell executable and invocation arguments",
+                      "oneOf": [
+                        {
+                          "type": "string",
+                          "description": "Known shell name looked up in built-in table"
+                        },
+                        {
+                          "type": "array",
+                          "items": { "type": "string" },
+                          "description": "Shell and arguments as a list, used verbatim"
+                        }
+                      ]
+                    },
+                    "preamble": {
+                      "type": "string",
+                      "description": "Code prepended to every task body run in this shell"
+                    }
                   },
-                  "description": "Docker build arguments (e.g., {BUILD_TAG: 'latest'})"
-                },
-                {
-                  "type": "string",
-                  "description": "Single shell argument"
+                  "required": ["cmd"],
+                  "additionalProperties": false
                 }
               ]
             },
-            "preamble": {
-              "type": "string",
-              "description": "Code to execute before the command (e.g., imports, setup)"
+            "args": {
+              "description": "Docker build and run arguments",
+              "type": "object",
+              "properties": {
+                "build": {
+                  "type": "array",
+                  "items": { "type": "string" },
+                  "description": "Arguments passed to docker build"
+                },
+                "run": {
+                  "type": "array",
+                  "items": { "type": "string" },
+                  "description": "Arguments passed to docker run"
+                }
+              },
+              "additionalProperties": false
             },
             "dockerfile": {
               "type": "string",
@@ -107,18 +127,24 @@
               "type": "string",
               "description": "Working directory inside the container (for Docker runners) or on the host (for shell runners)"
             },
-            "extra_args": {
-              "description": "Additional arguments to pass to docker run",
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
             "run_as_root": {
               "type": "boolean",
               "description": "If true, run as root inside Docker container (skip user mapping). Default: false",
               "default": false
             }
+          },
+          "if": {
+            "not": { "required": ["dockerfile"] }
+          },
+          "then": {
+            "allOf": [
+              { "not": { "required": ["context"] } },
+              { "not": { "required": ["volumes"] } },
+              { "not": { "required": ["ports"] } },
+              { "not": { "required": ["env_vars"] } },
+              { "not": { "required": ["run_as_root"] } },
+              { "not": { "required": ["args"] } }
+            ]
           },
           "additionalProperties": false
         }
