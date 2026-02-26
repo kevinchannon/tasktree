@@ -1942,8 +1942,7 @@ runners:
   bash-strict:
     shell:
       cmd: [bash, -c]
-      preamble: |
-        set -euo pipefail
+      preamble: set -euo pipefail
 
   python:
     shell:

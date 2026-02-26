@@ -5,8 +5,7 @@ runners:
   bash-utils:
     shell:
       cmd: ["/bin/bash", "-c"]
-      preamble: |
-        set -euo pipefail
+      preamble: set -euo pipefail
 
 tasks:
   show-info:

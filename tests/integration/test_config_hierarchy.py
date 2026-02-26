@@ -48,8 +48,7 @@ runners:
   default:
     shell:
       cmd: [bash, -c]
-      preamble: |
-        echo "PROJECT CONFIG"
+      preamble: echo "PROJECT CONFIG"
 """)
 
             # Create tasktree.yaml

@@ -6,8 +6,7 @@ runners:
   bash-strict:
     shell:
       cmd: ["/bin/bash", "-c"]
-      preamble: |
-        set -euo pipefail
+      preamble: set -euo pipefail
 
   # Docker runner: uses an Alpine image for containerised tasks
   alpine:
