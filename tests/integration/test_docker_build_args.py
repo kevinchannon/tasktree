@@ -60,9 +60,12 @@ runners:
     volumes: ["./output:/workspace/output"]
     args:
       build:
-        - "--build-arg BUILD_VERSION=1.2.3"
-        - "--build-arg BUILD_DATE=2024-01-01"
-        - "--build-arg PYTHON_VERSION=3.12"
+        # Each build arg must be a single string in --build-arg=KEY=VALUE form,
+        # or split into two separate list items ("--build-arg", "KEY=VALUE").
+        # Strings with spaces are passed as a single opaque argument to docker build.
+        - "--build-arg=BUILD_VERSION=1.2.3"
+        - "--build-arg=BUILD_DATE=2024-01-01"
+        - "--build-arg=PYTHON_VERSION=3.12"
 
 tasks:
   build:

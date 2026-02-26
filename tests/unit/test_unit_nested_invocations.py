@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 from helpers.logging import logger_stub
 from tasktree.executor import Executor
-from tasktree.parser import Recipe, Task
+from tasktree.parser import DockerArgs, Recipe, Runner, ShellConfig, Task
 from tasktree.process_runner import TaskOutputTypes, make_process_runner
 from tasktree.state import StateManager, TaskState
 
@@ -600,19 +600,11 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
             project_root = Path(tmpdir)
 
             # Create a Docker runner
-            from tasktree.parser import Runner
             test_runner = Runner(
                 name="build",
-                shell="/bin/bash",
-                preamble="set -e",
+                shell=ShellConfig(cmd=["/bin/bash", "-c"], preamble="set -e"),
                 dockerfile="Dockerfile",
                 context=".",
-                volumes=[],
-                ports=[],
-                env_vars={},
-                working_dir="",
-                args=[],
-                extra_args=[],
             )
 
             recipe = Recipe(
@@ -660,33 +652,18 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            from tasktree.parser import Runner
             build_runner = Runner(
                 name="build",
-                shell="/bin/bash",
-                preamble="",
+                shell=ShellConfig(cmd=["/bin/bash", "-c"]),
                 dockerfile="Dockerfile.build",
                 context=".",
-                volumes=[],
-                ports=[],
-                env_vars={},
-                working_dir="",
-                args=[],
-                extra_args=[],
             )
 
             test_runner = Runner(
                 name="test",
-                shell="/bin/bash",
-                preamble="",
+                shell=ShellConfig(cmd=["/bin/bash", "-c"]),
                 dockerfile="Dockerfile.test",  # Different dockerfile
                 context=".",
-                volumes=[],
-                ports=[],
-                env_vars={},
-                working_dir="",
-                args=[],
-                extra_args=[],
             )
 
             recipe = Recipe(
@@ -732,25 +709,16 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            from tasktree.parser import Runner
             docker_runner = Runner(
                 name="build",
-                shell="/bin/bash",
-                preamble="",
+                shell=ShellConfig(cmd=["/bin/bash", "-c"]),
                 dockerfile="Dockerfile",
                 context=".",
-                volumes=[],
-                ports=[],
-                env_vars={},
-                working_dir="",
-                args=[],
-                extra_args=[],
             )
 
             shell_runner = Runner(
                 name="lint",
-                shell="/bin/sh",
-                preamble="set -e",
+                shell=ShellConfig(cmd=["/bin/sh", "-c"], preamble="set -e"),
             )
 
             recipe = Recipe(
@@ -796,19 +764,11 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            from tasktree.parser import Runner
             docker_runner = Runner(
                 name="build",
-                shell="/bin/bash",
-                preamble="",
+                shell=ShellConfig(cmd=["/bin/bash", "-c"]),
                 dockerfile="Dockerfile",
                 context=".",
-                volumes=[],
-                ports=[],
-                env_vars={},
-                working_dir="",
-                args=[],
-                extra_args=[],
             )
 
             recipe = Recipe(
@@ -855,19 +815,11 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            from tasktree.parser import Runner
             docker_runner = Runner(
                 name="build",
-                shell="/bin/bash",
-                preamble="",
+                shell=ShellConfig(cmd=["/bin/bash", "-c"]),
                 dockerfile="Dockerfile",
                 context=".",
-                volumes=[],
-                ports=[],
-                env_vars={},
-                working_dir="",
-                args=[],
-                extra_args=[],
             )
 
             recipe = Recipe(
@@ -914,19 +866,11 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            from tasktree.parser import Runner
             docker_runner = Runner(
                 name="build",
-                shell="/bin/bash",
-                preamble="",
+                shell=ShellConfig(cmd=["/bin/bash", "-c"]),
                 dockerfile="Dockerfile",
                 context=".",
-                volumes=[],
-                ports=[],
-                env_vars={},
-                working_dir="",
-                args=[],
-                extra_args=[],
             )
 
             recipe = Recipe(
@@ -977,19 +921,11 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
             state_file = project_root / ".tasktree-state"
             # Do NOT create state file - test that executor creates it
 
-            from tasktree.parser import Runner
             docker_runner = Runner(
                 name="build",
-                shell="/bin/bash",
-                preamble="",
+                shell=ShellConfig(cmd=["/bin/bash", "-c"]),
                 dockerfile="Dockerfile",
                 context=".",
-                volumes=[],
-                ports=[],
-                env_vars={},
-                working_dir="",
-                args=[],
-                extra_args=[],
             )
 
             recipe = Recipe(
@@ -1041,19 +977,11 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
             state_file = project_root / ".tasktree-state"
             state_file.touch()  # Create state file
 
-            from tasktree.parser import Runner
             docker_runner = Runner(
                 name="build",
-                shell="/bin/bash",
-                preamble="",
+                shell=ShellConfig(cmd=["/bin/bash", "-c"]),
                 dockerfile="Dockerfile",
                 context=".",
-                volumes=[],
-                ports=[],
-                env_vars={},
-                working_dir="",
-                args=[],
-                extra_args=[],
             )
 
             recipe = Recipe(
@@ -1102,19 +1030,11 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            from tasktree.parser import Runner
             docker_runner = Runner(
                 name="build",
-                shell="/bin/zsh",
-                preamble="set -euo pipefail",
+                shell=ShellConfig(cmd=["/bin/zsh", "-c"], preamble="set -euo pipefail"),
                 dockerfile="Dockerfile",
                 context=".",
-                volumes=[],
-                ports=[],
-                env_vars={},
-                working_dir="",
-                args=[],
-                extra_args=[],
             )
 
             recipe = Recipe(
@@ -1168,20 +1088,13 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
             state_file = project_root / ".tasktree-state"
             state_file.touch()
 
-            from tasktree.parser import Runner
             # Create runner with conflicting volume mount
             docker_runner = Runner(
                 name="build",
-                shell="/bin/bash",
-                preamble="",
+                shell=ShellConfig(cmd=["/bin/bash", "-c"]),
                 dockerfile="Dockerfile",
                 context=".",
                 volumes=["/host/data:/tasktree-internal/.tasktree-state"],  # Conflicts!
-                ports=[],
-                env_vars={},
-                working_dir="",
-                args=[],
-                extra_args=[],
             )
 
             recipe = Recipe(
@@ -1240,19 +1153,11 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
                     state_file = project_root / ".tasktree-state"
                     state_file.touch()
 
-                    from tasktree.parser import Runner
                     docker_runner = Runner(
                         name=runner_name,
-                        shell="/bin/bash",
-                        preamble="",
+                        shell=ShellConfig(cmd=["/bin/bash", "-c"]),
                         dockerfile="Dockerfile",
                         context=".",
-                        volumes=[],
-                        ports=[],
-                        env_vars={},
-                        working_dir="",
-                        args=[],
-                        extra_args=[],
                     )
 
                     recipe = Recipe(
@@ -1300,19 +1205,9 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            from tasktree.parser import Runner
             shell_runner = Runner(
                 name="shell",
-                shell="/bin/bash",
-                preamble="",
-                dockerfile=None,
-                context=None,
-                volumes=[],
-                ports=[],
-                env_vars={},
-                working_dir="",
-                args=[],
-                extra_args=[],
+                shell=ShellConfig(cmd=["/bin/bash", "-c"]),
             )
 
             recipe = Recipe(

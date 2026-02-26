@@ -1969,9 +1969,8 @@ class TestGetSessionDefaultRunner(unittest.TestCase):
             runner = executor.get_session_default_runner()
 
             self.assertEqual(runner.name, "__platform_default__")
-            self.assertEqual(runner.shell, "bash")
-            self.assertEqual(runner.args, ["-c"])
-            self.assertEqual(runner.preamble, "")
+            self.assertEqual(runner.shell.cmd, ["bash", "-c"])
+            self.assertEqual(runner.shell.preamble, "")
 
     @patch("platform.system")
     def test_returns_bash_on_macos(self, mock_system):
@@ -1992,9 +1991,8 @@ class TestGetSessionDefaultRunner(unittest.TestCase):
             runner = executor.get_session_default_runner()
 
             self.assertEqual(runner.name, "__platform_default__")
-            self.assertEqual(runner.shell, "bash")
-            self.assertEqual(runner.args, ["-c"])
-            self.assertEqual(runner.preamble, "")
+            self.assertEqual(runner.shell.cmd, ["bash", "-c"])
+            self.assertEqual(runner.shell.preamble, "")
 
     @patch("platform.system")
     def test_returns_cmd_on_windows(self, mock_system):
@@ -2015,9 +2013,8 @@ class TestGetSessionDefaultRunner(unittest.TestCase):
             runner = executor.get_session_default_runner()
 
             self.assertEqual(runner.name, "__platform_default__")
-            self.assertEqual(runner.shell, "cmd")
-            self.assertEqual(runner.args, ["/c"])
-            self.assertEqual(runner.preamble, "")
+            self.assertEqual(runner.shell.cmd, ["cmd.exe", "/c"])
+            self.assertEqual(runner.shell.preamble, "")
 
     @patch("platform.system")
     def test_returns_project_config_runner_when_found(self, mock_system):
@@ -2137,7 +2134,7 @@ runners:
 
             # Should find config from parent directory
             self.assertEqual(runner.name, "default")
-            self.assertEqual(runner.shell, "fish")
+            self.assertEqual(runner.shell.cmd, ["fish", "-c"])
 
     @patch("platform.system")
     @patch("tasktree.config.get_user_config_path")
@@ -2219,7 +2216,7 @@ runners:
 
             # Project config should win
             self.assertEqual(runner.name, "default")
-            self.assertEqual(runner.shell, "fish")
+            self.assertEqual(runner.shell.cmd, ["fish", "-c"])
 
     @patch("platform.system")
     @patch("tasktree.config.get_user_config_path")
@@ -2256,7 +2253,7 @@ runners:
 
             # User config should win over platform default
             self.assertEqual(runner.name, "default")
-            self.assertEqual(runner.shell, "zsh")
+            self.assertEqual(runner.shell.cmd, ["zsh", "-c"])
 
     @patch("platform.system")
     @patch("tasktree.config.get_user_config_path")
@@ -2288,7 +2285,7 @@ runners:
 
             # Should fall back to platform default
             self.assertEqual(runner.name, "__platform_default__")
-            self.assertEqual(runner.shell, "bash")
+            self.assertEqual(runner.shell.cmd, ["bash", "-c"])
 
     @patch("platform.system")
     @patch("tasktree.config.get_machine_config_path")
@@ -2366,7 +2363,7 @@ runners:
 
             # Machine config should win over platform default
             self.assertEqual(runner.name, "default")
-            self.assertEqual(runner.shell, "fish")
+            self.assertEqual(runner.shell.cmd, ["fish", "-c"])
 
     @patch("platform.system")
     @patch("tasktree.config.get_user_config_path")
@@ -2417,7 +2414,7 @@ runners:
 
             # User config should win
             self.assertEqual(runner.name, "default")
-            self.assertEqual(runner.shell, "zsh")
+            self.assertEqual(runner.shell.cmd, ["zsh", "-c"])
 
     @patch("platform.system")
     @patch("tasktree.config.get_machine_config_path")
@@ -2453,7 +2450,7 @@ runners:
 
                 # Should fall back to platform default
                 self.assertEqual(runner.name, "__platform_default__")
-                self.assertEqual(runner.shell, "bash")
+                self.assertEqual(runner.shell.cmd, ["bash", "-c"])
 
     @patch("platform.system")
     @patch("tasktree.config.get_machine_config_path")
@@ -2485,7 +2482,7 @@ runners:
 
             # Empty config should be treated as no config, fall back to platform default
             self.assertEqual(runner.name, "__platform_default__")
-            self.assertEqual(runner.shell, "bash")
+            self.assertEqual(runner.shell.cmd, ["bash", "-c"])
 
     @patch("platform.system")
     @patch("tasktree.config.get_machine_config_path")
@@ -2520,7 +2517,7 @@ runners:
 
             # Malformed YAML should log warning and fall back to platform default
             self.assertEqual(runner.name, "__platform_default__")
-            self.assertEqual(runner.shell, "bash")
+            self.assertEqual(runner.shell.cmd, ["bash", "-c"])
 
             # Verify warning was logged
             mock_logger.warn.assert_called()
