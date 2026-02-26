@@ -2777,5 +2777,112 @@ tasks:
             self.assertIn("invalid runner", str(context.exception))
 
 
+class TestDockerOnlyFieldValidation(unittest.TestCase):
+    """
+    Tests that docker-only runner fields are rejected when used without a dockerfile.
+    Validation is performed before execution, once the reachable tasks are known.
+    """
+
+    def _make_executor(self, project_root, runner):
+        from tasktree.parser import Runner, ShellConfig, SHELL_LOOKUP
+        tasks = {"build": Task(name="build", cmd="echo hello", run_in=runner.name)}
+        recipe = Recipe(
+            tasks=tasks,
+            project_root=project_root,
+            recipe_path=project_root / "tasktree.yaml",
+            runners={runner.name: runner},
+        )
+        return Executor(recipe, StateManager(project_root), logger_stub, make_process_runner)
+
+    def test_volumes_on_shell_runner_raises(self):
+        from tasktree.parser import Runner, ShellConfig, SHELL_LOOKUP
+        with TemporaryDirectory() as tmpdir:
+            runner = Runner(
+                name="myrunner",
+                shell=ShellConfig(cmd=SHELL_LOOKUP["bash"]),
+                volumes=["/host:/container"],
+            )
+            executor = self._make_executor(Path(tmpdir), runner)
+            with self.assertRaises(ValueError) as ctx:
+                executor._validate_runners_for_reachable_tasks([("build", {})])
+            self.assertIn("'volumes'", str(ctx.exception))
+            self.assertIn("only valid for Docker runners", str(ctx.exception))
+
+    def test_ports_on_shell_runner_raises(self):
+        from tasktree.parser import Runner, ShellConfig, SHELL_LOOKUP
+        with TemporaryDirectory() as tmpdir:
+            runner = Runner(
+                name="myrunner",
+                shell=ShellConfig(cmd=SHELL_LOOKUP["bash"]),
+                ports=["8080:80"],
+            )
+            executor = self._make_executor(Path(tmpdir), runner)
+            with self.assertRaises(ValueError) as ctx:
+                executor._validate_runners_for_reachable_tasks([("build", {})])
+            self.assertIn("'ports'", str(ctx.exception))
+            self.assertIn("only valid for Docker runners", str(ctx.exception))
+
+    def test_env_vars_on_shell_runner_raises(self):
+        from tasktree.parser import Runner, ShellConfig, SHELL_LOOKUP
+        with TemporaryDirectory() as tmpdir:
+            runner = Runner(
+                name="myrunner",
+                shell=ShellConfig(cmd=SHELL_LOOKUP["bash"]),
+                env_vars={"MY_VAR": "value"},
+            )
+            executor = self._make_executor(Path(tmpdir), runner)
+            with self.assertRaises(ValueError) as ctx:
+                executor._validate_runners_for_reachable_tasks([("build", {})])
+            self.assertIn("'env_vars'", str(ctx.exception))
+            self.assertIn("only valid for Docker runners", str(ctx.exception))
+
+    def test_run_as_root_on_shell_runner_raises(self):
+        from tasktree.parser import Runner, ShellConfig, SHELL_LOOKUP
+        with TemporaryDirectory() as tmpdir:
+            runner = Runner(
+                name="myrunner",
+                shell=ShellConfig(cmd=SHELL_LOOKUP["bash"]),
+                run_as_root=True,
+            )
+            executor = self._make_executor(Path(tmpdir), runner)
+            with self.assertRaises(ValueError) as ctx:
+                executor._validate_runners_for_reachable_tasks([("build", {})])
+            self.assertIn("'run_as_root'", str(ctx.exception))
+            self.assertIn("only valid for Docker runners", str(ctx.exception))
+
+    def test_args_on_shell_runner_raises(self):
+        from tasktree.parser import Runner, ShellConfig, SHELL_LOOKUP, DockerArgs
+        with TemporaryDirectory() as tmpdir:
+            runner = Runner(
+                name="myrunner",
+                shell=ShellConfig(cmd=SHELL_LOOKUP["bash"]),
+                args=DockerArgs(build=["--no-cache"]),
+            )
+            executor = self._make_executor(Path(tmpdir), runner)
+            with self.assertRaises(ValueError) as ctx:
+                executor._validate_runners_for_reachable_tasks([("build", {})])
+            self.assertIn("'args'", str(ctx.exception))
+            self.assertIn("only valid for Docker runners", str(ctx.exception))
+
+    def test_docker_only_fields_on_docker_runner_allowed(self):
+        from tasktree.parser import Runner, ShellConfig, SHELL_LOOKUP
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            dockerfile = project_root / "Dockerfile"
+            dockerfile.write_text("FROM ubuntu\n")
+            runner = Runner(
+                name="myrunner",
+                dockerfile="Dockerfile",
+                context=".",
+                volumes=["/host:/container"],
+                ports=["8080:80"],
+                env_vars={"MY_VAR": "value"},
+                run_as_root=True,
+            )
+            executor = self._make_executor(project_root, runner)
+            # Should not raise
+            executor._validate_runners_for_reachable_tasks([("build", {})])
+
+
 if __name__ == "__main__":
     unittest.main()

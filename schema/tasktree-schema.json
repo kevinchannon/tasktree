@@ -133,6 +133,19 @@
               "default": false
             }
           },
+          "if": {
+            "not": { "required": ["dockerfile"] }
+          },
+          "then": {
+            "allOf": [
+              { "not": { "required": ["context"] } },
+              { "not": { "required": ["volumes"] } },
+              { "not": { "required": ["ports"] } },
+              { "not": { "required": ["env_vars"] } },
+              { "not": { "required": ["run_as_root"] } },
+              { "not": { "required": ["args"] } }
+            ]
+          },
           "additionalProperties": false
         }
       },

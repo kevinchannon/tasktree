@@ -437,6 +437,44 @@ class Executor:
         # Return session default runner name
         return self.get_session_default_runner().name
 
+    def _validate_runner_for_task(self, task: Task) -> None:
+        """Raise ValueError if a shell runner for this task has docker-only fields set."""
+        runner_name = self._get_effective_runner_name(task)
+        if not runner_name:
+            return
+        runner = self.recipe.get_runner(runner_name)
+        if runner is None or runner.dockerfile:
+            return
+        docker_only_fields = {
+            "volumes": runner.volumes,
+            "ports": runner.ports,
+            "env_vars": runner.env_vars,
+        }
+        for field_name, value in docker_only_fields.items():
+            if value:
+                raise ValueError(
+                    f"Runner '{runner_name}': '{field_name}' is only valid for Docker runners "
+                    f"(runners with a 'dockerfile' field)"
+                )
+        if runner.run_as_root:
+            raise ValueError(
+                f"Runner '{runner_name}': 'run_as_root' is only valid for Docker runners "
+                f"(runners with a 'dockerfile' field)"
+            )
+        if runner.args.build or runner.args.run:
+            raise ValueError(
+                f"Runner '{runner_name}': 'args' is only valid for Docker runners "
+                f"(runners with a 'dockerfile' field)"
+            )
+
+    def _validate_runners_for_reachable_tasks(
+        self, execution_order: list[tuple[str, dict]]
+    ) -> None:
+        """Validate all runners required by the reachable tasks before execution begins."""
+        for name, _ in execution_order:
+            task = self.recipe.tasks[name]
+            self._validate_runner_for_task(task)
+
     def _resolve_runner(self, task: Task) -> ShellConfig:
         """
         Resolve which runner to use for a task.
@@ -656,6 +694,9 @@ class Executor:
             execution_order = resolve_execution_order(self.recipe, task_name, args_dict)
             task_names = [name for name, _ in execution_order]
             self.logger.debug(f"Execution order: {' -> '.join(task_names)}")
+
+        # Validate runners for all reachable tasks before executing anything
+        self._validate_runners_for_reachable_tasks(execution_order)
 
         # Resolve dependency output references in topological order
         # This substitutes {{ dep.*.outputs.* }} templates before execution
