@@ -9,6 +9,7 @@ from tempfile import TemporaryDirectory
 from typer.testing import CliRunner
 
 from tasktree.cli import app
+from helpers.crossplatform import crossplatform_write_file
 
 
 def strip_ansi_codes(text: str) -> str:
@@ -40,12 +41,12 @@ class TestCleanState(unittest.TestCase):
 
             # Create a tasktree.yaml
             recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
+            recipe_file.write_text(f"""
 tasks:
   build:
     desc: Build task
     outputs: [output.txt]
-    cmd: echo "building" > output.txt
+    cmd: {crossplatform_write_file("output.txt", "building")}
 """)
 
             # Run a task to create state file

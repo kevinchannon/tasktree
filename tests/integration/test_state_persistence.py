@@ -10,6 +10,7 @@ from tempfile import TemporaryDirectory
 from typer.testing import CliRunner
 
 from tasktree.cli import app
+from helpers.crossplatform import crossplatform_write_file
 
 
 def strip_ansi_codes(text: str) -> str:
@@ -45,12 +46,12 @@ class TestStatePersistence(unittest.TestCase):
 
             # Create recipe
             recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
+            recipe_file.write_text(f"""
 tasks:
   build:
     inputs: [input.txt]
     outputs: [output.txt]
-    cmd: echo "built" > output.txt
+    cmd: {crossplatform_write_file("output.txt", "built")}
 """)
 
             original_cwd = os.getcwd()
@@ -106,7 +107,13 @@ tasks:
     args: [environment]
     outputs: ["deploy-{{ arg.environment }}.log"]
     cmd: echo "Deployed to {{ arg.environment }}" > deploy-{{ arg.environment }}.log
-""")
+""".replace(
+                'echo "Deployed to {{ arg.environment }}" > deploy-{{ arg.environment }}.log',
+                crossplatform_write_file(
+                    "deploy-{{ arg.environment }}.log",
+                    "Deployed to {{ arg.environment }}",
+                ),
+            ))
 
             original_cwd = os.getcwd()
             try:
@@ -146,11 +153,11 @@ tasks:
 
             # Create recipe
             recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
+            recipe_file.write_text(f"""
 tasks:
   build:
     outputs: [output.txt]
-    cmd: echo "built" > output.txt
+    cmd: {crossplatform_write_file("output.txt", "built")}
 """)
 
             original_cwd = os.getcwd()
