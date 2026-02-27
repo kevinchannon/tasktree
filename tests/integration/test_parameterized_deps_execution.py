@@ -10,6 +10,7 @@ from tempfile import TemporaryDirectory
 from typer.testing import CliRunner
 
 from tasktree.cli import app
+from helpers.crossplatform import crossplatform_write_file
 
 
 def strip_ansi_codes(text: str) -> str:
@@ -64,7 +65,16 @@ tasks:
     outputs:
       - test-release.log
     cmd: echo "Testing release build" > test-release.log
-""")
+""".replace(
+    'echo "Building {{arg.mode}} optimize={{arg.optimize}}" > build-{{arg.mode}}.log',
+    crossplatform_write_file("build-{{arg.mode}}.log", "Building {{arg.mode}} optimize={{arg.optimize}}"),
+).replace(
+    'echo "Testing debug build" > test-debug.log',
+    crossplatform_write_file("test-debug.log", "Testing debug build"),
+).replace(
+    'echo "Testing release build" > test-release.log',
+    crossplatform_write_file("test-release.log", "Testing release build"),
+))
 
             original_cwd = os.getcwd()
             try:
@@ -127,7 +137,13 @@ tasks:
     cmd: |
       echo "Linking all targets" > linked.bin
       cat compiled-x86.o compiled-arm.o >> linked.bin
-""")
+""".replace(
+    'echo "Compiling for {{arg.target}}" > compiled-{{arg.target}}.o',
+    crossplatform_write_file("compiled-{{arg.target}}.o", "Compiling for {{arg.target}}"),
+).replace(
+    'echo "Linking all targets" > linked.bin',
+    crossplatform_write_file("linked.bin", "Linking all targets"),
+))
 
             original_cwd = os.getcwd()
             try:
@@ -176,7 +192,13 @@ tasks:
           pretty: true
     outputs: [processed.log]
     cmd: echo "Processing XML" > processed.log
-""")
+""".replace(
+    'echo "{{arg.format}},pretty={{arg.pretty}}" > data.{{arg.format}}',
+    crossplatform_write_file("data.{{arg.format}}", "{{arg.format}},pretty={{arg.pretty}}"),
+).replace(
+    'echo "Processing XML" > processed.log',
+    crossplatform_write_file("processed.log", "Processing XML"),
+))
 
             original_cwd = os.getcwd()
             try:

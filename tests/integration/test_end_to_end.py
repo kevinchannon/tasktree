@@ -9,6 +9,7 @@ from tempfile import TemporaryDirectory
 from typer.testing import CliRunner
 
 from tasktree.cli import app
+from helpers.crossplatform import crossplatform_write_file
 
 
 def strip_ansi_codes(text: str) -> str:
@@ -50,7 +51,10 @@ tasks:
       - debug: { type: bool, default: false }
     outputs: [deploy.log]
     cmd: echo "env={{ arg.environment }} region={{ arg.region }} port={{ arg.port }} debug={{ arg.debug }}" > deploy.log
-""")
+""".replace(
+    'echo "env={{ arg.environment }} region={{ arg.region }} port={{ arg.port }} debug={{ arg.debug }}" > deploy.log',
+    crossplatform_write_file("deploy.log", "env={{ arg.environment }} region={{ arg.region }} port={{ arg.port }} debug={{ arg.debug }}"),
+))
 
             original_cwd = os.getcwd()
             try:
