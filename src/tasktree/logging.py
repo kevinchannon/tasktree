@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Logging infrastructure for Task Tree.
 
 Provides a Logger interface for dependency injection of logging functionality.

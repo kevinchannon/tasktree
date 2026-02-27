@@ -2,6 +2,7 @@
 name = "tasktree"
 version = "0.0.0.dev0+local"
 description = "A task automation tool with incremental execution"
+license = { file = "LICENSE" }
 readme = "src/tasktree/README.md"
 requires-python = ">=3.11"
 dependencies = [

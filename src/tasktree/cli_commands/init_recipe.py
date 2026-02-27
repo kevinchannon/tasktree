@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Initialize a new tasktree recipe file."""
 
 from __future__ import annotations

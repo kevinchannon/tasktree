@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Placeholder substitution for variables, arguments, and environment variables.
 

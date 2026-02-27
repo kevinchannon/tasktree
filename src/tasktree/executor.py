@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Task execution and staleness detection."""
 
 from __future__ import annotations

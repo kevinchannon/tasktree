@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Execute dynamic task command implementation."""
 
 from __future__ import annotations

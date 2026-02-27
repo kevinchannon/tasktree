@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tasktree Language Server Protocol (LSP) implementation.
 
 This package provides LSP server functionality for tasktree files,

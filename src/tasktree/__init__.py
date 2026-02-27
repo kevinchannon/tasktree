@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Task Tree - A task automation tool with intelligent incremental execution.
 """

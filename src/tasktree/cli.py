@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Command-line interface for Task Tree.
 
 Provides a Typer-based CLI with commands for listing, showing, executing,

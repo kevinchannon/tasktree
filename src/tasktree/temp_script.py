@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Temporary script file management.
 

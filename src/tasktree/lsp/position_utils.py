@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Utilities for working with LSP positions in YAML documents.
 
 Position detection is now delegated to ts_context.py which uses

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Task and argument hashing for incremental execution.
 
 Provides functions to compute deterministic hashes of task definitions,

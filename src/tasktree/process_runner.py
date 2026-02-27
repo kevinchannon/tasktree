@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Process execution abstraction layer.
 
 This module provides an interface for running subprocesses, allowing for

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tree-sitter based YAML context detection for the tasktree LSP server.
 
 This module replaces the two-stage PyYAML-parse / regex-heuristic approach

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Docker integration for Task Tree.
 
 Provides Docker image building and container execution capabilities.

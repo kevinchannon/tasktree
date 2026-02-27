@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Dependency resolution using topological sorting.
 """

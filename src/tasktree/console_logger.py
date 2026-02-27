@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 from tasktree.logging import Logger, LogLevel
 from rich.console import Console
 

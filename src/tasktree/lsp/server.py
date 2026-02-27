@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tasktree LSP server main entry point."""
 
 import re

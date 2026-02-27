@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Configuration file parsing for default runner definitions.
 """

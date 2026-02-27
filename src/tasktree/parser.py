@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Parse recipe YAML files and handle imports.
 """

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Built-in variable definitions for tasktree LSP completion."""
 
 # Built-in variables available in tasktree templates

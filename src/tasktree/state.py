@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """State file management and pruning."""
 
 from __future__ import annotations

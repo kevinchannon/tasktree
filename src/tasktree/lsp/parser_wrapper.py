@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Parser wrapper for LSP identifier extraction.
 
 All YAML parsing and structural extraction is delegated to ts_context.py

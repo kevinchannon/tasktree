@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Custom Click parameter types for task argument validation."""
 
 import re
