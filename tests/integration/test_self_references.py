@@ -11,7 +11,7 @@ from tempfile import TemporaryDirectory
 from typer.testing import CliRunner
 
 from tasktree.cli import app
-from helpers.crossplatform import crossplatform_copy_file
+from helpers.crossplatform import crossplatform_copy_file, crossplatform_write_file
 
 
 def strip_ansi_codes(text: str) -> str:
@@ -240,7 +240,7 @@ tasks:
   build:
     outputs: [build.log]
     cmd: echo "Build complete" > build.log
-""")
+""".replace('echo "Build complete" > build.log', crossplatform_write_file("build.log", "Build complete")))
 
             original_cwd = os.getcwd()
             try:
@@ -284,7 +284,7 @@ tasks:
     cmd: |
       cat {{ self.inputs.config }} anon.txt > {{ self.outputs.result }}
       echo "Processed" > debug.log
-""")
+""".replace('echo "Processed" > debug.log', crossplatform_write_file("debug.log", "Processed")))
 
             original_cwd = os.getcwd()
             try:
