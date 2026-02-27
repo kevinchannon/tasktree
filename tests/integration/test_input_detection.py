@@ -10,7 +10,7 @@ from tempfile import TemporaryDirectory
 from typer.testing import CliRunner
 
 from tasktree.cli import app
-from helpers.crossplatform import crossplatform_copy_file
+from helpers.crossplatform import crossplatform_copy_file, crossplatform_write_file
 
 
 def strip_ansi_codes(text: str) -> str:
@@ -108,7 +108,7 @@ tasks:
     inputs: [src/*.rs]
     outputs: [output.bin]
     cmd: echo "compiled" > output.bin
-""")
+""".replace('echo "compiled" > output.bin', crossplatform_write_file("output.bin", "compiled")))
 
             original_cwd = os.getcwd()
             try:
@@ -162,7 +162,7 @@ tasks:
     inputs: [src/*.rs]
     outputs: [output.bin]
     cmd: echo "compiled" > output.bin
-""")
+""".replace('echo "compiled" > output.bin', crossplatform_write_file("output.bin", "compiled")))
 
             original_cwd = os.getcwd()
             try:

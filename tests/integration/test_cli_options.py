@@ -9,7 +9,7 @@ from tempfile import TemporaryDirectory
 from typer.testing import CliRunner
 
 from tasktree.cli import app
-from helpers.crossplatform import crossplatform_copy_file
+from helpers.crossplatform import crossplatform_copy_file, crossplatform_write_file
 
 
 def strip_ansi_codes(text: str) -> str:
@@ -105,7 +105,7 @@ tasks:
     desc: Build task
     outputs: [output.txt]
     cmd: echo "building" > output.txt
-""")
+""".replace('echo "building" > output.txt', crossplatform_write_file("output.txt", "building")))
 
             original_cwd = os.getcwd()
             try:
@@ -363,7 +363,7 @@ tasks:
   build:
     outputs: [output.txt]
     cmd: echo "built" > output.txt
-""")
+""".replace('echo "built" > output.txt', crossplatform_write_file("output.txt", "built")))
 
             original_cwd = os.getcwd()
             try:
@@ -409,7 +409,9 @@ tasks:
     deps: [build]
     outputs: [test.log]
     cmd: echo "testing" > test.log
-""")
+""".replace('echo "linting" > lint.log', crossplatform_write_file("lint.log", "linting"))
+   .replace('echo "building" > build.log', crossplatform_write_file("build.log", "building"))
+   .replace('echo "testing" > test.log', crossplatform_write_file("test.log", "testing")))
 
             original_cwd = os.getcwd()
             try:
@@ -479,7 +481,8 @@ tasks:
     deps: [lint]
     outputs: [build.log]
     cmd: echo "building" > build.log
-""")
+""".replace('echo "linting" > lint.log', crossplatform_write_file("lint.log", "linting"))
+   .replace('echo "building" > build.log', crossplatform_write_file("build.log", "building")))
 
             original_cwd = os.getcwd()
             try:
@@ -516,7 +519,8 @@ tasks:
     deps: [lint]
     outputs: [build.log]
     cmd: echo "building" > build.log
-""")
+""".replace('echo "linting" > lint.log', crossplatform_write_file("lint.log", "linting"))
+   .replace('echo "building" > build.log', crossplatform_write_file("build.log", "building")))
 
             original_cwd = os.getcwd()
             try:
@@ -558,7 +562,9 @@ tasks:
     deps: [build]
     outputs: [test.log]
     cmd: echo "testing" > test.log
-""")
+""".replace('echo "linting" > lint.log', crossplatform_write_file("lint.log", "linting"))
+   .replace('echo "building" > build.log', crossplatform_write_file("build.log", "building"))
+   .replace('echo "testing" > test.log', crossplatform_write_file("test.log", "testing")))
 
             original_cwd = os.getcwd()
             try:
@@ -589,7 +595,7 @@ tasks:
   build:
     outputs: [build.log]
     cmd: echo "building" > build.log
-""")
+""".replace('echo "building" > build.log', crossplatform_write_file("build.log", "building")))
 
             original_cwd = os.getcwd()
             try:
