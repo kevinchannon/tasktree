@@ -34,19 +34,21 @@ jobs:
       run: docker pull alpine:latest
 
     - name: Run unit tests
-      run: PYTHONPATH=tests uv run pytest tests/unit/ --tb=short
+      run: uv run pytest tests/unit/ --tb=short
 
     - name: Run integration tests
-      run: PYTHONPATH=tests uv run pytest tests/integration/ --tb=short
+      run: uv run pytest tests/integration/ --tb=short
 
     - name: Run E2E Docker tests
       if: runner.os == 'Linux'
-      run: PYTHONPATH=tests uv run pytest tests/e2e/ --tb=short
+      run: uv run pytest tests/e2e/ --tb=short
 
-    - name: Test CLI commands
-      run: |
-        uv run tt --help
-        uv run tt --list || true
+    - name: Test CLI help command
+      run: uv run tt --help
+
+    - name: Test CLI list command
+      run: uv run tt --list
+      continue-on-error: true
 
   lint:
     runs-on: ubuntu-latest
