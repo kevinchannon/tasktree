@@ -179,9 +179,9 @@ class TestParseConfigFile(unittest.TestCase):
             self.assertEqual(result.shell.preamble, "set -euo pipefail")
             self.assertEqual(result.dockerfile, "")
 
-    def test_valid_shell_runner_bare_string(self):
+    def test_bare_string_shell_raises_error(self):
         """
-        Test that parse_config_file correctly parses a shell runner with bare string shorthand.
+        Test that parse_config_file raises an error when shell is a bare string (dict form required).
         """
         with TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.yml"
@@ -191,11 +191,8 @@ class TestParseConfigFile(unittest.TestCase):
     shell: bash
 """
             )
-            result = parse_config_file(config_path)
-            self.assertIsNotNone(result)
-            self.assertIsNotNone(result.shell)
-            self.assertEqual(result.shell.cmd, ["bash", "-c"])
-            self.assertEqual(result.shell.preamble, "")
+            with self.assertRaises(Exception):
+                parse_config_file(config_path)
 
     def test_valid_dockerfile_runner(self):
         """
