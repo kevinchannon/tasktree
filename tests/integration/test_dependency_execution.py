@@ -11,6 +11,7 @@ from tempfile import TemporaryDirectory
 
 from typer.testing import CliRunner
 
+from helpers.crossplatform import crossplatform_write_file
 from helpers.logging import logger_stub
 from tasktree.cli import app
 from tasktree.executor import Executor
@@ -48,21 +49,21 @@ class TestDependencyExecution(unittest.TestCase):
 
             # Create recipe with linear dependency chain
             recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
+            recipe_file.write_text(f"""
 tasks:
   lint:
     outputs: [lint.log]
-    cmd: echo "linting..." > lint.log
+    cmd: {crossplatform_write_file("lint.log", "linting...")}
 
   build:
     deps: [lint]
     outputs: [build.log]
-    cmd: echo "building..." > build.log
+    cmd: {crossplatform_write_file("build.log", "building...")}
 
   test:
     deps: [build]
     outputs: [test.log]
-    cmd: echo "testing..." > test.log
+    cmd: {crossplatform_write_file("test.log", "testing...")}
 """)
 
             original_cwd = os.getcwd()
@@ -103,26 +104,26 @@ tasks:
 
             # Create recipe with diamond dependency
             recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
+            recipe_file.write_text(f"""
 tasks:
   setup:
     outputs: [setup.log]
-    cmd: echo setup > setup.log
+    cmd: {crossplatform_write_file("setup.log", "setup")}
 
   build:
     deps: [setup]
     outputs: [build.log]
-    cmd: echo build > build.log
+    cmd: {crossplatform_write_file("build.log", "build")}
 
   test:
     deps: [setup]
     outputs: [test.log]
-    cmd: echo test > test.log
+    cmd: {crossplatform_write_file("test.log", "test")}
 
   deploy:
     deps: [build, test]
     outputs: [deploy.log]
-    cmd: echo deploy > deploy.log
+    cmd: {crossplatform_write_file("deploy.log", "deploy")}
 """)
 
             original_cwd = os.getcwd()
@@ -172,17 +173,17 @@ tasks:
 
             # Create recipe
             recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
+            recipe_file.write_text(f"""
 tasks:
   gen-config:
     inputs: [config.template]
     outputs: [config.json]
-    cmd: echo "generated config" > config.json
+    cmd: {crossplatform_write_file("config.json", "generated config")}
 
   build:
     deps: [gen-config]
     outputs: [app.bin]
-    cmd: echo "built app" > app.bin
+    cmd: {crossplatform_write_file("app.bin", "built app")}
 """)
 
             original_cwd = os.getcwd()
