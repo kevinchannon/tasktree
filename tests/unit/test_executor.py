@@ -2115,7 +2115,8 @@ runners:
                 """
 runners:
   default:
-    shell: fish
+    shell:
+      cmd: fish
 """
             )
 
@@ -2188,7 +2189,8 @@ runners:
                 """
 runners:
   default:
-    shell: zsh
+    shell:
+      cmd: zsh
 """
             )
             mock_get_user_config.return_value = user_config_path
@@ -2201,7 +2203,8 @@ runners:
                 """
 runners:
   default:
-    shell: fish
+    shell:
+      cmd: fish
 """
             )
 
@@ -2233,7 +2236,8 @@ runners:
                 """
 runners:
   default:
-    shell: zsh
+    shell:
+      cmd: zsh
 """
             )
             mock_get_user_config.return_value = user_config_path
@@ -2343,7 +2347,8 @@ runners:
                 """
 runners:
   default:
-    shell: fish
+    shell:
+      cmd: fish
 """
             )
             mock_get_machine_config.return_value = machine_config_path
@@ -2383,7 +2388,8 @@ runners:
                 """
 runners:
   default:
-    shell: fish
+    shell:
+      cmd: fish
 """
             )
             mock_get_machine_config.return_value = machine_config_path
@@ -2394,7 +2400,8 @@ runners:
                 """
 runners:
   default:
-    shell: zsh
+    shell:
+      cmd: zsh
 """
             )
             mock_get_user_config.return_value = user_config_path

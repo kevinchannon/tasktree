@@ -455,10 +455,12 @@ tasks:
             config_file.write_text("""
 runners:
   default:
-    shell: bash
+    shell:
+      cmd: bash
 
   another:
-    shell: bash
+    shell:
+      cmd: bash
 """)
 
             # Create tasktree.yaml
