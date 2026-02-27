@@ -8,6 +8,7 @@ from tempfile import TemporaryDirectory
 from typer.testing import CliRunner
 
 from tasktree.cli import app
+from helpers.crossplatform import crossplatform_write_file
 
 
 class TestDirectRecursionIntegration(unittest.TestCase):
@@ -281,7 +282,12 @@ tasks:
   child:
     outputs: [outputs/child.txt]
     cmd: echo "Child" > outputs/child.txt
-"""
+""".replace('echo "Dependency" > outputs/dep.txt',
+            crossplatform_write_file("outputs/dep.txt", "Dependency"))
+               .replace('echo "Parent" > outputs/parent.txt',
+                        crossplatform_write_file("outputs/parent.txt", "Parent"))
+               .replace('echo "Child" > outputs/child.txt',
+                        crossplatform_write_file("outputs/child.txt", "Child"))
             )
 
             runner = CliRunner()
