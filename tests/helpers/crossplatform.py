@@ -66,7 +66,11 @@ def crossplatform_append_file(path: str, content: str) -> str:
 
 
 def crossplatform_copy_file(src: str, dst: str) -> str:
-    """Return a shell command that copies *src* to *dst*.
+    """Return a shell command that copies a *single* file *src* to *dst*.
+
+    Note: *src* must resolve to a single file path, not a glob that can
+    match multiple files.  Use ``crossplatform_concat_files()`` (TODO) for
+    multi-file concatenation.
 
     Linux/macOS: ``cp <src> <dst>``
     Windows (TODO): TBD
