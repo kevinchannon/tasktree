@@ -160,14 +160,14 @@ tasks:
 
             # Create recipe with glob pattern in input
             recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text(f"""
+            recipe_file.write_text("""
 tasks:
   concat:
     inputs:
       - sources: "*.txt"
     outputs:
       - combined: all.txt
-    cmd: {crossplatform_copy_file("{{ self.inputs.sources }}", "{{ self.outputs.combined }}")}
+    cmd: cat {{ self.inputs.sources }} > {{ self.outputs.combined }}
 """)
 
             original_cwd = os.getcwd()
@@ -1877,12 +1877,12 @@ tasks:
 
             # Create recipe with glob pattern accessed positionally
             recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text(f"""
+            recipe_file.write_text("""
 tasks:
   concat:
     inputs: ["*.txt"]
     outputs: [all.txt]
-    cmd: {crossplatform_copy_file("{{ self.inputs.0 }}", "{{ self.outputs.0 }}")}
+    cmd: cat {{ self.inputs.0 }} > {{ self.outputs.0 }}
 """)
 
             original_cwd = os.getcwd()
