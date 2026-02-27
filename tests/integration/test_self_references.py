@@ -11,6 +11,7 @@ from tempfile import TemporaryDirectory
 from typer.testing import CliRunner
 
 from tasktree.cli import app
+from helpers.crossplatform import crossplatform_copy_file
 
 
 def strip_ansi_codes(text: str) -> str:
@@ -46,13 +47,13 @@ class TestBasicSelfReferences(unittest.TestCase):
 
             # Create recipe with self-reference to input
             recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
+            recipe_file.write_text(f"""
 tasks:
   process:
     inputs:
       - src: input.txt
     outputs: [output.txt]
-    cmd: cat {{ self.inputs.src }} > output.txt
+    cmd: {crossplatform_copy_file("{{ self.inputs.src }}", "output.txt")}
 """)
 
             original_cwd = os.getcwd()
@@ -159,14 +160,14 @@ tasks:
 
             # Create recipe with glob pattern in input
             recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
+            recipe_file.write_text(f"""
 tasks:
   concat:
     inputs:
       - sources: "*.txt"
     outputs:
       - combined: all.txt
-    cmd: cat {{ self.inputs.sources }} > {{ self.outputs.combined }}
+    cmd: {crossplatform_copy_file("{{ self.inputs.sources }}", "{{ self.outputs.combined }}")}
 """)
 
             original_cwd = os.getcwd()
@@ -407,12 +408,12 @@ tasks:
 
             # Create recipe with only anonymous inputs
             recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
+            recipe_file.write_text(f"""
 tasks:
   build:
     inputs: ["file.txt", "config.json"]
     outputs: [output.txt]
-    cmd: cat {{ self.inputs.src }} > output.txt
+    cmd: {crossplatform_copy_file("{{ self.inputs.src }}", "output.txt")}
 """)
 
             original_cwd = os.getcwd()
@@ -476,11 +477,11 @@ tasks:
 
             # Create recipe with no inputs
             recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
+            recipe_file.write_text(f"""
 tasks:
   build:
     outputs: [output.txt]
-    cmd: cat {{ self.inputs.src }} > output.txt
+    cmd: {crossplatform_copy_file("{{ self.inputs.src }}", "output.txt")}
 """)
 
             original_cwd = os.getcwd()
@@ -539,13 +540,13 @@ tasks:
 
             # Create recipe with lowercase input name
             recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
+            recipe_file.write_text(f"""
 tasks:
   build:
     inputs:
       - src: "file.txt"
     outputs: [output.txt]
-    cmd: cat {{ self.inputs.SRC }} > output.txt
+    cmd: {crossplatform_copy_file("{{ self.inputs.SRC }}", "output.txt")}
 """)
 
             original_cwd = os.getcwd()
@@ -603,7 +604,10 @@ tasks:
     outputs:
       - dest: output.txt
     cmd: cat {{ self.inputs.src }} > {{ self.outputs.dest }}
-""")
+""".replace(
+                "cat {{ self.inputs.src }} > {{ self.outputs.dest }}",
+                crossplatform_copy_file("{{ self.inputs.src }}", "{{ self.outputs.dest }}"),
+            ))
 
             original_cwd = os.getcwd()
             try:
@@ -691,7 +695,10 @@ tasks:
     outputs:
       - result: "{{ var.project }}-v{{ var.version }}-output.txt"
     cmd: cat {{ self.inputs.data }} > {{ self.outputs.result }}
-""")
+""".replace(
+                "cat {{ self.inputs.data }} > {{ self.outputs.result }}",
+                crossplatform_copy_file("{{ self.inputs.data }}", "{{ self.outputs.result }}"),
+            ))
 
             original_cwd = os.getcwd()
             try:
@@ -882,7 +889,10 @@ tasks:
     outputs:
       - result: processed.txt
     cmd: cat {{ self.inputs.source }} > {{ self.outputs.result }}
-""")
+""".replace(
+                "cat {{ self.inputs.source }} > {{ self.outputs.result }}",
+                crossplatform_copy_file("{{ self.inputs.source }}", "{{ self.outputs.result }}"),
+            ))
 
             original_cwd = os.getcwd()
             try:
@@ -990,7 +1000,10 @@ tasks:
     outputs:
       - dest: output-{{ arg.mode }}.txt
     cmd: cat {{ self.inputs.src }} > {{ self.outputs.dest }}
-""")
+""".replace(
+                "cat {{ self.inputs.src }} > {{ self.outputs.dest }}",
+                crossplatform_copy_file("{{ self.inputs.src }}", "{{ self.outputs.dest }}"),
+            ))
 
             original_cwd = os.getcwd()
             try:
@@ -1212,14 +1225,14 @@ class TestSelfReferencesWithStateManagement(unittest.TestCase):
 
             # Create recipe with self-references
             recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
+            recipe_file.write_text(f"""
 tasks:
   build:
     inputs:
       - src: input.txt
     outputs:
       - dest: output.txt
-    cmd: cat {{ self.inputs.src }} > {{ self.outputs.dest }}
+    cmd: {crossplatform_copy_file("{{ self.inputs.src }}", "{{ self.outputs.dest }}")}
 """)
 
             original_cwd = os.getcwd()
@@ -1260,14 +1273,14 @@ tasks:
 
             # Create recipe
             recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
+            recipe_file.write_text(f"""
 tasks:
   process:
     inputs:
       - source: data.txt
     outputs:
       - result: processed.txt
-    cmd: cat {{ self.inputs.source }} > {{ self.outputs.result }}
+    cmd: {crossplatform_copy_file("{{ self.inputs.source }}", "{{ self.outputs.result }}")}
 """)
 
             original_cwd = os.getcwd()
@@ -1352,14 +1365,14 @@ tasks:
 
             # Create initial recipe
             recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
+            recipe_file.write_text(f"""
 tasks:
   transform:
     inputs:
       - src: input.txt
     outputs:
       - dest: output.txt
-    cmd: cat {{ self.inputs.src }} > {{ self.outputs.dest }}
+    cmd: {crossplatform_copy_file("{{ self.inputs.src }}", "{{ self.outputs.dest }}")}
 """)
 
             original_cwd = os.getcwd()
@@ -1474,7 +1487,10 @@ tasks:
     outputs:
       - archive: app.tar.gz
     cmd: tar czf {{ self.outputs.archive }} app.exe
-""")
+""".replace(
+                "cat main.o > {{ self.outputs.exe }}",
+                crossplatform_copy_file("main.o", "{{ self.outputs.exe }}"),
+            ))
 
             original_cwd = os.getcwd()
             try:
@@ -1674,7 +1690,13 @@ tasks:
     cmd: |
       cat {{ self.inputs.source }} > {{ self.outputs.0 }}
       cat {{ self.inputs.0 }} > {{ self.outputs.1 }}
-""")
+""".replace(
+                "cat {{ self.inputs.source }} > {{ self.outputs.0 }}",
+                crossplatform_copy_file("{{ self.inputs.source }}", "{{ self.outputs.0 }}"),
+            ).replace(
+                "cat {{ self.inputs.0 }} > {{ self.outputs.1 }}",
+                crossplatform_copy_file("{{ self.inputs.0 }}", "{{ self.outputs.1 }}"),
+            ))
 
             original_cwd = os.getcwd()
             try:
@@ -1717,7 +1739,10 @@ tasks:
     inputs: ["file-{{ var.version }}.txt"]
     outputs: [result.txt]
     cmd: cat {{ self.inputs.0 }} > {{ self.outputs.0 }}
-""")
+""".replace(
+                "cat {{ self.inputs.0 }} > {{ self.outputs.0 }}",
+                crossplatform_copy_file("{{ self.inputs.0 }}", "{{ self.outputs.0 }}"),
+            ))
 
             original_cwd = os.getcwd()
             try:
@@ -1745,12 +1770,12 @@ tasks:
 
             # Create recipe with out-of-bounds index
             recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
+            recipe_file.write_text(f"""
 tasks:
   build:
     inputs: ["file1.txt", "file2.txt"]
     outputs: [output.txt]
-    cmd: cat {{ self.inputs.5 }} > output.txt
+    cmd: {crossplatform_copy_file("{{ self.inputs.5 }}", "output.txt")}
 """)
 
             # Create input files
@@ -1816,11 +1841,11 @@ tasks:
 
             # Create recipe with no inputs but positional reference
             recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
+            recipe_file.write_text(f"""
 tasks:
   build:
     outputs: [output.txt]
-    cmd: cat {{ self.inputs.0 }} > output.txt
+    cmd: {crossplatform_copy_file("{{ self.inputs.0 }}", "output.txt")}
 """)
 
             original_cwd = os.getcwd()
@@ -1852,12 +1877,12 @@ tasks:
 
             # Create recipe with glob pattern accessed positionally
             recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
+            recipe_file.write_text(f"""
 tasks:
   concat:
     inputs: ["*.txt"]
     outputs: [all.txt]
-    cmd: cat {{ self.inputs.0 }} > {{ self.outputs.0 }}
+    cmd: {crossplatform_copy_file("{{ self.inputs.0 }}", "{{ self.outputs.0 }}")}
 """)
 
             original_cwd = os.getcwd()
