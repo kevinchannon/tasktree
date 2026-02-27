@@ -10,6 +10,8 @@ from tempfile import TemporaryDirectory
 
 import yaml
 
+from helpers.crossplatform import crossplatform_print
+
 from tasktree.parser import (
     CircularImportError,
     Task,
@@ -3137,13 +3139,14 @@ class TestEvalVariables(unittest.TestCase):
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text("""
+            eval_cmd = crossplatform_print("hello")
+            recipe_path.write_text(f"""
 variables:
-  greeting: { eval: "echo hello" }
+  greeting: {{ eval: "{eval_cmd}" }}
 
 tasks:
   test:
-    cmd: echo "{{ var.greeting }}"
+    cmd: echo done
 """)
 
             recipe = parse_recipe(recipe_path)
@@ -3156,9 +3159,10 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
             # echo produces output with trailing newline
-            recipe_path.write_text("""
+            eval_cmd = crossplatform_print("test")
+            recipe_path.write_text(f"""
 variables:
-  output: { eval: "echo test" }
+  output: {{ eval: "{eval_cmd}" }}
 
 tasks:
   test:
@@ -3315,11 +3319,13 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text("""
+            # crossplatform_print avoids shell-specific quoting (e.g. single
+            # quotes that cmd.exe would not strip)
+            eval_cmd = crossplatform_print("{{ var.base }}-value")
+            recipe_path.write_text(f"""
 variables:
   base: "test"
-  # Command outputs a string with variable reference
-  template: { eval: "echo '{{ var.base }}-value'" }
+  template: {{ eval: "{eval_cmd}" }}
 
 tasks:
   test:
@@ -3401,8 +3407,8 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
             # This tests that the environment resolution works
-            # We use a simple command that works in both bash and cmd
-            recipe_path.write_text("""
+            eval_cmd = crossplatform_print("test")
+            recipe_path.write_text(f"""
 runners:
   default: bash-env
   bash-env:
@@ -3410,7 +3416,7 @@ runners:
       cmd: bash
 
 variables:
-  result: { eval: "echo test" }
+  result: {{ eval: "{eval_cmd}" }}
 
 tasks:
   test:
@@ -3456,17 +3462,17 @@ tasks:
             test_file.write_text("file-value\n")
 
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text("""
-variables:
-  from_env: { env: TEST_EVAL_VAR }
-  from_file: { read: "test.txt" }
-  from_eval: { eval: "echo eval-value" }
-  combined: "{{ var.from_env }}-{{ var.from_file }}-{{ var.from_eval }}"
-
-tasks:
-  test:
-    cmd: echo done
-""")
+            eval_cmd = crossplatform_print("eval-value")
+            recipe_path.write_text(
+                "variables:\n"
+                "  from_env: { env: TEST_EVAL_VAR }\n"
+                '  from_file: { read: "test.txt" }\n'
+                f'  from_eval: {{ eval: "{eval_cmd}" }}\n'
+                '  combined: "{{ var.from_env }}-{{ var.from_file }}-{{ var.from_eval }}"\n'
+                "\ntasks:\n"
+                "  test:\n"
+                "    cmd: echo done\n"
+            )
 
             try:
                 recipe = parse_recipe(recipe_path)
