@@ -10,6 +10,7 @@ from tempfile import TemporaryDirectory
 
 from typer.testing import CliRunner
 
+from helpers.crossplatform import crossplatform_write_file
 from helpers.docker import is_docker_available
 from tasktree.cli import app
 
@@ -50,7 +51,8 @@ tasks:
     cmd: |
       python3 -m tasktree.cli child
       echo "parent output" > parent.txt
-""")
+""".replace('echo "child output" > child.txt', crossplatform_write_file("child.txt", "child output"))
+               .replace('echo "parent output" > parent.txt', crossplatform_write_file("parent.txt", "parent output")))
 
             original_cwd = os.getcwd()
             try:
@@ -102,7 +104,8 @@ tasks:
     cmd: |
       python3 -m tasktree.cli child
       echo "parent output" > parent.txt
-""")
+""".replace('echo "child output" > child.txt', crossplatform_write_file("child.txt", "child output"))
+               .replace('echo "parent output" > parent.txt', crossplatform_write_file("parent.txt", "parent output")))
 
             original_cwd = os.getcwd()
             try:
@@ -169,7 +172,10 @@ tasks:
       python3 -m tasktree.cli child2
       python3 -m tasktree.cli child3
       echo "parent done" > parent.txt
-""")
+""".replace('echo "child1" > child1.txt', crossplatform_write_file("child1.txt", "child1"))
+               .replace('echo "child2" > child2.txt', crossplatform_write_file("child2.txt", "child2"))
+               .replace('echo "child3" > child3.txt', crossplatform_write_file("child3.txt", "child3"))
+               .replace('echo "parent done" > parent.txt', crossplatform_write_file("parent.txt", "parent done")))
 
             original_cwd = os.getcwd()
             try:
@@ -228,7 +234,9 @@ tasks:
     cmd: |
       python3 -m tasktree.cli child
       echo "parent" > parent.txt
-""")
+""".replace('echo "dependency" > dep.txt', crossplatform_write_file("dep.txt", "dependency"))
+               .replace('echo "child" > child.txt', crossplatform_write_file("child.txt", "child"))
+               .replace('echo "parent" > parent.txt', crossplatform_write_file("parent.txt", "parent")))
 
             original_cwd = os.getcwd()
             try:
@@ -293,7 +301,10 @@ tasks:
     cmd: |
       python3 -m tasktree.cli b
       echo "a" > a.txt
-""")
+""".replace('echo "d" > d.txt', crossplatform_write_file("d.txt", "d"))
+               .replace('echo "c" > c.txt', crossplatform_write_file("c.txt", "c"))
+               .replace('echo "b" > b.txt', crossplatform_write_file("b.txt", "b"))
+               .replace('echo "a" > a.txt', crossplatform_write_file("a.txt", "a")))
 
             original_cwd = os.getcwd()
             try:
@@ -413,7 +424,11 @@ tasks:
     cmd: |
       python3 -m tasktree.cli b
       echo "a" > a.txt
-""")
+""".replace('echo "e" > e.txt', crossplatform_write_file("e.txt", "e"))
+               .replace('echo "d" > d.txt', crossplatform_write_file("d.txt", "d"))
+               .replace('echo "c" > c.txt', crossplatform_write_file("c.txt", "c"))
+               .replace('echo "b" > b.txt', crossplatform_write_file("b.txt", "b"))
+               .replace('echo "a" > a.txt', crossplatform_write_file("a.txt", "a")))
 
             original_cwd = os.getcwd()
             try:
