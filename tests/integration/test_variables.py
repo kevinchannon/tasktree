@@ -8,6 +8,7 @@ from tempfile import TemporaryDirectory
 from typer.testing import CliRunner
 
 from tasktree.cli import app
+from helpers.crossplatform import crossplatform_write_file
 
 
 class TestVariablesIntegration(unittest.TestCase):
@@ -38,7 +39,8 @@ tasks:
   test:
     outputs: [output.txt]
     cmd: echo "{{ var.message }}" > output.txt
-""")
+""".replace('echo "{{ var.message }}" > output.txt',
+            crossplatform_write_file("output.txt", "{{ var.message }}")))
 
             original_cwd = os.getcwd()
             try:
@@ -75,7 +77,10 @@ tasks:
     args: [app_name]
     outputs: ["deploy-{{ arg.app_name }}.log"]
     cmd: echo "Deploy {{ arg.app_name }} to {{ var.server }}:{{ var.port }}" > deploy-{{ arg.app_name }}.log
-""")
+""".replace(
+    'echo "Deploy {{ arg.app_name }} to {{ var.server }}:{{ var.port }}" > deploy-{{ arg.app_name }}.log',
+    crossplatform_write_file("deploy-{{ arg.app_name }}.log", "Deploy {{ arg.app_name }} to {{ var.server }}:{{ var.port }}"),
+))
 
             original_cwd = os.getcwd()
             try:
@@ -112,7 +117,10 @@ tasks:
   test:
     outputs: [config.txt]
     cmd: echo "port={{ var.port }} debug={{ var.debug }} timeout={{ var.timeout }}" > config.txt
-""")
+""".replace(
+    'echo "port={{ var.port }} debug={{ var.debug }} timeout={{ var.timeout }}" > config.txt',
+    crossplatform_write_file("config.txt", "port={{ var.port }} debug={{ var.debug }} timeout={{ var.timeout }}"),
+))
 
             original_cwd = os.getcwd()
             try:
@@ -235,7 +243,13 @@ tasks:
     deps: [build]
     outputs: [deploy.log]
     cmd: echo "Deploying {{ var.app_name }} v{{ var.version }}" > deploy.log
-""")
+""".replace(
+    'echo "Building {{ var.app_name }} v{{ var.version }}" > build.log',
+    crossplatform_write_file("build.log", "Building {{ var.app_name }} v{{ var.version }}"),
+).replace(
+    'echo "Deploying {{ var.app_name }} v{{ var.version }}" > deploy.log',
+    crossplatform_write_file("deploy.log", "Deploying {{ var.app_name }} v{{ var.version }}"),
+))
 
             original_cwd = os.getcwd()
             try:
@@ -378,7 +392,10 @@ tasks:
   test:
     outputs: [config.txt]
     cmd: echo "API={{ var.api_key }} DB={{ var.connection }}" > config.txt
-""")
+""".replace(
+    'echo "API={{ var.api_key }} DB={{ var.connection }}" > config.txt',
+    crossplatform_write_file("config.txt", "API={{ var.api_key }} DB={{ var.connection }}"),
+))
 
                 original_cwd = os.getcwd()
                 try:
@@ -452,7 +469,10 @@ tasks:
   test:
     outputs: [output.txt]
     cmd: echo "User is {{ env.USER }}" > output.txt
-""")
+""".replace(
+    'echo "User is {{ env.USER }}" > output.txt',
+    crossplatform_write_file("output.txt", "User is {{ env.USER }}"),
+))
 
             # Set test env var
             test_env = {"NO_COLOR": "1", "USER": "testuser"}
@@ -491,7 +511,10 @@ tasks:
     args: [app_name]
     outputs: ["deploy.log"]
     cmd: echo "Deploy {{ arg.app_name }} to {{ var.server }} as {{ env.USER }}" > deploy.log
-""")
+""".replace(
+    'echo "Deploy {{ arg.app_name }} to {{ var.server }} as {{ env.USER }}" > deploy.log',
+    crossplatform_write_file("deploy.log", "Deploy {{ arg.app_name }} to {{ var.server }} as {{ env.USER }}"),
+))
 
             test_env = {"NO_COLOR": "1", "USER": "admin"}
 
@@ -554,7 +577,10 @@ tasks:
     working_dir: "{{ env.TEST_DIR }}"
     outputs: [output.txt]
     cmd: echo "In subdir" > output.txt
-""")
+""".replace(
+    'echo "In subdir" > output.txt',
+    crossplatform_write_file("output.txt", "In subdir"),
+))
 
             test_env = {"NO_COLOR": "1", "TEST_DIR": "testdir"}
 
@@ -755,7 +781,10 @@ tasks:
   test:
     outputs: [config.txt]
     cmd: echo "Port={{ var.port }}" > config.txt
-""")
+""".replace(
+    'echo "Port={{ var.port }}" > config.txt',
+    crossplatform_write_file("config.txt", "Port={{ var.port }}"),
+))
 
             original_cwd = os.getcwd()
             try:
@@ -794,7 +823,10 @@ tasks:
   test:
     outputs: [config.txt]
     cmd: echo "Port={{ var.port }}" > config.txt
-""")
+""".replace(
+    'echo "Port={{ var.port }}" > config.txt',
+    crossplatform_write_file("config.txt", "Port={{ var.port }}"),
+))
 
                 original_cwd = os.getcwd()
                 try:
@@ -836,7 +868,10 @@ tasks:
   test:
     outputs: [output.txt]
     cmd: echo "Value=[{{ var.value }}]" > output.txt
-""")
+""".replace(
+    'echo "Value=[{{ var.value }}]" > output.txt',
+    crossplatform_write_file("output.txt", "Value=[{{ var.value }}]"),
+))
 
                 original_cwd = os.getcwd()
                 try:
@@ -917,7 +952,10 @@ tasks:
   test:
     outputs: [config.txt]
     cmd: echo "URL={{ var.url }}" > config.txt
-""")
+""".replace(
+    'echo "URL={{ var.url }}" > config.txt',
+    crossplatform_write_file("config.txt", "URL={{ var.url }}"),
+))
 
                 original_cwd = os.getcwd()
                 try:
@@ -960,7 +998,10 @@ tasks:
   test:
     outputs: [config.txt]
     cmd: echo "Endpoint={{ var.endpoint }}" > config.txt
-""")
+""".replace(
+    'echo "Endpoint={{ var.endpoint }}" > config.txt',
+    crossplatform_write_file("config.txt", "Endpoint={{ var.endpoint }}"),
+))
 
             original_cwd = os.getcwd()
             try:
