@@ -341,12 +341,12 @@ tasks:
 
 **Shell field format:**
 
-The `shell` field accepts two forms:
+The `shell` field must be a dict. The `cmd` field inside accepts two forms:
 
-- **Bare string shorthand**: `shell: bash` — TaskTree looks up the shell name in a built-in table and fills in the correct invocation arguments automatically.
-- **Dict form**: `shell: {cmd: ..., preamble: ...}` — `cmd` is either a bare string (looked up in the table) or an explicit list of strings used verbatim.
+- **String shorthand**: `cmd: bash` — TaskTree looks up the name in a built-in table and fills in the correct invocation arguments automatically.
+- **Explicit list**: `cmd: [/bin/bash, -c]` — The list is used verbatim as the command invocation.
 
-**Built-in shell shorthands:**
+**Built-in `cmd` shorthands:**
 
 | Shorthand | Invocation |
 |-----------|------------|
@@ -357,7 +357,7 @@ The `shell` field accepts two forms:
 | `cmd.exe` | `["cmd.exe", "/c"]` |
 | `powershell` | `["powershell", "-Command"]` |
 
-For any other shell (e.g. `python`, `/usr/local/bin/bash`), use an explicit list: `cmd: [python, -c]`. Using an unknown name as a bare string raises a configuration error at load time.
+For any other shell (e.g. `python`, `pwsh`, `/usr/local/bin/bash`), use an explicit list: `cmd: [python, -c]`. Using an unknown name as a string shorthand raises a configuration error at load time.
 
 **Runner resolution priority:**
 1. CLI override: `tt --runner python build`
