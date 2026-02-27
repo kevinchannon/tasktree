@@ -1205,7 +1205,7 @@ imports:
             (Path(tmpdir) / "build.yaml").write_text(
                 "runners:\n"
                 "  shell:\n"
-                "    shell: bash\n"
+                "    shell:\n      cmd: bash\n"
                 "tasks:\n"
                 "  compile:\n"
                 "    cmd: gcc main.c\n"
@@ -1239,7 +1239,7 @@ imports:
             (Path(tmpdir) / "build.yaml").write_text(
                 "runners:\n"
                 "  shell:\n"
-                "    shell: bash\n"
+                "    shell:\n      cmd: bash\n"
                 "tasks:\n"
                 "  compile:\n"
                 "    run_in: shell\n"
@@ -1409,9 +1409,9 @@ imports:
             (Path(tmpdir) / "build.yaml").write_text(
                 "runners:\n"
                 "  runner_a:\n"
-                "    shell: sh\n"
+                "    shell:\n      cmd: sh\n"
                 "  runner_b:\n"
-                "    shell: bash\n"
+                "    shell:\n      cmd: bash\n"
                 "tasks:\n"
                 "  task1:\n"
                 "    run_in: runner_a\n"
@@ -1447,7 +1447,7 @@ imports:
             (Path(tmpdir) / "common.yaml").write_text(
                 "runners:\n"
                 "  shell:\n"
-                "    shell: sh\n"
+                "    shell:\n      cmd: sh\n"
                 "tasks:\n"
                 "  util:\n"
                 "    cmd: echo common\n"
@@ -1495,7 +1495,7 @@ imports:
             (Path(tmpdir) / "build.yaml").write_text(
                 "runners:\n"
                 "  shell:\n"
-                "    shell: bash\n"
+                "    shell:\n      cmd: bash\n"
                 "tasks:\n"
                 "  task1:\n"
                 "    cmd: echo test\n"
@@ -2122,7 +2122,8 @@ imports:
             recipe_path.write_text("""
 runners:
   bash-strict:
-    shell: bash
+    shell:
+      cmd: bash
 """)
 
             recipe = parse_recipe(recipe_path)
@@ -2549,11 +2550,14 @@ class TestRunnerNameValidation(unittest.TestCase):
             recipe_path.write_text("""
 runners:
   my-env:
-    shell: bash
+    shell:
+      cmd: bash
   docker_python:
-    shell: sh
+    shell:
+      cmd: sh
   ENV123:
-    shell: zsh
+    shell:
+      cmd: zsh
 
 tasks:
   test:
@@ -2574,9 +2578,11 @@ tasks:
             recipe_path.write_text("""
 runners:
   🚀:
-    shell: bash
+    shell:
+      cmd: bash
   環境:
-    shell: sh
+    shell:
+      cmd: sh
 
 tasks:
   test:
@@ -2597,9 +2603,11 @@ tasks:
             recipe_path.write_text("""
 runners:
   bad.runner:
-    shell: bash
+    shell:
+      cmd: bash
   good_runner:
-    shell: sh
+    shell:
+      cmd: sh
 
 tasks:
   test:
@@ -2656,7 +2664,8 @@ tasks:
             recipe_path.write_text("""
 runners:
   bad.runner:
-    shell: bash
+    shell:
+      cmd: bash
 
 tasks:
   test:
@@ -2696,7 +2705,8 @@ tasks:
             recipe_path.write_text("""
 runners:
   my-runner:
-    shell: bash
+    shell:
+      cmd: bash
 
 tasks:
   test:
@@ -2717,7 +2727,8 @@ tasks:
             recipe_path.write_text("""
 runners:
   my-runner:
-    shell: bash
+    shell:
+      cmd: bash
 
 tasks:
   unreachable:
@@ -3395,7 +3406,8 @@ tasks:
 runners:
   default: bash-env
   bash-env:
-    shell: bash
+    shell:
+      cmd: bash
 
 variables:
   result: { eval: "echo test" }
@@ -4546,7 +4558,8 @@ tasks:
             recipe_path.write_text("""
 runners:
   docker:
-    shell: bash
+    shell:
+      cmd: bash
 
 imports:
   - file: imported.yaml
@@ -4591,7 +4604,8 @@ tasks:
             level1_path.write_text("""
 runners:
   level1_runner:
-    shell: bash
+    shell:
+      cmd: bash
 
 imports:
   - file: level2.yaml
@@ -4607,9 +4621,11 @@ tasks:
             recipe_path.write_text("""
 runners:
   root_runner:
-    shell: bash
+    shell:
+      cmd: bash
   level1_runner:
-    shell: bash
+    shell:
+      cmd: bash
 
 imports:
   - file: level1.yaml

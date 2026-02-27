@@ -229,7 +229,8 @@ runners:
   build:
     dockerfile: Dockerfile
     context: .
-    shell: bash
+    shell:
+      cmd: bash
     volumes:
       - ".:/workspace"
       - "{src_dir}:/app/src:ro"
@@ -301,7 +302,8 @@ runners:
   build:
     dockerfile: Dockerfile.build
     context: .
-    shell: bash
+    shell:
+      cmd: bash
     volumes:
       - ".:/workspace"
       - "{src_dir}:/app/src:ro"
@@ -309,7 +311,8 @@ runners:
   test:
     dockerfile: Dockerfile.test
     context: .
-    shell: bash
+    shell:
+      cmd: bash
     volumes:
       - ".:/workspace"
       - "{src_dir}:/app/src:ro"
@@ -359,7 +362,8 @@ runners:
   build:
     dockerfile: Dockerfile
     context: .
-    shell: bash
+    shell:
+      cmd: bash
     volumes:
       - ".:/workspace"
       - "{src_dir}:/app/src:ro"

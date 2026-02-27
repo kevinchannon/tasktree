@@ -1710,8 +1710,7 @@ def parse_shell_config(shell_value: Any, runner_name: str) -> ShellConfig:
     Parse a shell configuration value from YAML into a ShellConfig.
 
     Accepts:
-    - A bare string (looked up in SHELL_LOOKUP; raises ValueError if unknown)
-    - A dict with 'cmd' (str or list) and optional 'preamble'
+    - A dict with 'cmd' (str shorthand or list) and optional 'preamble'
 
     Args:
     shell_value: The YAML value of the 'shell' key
@@ -1720,16 +1719,6 @@ def parse_shell_config(shell_value: Any, runner_name: str) -> ShellConfig:
     Returns:
     ShellConfig with resolved cmd list and preamble
     """
-    if isinstance(shell_value, str):
-        if shell_value not in SHELL_LOOKUP:
-            known = ", ".join(SHELL_LOOKUP)
-            raise ValueError(
-                f"Runner '{runner_name}': unknown shell '{shell_value}'. "
-                f"Known shells: {known}. "
-                f"Use shell: {{cmd: [...]}} to specify a custom shell invocation."
-            )
-        return ShellConfig(cmd=list(SHELL_LOOKUP[shell_value]))
-
     if isinstance(shell_value, dict):
         cmd_value = shell_value.get("cmd", "")
         if isinstance(cmd_value, list):
@@ -1755,8 +1744,8 @@ def parse_shell_config(shell_value: Any, runner_name: str) -> ShellConfig:
         return ShellConfig(cmd=cmd, preamble=preamble)
 
     raise ValueError(
-        f"Runner '{runner_name}': 'shell' must be a string or dict "
-        f"(with 'cmd' and optional 'preamble')"
+        f"Runner '{runner_name}': 'shell' must be a dict "
+        f"with 'cmd' (string shorthand or list) and optional 'preamble'"
     )
 
 
