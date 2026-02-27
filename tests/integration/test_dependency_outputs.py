@@ -7,6 +7,7 @@ from tempfile import TemporaryDirectory
 
 from tasktree.cli import app
 from typer.testing import CliRunner
+from helpers.crossplatform import crossplatform_write_file
 
 
 class TestDependencyOutputReferences(unittest.TestCase):
@@ -57,7 +58,8 @@ tasks:
     cmd: |
       echo "Deploying {{ dep.build.outputs.bundle }}"
       cat {{ dep.build.outputs.bundle }}
-""")
+""".replace('echo "config-data" > generated/config.txt',
+            crossplatform_write_file("generated/config.txt", "config-data")))
 
             # Run deploy task (should execute all dependencies)
             os.chdir(tmpdir)
@@ -105,7 +107,9 @@ tasks:
       echo "Packaging {{ dep.compile.outputs.binary }}"
       echo "Symbols: {{ dep.compile.outputs.symbols }}"
       cat {{ dep.compile.outputs.binary }} {{ dep.compile.outputs.symbols }}
-""")
+""".replace('echo "binary" > build/app', crossplatform_write_file("build/app", "binary"))
+               .replace('echo "debug" > build/app.debug', crossplatform_write_file("build/app.debug", "debug"))
+               .replace('echo "symbols" > build/app.sym', crossplatform_write_file("build/app.sym", "symbols")))
 
             os.chdir(tmpdir)
             result = self.runner.invoke(app, ["package"])
@@ -151,7 +155,9 @@ tasks:
     cmd: |
       echo "App uses {{ dep.middleware.outputs.lib }}"
       cat {{ dep.middleware.outputs.lib }}
-""")
+""".replace('echo "base-lib" > out/libbase.a', crossplatform_write_file("out/libbase.a", "base-lib"))
+               .replace('echo "middleware uses {{ dep.base.outputs.lib }}" > out/libmiddleware.a',
+                        crossplatform_write_file("out/libmiddleware.a", "middleware uses {{ dep.base.outputs.lib }}")))
 
             os.chdir(tmpdir)
             result = self.runner.invoke(app, ["app"])
@@ -262,7 +268,9 @@ tasks:
       echo "artifact-$ID" > dist/app-build.tar.gz
       # Verify the template was resolved correctly in cmd
       echo "Using ID from: {{ dep.generate.outputs.id_file }}" >> dist/app-build.tar.gz
-""")
+""".replace('echo "12345" > gen/build-id.txt', crossplatform_write_file("gen/build-id.txt", "12345"))
+               .replace('echo "artifact-$ID" > dist/app-build.tar.gz',
+                        crossplatform_write_file("dist/app-build.tar.gz", "artifact-$ID")))
 
             os.chdir(tmpdir)
             result = self.runner.invoke(app, ["build"])
@@ -299,7 +307,8 @@ tasks:
     cmd: |
       echo "Deploying"
       cat dist/bundle.js dist/bundle.css
-""")
+""".replace('echo "js" > dist/bundle.js', crossplatform_write_file("dist/bundle.js", "js"))
+               .replace('echo "css" > dist/bundle.css', crossplatform_write_file("dist/bundle.css", "css")))
 
             os.chdir(tmpdir)
             result = self.runner.invoke(app, ["deploy"])
