@@ -9,6 +9,7 @@ from tempfile import TemporaryDirectory
 from typer.testing import CliRunner
 
 from tasktree.cli import app
+from helpers.crossplatform import crossplatform_copy_file
 
 
 def strip_ansi_codes(text: str) -> str:
@@ -312,12 +313,13 @@ class TestForceOption(unittest.TestCase):
             input_file.write_text("initial")
 
             recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
+            copy_cmd = crossplatform_copy_file("input.txt", "output.txt")
+            recipe_file.write_text(f"""
 tasks:
   build:
     inputs: [input.txt]
     outputs: [output.txt]
-    cmd: cat input.txt > output.txt
+    cmd: {copy_cmd}
 """)
 
             original_cwd = os.getcwd()
