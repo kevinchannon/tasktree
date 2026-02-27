@@ -8,6 +8,7 @@ from tempfile import TemporaryDirectory
 from typer.testing import CliRunner
 
 from tasktree.cli import app
+from helpers.crossplatform import crossplatform_write_file
 from helpers.io import strip_ansi_codes
 
 
@@ -164,11 +165,11 @@ tasks:
 
             # Create recipe with dependencies
             recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
+            recipe_file.write_text(f"""
 tasks:
   dep:
     outputs: [dep.txt]
-    cmd: echo "dependency" > dep.txt
+    cmd: {crossplatform_write_file("dep.txt", "dependency")}
 
   main:
     deps: [dep]
