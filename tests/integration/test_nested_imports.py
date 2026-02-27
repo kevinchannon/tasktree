@@ -9,6 +9,7 @@ from tempfile import TemporaryDirectory
 from typer.testing import CliRunner
 
 from tasktree.cli import app
+from helpers.crossplatform import crossplatform_write_file
 
 
 def strip_ansi_codes(text: str) -> str:
@@ -39,15 +40,15 @@ class TestNestedImports(unittest.TestCase):
             project_root = Path(tmpdir)
 
             # Create base.yaml with a task that creates an output file
-            (project_root / "base.yaml").write_text("""
+            (project_root / "base.yaml").write_text(f"""
 tasks:
   setup:
     outputs: [base-output.txt]
-    cmd: echo base setup complete > base-output.txt
+    cmd: {crossplatform_write_file("base-output.txt", "base setup complete")}
 """)
 
             # Create common.yaml that imports base.yaml
-            (project_root / "common.yaml").write_text("""
+            (project_root / "common.yaml").write_text(f"""
 imports:
   - file: base.yaml
     as: base
@@ -56,7 +57,7 @@ tasks:
   prepare:
     deps: [base.setup]
     outputs: [common-output.txt]
-    cmd: echo common prepare complete > common-output.txt
+    cmd: {crossplatform_write_file("common-output.txt", "common prepare complete")}
 """)
 
             # Create main recipe that imports common.yaml
@@ -110,20 +111,20 @@ tasks:
             project_root = Path(tmpdir)
 
             # Level 3: Create base tasks
-            (project_root / "base.yaml").write_text("""
+            (project_root / "base.yaml").write_text(f"""
 tasks:
   init:
     outputs: [init.txt]
-    cmd: echo step 1 > init.txt
+    cmd: {crossplatform_write_file("init.txt", "step 1")}
 
   config:
     deps: [init]
     outputs: [config.txt]
-    cmd: echo step 2 > config.txt
+    cmd: {crossplatform_write_file("config.txt", "step 2")}
 """)
 
             # Level 2: Import base and add middleware tasks
-            (project_root / "middleware.yaml").write_text("""
+            (project_root / "middleware.yaml").write_text(f"""
 imports:
   - file: base.yaml
     as: base
@@ -132,17 +133,17 @@ tasks:
   setup:
     deps: [base.config]
     outputs: [setup.txt]
-    cmd: echo step 3 > setup.txt
+    cmd: {crossplatform_write_file("setup.txt", "step 3")}
 
   prepare:
     deps: [setup]
     outputs: [prepare.txt]
-    cmd: echo step 4 > prepare.txt
+    cmd: {crossplatform_write_file("prepare.txt", "step 4")}
 """)
 
             # Level 1: Import middleware and add app tasks
             recipe_path = project_root / "tasktree.yaml"
-            recipe_path.write_text("""
+            recipe_path.write_text(f"""
 imports:
   - file: middleware.yaml
     as: mid
@@ -151,12 +152,12 @@ tasks:
   build:
     deps: [mid.prepare, mid.base.config]
     outputs: [build.txt]
-    cmd: echo step 5 > build.txt
+    cmd: {crossplatform_write_file("build.txt", "step 5")}
 
   deploy:
     deps: [build]
     outputs: [deploy.txt]
-    cmd: echo step 6 > deploy.txt
+    cmd: {crossplatform_write_file("deploy.txt", "step 6")}
 """)
 
             original_cwd = os.getcwd()
@@ -206,15 +207,15 @@ tasks:
             project_root = Path(tmpdir)
 
             # Base file (D) - shared by both branches
-            (project_root / "base.yaml").write_text("""
+            (project_root / "base.yaml").write_text(f"""
 tasks:
   shared-setup:
     outputs: [base-setup.txt]
-    cmd: echo base setup > base-setup.txt
+    cmd: {crossplatform_write_file("base-setup.txt", "base setup")}
 """)
 
             # Left branch (B)
-            (project_root / "left.yaml").write_text("""
+            (project_root / "left.yaml").write_text(f"""
 imports:
   - file: base.yaml
     as: base
@@ -223,11 +224,11 @@ tasks:
   left-task:
     deps: [base.shared-setup]
     outputs: [left.txt]
-    cmd: echo left completed > left.txt
+    cmd: {crossplatform_write_file("left.txt", "left completed")}
 """)
 
             # Right branch (C)
-            (project_root / "right.yaml").write_text("""
+            (project_root / "right.yaml").write_text(f"""
 imports:
   - file: base.yaml
     as: base
@@ -236,7 +237,7 @@ tasks:
   right-task:
     deps: [base.shared-setup]
     outputs: [right.txt]
-    cmd: echo right completed > right.txt
+    cmd: {crossplatform_write_file("right.txt", "right completed")}
 """)
 
             # Main file (A) imports both branches
