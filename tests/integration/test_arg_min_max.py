@@ -9,6 +9,7 @@ from tempfile import TemporaryDirectory
 from typer.testing import CliRunner
 
 from tasktree.cli import app
+from helpers.crossplatform import crossplatform_write_file
 
 
 def strip_ansi_codes(text: str) -> str:
@@ -46,7 +47,8 @@ tasks:
       - replicas: { type: int, min: 1, max: 10 }
     outputs: [deploy.log]
     cmd: echo "replicas={{ arg.replicas }}" > deploy.log
-""")
+""".replace('echo "replicas={{ arg.replicas }}" > deploy.log',
+            crossplatform_write_file("deploy.log", "replicas={{ arg.replicas }}")))
 
             original_cwd = os.getcwd()
             try:
@@ -137,7 +139,8 @@ tasks:
       - count: { type: int, min: 1, max: 100 }
     outputs: [result.txt]
     cmd: echo "count={{ arg.count }}" > result.txt
-""")
+""".replace('echo "count={{ arg.count }}" > result.txt',
+            crossplatform_write_file("result.txt", "count={{ arg.count }}")))
 
             original_cwd = os.getcwd()
             try:
@@ -176,7 +179,8 @@ tasks:
       - timeout: { type: float, min: 0.5, max: 30.0 }
     outputs: [config.txt]
     cmd: echo "timeout={{ arg.timeout }}" > config.txt
-""")
+""".replace('echo "timeout={{ arg.timeout }}" > config.txt',
+            crossplatform_write_file("config.txt", "timeout={{ arg.timeout }}")))
 
             original_cwd = os.getcwd()
             try:
@@ -236,7 +240,8 @@ tasks:
       - port: { type: int, min: 1024 }
     outputs: [port.txt]
     cmd: echo "port={{ arg.port }}" > port.txt
-""")
+""".replace('echo "port={{ arg.port }}" > port.txt',
+            crossplatform_write_file("port.txt", "port={{ arg.port }}")))
 
             original_cwd = os.getcwd()
             try:
@@ -274,7 +279,8 @@ tasks:
       - percentage: { type: float, max: 100.0 }
     outputs: [value.txt]
     cmd: echo "percentage={{ arg.percentage }}" > value.txt
-""")
+""".replace('echo "percentage={{ arg.percentage }}" > value.txt',
+            crossplatform_write_file("value.txt", "percentage={{ arg.percentage }}")))
 
             original_cwd = os.getcwd()
             try:
@@ -312,7 +318,8 @@ tasks:
       - workers: { type: int, min: 1, max: 16, default: 4 }
     outputs: [workers.txt]
     cmd: echo "workers={{ arg.workers }}" > workers.txt
-""")
+""".replace('echo "workers={{ arg.workers }}" > workers.txt',
+            crossplatform_write_file("workers.txt", "workers={{ arg.workers }}")))
 
             original_cwd = os.getcwd()
             try:
@@ -343,7 +350,8 @@ tasks:
       - temperature: { type: int, min: -100, max: 100 }
     outputs: [temp.txt]
     cmd: echo "temperature={{ arg.temperature }}" > temp.txt
-""")
+""".replace('echo "temperature={{ arg.temperature }}" > temp.txt',
+            crossplatform_write_file("temp.txt", "temperature={{ arg.temperature }}")))
 
             original_cwd = os.getcwd()
             try:

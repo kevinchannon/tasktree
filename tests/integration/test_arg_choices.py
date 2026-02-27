@@ -9,6 +9,7 @@ from tempfile import TemporaryDirectory
 from typer.testing import CliRunner
 
 from tasktree.cli import app
+from helpers.crossplatform import crossplatform_write_file
 
 
 def strip_ansi_codes(text: str) -> str:
@@ -46,7 +47,8 @@ tasks:
       - environment: { type: str, choices: ["dev", "staging", "prod"] }
     outputs: [deploy.log]
     cmd: echo "environment={{ arg.environment }}" > deploy.log
-""")
+""".replace('echo "environment={{ arg.environment }}" > deploy.log',
+            crossplatform_write_file("deploy.log", "environment={{ arg.environment }}")))
 
             original_cwd = os.getcwd()
             try:
@@ -109,7 +111,8 @@ tasks:
       - replicas: { type: int, choices: [1, 3, 5] }
     outputs: [scale.log]
     cmd: echo "replicas={{ arg.replicas }}" > scale.log
-""")
+""".replace('echo "replicas={{ arg.replicas }}" > scale.log',
+            crossplatform_write_file("scale.log", "replicas={{ arg.replicas }}")))
 
             original_cwd = os.getcwd()
             try:
@@ -149,7 +152,8 @@ tasks:
       - region: { choices: ["us-east-1", "eu-west-1"] }
     outputs: [config.log]
     cmd: echo "region={{ arg.region }}" > config.log
-""")
+""".replace('echo "region={{ arg.region }}" > config.log',
+            crossplatform_write_file("config.log", "region={{ arg.region }}")))
 
             original_cwd = os.getcwd()
             try:
@@ -182,7 +186,8 @@ tasks:
       - environment: { choices: ["dev", "staging", "prod"], default: "dev" }
     outputs: [deploy.log]
     cmd: echo "environment={{ arg.environment }}" > deploy.log
-""")
+""".replace('echo "environment={{ arg.environment }}" > deploy.log',
+            crossplatform_write_file("deploy.log", "environment={{ arg.environment }}")))
 
             original_cwd = os.getcwd()
             try:
@@ -214,7 +219,8 @@ tasks:
       - environment: { choices: ["dev", "staging", "prod"] }
     outputs: [deploy.log]
     cmd: echo "{{ arg.app_name }} to {{ arg.environment }}" > deploy.log
-""")
+""".replace('echo "{{ arg.app_name }} to {{ arg.environment }}" > deploy.log',
+            crossplatform_write_file("deploy.log", "{{ arg.app_name }} to {{ arg.environment }}")))
 
             original_cwd = os.getcwd()
             try:
@@ -279,7 +285,8 @@ tasks:
       - region: { choices: ["us-east-1", "eu-west-1"] }
     outputs: [deploy.log]
     cmd: echo "{{ arg.environment }} in {{ arg.region }}" > deploy.log
-""")
+""".replace('echo "{{ arg.environment }} in {{ arg.region }}" > deploy.log',
+            crossplatform_write_file("deploy.log", "{{ arg.environment }} in {{ arg.region }}")))
 
             original_cwd = os.getcwd()
             try:
@@ -327,7 +334,8 @@ tasks:
       - message: { choices: ["hello world", "foo-bar", "test_123"] }
     outputs: [notify.log]
     cmd: echo "{{ arg.message }}" > notify.log
-""")
+""".replace('echo "{{ arg.message }}" > notify.log',
+            crossplatform_write_file("notify.log", "{{ arg.message }}")))
 
             original_cwd = os.getcwd()
             try:
