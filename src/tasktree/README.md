@@ -299,24 +299,27 @@ tasks:
 
 ### Execution Runners
 
-Configure custom shell runners for task execution. Use the `preamble` field to add initialization code to all commands:
+Configure custom shell runners for task execution. Use the `preamble` field inside `shell` to add initialization code to all commands:
 
 ```yaml
 runners:
   default: bash-strict
 
   bash-strict:
-    shell: bash
-    preamble: |               # Prepended to all commands
-      set -euo pipefail
+    shell:
+      cmd: bash
+      preamble: |             # Prepended to all commands
+        set -euo pipefail
 
   python:
-    shell: python
+    shell:
+      cmd: [python, -c]       # python is not a known shorthand; use explicit cmd list
 
   powershell:
-    shell: powershell
-    preamble: |
-      $ErrorActionPreference = 'Stop'
+    shell:
+      cmd: powershell
+      preamble: |
+        $ErrorActionPreference = 'Stop'
 
 tasks:
   build:
@@ -335,6 +338,26 @@ tasks:
     cmd: |
       Compress-Archive -Path dist/* -DestinationPath package.zip
 ```
+
+**Shell field format:**
+
+The `shell` field accepts two forms:
+
+- **Bare string shorthand**: `shell: bash` — TaskTree looks up the shell name in a built-in table and fills in the correct invocation arguments automatically.
+- **Dict form**: `shell: {cmd: ..., preamble: ...}` — `cmd` is either a bare string (looked up in the table) or an explicit list of strings used verbatim.
+
+**Built-in shell shorthands:**
+
+| Shorthand | Invocation |
+|-----------|------------|
+| `bash` | `["bash", "-c"]` |
+| `sh` | `["sh", "-c"]` |
+| `zsh` | `["zsh", "-c"]` |
+| `fish` | `["fish", "-c"]` |
+| `cmd.exe` | `["cmd.exe", "/c"]` |
+| `powershell` | `["powershell", "-Command"]` |
+
+For any other shell (e.g. `python`, `/usr/local/bin/bash`), use an explicit list: `cmd: [python, -c]`. Using an unknown name as a bare string raises a configuration error at load time.
 
 **Runner resolution priority:**
 1. CLI override: `tt --runner python build`
@@ -357,29 +380,32 @@ Default runner settings can be configured outside of task files using configurat
 ```yaml
 runners:
   default:
-    shell: bash
-    preamble: |
-      set -euo pipefail
+    shell:
+      cmd: bash
+      preamble: |
+        set -euo pipefail
 ```
 
 **2. User-level config** (`~/.config/tasktree/config.yml` on Linux/macOS, `%APPDATA%\tasktree\config.yml` on Windows)
 ```yaml
 runners:
   default:
-    shell: zsh
-    preamble: |
-      # User-specific shell initialization
-      export PATH="$HOME/.local/bin:$PATH"
+    shell:
+      cmd: zsh
+      preamble: |
+        # User-specific shell initialization
+        export PATH="$HOME/.local/bin:$PATH"
 ```
 
 **3. Machine-level config** (`/etc/tasktree/config.yml` on Linux/macOS, `C:\ProgramData\tasktree\config.yml` on Windows)
 ```yaml
 runners:
   default:
-    shell: bash
-    preamble: |
-      # System-wide shell configuration
-      set -euo pipefail
+    shell:
+      cmd: bash
+      preamble: |
+        # System-wide shell configuration
+        set -euo pipefail
 ```
 
 **Key points:**
@@ -404,8 +430,9 @@ runners:
 $ sudo tee /etc/tasktree/config.yml > /dev/null << 'EOF'
 runners:
   default:
-    shell: bash
-    preamble: set -euo pipefail
+    shell:
+      cmd: bash
+      preamble: set -euo pipefail
 EOF
 
 # User prefers zsh for their work
@@ -413,7 +440,8 @@ $ mkdir -p ~/.config/tasktree
 $ cat > ~/.config/tasktree/config.yml << 'EOF'
 runners:
   default:
-    shell: zsh
+    shell:
+      cmd: zsh
 EOF
 
 # Project requires specific Python environment
@@ -573,17 +601,17 @@ runners:
   powershell-builder:
     dockerfile: Dockerfile.windows
     context: .
-    shell: powershell  # or pwsh - uses .ps1 extension, no shebang
+    shell: powershell  # uses .ps1 extension, no shebang
 ```
 
 **Script Execution Details:**
 
 When a task runs in a Docker container:
 1. Task Tree creates a temporary script file on the host
-2. The script extension is determined from the `shell` field:
+2. The script extension is determined from the shell executable (the first element of `shell.cmd`):
    - `bash`, `sh`, `zsh`, etc. → `.sh` (with `#!/usr/bin/env {shell}` shebang)
    - `cmd.exe`, `cmd` → `.bat` (no shebang)
-   - `powershell`, `pwsh` → `.ps1` (no shebang)
+   - `powershell` → `.ps1` (no shebang)
 3. The script is mounted into the container at a unique path (e.g., `/tmp/tt-script-{uuid}.sh`)
 4. The container executes the script using the specified shell
 5. The script is automatically cleaned up after execution
@@ -1620,7 +1648,8 @@ runners:
   build:
     dockerfile: Dockerfile
     context: .
-    shell: /bin/bash
+    shell:
+      cmd: [/bin/bash, -c]
 
 tasks:
   compile:
@@ -1648,8 +1677,9 @@ runners:
     context: .
 
   lint:
-    shell: /bin/sh
-    preamble: "set -e"
+    shell:
+      cmd: [/bin/sh, -c]
+      preamble: "set -e"
 
 tasks:
   check-code:
@@ -2254,9 +2284,11 @@ Only runners referenced by pinned tasks are imported from the file. This prevent
 # build.yaml
 runners:
   native:
-    shell: /bin/bash
+    shell:
+      cmd: [/bin/bash, -c]
   cross-compile:
-    shell: /bin/bash
+    shell:
+      cmd: [/bin/bash, -c]
 
 tasks:
   compile:
