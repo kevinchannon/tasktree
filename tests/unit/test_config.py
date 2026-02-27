@@ -188,8 +188,7 @@ class TestParseConfigFile(unittest.TestCase):
             config_path.write_text(
                 """runners:
   default:
-    shell:
-      cmd: bash
+    shell: bash
 """
             )
             with self.assertRaises(Exception):
