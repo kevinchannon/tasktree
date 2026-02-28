@@ -1,0 +1,12 @@
+tasks:
+  build:
+    args:
+      - mode: { type: str, choices: [ "debug", "release" ] }
+    cmd: "echo build_mode={{ arg.mode }}"
+
+  test:
+    deps:
+      - build: [ "{{ arg.env }}" ]
+    args:
+      - env: { type: str, choices: [ "debug", "release" ] }
+    cmd: "echo test_env={{ arg.env }}"

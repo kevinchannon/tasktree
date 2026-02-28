@@ -1,0 +1,10 @@
+tasks:
+  compile:
+    args: [ "mode", "arch" ]
+    cmd: "echo compile_mode={{ arg.mode }}_arch={{ arg.arch }}"
+
+  test:
+    deps:
+      - compile: [ "{{ arg.build_mode }}", "{{ arg.architecture }}" ]
+    args: [ "build_mode", "architecture" ]
+    cmd: "echo test_done"

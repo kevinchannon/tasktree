@@ -1,0 +1,10 @@
+tasks:
+  build:
+    args: [ "mode" ]
+    cmd: "echo build_mode={{ arg.mode }}"
+
+  test:
+    deps:
+      - build: [ "{{ arg.undefined_arg }}" ]
+    args: [ "env" ]
+    cmd: "echo test"
