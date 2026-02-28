@@ -1,0 +1,10 @@
+imports:
+  - file: left.yaml
+    as: left
+  - file: right.yaml
+    as: right
+
+tasks:
+  main:
+    deps: [left.left-task, right.right-task]
+    cmd: echo main completed

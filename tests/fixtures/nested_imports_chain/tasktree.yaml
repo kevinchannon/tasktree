@@ -1,0 +1,14 @@
+imports:
+  - file: middleware.yaml
+    as: mid
+
+tasks:
+  build:
+    deps: [mid.prepare, mid.base.config]
+    outputs: [build.txt]
+    cmd: echo step 5 > build.txt
+
+  deploy:
+    deps: [build]
+    outputs: [deploy.txt]
+    cmd: echo step 6 > deploy.txt

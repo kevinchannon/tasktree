@@ -1,0 +1,4 @@
+tasks:
+  shared-setup:
+    outputs: [base-setup.txt]
+    cmd: echo base setup > base-setup.txt

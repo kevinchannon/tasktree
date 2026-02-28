@@ -9,6 +9,7 @@ from tempfile import TemporaryDirectory
 from typer.testing import CliRunner
 
 from tasktree.cli import app
+from tests.fixture_utils import copy_fixture_files
 
 
 def strip_ansi_codes(text: str) -> str:
@@ -38,39 +39,7 @@ class TestNestedImports(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create base.yaml with a task that creates an output file
-            (project_root / "base.yaml").write_text("""
-tasks:
-  setup:
-    outputs: [base-output.txt]
-    cmd: echo base setup complete > base-output.txt
-""")
-
-            # Create common.yaml that imports base.yaml
-            (project_root / "common.yaml").write_text("""
-imports:
-  - file: base.yaml
-    as: base
-
-tasks:
-  prepare:
-    deps: [base.setup]
-    outputs: [common-output.txt]
-    cmd: echo common prepare complete > common-output.txt
-""")
-
-            # Create main recipe that imports common.yaml
-            recipe_path = project_root / "tasktree.yaml"
-            recipe_path.write_text("""
-imports:
-  - file: common.yaml
-    as: common
-
-tasks:
-  main:
-    deps: [common.prepare, common.base.setup]
-    cmd: echo main task complete
-""")
+            copy_fixture_files("nested_imports_basic", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -109,55 +78,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Level 3: Create base tasks
-            (project_root / "base.yaml").write_text("""
-tasks:
-  init:
-    outputs: [init.txt]
-    cmd: echo step 1 > init.txt
-
-  config:
-    deps: [init]
-    outputs: [config.txt]
-    cmd: echo step 2 > config.txt
-""")
-
-            # Level 2: Import base and add middleware tasks
-            (project_root / "middleware.yaml").write_text("""
-imports:
-  - file: base.yaml
-    as: base
-
-tasks:
-  setup:
-    deps: [base.config]
-    outputs: [setup.txt]
-    cmd: echo step 3 > setup.txt
-
-  prepare:
-    deps: [setup]
-    outputs: [prepare.txt]
-    cmd: echo step 4 > prepare.txt
-""")
-
-            # Level 1: Import middleware and add app tasks
-            recipe_path = project_root / "tasktree.yaml"
-            recipe_path.write_text("""
-imports:
-  - file: middleware.yaml
-    as: mid
-
-tasks:
-  build:
-    deps: [mid.prepare, mid.base.config]
-    outputs: [build.txt]
-    cmd: echo step 5 > build.txt
-
-  deploy:
-    deps: [build]
-    outputs: [deploy.txt]
-    cmd: echo step 6 > deploy.txt
-""")
+            copy_fixture_files("nested_imports_chain", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -205,54 +126,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Base file (D) - shared by both branches
-            (project_root / "base.yaml").write_text("""
-tasks:
-  shared-setup:
-    outputs: [base-setup.txt]
-    cmd: echo base setup > base-setup.txt
-""")
-
-            # Left branch (B)
-            (project_root / "left.yaml").write_text("""
-imports:
-  - file: base.yaml
-    as: base
-
-tasks:
-  left-task:
-    deps: [base.shared-setup]
-    outputs: [left.txt]
-    cmd: echo left completed > left.txt
-""")
-
-            # Right branch (C)
-            (project_root / "right.yaml").write_text("""
-imports:
-  - file: base.yaml
-    as: base
-
-tasks:
-  right-task:
-    deps: [base.shared-setup]
-    outputs: [right.txt]
-    cmd: echo right completed > right.txt
-""")
-
-            # Main file (A) imports both branches
-            recipe_path = project_root / "tasktree.yaml"
-            recipe_path.write_text("""
-imports:
-  - file: left.yaml
-    as: left
-  - file: right.yaml
-    as: right
-
-tasks:
-  main:
-    deps: [left.left-task, right.right-task]
-    cmd: echo main completed
-""")
+            copy_fixture_files("nested_imports_diamond", project_root)
 
             original_cwd = os.getcwd()
             try:

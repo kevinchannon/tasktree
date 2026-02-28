@@ -1,0 +1,13 @@
+runners:
+  test-runner:
+    dockerfile: docker/Dockerfile
+    context: .
+    volumes:
+      - "{{ env.TEST_MOUNT_PATH }}:/workspace"
+    env_vars:
+      ENV_VAR_VALUE: "{{ env.TEST_ENV_VALUE }}"
+
+tasks:
+  docker-test:
+    run_in: test-runner
+    cmd: echo "Testing env vars in docker"

@@ -1,0 +1,6 @@
+tasks:
+  test-multiline:
+    cmd: |
+      PROJECT={{ tt.project_root }}
+      TASK={{ tt.task_name }}
+      echo "$PROJECT/$TASK" > {{ tt.project_root }}/multiline.txt

@@ -1,0 +1,8 @@
+imports:
+  - file: common.yaml
+    as: common
+
+tasks:
+  main:
+    deps: [common.prepare, common.base.setup]
+    cmd: echo main task complete

@@ -1,0 +1,9 @@
+imports:
+  - file: base.yaml
+    as: base
+
+tasks:
+  right-task:
+    deps: [base.shared-setup]
+    outputs: [right.txt]
+    cmd: echo right completed > right.txt

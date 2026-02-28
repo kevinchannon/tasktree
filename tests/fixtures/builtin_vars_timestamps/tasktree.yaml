@@ -1,0 +1,9 @@
+tasks:
+  test-timestamp:
+    cmd: |
+      echo "{{ tt.timestamp }}" > {{ tt.project_root }}/timestamps.txt
+      sleep 0.1
+      echo "{{ tt.timestamp }}" >> {{ tt.project_root }}/timestamps.txt
+      echo "{{ tt.timestamp_unix }}" >> {{ tt.project_root }}/timestamps.txt
+      sleep 0.1
+      echo "{{ tt.timestamp_unix }}" >> {{ tt.project_root }}/timestamps.txt
