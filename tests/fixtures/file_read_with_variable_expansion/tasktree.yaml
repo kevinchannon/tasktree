@@ -1,0 +1,8 @@
+variables:
+  environment: "prod"
+  server_name: { read: config.txt }
+
+tasks:
+  test:
+    outputs: [result.txt]
+    cmd: 'echo "{{ var.server_name }}" > result.txt'

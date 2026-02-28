@@ -1,0 +1,6 @@
+variables:
+  recursive: "value {{ var.recursive }}"
+
+tasks:
+  test:
+    cmd: 'echo test {{ var.recursive }}'

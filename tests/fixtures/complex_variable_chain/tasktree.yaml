@@ -1,0 +1,13 @@
+variables:
+  protocol: "https"
+  domain: "api.example.com"
+  base_url: "{{ var.protocol }}://{{ var.domain }}"
+  users_endpoint: "{{ var.base_url }}/users"
+  posts_endpoint: "{{ var.base_url }}/posts"
+
+tasks:
+  test:
+    outputs: [endpoints.txt]
+    cmd: |
+      echo "{{ var.users_endpoint }}" > endpoints.txt
+      echo "{{ var.posts_endpoint }}" >> endpoints.txt

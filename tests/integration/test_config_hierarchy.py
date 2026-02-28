@@ -20,6 +20,7 @@ from unittest.mock import patch
 from typer.testing import CliRunner
 
 from tasktree.cli import app
+from tests.fixture_utils import copy_fixture_files
 
 
 def strip_ansi_codes(text: str) -> str:
@@ -51,13 +52,7 @@ runners:
       preamble: echo "PROJECT CONFIG"
 """)
 
-            # Create tasktree.yaml
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  test:
-    cmd: echo "Hello from test"
-""")
+            copy_fixture_files("config_hierarchy_project_overrides_platform", project_root)
 
             # Run task and verify project config was used
             original_cwd = os.getcwd()
@@ -87,20 +82,7 @@ runners:
       preamble: echo "PROJECT CONFIG"
 """)
 
-            # Create tasktree.yaml with different default runner
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-runners:
-  default: custom
-  custom:
-    shell:
-      cmd: [bash, -c]
-      preamble: echo "RECIPE DEFAULT"
-
-tasks:
-  test:
-    cmd: echo "Hello"
-""")
+            copy_fixture_files("config_hierarchy_recipe_default_overrides_project", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -130,26 +112,7 @@ runners:
       preamble: echo "PROJECT CONFIG"
 """)
 
-            # Create tasktree.yaml with task-specific runner
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-runners:
-  default: custom
-  custom:
-    shell:
-      cmd: [bash, -c]
-      preamble: echo "RECIPE DEFAULT"
-
-  task-specific:
-    shell:
-      cmd: [bash, -c]
-      preamble: echo "TASK SPECIFIC"
-
-tasks:
-  test:
-    run_in: task-specific
-    cmd: echo "Hello"
-""")
+            copy_fixture_files("config_hierarchy_task_run_in_overrides_all", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -180,31 +143,7 @@ runners:
       preamble: echo "PROJECT CONFIG"
 """)
 
-            # Create tasktree.yaml with task-specific runner and recipe default
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-runners:
-  default: recipe-default
-  recipe-default:
-    shell:
-      cmd: [bash, -c]
-      preamble: echo "RECIPE DEFAULT"
-
-  task-specific:
-    shell:
-      cmd: [bash, -c]
-      preamble: echo "TASK SPECIFIC"
-
-  cli-override:
-    shell:
-      cmd: [bash, -c]
-      preamble: echo "CLI OVERRIDE"
-
-tasks:
-  test:
-    run_in: task-specific
-    cmd: echo "Hello"
-""")
+            copy_fixture_files("config_hierarchy_cli_runner_overrides_everything", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -231,13 +170,7 @@ tasks:
             config_file = project_root / ".tasktree-config.yml"
             config_file.write_text("")
 
-            # Create tasktree.yaml
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  test:
-    cmd: echo "Hello"
-""")
+            copy_fixture_files("config_hierarchy_simple_task", project_root)
 
             # Should not crash, should use platform default
             original_cwd = os.getcwd()
@@ -270,13 +203,7 @@ runners:
 """)
             mock_user_config.return_value = user_config_file
 
-            # Create tasktree.yaml (no project config, no recipe default)
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  test:
-    cmd: echo "Hello"
-""")
+            copy_fixture_files("config_hierarchy_simple_task", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -319,13 +246,7 @@ runners:
       preamble: echo "PROJECT CONFIG"
 """)
 
-            # Create tasktree.yaml
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  test:
-    cmd: echo "Hello"
-""")
+            copy_fixture_files("config_hierarchy_simple_task", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -383,13 +304,7 @@ runners:
       preamble: echo "PROJECT CONFIG"
 """)
 
-            # Create tasktree.yaml
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  test:
-    cmd: echo "Hello"
-""")
+            copy_fixture_files("config_hierarchy_simple_task", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -420,17 +335,8 @@ runners:
       preamble: echo "PROJECT CONFIG"
 """)
 
-            # Create nested directory structure
+            copy_fixture_files("config_hierarchy_discovery_walks_up_tree", project_root)
             nested_dir = project_root / "subdir" / "nested"
-            nested_dir.mkdir(parents=True)
-
-            # Create tasktree.yaml in nested directory
-            recipe_file = nested_dir / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  test:
-    cmd: echo "Hello"
-""")
 
             # Run from nested directory
             original_cwd = os.getcwd()
@@ -463,13 +369,7 @@ runners:
       cmd: bash
 """)
 
-            # Create tasktree.yaml
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  test:
-    cmd: echo "Hello"
-""")
+            copy_fixture_files("config_hierarchy_invalid_config", project_root)
 
             # Should not crash, should fall back to platform default
             original_cwd = os.getcwd()
@@ -496,13 +396,7 @@ tasks:
 some_other_key: value
 """)
 
-            # Create tasktree.yaml
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  test:
-    cmd: echo "Hello"
-""")
+            copy_fixture_files("config_hierarchy_no_runners_key", project_root)
 
             # Should not crash, should use platform default
             original_cwd = os.getcwd()

@@ -1,0 +1,8 @@
+variables:
+  base_url: "https://api.example.com"
+  endpoint: { env: TEST_OVERRIDE, default: "{{ var.base_url }}/users" }
+
+tasks:
+  test:
+    outputs: [config.txt]
+    cmd: echo "Endpoint={{ var.endpoint }}" > config.txt

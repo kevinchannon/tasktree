@@ -1,0 +1,13 @@
+variables:
+  version: "1.2.3"
+  app_name: "myapp"
+
+tasks:
+  build:
+    outputs: [build.log]
+    cmd: echo "Building {{ var.app_name }} v{{ var.version }}" > build.log
+
+  deploy:
+    deps: [build]
+    outputs: [deploy.log]
+    cmd: echo "Deploying {{ var.app_name }} v{{ var.version }}" > deploy.log
