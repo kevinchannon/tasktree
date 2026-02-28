@@ -1,0 +1,10 @@
+imports:
+  - file: left.yaml
+    as: left
+  - file: right.yaml
+    as: right
+
+tasks:
+  all:
+    deps: [left.run, right.run]
+    cmd: echo all done

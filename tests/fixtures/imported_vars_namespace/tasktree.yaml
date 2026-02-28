@@ -1,0 +1,7 @@
+imports:
+  - file: config.yaml
+    as: cfg
+
+tasks:
+  show_version:
+    cmd: echo version is {{ var.cfg.version }}

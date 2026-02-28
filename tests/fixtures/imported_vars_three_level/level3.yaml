@@ -1,0 +1,13 @@
+variables:
+  greeting: hello from level3
+
+runners:
+  shell:
+    shell:
+      cmd: sh
+
+tasks:
+  greet:
+    run_in: shell
+    pin_runner: true
+    cmd: echo {{ var.greeting }}

@@ -1,0 +1,10 @@
+tasks:
+  failing-child:
+    cmd: exit 1
+
+  parent:
+    outputs: [parent.txt]
+    cmd: |
+      set -e
+      python3 -m tasktree.cli failing-child
+      echo "should not reach here" > parent.txt

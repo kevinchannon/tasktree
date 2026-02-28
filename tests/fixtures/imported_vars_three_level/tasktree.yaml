@@ -1,0 +1,8 @@
+imports:
+  - file: level2.yaml
+    as: l2
+
+tasks:
+  all:
+    deps: [l2.wrapper]
+    cmd: echo all done

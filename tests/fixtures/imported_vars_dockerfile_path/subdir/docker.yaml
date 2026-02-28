@@ -1,0 +1,10 @@
+runners:
+  docker_runner:
+    dockerfile: Dockerfile
+    context: .
+
+tasks:
+  docker_task:
+    run_in: docker_runner
+    pin_runner: true
+    cmd: echo 'Running in Docker'

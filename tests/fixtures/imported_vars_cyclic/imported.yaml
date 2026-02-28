@@ -1,0 +1,6 @@
+variables:
+  imported_var: '{{ var.root_var }}'
+
+tasks:
+  imported_task:
+    cmd: echo {{ var.imported_var }}

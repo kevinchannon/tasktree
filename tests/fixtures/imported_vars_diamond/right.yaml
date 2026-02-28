@@ -1,0 +1,8 @@
+imports:
+  - file: base.yaml
+    as: base
+
+tasks:
+  run:
+    deps: [base.hello]
+    cmd: echo right done

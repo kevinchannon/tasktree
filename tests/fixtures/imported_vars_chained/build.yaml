@@ -1,0 +1,7 @@
+variables:
+  base_dir: /opt
+  install_dir: "{{ var.base_dir }}/myapp"
+
+tasks:
+  install:
+    cmd: echo installing to {{ var.install_dir }}

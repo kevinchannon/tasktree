@@ -1,0 +1,8 @@
+imports:
+  - file: subdir/docker.yaml
+    as: docker
+
+tasks:
+  main:
+    deps: [docker.docker_task]
+    cmd: echo 'Main task done'

@@ -1,0 +1,15 @@
+tasks:
+  dep:
+    outputs: [dep.txt]
+    cmd: echo "dependency" > dep.txt
+
+  child:
+    deps: [dep]
+    outputs: [child.txt]
+    cmd: echo "child" > child.txt
+
+  parent:
+    outputs: [parent.txt]
+    cmd: |
+      python3 -m tasktree.cli child
+      echo "parent" > parent.txt

@@ -1,0 +1,11 @@
+imports:
+  - file: imported.yaml
+    as: imp
+
+variables:
+  root_var: '{{ var.imp.imported_var }}'
+
+tasks:
+  root_task:
+    deps: [imp.imported_task]
+    cmd: echo {{ var.root_var }}
