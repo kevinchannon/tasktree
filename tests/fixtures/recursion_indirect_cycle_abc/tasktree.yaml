@@ -1,0 +1,18 @@
+tasks:
+  task-a:
+    cmd: |
+      set -e
+      echo "Task A"
+      uv run tt task-b
+
+  task-b:
+    cmd: |
+      set -e
+      echo "Task B"
+      uv run tt task-c
+
+  task-c:
+    cmd: |
+      set -e
+      echo "Task C"
+      uv run tt task-a

@@ -1,0 +1,15 @@
+tasks:
+  dep-task:
+    outputs: [outputs/dep.txt]
+    cmd: echo "Dependency" > outputs/dep.txt
+
+  parent:
+    deps: [dep-task]
+    outputs: [outputs/parent.txt]
+    cmd: |
+      echo "Parent" > outputs/parent.txt
+      tt child
+
+  child:
+    outputs: [outputs/child.txt]
+    cmd: echo "Child" > outputs/child.txt

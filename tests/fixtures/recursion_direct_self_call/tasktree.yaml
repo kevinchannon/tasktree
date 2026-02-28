@@ -1,0 +1,7 @@
+tasks:
+  self-caller:
+    cmd: |
+      set -e
+      echo "Before recursion"
+      uv run tt self-caller
+      echo "After recursion"
