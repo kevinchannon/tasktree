@@ -1,0 +1,9 @@
+tasks:
+  deploy:
+    args:
+      - environment
+      - region: { type: str, default: us-west-1 }
+      - port: { type: int, default: 8080 }
+      - debug: { type: bool, default: false }
+    outputs: [deploy.log]
+    cmd: echo "env={{ arg.environment }} region={{ arg.region }} port={{ arg.port }} debug={{ arg.debug }}" > deploy.log
