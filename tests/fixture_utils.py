@@ -6,6 +6,12 @@ Fixture directory structure:
     tests/fixtures/<name>/posix/     # POSIX-specific overrides (optional)
     tests/fixtures/<name>/windows/   # Windows-specific overrides (optional)
 
+The base directory is copied recursively to the target. Any subdirectory
+named "posix" or "windows" at the root of the fixture is treated as a
+platform override directory and is NOT copied as part of the base tree.
+After copying the base tree, the platform-specific directory (if present)
+is merged into the target, overwriting any files with matching names.
+
 Usage:
 
     from tests.fixture_utils import copy_fixture_files
@@ -15,11 +21,6 @@ Usage:
     with tempfile.TemporaryDirectory() as tmpdir:
         copy_fixture_files("my_fixture", Path(tmpdir))
         # tmpdir now contains all fixture files for the current platform
-
-Platform resolution:
-    1. All files (non-recursively) from tests/fixtures/<name>/ are copied.
-    2. If tests/fixtures/<name>/posix/ or tests/fixtures/<name>/windows/ exists,
-       those files are copied too, overwriting any with the same name.
 """
 
 import sys
@@ -27,6 +28,8 @@ import shutil
 from pathlib import Path
 
 FIXTURES = Path(__file__).parent / "fixtures"
+
+_PLATFORM_DIRS = frozenset({"posix", "windows"})
 
 
 def _current_platform() -> str:
@@ -36,9 +39,10 @@ def _current_platform() -> str:
 def copy_fixture_files(name: str, target_dir: Path) -> None:
     """Copy fixture files for <name> to target_dir.
 
-    Copies all non-directory files from tests/fixtures/<name>/ to target_dir,
-    then copies platform-specific files from tests/fixtures/<name>/<platform>/,
-    overwriting any existing files with the same name.
+    Recursively copies everything from tests/fixtures/<name>/ to target_dir,
+    skipping the platform override subdirectories ("posix" and "windows").
+    Then recursively copies files from tests/fixtures/<name>/<platform>/
+    into target_dir, overwriting any existing files with the same relative path.
 
     Args:
         name: The fixture directory name under tests/fixtures/
@@ -56,14 +60,13 @@ def copy_fixture_files(name: str, target_dir: Path) -> None:
     target_dir = Path(target_dir)
     target_dir.mkdir(parents=True, exist_ok=True)
 
-    _copy_files_only(fixture_base, target_dir)
+    shutil.copytree(
+        fixture_base,
+        target_dir,
+        ignore=shutil.ignore_patterns(*_PLATFORM_DIRS),
+        dirs_exist_ok=True,
+    )
 
     platform_dir = fixture_base / _current_platform()
     if platform_dir.exists():
-        _copy_files_only(platform_dir, target_dir)
-
-
-def _copy_files_only(src_dir: Path, target_dir: Path) -> None:
-    for item in src_dir.iterdir():
-        if item.is_file():
-            shutil.copy2(item, target_dir / item.name)
+        shutil.copytree(platform_dir, target_dir, dirs_exist_ok=True)

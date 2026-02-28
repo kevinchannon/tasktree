@@ -67,17 +67,16 @@ class TestCopyFixtureFiles(unittest.TestCase):
         self.assertTrue((self.target / "a.yaml").exists())
         self.assertTrue((self.target / "b.yaml").exists())
 
-    def test_subdirectories_are_not_copied(self):
+    def test_subdirectory_structure_is_recursively_copied(self):
         fixture_dir = self.fixtures_root / "my_fixture"
-        subdir = fixture_dir / "some_subdir"
+        subdir = fixture_dir / "config"
         subdir.mkdir(parents=True)
-        (subdir / "nested.yaml").write_text("nested")
+        (subdir / "tasks.yaml").write_text("tasks: {}")
 
         with patch("tests.fixture_utils.FIXTURES", self.fixtures_root):
             copy_fixture_files("my_fixture", self.target)
 
-        self.assertFalse((self.target / "some_subdir").exists())
-        self.assertFalse((self.target / "nested.yaml").exists())
+        self.assertTrue((self.target / "config" / "tasks.yaml").exists())
 
     # ------------------------------------------------------------------
     # Target directory creation
@@ -93,6 +92,34 @@ class TestCopyFixtureFiles(unittest.TestCase):
             copy_fixture_files("my_fixture", non_existent)
 
         self.assertTrue(non_existent.exists())
+
+    # ------------------------------------------------------------------
+    # Platform override directories excluded from base copy
+    # ------------------------------------------------------------------
+
+    def test_posix_dir_not_copied_as_subdirectory(self):
+        fixture_dir = self.fixtures_root / "my_fixture"
+        posix_dir = fixture_dir / "posix"
+        posix_dir.mkdir(parents=True)
+        (posix_dir / "recipe.yaml").write_text("posix content")
+
+        with patch("tests.fixture_utils.FIXTURES", self.fixtures_root):
+            with patch("tests.fixture_utils._current_platform", return_value="windows"):
+                copy_fixture_files("my_fixture", self.target)
+
+        self.assertFalse((self.target / "posix").exists())
+
+    def test_windows_dir_not_copied_as_subdirectory(self):
+        fixture_dir = self.fixtures_root / "my_fixture"
+        windows_dir = fixture_dir / "windows"
+        windows_dir.mkdir(parents=True)
+        (windows_dir / "recipe.yaml").write_text("windows content")
+
+        with patch("tests.fixture_utils.FIXTURES", self.fixtures_root):
+            with patch("tests.fixture_utils._current_platform", return_value="posix"):
+                copy_fixture_files("my_fixture", self.target)
+
+        self.assertFalse((self.target / "windows").exists())
 
     # ------------------------------------------------------------------
     # Platform-specific overrides
