@@ -1,0 +1,9 @@
+tasks:
+  public-task:
+    desc: This is public
+    cmd: echo public
+
+  private-task:
+    private: true
+    desc: This is private
+    cmd: echo private

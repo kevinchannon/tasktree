@@ -1,0 +1,6 @@
+tasks:
+  private-with-args:
+    private: true
+    args:
+      - mode
+    cmd: echo "mode is {{ arg.mode }}"

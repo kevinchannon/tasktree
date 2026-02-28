@@ -1,0 +1,17 @@
+tasks:
+  task1:
+    cmd: echo 1
+
+  task2:
+    private: true
+    cmd: echo 2
+
+  task3:
+    cmd: echo 3
+
+  task4:
+    private: true
+    cmd: echo 4
+
+  task5:
+    cmd: echo 5

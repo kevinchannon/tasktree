@@ -1,0 +1,7 @@
+imports:
+  - file: base.tasks
+    as: base
+
+tasks:
+  root:
+    cmd: echo root

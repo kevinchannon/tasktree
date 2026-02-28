@@ -1,0 +1,19 @@
+tasks:
+  setup:
+    outputs: [setup.log]
+    cmd: echo setup > setup.log
+
+  build:
+    deps: [setup]
+    outputs: [build.log]
+    cmd: echo build > build.log
+
+  test:
+    deps: [setup]
+    outputs: [test.log]
+    cmd: echo test > test.log
+
+  deploy:
+    deps: [build, test]
+    outputs: [deploy.log]
+    cmd: echo deploy > deploy.log

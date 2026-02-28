@@ -1,0 +1,8 @@
+tasks:
+  helper:
+    private: true
+    cmd: echo "helper" > output.txt
+
+  main:
+    deps: [helper]
+    cmd: echo "main" >> output.txt

@@ -1,0 +1,4 @@
+tasks:
+  private-task:
+    private: true
+    cmd: echo "private executed"
