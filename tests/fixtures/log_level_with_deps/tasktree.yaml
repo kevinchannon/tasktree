@@ -1,0 +1,8 @@
+tasks:
+  dep:
+    outputs: [dep.txt]
+    cmd: echo "dependency" > dep.txt
+
+  main:
+    deps: [dep]
+    cmd: echo "main task"

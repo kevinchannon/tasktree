@@ -1,0 +1,4 @@
+tasks:
+  simple:
+    desc: A simple task
+    cmd: echo "Task running"
