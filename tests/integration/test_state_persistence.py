@@ -10,6 +10,7 @@ from tempfile import TemporaryDirectory
 from typer.testing import CliRunner
 
 from tasktree.cli import app
+from tests.fixture_utils import copy_fixture_files
 
 
 def strip_ansi_codes(text: str) -> str:
@@ -39,19 +40,9 @@ class TestStatePersistence(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create input file
+            copy_fixture_files("state_persistence_with_inputs", project_root)
             input_file = project_root / "input.txt"
             input_file.write_text("initial content")
-
-            # Create recipe
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  build:
-    inputs: [input.txt]
-    outputs: [output.txt]
-    cmd: echo "built" > output.txt
-""")
 
             original_cwd = os.getcwd()
             try:
@@ -98,15 +89,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create recipe with task that takes arguments
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  deploy:
-    args: [environment]
-    outputs: ["deploy-{{ arg.environment }}.log"]
-    cmd: echo "Deployed to {{ arg.environment }}" > deploy-{{ arg.environment }}.log
-""")
+            copy_fixture_files("state_persistence_args_cached", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -144,14 +127,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create recipe
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  build:
-    outputs: [output.txt]
-    cmd: echo "built" > output.txt
-""")
+            copy_fixture_files("state_clean_enables_fresh_run", project_root)
 
             original_cwd = os.getcwd()
             try:

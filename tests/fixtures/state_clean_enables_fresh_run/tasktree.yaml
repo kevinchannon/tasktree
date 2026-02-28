@@ -1,0 +1,4 @@
+tasks:
+  build:
+    outputs: [output.txt]
+    cmd: echo "built" > output.txt
