@@ -1,0 +1,6 @@
+tasks:
+  set_temp:
+    args:
+      - temperature: { type: int, min: -100, max: 100 }
+    outputs: [temp.txt]
+    cmd: echo "temperature={{ arg.temperature }}" > temp.txt

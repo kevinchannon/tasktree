@@ -1,0 +1,6 @@
+tasks:
+  start:
+    args:
+      - port: { type: int, min: 1024 }
+    outputs: [port.txt]
+    cmd: echo "port={{ arg.port }}" > port.txt

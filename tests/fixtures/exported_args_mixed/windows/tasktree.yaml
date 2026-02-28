@@ -1,0 +1,6 @@
+tasks:
+  deploy:
+    args:
+      - $server
+      - port: { default: 8080 }
+    cmd: echo Server %server% Port {{ arg.port }}

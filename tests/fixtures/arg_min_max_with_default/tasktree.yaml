@@ -1,0 +1,6 @@
+tasks:
+  start:
+    args:
+      - workers: { type: int, min: 1, max: 16, default: 4 }
+    outputs: [workers.txt]
+    cmd: echo "workers={{ arg.workers }}" > workers.txt

@@ -1,0 +1,6 @@
+tasks:
+  test:
+    args:
+      - $server
+      - $user: { default: admin }
+    cmd: echo "$server $user"

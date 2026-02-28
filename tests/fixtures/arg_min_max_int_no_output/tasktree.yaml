@@ -1,0 +1,5 @@
+tasks:
+  deploy:
+    args:
+      - replicas: { type: int, min: 1, max: 10 }
+    cmd: echo "replicas={{ arg.replicas }}"

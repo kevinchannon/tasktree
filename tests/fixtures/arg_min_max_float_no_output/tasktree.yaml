@@ -1,0 +1,5 @@
+tasks:
+  configure:
+    args:
+      - timeout: { type: float, min: 0.5, max: 30.0 }
+    cmd: echo "timeout={{ arg.timeout }}"

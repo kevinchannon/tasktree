@@ -9,6 +9,7 @@ from tempfile import TemporaryDirectory
 from typer.testing import CliRunner
 
 from tasktree.cli import app
+from tests.fixture_utils import copy_fixture_files
 
 
 def strip_ansi_codes(text: str) -> str:
@@ -38,15 +39,7 @@ class TestArgMinMax(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  deploy:
-    args:
-      - replicas: { type: int, min: 1, max: 10 }
-    outputs: [deploy.log]
-    cmd: echo "replicas={{ arg.replicas }}" > deploy.log
-""")
+            copy_fixture_files("arg_min_max_int_with_output", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -71,14 +64,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  deploy:
-    args:
-      - replicas: { type: int, min: 1, max: 10 }
-    cmd: echo "replicas={{ arg.replicas }}"
-""")
+            copy_fixture_files("arg_min_max_int_no_output", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -100,14 +86,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  deploy:
-    args:
-      - replicas: { type: int, min: 1, max: 10 }
-    cmd: echo "replicas={{ arg.replicas }}"
-""")
+            copy_fixture_files("arg_min_max_int_no_output", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -129,15 +108,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  deploy:
-    args:
-      - count: { type: int, min: 1, max: 100 }
-    outputs: [result.txt]
-    cmd: echo "count={{ arg.count }}" > result.txt
-""")
+            copy_fixture_files("arg_min_max_int_boundaries", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -168,15 +139,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  configure:
-    args:
-      - timeout: { type: float, min: 0.5, max: 30.0 }
-    outputs: [config.txt]
-    cmd: echo "timeout={{ arg.timeout }}" > config.txt
-""")
+            copy_fixture_files("arg_min_max_float_with_output", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -199,14 +162,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  configure:
-    args:
-      - timeout: { type: float, min: 0.5, max: 30.0 }
-    cmd: echo "timeout={{ arg.timeout }}"
-""")
+            copy_fixture_files("arg_min_max_float_no_output", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -228,15 +184,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  start:
-    args:
-      - port: { type: int, min: 1024 }
-    outputs: [port.txt]
-    cmd: echo "port={{ arg.port }}" > port.txt
-""")
+            copy_fixture_files("arg_min_max_min_only", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -266,15 +214,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  set:
-    args:
-      - percentage: { type: float, max: 100.0 }
-    outputs: [value.txt]
-    cmd: echo "percentage={{ arg.percentage }}" > value.txt
-""")
+            copy_fixture_files("arg_min_max_max_only", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -304,15 +244,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  start:
-    args:
-      - workers: { type: int, min: 1, max: 16, default: 4 }
-    outputs: [workers.txt]
-    cmd: echo "workers={{ arg.workers }}" > workers.txt
-""")
+            copy_fixture_files("arg_min_max_with_default", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -335,15 +267,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  set_temp:
-    args:
-      - temperature: { type: int, min: -100, max: 100 }
-    outputs: [temp.txt]
-    cmd: echo "temperature={{ arg.temperature }}" > temp.txt
-""")
+            copy_fixture_files("arg_min_max_negative", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -366,14 +290,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  bad:
-    args:
-      - value: { type: int, min: 100, max: 1 }
-    cmd: echo "value={{ arg.value }}"
-""")
+            copy_fixture_files("arg_min_max_invalid_config", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -396,14 +313,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  bad:
-    args:
-      - name: { type: str, min: 1, max: 10 }
-    cmd: echo "name={{ arg.name }}"
-""")
+            copy_fixture_files("arg_min_max_non_numeric", project_root)
 
             original_cwd = os.getcwd()
             try:

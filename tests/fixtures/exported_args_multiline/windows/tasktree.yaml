@@ -1,0 +1,7 @@
+tasks:
+  deploy:
+    args: [$app, $server]
+    cmd: |
+      echo Deploying %app%
+      echo To server: %server%
+      echo Done

@@ -1,0 +1,6 @@
+tasks:
+  test:
+    args: [$Server, $server]
+    cmd: |
+      echo "Server: $Server"
+      echo "server: $server"
