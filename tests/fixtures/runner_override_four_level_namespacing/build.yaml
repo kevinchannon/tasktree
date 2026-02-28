@@ -1,0 +1,7 @@
+imports:
+  - file: common.yaml
+    as: common
+tasks:
+  build_task:
+    deps: [common.common_task]
+    cmd: echo 'build'

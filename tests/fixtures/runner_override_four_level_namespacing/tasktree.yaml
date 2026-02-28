@@ -1,0 +1,7 @@
+imports:
+  - file: build.yaml
+    as: build
+tasks:
+  all:
+    deps: [build.build_task]
+    cmd: echo 'all'

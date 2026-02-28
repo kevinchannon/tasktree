@@ -1,0 +1,12 @@
+runners:
+  docker:
+    shell:
+      cmd: bash
+imports:
+  - file: build.yaml
+    as: build
+    run_in: docker
+tasks:
+  all:
+    deps: [build.normal, build.special]
+    cmd: echo 'done'

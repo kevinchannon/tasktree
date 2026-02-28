@@ -1,0 +1,9 @@
+runners:
+  util_runner:
+    shell:
+      cmd: sh
+tasks:
+  helper:
+    cmd: echo 'common helper'
+    run_in: util_runner
+    pin_runner: true

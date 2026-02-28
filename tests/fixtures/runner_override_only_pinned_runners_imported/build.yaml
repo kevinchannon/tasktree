@@ -1,0 +1,17 @@
+runners:
+  runner_a:
+    shell:
+      cmd: sh
+  runner_b:
+    shell:
+      cmd: bash
+  runner_c:
+    shell:
+      cmd: zsh
+tasks:
+  task1:
+    cmd: echo 'task1'
+    run_in: runner_a
+    pin_runner: true
+  task2:
+    cmd: echo 'task2'

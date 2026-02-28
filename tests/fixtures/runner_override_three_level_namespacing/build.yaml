@@ -1,0 +1,7 @@
+imports:
+  - file: common.yaml
+    as: common
+tasks:
+  compile:
+    deps: [common.helper]
+    cmd: echo 'compiling'

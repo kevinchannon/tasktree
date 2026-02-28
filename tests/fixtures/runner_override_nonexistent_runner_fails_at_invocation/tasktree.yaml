@@ -1,0 +1,12 @@
+runners:
+  default_runner:
+    shell:
+      cmd: bash
+    default: true
+imports:
+  - file: build.yaml
+    as: build
+tasks:
+  root:
+    deps: [build.good_task]
+    cmd: echo 'done'

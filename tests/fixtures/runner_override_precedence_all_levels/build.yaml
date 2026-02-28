@@ -1,0 +1,11 @@
+runners:
+  pinned_runner:
+    shell:
+      cmd: sh
+tasks:
+  pinned_task:
+    cmd: echo 'pinned'
+    run_in: pinned_runner
+    pin_runner: true
+  blanket_task:
+    cmd: echo 'blanket'

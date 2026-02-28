@@ -1,0 +1,14 @@
+runners:
+  default: default_runner
+  default_runner:
+    shell:
+      cmd: bash
+  task_runner:
+    shell:
+      cmd: sh
+tasks:
+  task_with_runner:
+    cmd: echo 'task with runner'
+    run_in: task_runner
+  task_without_runner:
+    cmd: echo 'task without runner'

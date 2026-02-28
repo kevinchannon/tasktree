@@ -1,0 +1,9 @@
+runners:
+  my_runner:
+    shell:
+      cmd: sh
+tasks:
+  compile:
+    cmd: echo 'compiling'
+    run_in: my_runner
+    pin_runner: true
