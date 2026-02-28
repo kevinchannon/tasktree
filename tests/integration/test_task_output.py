@@ -12,6 +12,7 @@ from typer.testing import CliRunner
 
 from helpers.logging import logger_stub
 from tasktree.cli import app
+from tests.fixture_utils import copy_fixture_files
 from tasktree.executor import Executor, ExecutionError
 from tasktree.parser import parse_recipe
 from tasktree.process_runner import TaskOutputTypes, make_process_runner
@@ -37,12 +38,7 @@ class TestTaskOutputOption(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  test:
-    cmd: echo "Hello from task"
-""")
+            copy_fixture_files("task_output_test_task", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -74,12 +70,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  build:
-    cmd: echo "Building"
-""")
+            copy_fixture_files("task_output_build_task", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -102,12 +93,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  test:
-    cmd: echo "Testing"
-""")
+            copy_fixture_files("task_output_test_task", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -144,13 +130,8 @@ class TestStdoutOnlyProcessRunnerIntegration(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create a recipe with a task that outputs to both stdout and stderr
+            copy_fixture_files("task_output_stdout_stderr", project_root)
             recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  test:
-    cmd: python3 -c "import sys; print('stdout output'); sys.stderr.write('stderr output\\n')"
-""")
 
             # Parse the recipe
             recipe = parse_recipe(recipe_file)
@@ -202,13 +183,8 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create a recipe with a failing task
+            copy_fixture_files("task_output_failing", project_root)
             recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  fail:
-    cmd: python3 -c "import sys; print('before failure'); sys.exit(1)"
-""")
 
             # Parse the recipe
             recipe = parse_recipe(recipe_file)
@@ -242,13 +218,8 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create a recipe with a quick task
+            copy_fixture_files("task_output_quick", project_root)
             recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  quick:
-    cmd: python3 -c "print('quick task')"
-""")
 
             # Parse the recipe
             recipe = parse_recipe(recipe_file)

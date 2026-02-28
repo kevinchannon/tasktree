@@ -1,0 +1,3 @@
+tasks:
+  test:
+    cmd: python3 -c "import sys; print('stdout output'); sys.stderr.write('stderr output\n')"
