@@ -1,0 +1,7 @@
+tasks:
+  deploy:
+    args:
+      - app_name: { type: str }
+      - environment: { choices: ["dev", "staging", "prod"] }
+    outputs: [deploy.log]
+    cmd: echo "{{ arg.app_name }} to {{ arg.environment }}" > deploy.log

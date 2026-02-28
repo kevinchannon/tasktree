@@ -1,0 +1,6 @@
+tasks:
+  notify:
+    args:
+      - message: { choices: ["hello world", "foo-bar", "test_123"] }
+    outputs: [notify.log]
+    cmd: echo "{{ arg.message }}" > notify.log

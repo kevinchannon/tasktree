@@ -1,0 +1,6 @@
+tasks:
+  scale:
+    args:
+      - replicas: { type: int, choices: [1, 3, 5] }
+    outputs: [scale.log]
+    cmd: echo "replicas={{ arg.replicas }}" > scale.log

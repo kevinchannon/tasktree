@@ -1,0 +1,7 @@
+tasks:
+  deploy:
+    args:
+      - environment: { choices: ["dev", "staging", "prod"] }
+      - region: { choices: ["us-east-1", "eu-west-1"] }
+    outputs: [deploy.log]
+    cmd: echo "{{ arg.environment }} in {{ arg.region }}" > deploy.log
