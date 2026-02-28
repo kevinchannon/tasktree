@@ -1,0 +1,17 @@
+tasks:
+  compile:
+    args:
+      - target
+    outputs:
+      - "compiled-{{arg.target}}.o"
+    cmd: echo "Compiling for {{arg.target}}" > compiled-{{arg.target}}.o
+
+  link:
+    deps:
+      - compile: [x86]
+      - compile: [arm]
+    outputs:
+      - linked.bin
+    cmd: |
+      echo "Linking all targets" > linked.bin
+      cat compiled-x86.o compiled-arm.o >> linked.bin

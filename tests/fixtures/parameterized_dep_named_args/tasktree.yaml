@@ -1,0 +1,16 @@
+tasks:
+  generate:
+    args:
+      - format: { default: "json" }
+      - pretty: { type: bool, default: false }
+    outputs:
+      - "data.{{arg.format}}"
+    cmd: echo "{{arg.format}},pretty={{arg.pretty}}" > data.{{arg.format}}
+
+  process:
+    deps:
+      - generate:
+          format: xml
+          pretty: true
+    outputs: [processed.log]
+    cmd: echo "Processing XML" > processed.log
