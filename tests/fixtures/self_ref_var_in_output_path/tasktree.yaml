@@ -1,0 +1,8 @@
+variables:
+  build_dir: "dist"
+
+tasks:
+  generate:
+    outputs:
+      - artifact: "{{ var.build_dir }}/result.txt"
+    cmd: echo "Generated" > {{ self.outputs.artifact }}

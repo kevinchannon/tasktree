@@ -1,0 +1,8 @@
+tasks:
+  deploy:
+    args: [environment]
+    inputs:
+      - config: configs/{{ arg.environment }}/app.yaml
+    outputs:
+      - deployed: deployed-{{ arg.environment }}.yaml
+    cmd: cp {{ self.inputs.config }} {{ self.outputs.deployed }}

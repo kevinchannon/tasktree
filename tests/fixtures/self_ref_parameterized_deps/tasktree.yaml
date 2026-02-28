@@ -1,0 +1,17 @@
+tasks:
+  compile:
+    args: [platform]
+    outputs:
+      - binary: bin-{{ arg.platform }}.exe
+    cmd: echo "binary for {{ arg.platform }}" > {{ self.outputs.binary }}
+
+  package:
+    args: [platform]
+    deps:
+      - compile:
+          platform: "{{ arg.platform }}"
+    inputs:
+      - installer: package.nsi
+    outputs:
+      - setup: setup-{{ arg.platform }}.exe
+    cmd: cat {{ self.inputs.installer }} {{ dep.compile.outputs.binary }} > {{ self.outputs.setup }}

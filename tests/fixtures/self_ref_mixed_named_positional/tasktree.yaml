@@ -1,0 +1,11 @@
+tasks:
+  process:
+    inputs:
+      - config: named.txt
+      - anon.txt
+    outputs:
+      - result: output.txt
+      - debug.log
+    cmd: |
+      cat {{ self.inputs.config }} {{ self.inputs.1 }} > {{ self.outputs.result }}
+      echo "Processed" > {{ self.outputs.1 }}

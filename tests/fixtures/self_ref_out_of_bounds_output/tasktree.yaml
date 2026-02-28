@@ -1,0 +1,4 @@
+tasks:
+  generate:
+    outputs: [output.txt]
+    cmd: echo "test" > {{ self.outputs.3 }}

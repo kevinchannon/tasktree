@@ -1,0 +1,5 @@
+tasks:
+  generate:
+    outputs:
+      - artifact: build.txt
+    cmd: echo "Build output" > {{ self.outputs.artifact }}

@@ -1,0 +1,4 @@
+tasks:
+  build:
+    outputs: [output.txt]
+    cmd: cat {{ self.inputs.0 }} > output.txt

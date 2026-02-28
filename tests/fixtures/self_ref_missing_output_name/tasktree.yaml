@@ -1,0 +1,6 @@
+tasks:
+  deploy:
+    outputs:
+      - bundle: dist/app.js
+      - sourcemap: dist/app.js.map
+    cmd: cat {{ self.outputs.missing }}
