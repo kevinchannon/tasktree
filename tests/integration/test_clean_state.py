@@ -9,6 +9,7 @@ from tempfile import TemporaryDirectory
 from typer.testing import CliRunner
 
 from tasktree.cli import app
+from tests.fixture_utils import copy_fixture_files
 
 
 def strip_ansi_codes(text: str) -> str:
@@ -37,16 +38,7 @@ class TestCleanState(unittest.TestCase):
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            # Create a tasktree.yaml
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  build:
-    desc: Build task
-    outputs: [output.txt]
-    cmd: echo "building" > output.txt
-""")
+            copy_fixture_files("clean_removes_state_file", project_root)
 
             # Run a task to create state file
             original_cwd = os.getcwd()
@@ -74,15 +66,7 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            # Create a tasktree.yaml
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  build:
-    desc: Build task
-    cmd: echo "building"
-""")
+            copy_fixture_files("clean_when_no_state_file", project_root)
 
             # State file doesn't exist yet
             state_file = project_root / ".tasktree-state"
