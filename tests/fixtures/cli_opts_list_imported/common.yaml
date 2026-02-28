@@ -1,0 +1,9 @@
+imports:
+  - file: base.yaml
+    as: base
+
+tasks:
+  prepare:
+    desc: Prepare common resources
+    deps: [base.setup]
+    cmd: echo "Preparing common"

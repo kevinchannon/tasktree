@@ -1,0 +1,3 @@
+tasks:
+  test:
+    cmd: echo "Testing"

@@ -1,0 +1,9 @@
+tasks:
+  show:
+    desc: User task named 'show'
+    cmd: echo "Running user's show task"
+
+  build:
+    desc: Build task
+    outputs: [output.txt]
+    cmd: echo "building" > output.txt

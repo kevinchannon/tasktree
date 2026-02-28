@@ -1,0 +1,4 @@
+tasks:
+  build:
+    desc: Build with yml
+    cmd: echo "Building from yml"

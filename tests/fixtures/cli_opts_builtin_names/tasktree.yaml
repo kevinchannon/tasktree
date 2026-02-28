@@ -1,0 +1,16 @@
+tasks:
+  show:
+    desc: User task named 'show'
+    cmd: echo "Running user's show task"
+
+  tree:
+    desc: User task named 'tree'
+    cmd: echo "Running user's tree task"
+
+  init:
+    desc: User task named 'init'
+    cmd: echo "Running user's init task"
+
+  list:
+    desc: User task named 'list'
+    cmd: echo "Running user's list task"

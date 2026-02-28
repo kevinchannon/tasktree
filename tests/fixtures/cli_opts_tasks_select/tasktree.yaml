@@ -1,0 +1,3 @@
+tasks:
+  yaml-task:
+    cmd: echo "From yaml"

@@ -1,0 +1,8 @@
+tasks:
+  setup:
+    desc: Setup base infrastructure
+    cmd: echo "Setting up base"
+
+  configure:
+    desc: Configure base settings
+    cmd: echo "Configuring base"

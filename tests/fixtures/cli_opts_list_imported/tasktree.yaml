@@ -1,0 +1,14 @@
+imports:
+  - file: common.yaml
+    as: common
+
+tasks:
+  build:
+    desc: Build the project
+    deps: [common.prepare]
+    cmd: echo "Building project"
+
+  test:
+    desc: Run tests
+    deps: [build]
+    cmd: echo "Running tests"
