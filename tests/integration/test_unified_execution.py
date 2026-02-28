@@ -8,6 +8,7 @@ from tempfile import TemporaryDirectory
 from typer.testing import CliRunner
 
 from tasktree.cli import app
+from tests.fixture_utils import copy_fixture_files
 
 
 class TestUnifiedExecution(unittest.TestCase):
@@ -31,31 +32,18 @@ class TestUnifiedExecution(unittest.TestCase):
             original_cwd = os.getcwd()
 
             try:
-                # Change to project directory
                 os.chdir(project_root)
+                copy_fixture_files("unified_exec_single_line", project_root)
 
-                # Create output file path
-                output_file = project_root / "output.txt"
-
-                # Create recipe with single-line command
-                recipe_file = project_root / "tasktree.yaml"
-                recipe_file.write_text(f"""
-tasks:
-  test-single:
-    cmd: echo "Hello World" > {output_file}
-""")
-
-                # Run task
                 result = self.runner.invoke(app, ["test-single"], env=self.env)
 
-                # Verify execution succeeded
                 self.assertEqual(
                     result.exit_code,
                     0,
                     f"Command failed: {result.stdout}\n{result.stderr}",
                 )
 
-                # Verify output file was created
+                output_file = project_root / "output.txt"
                 self.assertTrue(output_file.exists(), "Output file was not created")
                 self.assertIn("Hello World", output_file.read_text())
             finally:
@@ -70,33 +58,18 @@ tasks:
             original_cwd = os.getcwd()
 
             try:
-                # Change to project directory
                 os.chdir(project_root)
+                copy_fixture_files("unified_exec_multiline", project_root)
 
-                # Create output file path
-                output_file = project_root / "output.txt"
-
-                # Create recipe with multi-line command
-                recipe_file = project_root / "tasktree.yaml"
-                recipe_file.write_text(f"""
-tasks:
-  test-multi:
-    cmd: |
-      echo "Line 1" > {output_file}
-      echo "Line 2" >> {output_file}
-""")
-
-                # Run task
                 result = self.runner.invoke(app, ["test-multi"], env=self.env)
 
-                # Verify execution succeeded
                 self.assertEqual(
                     result.exit_code,
                     0,
                     f"Command failed: {result.stdout}\n{result.stderr}",
                 )
 
-                # Verify output file was created with both lines
+                output_file = project_root / "output.txt"
                 self.assertTrue(output_file.exists(), "Output file was not created")
                 content = output_file.read_text()
                 self.assertIn("Line 1", content)
@@ -113,40 +86,18 @@ tasks:
             original_cwd = os.getcwd()
 
             try:
-                # Change to project directory
                 os.chdir(project_root)
+                copy_fixture_files("unified_exec_preamble_single_line", project_root)
 
-                # Create output file path
-                output_file = project_root / "output.txt"
-
-                # Create recipe with runner that has preamble
-                recipe_file = project_root / "tasktree.yaml"
-                recipe_file.write_text(f"""
-runners:
-  strict:
-    shell:
-      cmd: [bash, -c]
-      preamble: |
-        set -e
-        export TEST_VAR="from_preamble"
-
-tasks:
-  test-preamble:
-    run_in: strict
-    cmd: echo "$TEST_VAR" > {output_file}
-""")
-
-                # Run task
                 result = self.runner.invoke(app, ["test-preamble"], env=self.env)
 
-                # Verify execution succeeded
                 self.assertEqual(
                     result.exit_code,
                     0,
                     f"Command failed: {result.stdout}\n{result.stderr}",
                 )
 
-                # Verify preamble environment variable was set
+                output_file = project_root / "output.txt"
                 self.assertTrue(output_file.exists(), "Output file was not created")
                 self.assertIn("from_preamble", output_file.read_text())
             finally:
@@ -161,43 +112,18 @@ tasks:
             original_cwd = os.getcwd()
 
             try:
-                # Change to project directory
                 os.chdir(project_root)
+                copy_fixture_files("unified_exec_preamble_multiline", project_root)
 
-                # Create output file path
-                output_file = project_root / "output.txt"
-
-                # Create recipe with runner that has preamble
-                recipe_file = project_root / "tasktree.yaml"
-                recipe_file.write_text(f"""
-runners:
-  strict:
-    shell:
-      cmd: [bash, -c]
-      preamble: |
-        set -e
-        MY_VAR="preamble_value"
-
-tasks:
-  test-multi-preamble:
-    run_in: strict
-    cmd: |
-      echo "Start" > {output_file}
-      echo "$MY_VAR" >> {output_file}
-      echo "End" >> {output_file}
-""")
-
-                # Run task
                 result = self.runner.invoke(app, ["test-multi-preamble"], env=self.env)
 
-                # Verify execution succeeded
                 self.assertEqual(
                     result.exit_code,
                     0,
                     f"Command failed: {result.stdout}\n{result.stderr}",
                 )
 
-                # Verify preamble variable was used
+                output_file = project_root / "output.txt"
                 self.assertTrue(output_file.exists(), "Output file was not created")
                 content = output_file.read_text()
                 self.assertIn("Start", content)
