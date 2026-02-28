@@ -9,6 +9,7 @@ from tempfile import TemporaryDirectory
 from typer.testing import CliRunner
 
 from tasktree.cli import app
+from tests.fixture_utils import copy_fixture_files
 
 
 def strip_ansi_codes(text: str) -> str:
@@ -38,19 +39,9 @@ class TestWorkingDirectory(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create subdirectory
+            copy_fixture_files("working_dir_task_executes_in_subdir", project_root)
             subdir = project_root / "subdir"
             subdir.mkdir()
-
-            # Create recipe with working_dir
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  build:
-    working_dir: subdir
-    outputs: [output.txt]
-    cmd: pwd > output.txt
-""")
 
             original_cwd = os.getcwd()
             try:
@@ -79,19 +70,9 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create project subdirectory
+            copy_fixture_files("working_dir_outputs_relative_to_working_dir", project_root)
             project_dir = project_root / "project"
             project_dir.mkdir()
-
-            # Create recipe
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  build:
-    working_dir: project
-    outputs: [target/bin]
-    cmd: mkdir -p target && echo binary > target/bin
-""")
 
             original_cwd = os.getcwd()
             try:
@@ -119,18 +100,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create subdirectory with tasks file
-            subdir = project_root / "config"
-            subdir.mkdir()
-
-            # Create tasks file in subdirectory
-            tasks_file = subdir / "build.tasks"
-            tasks_file.write_text("""
-tasks:
-  check-location:
-    desc: Check where we execute from
-    cmd: pwd > location.txt
-""")
+            copy_fixture_files("working_dir_invocation_dir", project_root)
 
             original_cwd = os.getcwd()
             try:
