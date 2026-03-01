@@ -1,6 +1,3 @@
 tasks:
   test-multiline:
-    cmd: |
-      PROJECT={{ tt.project_root }}
-      TASK={{ tt.task_name }}
-      echo "$PROJECT/$TASK" > {{ tt.project_root }}/multiline.txt
+    cmd: python3 -c "open('{{ tt.project_root }}/multiline.txt', 'w').write('{{ tt.project_root }}/{{ tt.task_name }}\n')"

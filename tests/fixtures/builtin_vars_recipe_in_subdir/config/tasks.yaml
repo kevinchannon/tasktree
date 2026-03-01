@@ -1,5 +1,3 @@
 tasks:
   test-recipe-dir:
-    cmd: |
-      echo "project={{ tt.project_root }}" > {{ tt.project_root }}/recipe_dir.txt
-      echo "recipe={{ tt.recipe_dir }}" >> {{ tt.project_root }}/recipe_dir.txt
+    cmd: python3 -c "open('{{ tt.project_root }}/recipe_dir.txt', 'w').write('project={{ tt.project_root }}\nrecipe={{ tt.recipe_dir }}\n')"

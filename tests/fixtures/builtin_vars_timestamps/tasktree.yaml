@@ -1,9 +1,3 @@
 tasks:
   test-timestamp:
-    cmd: |
-      echo "{{ tt.timestamp }}" > {{ tt.project_root }}/timestamps.txt
-      sleep 0.1
-      echo "{{ tt.timestamp }}" >> {{ tt.project_root }}/timestamps.txt
-      echo "{{ tt.timestamp_unix }}" >> {{ tt.project_root }}/timestamps.txt
-      sleep 0.1
-      echo "{{ tt.timestamp_unix }}" >> {{ tt.project_root }}/timestamps.txt
+    cmd: python3 -c "open('{{ tt.project_root }}/timestamps.txt', 'w').write('{{ tt.timestamp }}\n{{ tt.timestamp }}\n{{ tt.timestamp_unix }}\n{{ tt.timestamp_unix }}\n')"
