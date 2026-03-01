@@ -4,4 +4,4 @@ variables:
 tasks:
   test:
     outputs: [config.txt]
-    cmd: echo "Port={{ var.port }}" > config.txt
+    cmd: python3 -c "open('config.txt', 'w').write('Port={{ var.port }}\n')"

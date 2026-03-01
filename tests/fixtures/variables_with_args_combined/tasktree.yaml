@@ -6,4 +6,4 @@ tasks:
   deploy:
     args: [app_name]
     outputs: ["deploy-{{ arg.app_name }}.log"]
-    cmd: echo "Deploy {{ arg.app_name }} to {{ var.server }}:{{ var.port }}" > deploy-{{ arg.app_name }}.log
+    cmd: python3 -c "open('deploy-{{ arg.app_name }}.log', 'w').write('Deploy {{ arg.app_name }} to {{ var.server }}:{{ var.port }}\n')"

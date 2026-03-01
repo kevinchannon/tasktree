@@ -8,6 +8,4 @@ variables:
 tasks:
   test:
     outputs: [endpoints.txt]
-    cmd: |
-      echo "{{ var.users_endpoint }}" > endpoints.txt
-      echo "{{ var.posts_endpoint }}" >> endpoints.txt
+    cmd: python3 -c "open('endpoints.txt', 'w').write('{{ var.users_endpoint }}\n{{ var.posts_endpoint }}\n')"

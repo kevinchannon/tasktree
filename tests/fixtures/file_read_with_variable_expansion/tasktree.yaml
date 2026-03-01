@@ -5,4 +5,4 @@ variables:
 tasks:
   test:
     outputs: [result.txt]
-    cmd: 'echo "{{ var.server_name }}" > result.txt'
+    cmd: python3 -c "open('result.txt', 'w').write('{{ var.server_name }}\n')"
