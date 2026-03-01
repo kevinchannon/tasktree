@@ -111,7 +111,7 @@ class TestTaskOutputOption(unittest.TestCase):
                     )
                     self.assertIn("Task 'test' completed successfully", result.stdout)
                     # Verify task output is actually displayed
-                    self.assertIn("Testing", result.stdout)
+                    self.assertIn("Hello from task", result.stdout)
 
             finally:
                 os.chdir(original_cwd)

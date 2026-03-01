@@ -117,7 +117,7 @@ class TestWorkingDirectory(unittest.TestCase):
                 # Verify output was created in project root (where we invoked tt)
                 # NOT in config/ (where the tasks file is)
                 output_in_root = project_root / "location.txt"
-                output_in_subdir = subdir / "location.txt"
+                output_in_subdir = project_root / "config" / "location.txt"
 
                 self.assertTrue(
                     output_in_root.exists(),
