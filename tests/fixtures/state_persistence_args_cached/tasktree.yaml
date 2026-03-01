@@ -2,4 +2,4 @@ tasks:
   deploy:
     args: [environment]
     outputs: ["deploy-{{ arg.environment }}.log"]
-    cmd: echo "Deployed to {{ arg.environment }}" > deploy-{{ arg.environment }}.log
+    cmd: python3 -c "open('deploy-{{ arg.environment }}.log', 'w').write('Deployed to {{ arg.environment }}\n')"

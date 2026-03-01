@@ -2,4 +2,4 @@ tasks:
   build:
     working_dir: subdir
     outputs: [output.txt]
-    cmd: pwd > output.txt
+    cmd: python3 -c "import os; open('output.txt', 'w').write(os.getcwd() + chr(10))"

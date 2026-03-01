@@ -2,4 +2,4 @@ tasks:
   build:
     inputs: [input.txt]
     outputs: [output.txt]
-    cmd: echo "built" > output.txt
+    cmd: python3 -c "open('output.txt', 'w').write('built\n')"
