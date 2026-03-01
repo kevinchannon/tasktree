@@ -1,19 +1,19 @@
 tasks:
   setup:
     outputs: [setup.log]
-    cmd: echo setup > setup.log
+    cmd: python3 -c "open('setup.log', 'w').write('setup\n')"
 
   build:
     deps: [setup]
     outputs: [build.log]
-    cmd: echo build > build.log
+    cmd: python3 -c "open('build.log', 'w').write('build\n')"
 
   test:
     deps: [setup]
     outputs: [test.log]
-    cmd: echo test > test.log
+    cmd: python3 -c "open('test.log', 'w').write('test\n')"
 
   deploy:
     deps: [build, test]
     outputs: [deploy.log]
-    cmd: echo deploy > deploy.log
+    cmd: python3 -c "open('deploy.log', 'w').write('deploy\n')"

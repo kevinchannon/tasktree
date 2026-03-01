@@ -4,15 +4,8 @@ tasks:
       - binary: "build/app"
       - "build/app.debug"
       - symbols: "build/app.sym"
-    cmd: |
-      mkdir -p build
-      echo "binary" > build/app
-      echo "debug" > build/app.debug
-      echo "symbols" > build/app.sym
+    cmd: python3 -c "import pathlib; pathlib.Path('build').mkdir(exist_ok=True); open('build/app', 'w').write('binary\n'); open('build/app.debug', 'w').write('debug\n'); open('build/app.sym', 'w').write('symbols\n')"
 
   package:
     deps: [compile]
-    cmd: |
-      echo "Packaging {{ dep.compile.outputs.binary }}"
-      echo "Symbols: {{ dep.compile.outputs.symbols }}"
-      cat {{ dep.compile.outputs.binary }} {{ dep.compile.outputs.symbols }}
+    cmd: python3 -c "print('Packaging {{ dep.compile.outputs.binary }}'); print('Symbols: {{ dep.compile.outputs.symbols }}'); print(open('{{ dep.compile.outputs.binary }}').read(), end=''); print(open('{{ dep.compile.outputs.symbols }}').read(), end='')"

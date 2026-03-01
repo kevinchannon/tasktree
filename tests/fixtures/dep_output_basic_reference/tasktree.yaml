@@ -2,21 +2,14 @@ tasks:
   generate:
     outputs:
       - config: "generated/config.txt"
-    cmd: |
-      mkdir -p generated
-      echo "config-data" > generated/config.txt
+    cmd: python3 -c "import pathlib; pathlib.Path('generated').mkdir(exist_ok=True); open('generated/config.txt', 'w').write('config-data\n')"
 
   build:
     deps: [generate]
     outputs:
       - bundle: "dist/app.js"
-    cmd: |
-      mkdir -p dist
-      cat {{ dep.generate.outputs.config }} > dist/app.js
-      echo " bundled" >> dist/app.js
+    cmd: python3 -c "import pathlib; pathlib.Path('dist').mkdir(exist_ok=True); content=open('{{ dep.generate.outputs.config }}').read(); open('dist/app.js', 'w').write(content + ' bundled\n')"
 
   deploy:
     deps: [build]
-    cmd: |
-      echo "Deploying {{ dep.build.outputs.bundle }}"
-      cat {{ dep.build.outputs.bundle }}
+    cmd: python3 -c "print('Deploying {{ dep.build.outputs.bundle }}'); print(open('{{ dep.build.outputs.bundle }}').read(), end='')"
