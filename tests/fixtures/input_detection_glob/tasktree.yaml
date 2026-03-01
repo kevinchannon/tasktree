@@ -1,0 +1,5 @@
+tasks:
+  build:
+    inputs: [src/*.rs]
+    outputs: [output.bin]
+    cmd: echo "compiled" > output.bin

@@ -1,0 +1,6 @@
+variables:
+  missing: { read: nonexistent.txt }
+
+tasks:
+  test:
+    cmd: echo test {{ var.missing }}

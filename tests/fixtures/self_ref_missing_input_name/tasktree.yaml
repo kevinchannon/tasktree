@@ -1,0 +1,7 @@
+tasks:
+  build:
+    inputs:
+      - src: "file.txt"
+      - config: "config.json"
+    outputs: [output.txt]
+    cmd: cat {{ self.inputs.missing }} > output.txt

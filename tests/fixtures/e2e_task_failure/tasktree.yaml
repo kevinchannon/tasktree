@@ -1,0 +1,3 @@
+tasks:
+  failing-task:
+    cmd: exit 42

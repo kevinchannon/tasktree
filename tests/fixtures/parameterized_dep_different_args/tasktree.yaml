@@ -1,0 +1,22 @@
+tasks:
+  build:
+    args:
+      - mode: { default: "debug" }
+      - optimize: { type: bool, default: false }
+    outputs:
+      - "build-{{arg.mode}}.log"
+    cmd: echo "Building {{arg.mode}} optimize={{arg.optimize}}" > build-{{arg.mode}}.log
+
+  test_debug:
+    deps:
+      - build: [debug, false]
+    outputs:
+      - test-debug.log
+    cmd: echo "Testing debug build" > test-debug.log
+
+  test_release:
+    deps:
+      - build: [release, true]
+    outputs:
+      - test-release.log
+    cmd: echo "Testing release build" > test-release.log

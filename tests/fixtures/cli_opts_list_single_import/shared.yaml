@@ -1,0 +1,8 @@
+tasks:
+  lint:
+    desc: Run linter
+    cmd: echo "Linting code"
+
+  format:
+    desc: Format code
+    cmd: echo "Formatting code"

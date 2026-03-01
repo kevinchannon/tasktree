@@ -10,6 +10,7 @@ from tempfile import TemporaryDirectory
 from typer.testing import CliRunner
 
 from tasktree.cli import app
+from fixture_utils import copy_fixture_files
 
 
 def strip_ansi_codes(text: str) -> str:
@@ -39,32 +40,7 @@ class TestParameterizedDependencyExecution(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create recipe with parameterized tasks
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  build:
-    args:
-      - mode: { default: "debug" }
-      - optimize: { type: bool, default: false }
-    outputs:
-      - "build-{{arg.mode}}.log"
-    cmd: echo "Building {{arg.mode}} optimize={{arg.optimize}}" > build-{{arg.mode}}.log
-
-  test_debug:
-    deps:
-      - build: [debug, false]
-    outputs:
-      - test-debug.log
-    cmd: echo "Testing debug build" > test-debug.log
-
-  test_release:
-    deps:
-      - build: [release, true]
-    outputs:
-      - test-release.log
-    cmd: echo "Testing release build" > test-release.log
-""")
+            copy_fixture_files("parameterized_dep_different_args", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -107,27 +83,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create recipe with multiple invocations
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  compile:
-    args:
-      - target
-    outputs:
-      - "compiled-{{arg.target}}.o"
-    cmd: echo "Compiling for {{arg.target}}" > compiled-{{arg.target}}.o
-
-  link:
-    deps:
-      - compile: [x86]
-      - compile: [arm]
-    outputs:
-      - linked.bin
-    cmd: |
-      echo "Linking all targets" > linked.bin
-      cat compiled-x86.o compiled-arm.o >> linked.bin
-""")
+            copy_fixture_files("parameterized_dep_multiple_invocations", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -157,26 +113,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create recipe with named args
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  generate:
-    args:
-      - format: { default: "json" }
-      - pretty: { type: bool, default: false }
-    outputs:
-      - "data.{{arg.format}}"
-    cmd: echo "{{arg.format}},pretty={{arg.pretty}}" > data.{{arg.format}}
-
-  process:
-    deps:
-      - generate:
-          format: xml
-          pretty: true
-    outputs: [processed.log]
-    cmd: echo "Processing XML" > processed.log
-""")
+            copy_fixture_files("parameterized_dep_named_args", project_root)
 
             original_cwd = os.getcwd()
             try:

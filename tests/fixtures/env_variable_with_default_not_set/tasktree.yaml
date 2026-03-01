@@ -1,0 +1,7 @@
+variables:
+  port: { env: TEST_PORT_DEFAULT, default: "8080" }
+
+tasks:
+  test:
+    outputs: [config.txt]
+    cmd: echo "Port={{ var.port }}" > config.txt

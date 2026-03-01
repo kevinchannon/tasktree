@@ -1,0 +1,7 @@
+tasks:
+  task1:
+    desc: First task
+    cmd: echo "Task 1"
+  task2:
+    desc: Second task
+    cmd: echo "Task 2"

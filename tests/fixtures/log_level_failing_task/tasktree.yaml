@@ -1,0 +1,3 @@
+tasks:
+  failing:
+    cmd: exit 1

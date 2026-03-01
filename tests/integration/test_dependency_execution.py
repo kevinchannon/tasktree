@@ -13,6 +13,7 @@ from typer.testing import CliRunner
 
 from helpers.logging import logger_stub
 from tasktree.cli import app
+from fixture_utils import copy_fixture_files
 from tasktree.executor import Executor
 from tasktree.parser import parse_recipe
 from tasktree.process_runner import TaskOutputTypes, make_process_runner
@@ -46,24 +47,7 @@ class TestDependencyExecution(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create recipe with linear dependency chain
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  lint:
-    outputs: [lint.log]
-    cmd: echo "linting..." > lint.log
-
-  build:
-    deps: [lint]
-    outputs: [build.log]
-    cmd: echo "building..." > build.log
-
-  test:
-    deps: [build]
-    outputs: [test.log]
-    cmd: echo "testing..." > test.log
-""")
+            copy_fixture_files("dep_execution_linear_chain", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -101,29 +85,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create recipe with diamond dependency
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  setup:
-    outputs: [setup.log]
-    cmd: echo setup > setup.log
-
-  build:
-    deps: [setup]
-    outputs: [build.log]
-    cmd: echo build > build.log
-
-  test:
-    deps: [setup]
-    outputs: [test.log]
-    cmd: echo test > test.log
-
-  deploy:
-    deps: [build, test]
-    outputs: [deploy.log]
-    cmd: echo deploy > deploy.log
-""")
+            copy_fixture_files("dep_execution_diamond", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -166,24 +128,8 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create input file for gen-config
+            copy_fixture_files("dep_execution_input_triggered_rerun", project_root)
             config_input = project_root / "config.template"
-            config_input.write_text("config template")
-
-            # Create recipe
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  gen-config:
-    inputs: [config.template]
-    outputs: [config.json]
-    cmd: echo "generated config" > config.json
-
-  build:
-    deps: [gen-config]
-    outputs: [app.bin]
-    cmd: echo "built app" > app.bin
-""")
 
             original_cwd = os.getcwd()
             try:

@@ -1,0 +1,11 @@
+tasks:
+  test-vars:
+    cmd: |
+      echo "project_root={{ tt.project_root }}" > {{ tt.project_root }}/output.txt
+      echo "recipe_dir={{ tt.recipe_dir }}" >> {{ tt.project_root }}/output.txt
+      echo "task_name={{ tt.task_name }}" >> {{ tt.project_root }}/output.txt
+      echo "working_dir={{ tt.working_dir }}" >> {{ tt.project_root }}/output.txt
+      echo "timestamp={{ tt.timestamp }}" >> {{ tt.project_root }}/output.txt
+      echo "timestamp_unix={{ tt.timestamp_unix }}" >> {{ tt.project_root }}/output.txt
+      echo "user_home={{ tt.user_home }}" >> {{ tt.project_root }}/output.txt
+      echo "user_name={{ tt.user_name }}" >> {{ tt.project_root }}/output.txt

@@ -1,0 +1,9 @@
+tasks:
+  build:
+    args: [ "mode" ]
+    cmd: "echo build_mode={{ arg.mode }}"
+
+  test:
+    deps:
+      - build: [ "debug" ]
+    cmd: "echo test_done"

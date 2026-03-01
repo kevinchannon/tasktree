@@ -1,0 +1,15 @@
+runners:
+  test-runner:
+    dockerfile: docker/Dockerfile
+    context: .
+    volumes:
+      - "{{ tt.project_root }}:/workspace"
+      - "{{ tt.recipe_dir }}:/config"
+    env_vars:
+      PROJECT_PATH: "{{ tt.project_root }}"
+      TASK_NAME_VAR: "{{ tt.task_name }}"
+
+tasks:
+  docker-test:
+    run_in: test-runner
+    cmd: echo "Testing builtin vars in docker"

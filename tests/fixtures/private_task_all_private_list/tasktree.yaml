@@ -1,0 +1,8 @@
+tasks:
+  private1:
+    private: true
+    cmd: echo 1
+
+  private2:
+    private: true
+    cmd: echo 2

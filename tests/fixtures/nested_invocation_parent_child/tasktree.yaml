@@ -1,0 +1,10 @@
+tasks:
+  child:
+    outputs: [child.txt]
+    cmd: echo "child output" > child.txt
+
+  parent:
+    outputs: [parent.txt]
+    cmd: |
+      python3 -m tasktree.cli child
+      echo "parent output" > parent.txt

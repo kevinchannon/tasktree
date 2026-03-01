@@ -1,0 +1,4 @@
+tasks:
+  test:
+    args: [$server]
+    cmd: echo {{ arg.server }}

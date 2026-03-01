@@ -1,0 +1,7 @@
+imports:
+  - file: utils.yaml
+    as: utils
+tasks:
+  common_task:
+    deps: [utils.base_task]
+    cmd: echo 'common'

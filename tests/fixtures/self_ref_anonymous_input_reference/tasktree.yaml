@@ -1,0 +1,5 @@
+tasks:
+  build:
+    inputs: ["file.txt", "config.json"]
+    outputs: [output.txt]
+    cmd: cat {{ self.inputs.src }} > output.txt

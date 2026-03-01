@@ -1,0 +1,12 @@
+tasks:
+  build:
+    outputs:
+      - bundle: "dist/app.js"
+    cmd: echo "build"
+
+  other:
+    cmd: echo "other"
+
+  deploy:
+    deps: [other]
+    cmd: echo "{{ dep.build.outputs.bundle }}"

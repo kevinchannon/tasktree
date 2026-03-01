@@ -1,0 +1,4 @@
+tasks:
+  single:
+    desc: Task with single line command
+    cmd: echo "Hello world"

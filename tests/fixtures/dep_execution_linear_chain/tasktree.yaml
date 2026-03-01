@@ -1,0 +1,14 @@
+tasks:
+  lint:
+    outputs: [lint.log]
+    cmd: echo "linting..." > lint.log
+
+  build:
+    deps: [lint]
+    outputs: [build.log]
+    cmd: echo "building..." > build.log
+
+  test:
+    deps: [build]
+    outputs: [test.log]
+    cmd: echo "testing..." > test.log

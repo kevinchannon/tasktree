@@ -1,0 +1,6 @@
+tasks:
+  process:
+    inputs:
+      - src: input.txt
+    outputs: [output.txt]
+    cmd: cat {{ self.inputs.src }} > output.txt

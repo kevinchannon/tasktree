@@ -11,6 +11,7 @@ from tasktree.executor import Executor
 from tasktree.parser import parse_recipe, parse_task_args
 from tasktree.process_runner import TaskOutputTypes, make_process_runner
 from tasktree.state import StateManager
+from fixture_utils import copy_fixture_files
 
 
 class TestExportedArgs(unittest.TestCase):
@@ -22,23 +23,9 @@ class TestExportedArgs(unittest.TestCase):
         """
         Test that exported args are set as environment variables.
         """
-
-        is_windows = platform.system() == "Windows"
-        if is_windows:
-            env_check = "echo %server% %user%"
-        else:
-            env_check = 'echo "$server $user"'
-
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(f"""
-tasks:
-  test:
-    args:
-      - $server
-      - $user: {{ default: admin }}
-    cmd: {env_check}
-""")
+            copy_fixture_files("exported_args_basic", Path(tmpdir))
 
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
@@ -56,23 +43,9 @@ tasks:
         """
         Test that exported args with defaults work correctly.
         """
-
-        is_windows = platform.system() == "Windows"
-        if is_windows:
-            env_check = "echo %server% %port%"
-        else:
-            env_check = 'echo "$server $port"'
-
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(f"""
-tasks:
-  test:
-    args:
-      - $server
-      - $port: {{ default: "8080" }}
-    cmd: {env_check}
-""")
+            copy_fixture_files("exported_args_with_defaults", Path(tmpdir))
 
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
@@ -93,23 +66,9 @@ tasks:
         would not be set as environment variables if the value wasn't provided
         by the user (relying on CLI to apply the default).
         """
-
-        is_windows = platform.system() == "Windows"
-        if is_windows:
-            env_check = "echo %server% %port%"
-        else:
-            env_check = 'echo "$server $port"'
-
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(f"""
-tasks:
-  test:
-    args:
-      - $server
-      - $port: {{ default: "8080" }}
-    cmd: {env_check}
-""")
+            copy_fixture_files("exported_args_with_defaults", Path(tmpdir))
 
             # Use CLI to parse and execute (simulating real usage)
 
@@ -137,15 +96,9 @@ tasks:
         """
         Test that exported args cannot be used in template substitution.
         """
-
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text("""
-tasks:
-  test:
-    args: [$server]
-    cmd: echo {{ arg.server }}
-""")
+            copy_fixture_files("exported_args_not_substitutable", Path(tmpdir))
 
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
@@ -165,24 +118,9 @@ tasks:
         """
         Test mixing exported and regular arguments.
         """
-
-        is_windows = platform.system() == "Windows"
-        if is_windows:
-            # Windows: use both env vars and template substitution
-            cmd_line = "echo Server %server% Port {{ arg.port }}"
-        else:
-            cmd_line = "echo Server $server Port {{ arg.port }}"
-
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(f"""
-tasks:
-  deploy:
-    args:
-      - $server
-      - port: {{ default: 8080 }}
-    cmd: {cmd_line}
-""")
+            copy_fixture_files("exported_args_mixed", Path(tmpdir))
 
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
@@ -198,7 +136,6 @@ tasks:
         """
         Test that environment variable names preserve case exactly.
         """
-
         is_windows = platform.system() == "Windows"
         if is_windows:
             # Windows env vars are case-insensitive
@@ -206,14 +143,7 @@ tasks:
 
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text("""
-tasks:
-  test:
-    args: [$Server, $server]
-    cmd: |
-      echo "Server: $Server"
-      echo "server: $server"
-""")
+            copy_fixture_files("exported_args_case_preserved", Path(tmpdir))
 
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
@@ -229,21 +159,9 @@ tasks:
         """
         Test that exported args with spaces are preserved correctly.
         """
-
-        is_windows = platform.system() == "Windows"
-        if is_windows:
-            cmd = "echo %message%"
-        else:
-            cmd = 'echo "$message"'
-
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(f"""
-tasks:
-  test:
-    args: [$message]
-    cmd: {cmd}
-""")
+            copy_fixture_files("exported_args_with_spaces", Path(tmpdir))
 
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
@@ -286,29 +204,9 @@ tasks:
         """
         Test exported args work with multi-line commands.
         """
-
-        is_windows = platform.system() == "Windows"
-        if is_windows:
-            cmd = """
-      echo Deploying %app%
-      echo To server: %server%
-      echo Done
-"""
-        else:
-            cmd = """
-      echo "Deploying $app"
-      echo "To server: $server"
-      echo "Done"
-"""
-
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text(f"""
-tasks:
-  deploy:
-    args: [$app, $server]
-    cmd: |{cmd}
-""")
+            copy_fixture_files("exported_args_multiline", Path(tmpdir))
 
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)
@@ -324,13 +222,6 @@ tasks:
         """
         Test that exported args override existing environment variables.
         """
-
-        is_windows = platform.system() == "Windows"
-        if is_windows:
-            cmd = "echo %MY_VAR%"
-        else:
-            cmd = 'echo "$MY_VAR"'
-
         # Set an environment variable
         original_value = os.environ.get("MY_VAR")
         os.environ["MY_VAR"] = "original"
@@ -338,12 +229,7 @@ tasks:
         try:
             with TemporaryDirectory() as tmpdir:
                 recipe_path = Path(tmpdir) / "tasktree.yaml"
-                recipe_path.write_text(f"""
-tasks:
-  test:
-    args: [$MY_VAR]
-    cmd: {cmd}
-""")
+                copy_fixture_files("exported_args_override_env", Path(tmpdir))
 
                 recipe = parse_recipe(recipe_path)
                 state = StateManager(recipe.project_root)
@@ -366,15 +252,9 @@ tasks:
         """
         Test that attempting to override protected environment variables fails.
         """
-
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            recipe_path.write_text("""
-tasks:
-  test:
-    args: [$PATH]
-    cmd: echo "Should not execute"
-""")
+            copy_fixture_files("exported_args_protected_var", Path(tmpdir))
 
             recipe = parse_recipe(recipe_path)
             state = StateManager(recipe.project_root)

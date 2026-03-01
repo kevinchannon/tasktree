@@ -1,0 +1,3 @@
+tasks:
+  quick:
+    cmd: python3 -c "print('quick task')"

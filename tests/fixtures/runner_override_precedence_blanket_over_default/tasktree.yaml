@@ -1,0 +1,12 @@
+runners:
+  default: default_runner
+  default_runner:
+    shell:
+      cmd: bash
+  blanket_runner:
+    shell:
+      cmd: sh
+imports:
+  - file: build.yaml
+    as: build
+    run_in: blanket_runner

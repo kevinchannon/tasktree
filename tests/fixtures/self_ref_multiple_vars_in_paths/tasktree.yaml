@@ -1,0 +1,11 @@
+variables:
+  project: "myapp"
+  version: "2"
+
+tasks:
+  process:
+    inputs:
+      - data: "projects/{{ var.project }}/v{{ var.version }}/data.txt"
+    outputs:
+      - result: "{{ var.project }}-v{{ var.version }}-output.txt"
+    cmd: cat {{ self.inputs.data }} > {{ self.outputs.result }}

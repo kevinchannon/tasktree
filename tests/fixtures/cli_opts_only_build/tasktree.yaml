@@ -1,0 +1,4 @@
+tasks:
+  build:
+    outputs: [build.log]
+    cmd: echo "building" > build.log

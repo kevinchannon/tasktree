@@ -1,0 +1,8 @@
+runners:
+  blanket_runner:
+    shell:
+      cmd: bash
+imports:
+  - file: build.yaml
+    as: build
+    run_in: blanket_runner

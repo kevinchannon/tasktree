@@ -1,0 +1,12 @@
+runners:
+  strict:
+    shell:
+      cmd: [bash, -c]
+      preamble: |
+        set -e
+        export TEST_VAR="from_preamble"
+
+tasks:
+  test-preamble:
+    run_in: strict
+    cmd: echo "$TEST_VAR" > output.txt

@@ -1,0 +1,8 @@
+imports:
+  - file: shared.yaml
+    as: shared
+
+tasks:
+  build:
+    desc: Build application
+    cmd: echo "Building"

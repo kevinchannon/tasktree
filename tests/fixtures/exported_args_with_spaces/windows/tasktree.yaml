@@ -1,0 +1,4 @@
+tasks:
+  test:
+    args: [$message]
+    cmd: echo %message%

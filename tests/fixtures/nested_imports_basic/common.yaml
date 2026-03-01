@@ -1,0 +1,9 @@
+imports:
+  - file: base.yaml
+    as: base
+
+tasks:
+  prepare:
+    deps: [base.setup]
+    outputs: [common-output.txt]
+    cmd: echo common prepare complete > common-output.txt

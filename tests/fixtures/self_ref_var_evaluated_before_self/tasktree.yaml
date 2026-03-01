@@ -1,0 +1,13 @@
+variables:
+  env: "staging"
+
+tasks:
+  deploy:
+    inputs:
+      - bundle: "{{ var.env }}/app.js"
+    outputs:
+      - deployed: "{{ var.env }}/deployed.js"
+    cmd: |
+      # Command uses self-refs which should contain variable-expanded paths
+      echo "Deploying {{ self.inputs.bundle }}"
+      cp {{ self.inputs.bundle }} {{ self.outputs.deployed }}

@@ -8,6 +8,8 @@ from tempfile import TemporaryDirectory
 from tasktree.cli import app
 from typer.testing import CliRunner
 
+from fixture_utils import copy_fixture_files
+
 
 class TestDependencyOutputReferences(unittest.TestCase):
     """
@@ -31,46 +33,16 @@ class TestDependencyOutputReferences(unittest.TestCase):
         """
         with TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)
+            copy_fixture_files("dep_output_basic_reference", tmpdir)
 
-            # Create recipe with named output reference
-            recipe_path = tmpdir / "tasktree.yaml"
-            recipe_path.write_text("""
-tasks:
-  generate:
-    outputs:
-      - config: "generated/config.txt"
-    cmd: |
-      mkdir -p generated
-      echo "config-data" > generated/config.txt
-
-  build:
-    deps: [generate]
-    outputs:
-      - bundle: "dist/app.js"
-    cmd: |
-      mkdir -p dist
-      cat {{ dep.generate.outputs.config }} > dist/app.js
-      echo " bundled" >> dist/app.js
-
-  deploy:
-    deps: [build]
-    cmd: |
-      echo "Deploying {{ dep.build.outputs.bundle }}"
-      cat {{ dep.build.outputs.bundle }}
-""")
-
-            # Run deploy task (should execute all dependencies)
             os.chdir(tmpdir)
             result = self.runner.invoke(app, ["deploy"])
 
-            # Check execution succeeded
             self.assertEqual(result.exit_code, 0, result.stdout)
 
-            # Verify files were created (proof that templates resolved correctly)
             self.assertTrue((tmpdir / "generated/config.txt").exists())
             self.assertTrue((tmpdir / "dist/app.js").exists())
 
-            # Verify content (proof that dependency outputs were used correctly)
             config_content = (tmpdir / "generated/config.txt").read_text().strip()
             self.assertEqual("config-data", config_content)
 
@@ -84,40 +56,17 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)
-
-            recipe_path = tmpdir / "tasktree.yaml"
-            recipe_path.write_text("""
-tasks:
-  compile:
-    outputs:
-      - binary: "build/app"
-      - "build/app.debug"
-      - symbols: "build/app.sym"
-    cmd: |
-      mkdir -p build
-      echo "binary" > build/app
-      echo "debug" > build/app.debug
-      echo "symbols" > build/app.sym
-
-  package:
-    deps: [compile]
-    cmd: |
-      echo "Packaging {{ dep.compile.outputs.binary }}"
-      echo "Symbols: {{ dep.compile.outputs.symbols }}"
-      cat {{ dep.compile.outputs.binary }} {{ dep.compile.outputs.symbols }}
-""")
+            copy_fixture_files("dep_output_mixed_named_anonymous", tmpdir)
 
             os.chdir(tmpdir)
             result = self.runner.invoke(app, ["package"])
 
             self.assertEqual(result.exit_code, 0, result.stdout)
 
-            # Verify files were created (proof that templates resolved correctly)
             self.assertTrue((tmpdir / "build/app").exists())
             self.assertTrue((tmpdir / "build/app.debug").exists())
             self.assertTrue((tmpdir / "build/app.sym").exists())
 
-            # Verify content (proof that named outputs were accessed correctly)
             self.assertEqual("binary", (tmpdir / "build/app").read_text().strip())
             self.assertEqual("debug", (tmpdir / "build/app.debug").read_text().strip())
             self.assertEqual("symbols", (tmpdir / "build/app.sym").read_text().strip())
@@ -128,41 +77,16 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)
-
-            recipe_path = tmpdir / "tasktree.yaml"
-            recipe_path.write_text("""
-tasks:
-  base:
-    outputs:
-      - lib: "out/libbase.a"
-    cmd: |
-      mkdir -p out
-      echo "base-lib" > out/libbase.a
-
-  middleware:
-    deps: [base]
-    outputs:
-      - lib: "out/libmiddleware.a"
-    cmd: |
-      echo "middleware uses {{ dep.base.outputs.lib }}" > out/libmiddleware.a
-
-  app:
-    deps: [middleware]
-    cmd: |
-      echo "App uses {{ dep.middleware.outputs.lib }}"
-      cat {{ dep.middleware.outputs.lib }}
-""")
+            copy_fixture_files("dep_output_transitive", tmpdir)
 
             os.chdir(tmpdir)
             result = self.runner.invoke(app, ["app"])
 
             self.assertEqual(result.exit_code, 0, result.stdout)
 
-            # Verify files were created (proof that transitive templates resolved correctly)
             self.assertTrue((tmpdir / "out/libbase.a").exists())
             self.assertTrue((tmpdir / "out/libmiddleware.a").exists())
 
-            # Verify content (proof that transitive dependency outputs were used correctly)
             base_content = (tmpdir / "out/libbase.a").read_text().strip()
             self.assertEqual("base-lib", base_content)
 
@@ -175,25 +99,12 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)
-
-            recipe_path = tmpdir / "tasktree.yaml"
-            recipe_path.write_text("""
-tasks:
-  build:
-    outputs:
-      - bundle: "dist/app.js"
-    cmd: echo "build"
-
-  deploy:
-    deps: [build]
-    cmd: echo "{{ dep.build.outputs.missing }}"
-""")
+            copy_fixture_files("dep_output_error_missing_name", tmpdir)
 
             os.chdir(tmpdir)
             result = self.runner.invoke(app, ["deploy"])
 
             self.assertNotEqual(result.exit_code, 0)
-            # Error messages are in the exception, not stdout
             self.assertIsNotNone(result.exception)
             error_msg = str(result.output)
             self.assertIn("no output named 'missing'", error_msg)
@@ -206,31 +117,14 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)
-
-            recipe_path = tmpdir / "tasktree.yaml"
-            recipe_path.write_text("""
-tasks:
-  build:
-    outputs:
-      - bundle: "dist/app.js"
-    cmd: echo "build"
-
-  other:
-    cmd: echo "other"
-
-  deploy:
-    deps: [other]
-    cmd: echo "{{ dep.build.outputs.bundle }}"
-""")
+            copy_fixture_files("dep_output_error_not_in_deps", tmpdir)
 
             os.chdir(tmpdir)
             result = self.runner.invoke(app, ["deploy"])
 
             self.assertNotEqual(result.exit_code, 0)
-            # Error messages are in the exception, not stdout
             self.assertIsNotNone(result.exception)
             error_msg = str(result.output)
-            # The task isn't in resolved_tasks because it's not a dependency
             self.assertIn("unknown task", error_msg)
             self.assertIn("build", error_msg)
 
@@ -240,36 +134,13 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)
-
-            recipe_path = tmpdir / "tasktree.yaml"
-            recipe_path.write_text("""
-tasks:
-  generate:
-    outputs:
-      - id_file: "gen/build-id.txt"
-    cmd: |
-      mkdir -p gen
-      echo "12345" > gen/build-id.txt
-
-  build:
-    deps: [generate]
-    outputs:
-      - artifact: "dist/app-build.tar.gz"
-    cmd: |
-      mkdir -p dist
-      # Use dependency output in command
-      ID=$(cat {{ dep.generate.outputs.id_file }})
-      echo "artifact-$ID" > dist/app-build.tar.gz
-      # Verify the template was resolved correctly in cmd
-      echo "Using ID from: {{ dep.generate.outputs.id_file }}" >> dist/app-build.tar.gz
-""")
+            copy_fixture_files("dep_output_in_outputs_field", tmpdir)
 
             os.chdir(tmpdir)
             result = self.runner.invoke(app, ["build"])
 
             self.assertEqual(result.exit_code, 0, result.stdout)
 
-            # Verify the dependency output was used correctly in the command
             artifact = tmpdir / "dist/app-build.tar.gz"
             self.assertTrue(artifact.exists())
 
@@ -283,34 +154,16 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)
-
-            recipe_path = tmpdir / "tasktree.yaml"
-            recipe_path.write_text("""
-tasks:
-  build:
-    outputs: ["dist/bundle.js", "dist/bundle.css"]
-    cmd: |
-      mkdir -p dist
-      echo "js" > dist/bundle.js
-      echo "css" > dist/bundle.css
-
-  deploy:
-    deps: [build]
-    cmd: |
-      echo "Deploying"
-      cat dist/bundle.js dist/bundle.css
-""")
+            copy_fixture_files("dep_output_backward_compat_anonymous", tmpdir)
 
             os.chdir(tmpdir)
             result = self.runner.invoke(app, ["deploy"])
 
             self.assertEqual(result.exit_code, 0, result.stdout)
 
-            # Verify files were created (proof that anonymous outputs still work)
             self.assertTrue((tmpdir / "dist/bundle.js").exists())
             self.assertTrue((tmpdir / "dist/bundle.css").exists())
 
-            # Verify content
             self.assertEqual("js", (tmpdir / "dist/bundle.js").read_text().strip())
             self.assertEqual("css", (tmpdir / "dist/bundle.css").read_text().strip())
 

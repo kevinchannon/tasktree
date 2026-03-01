@@ -1,0 +1,5 @@
+tasks:
+  copy:
+    inputs: [input.txt]
+    outputs: [output.txt]
+    cmd: cp input.txt output.txt

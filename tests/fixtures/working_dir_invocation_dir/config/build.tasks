@@ -1,0 +1,4 @@
+tasks:
+  check-location:
+    desc: Check where we execute from
+    cmd: pwd > location.txt

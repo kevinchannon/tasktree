@@ -9,6 +9,7 @@ from tempfile import TemporaryDirectory
 from typer.testing import CliRunner
 
 from tasktree.cli import app
+from fixture_utils import copy_fixture_files
 
 
 def strip_ansi_codes(text: str) -> str:
@@ -37,18 +38,7 @@ class TestPrivateTasksExecution(unittest.TestCase):
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  public-task:
-    desc: This is public
-    cmd: echo public
-
-  private-task:
-    private: true
-    desc: This is private
-    cmd: echo private
-""")
+            copy_fixture_files("private_task_hidden_from_list", project_root)
             original_cwd = os.getcwd()
             try:
                 os.chdir(project_root)
@@ -72,13 +62,7 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  private-task:
-    private: true
-    cmd: echo "private executed"
-""")
+            copy_fixture_files("private_task_can_be_executed", project_root)
             original_cwd = os.getcwd()
             try:
                 os.chdir(project_root)
@@ -97,18 +81,8 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-            recipe_file = project_root / "tasktree.yaml"
+            copy_fixture_files("private_task_as_dependency", project_root)
             output_file = project_root / "output.txt"
-            recipe_file.write_text(f"""
-tasks:
-  helper:
-    private: true
-    cmd: echo "helper" > {output_file}
-
-  main:
-    deps: [helper]
-    cmd: echo "main" >> {output_file}
-""")
             original_cwd = os.getcwd()
             try:
                 os.chdir(project_root)
@@ -130,15 +104,7 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  private-with-args:
-    private: true
-    args:
-      - mode
-    cmd: echo "mode is {{ arg.mode }}"
-""")
+            copy_fixture_files("private_task_with_arguments", project_root)
             original_cwd = os.getcwd()
             try:
                 os.chdir(project_root)
@@ -159,26 +125,7 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  task1:
-    cmd: echo 1
-
-  task2:
-    private: true
-    cmd: echo 2
-
-  task3:
-    cmd: echo 3
-
-  task4:
-    private: true
-    cmd: echo 4
-
-  task5:
-    cmd: echo 5
-""")
+            copy_fixture_files("private_task_mixed_list", project_root)
             original_cwd = os.getcwd()
             try:
                 os.chdir(project_root)
@@ -205,30 +152,7 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            # Create base tasks file
-            base_file = project_root / "base.tasks"
-            base_file.write_text("""
-tasks:
-  helper:
-    private: true
-    cmd: echo helper
-
-  main:
-    cmd: echo main
-""")
-
-            # Create main recipe that imports base
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-imports:
-  - file: base.tasks
-    as: base
-
-tasks:
-  root:
-    cmd: echo root
-""")
+            copy_fixture_files("private_task_in_namespace", project_root)
             original_cwd = os.getcwd()
             try:
                 os.chdir(project_root)
@@ -261,17 +185,7 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  private1:
-    private: true
-    cmd: echo 1
-
-  private2:
-    private: true
-    cmd: echo 2
-""")
+            copy_fixture_files("private_task_all_private_list", project_root)
             original_cwd = os.getcwd()
             try:
                 os.chdir(project_root)

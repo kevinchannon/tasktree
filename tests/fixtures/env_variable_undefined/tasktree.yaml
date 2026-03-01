@@ -1,0 +1,6 @@
+variables:
+  missing: { env: TEST_UNDEFINED_VAR }
+
+tasks:
+  test:
+    cmd: echo "{{ var.missing }}"

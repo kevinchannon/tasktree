@@ -9,6 +9,7 @@ from tempfile import TemporaryDirectory
 from typer.testing import CliRunner
 
 from tasktree.cli import app
+from fixture_utils import copy_fixture_files
 
 
 def strip_ansi_codes(text: str) -> str:
@@ -38,15 +39,7 @@ class TestArgChoices(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  deploy:
-    args:
-      - environment: { type: str, choices: ["dev", "staging", "prod"] }
-    outputs: [deploy.log]
-    cmd: echo "environment={{ arg.environment }}" > deploy.log
-""")
+            copy_fixture_files("arg_choices_deploy_env", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -71,14 +64,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  deploy:
-    args:
-      - environment: { type: str, choices: ["dev", "staging", "prod"] }
-    cmd: echo "environment={{ arg.environment }}"
-""")
+            copy_fixture_files("arg_choices_deploy_invalid", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -101,15 +87,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  scale:
-    args:
-      - replicas: { type: int, choices: [1, 3, 5] }
-    outputs: [scale.log]
-    cmd: echo "replicas={{ arg.replicas }}" > scale.log
-""")
+            copy_fixture_files("arg_choices_int", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -141,15 +119,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  configure:
-    args:
-      - region: { choices: ["us-east-1", "eu-west-1"] }
-    outputs: [config.log]
-    cmd: echo "region={{ arg.region }}" > config.log
-""")
+            copy_fixture_files("arg_choices_type_inferred", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -174,15 +144,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  deploy:
-    args:
-      - environment: { choices: ["dev", "staging", "prod"], default: "dev" }
-    outputs: [deploy.log]
-    cmd: echo "environment={{ arg.environment }}" > deploy.log
-""")
+            copy_fixture_files("arg_choices_with_default", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -205,16 +167,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  deploy:
-    args:
-      - app_name: { type: str }
-      - environment: { choices: ["dev", "staging", "prod"] }
-    outputs: [deploy.log]
-    cmd: echo "{{ arg.app_name }} to {{ arg.environment }}" > deploy.log
-""")
+            copy_fixture_files("arg_choices_named_args", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -239,14 +192,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  deploy:
-    args:
-      - environment: { choices: ["dev", "staging", "prod"] }
-    cmd: echo "environment={{ arg.environment }}"
-""")
+            copy_fixture_files("arg_choices_show_valid_choices", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -270,16 +216,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  deploy:
-    args:
-      - environment: { choices: ["dev", "staging", "prod"] }
-      - region: { choices: ["us-east-1", "eu-west-1"] }
-    outputs: [deploy.log]
-    cmd: echo "{{ arg.environment }} in {{ arg.region }}" > deploy.log
-""")
+            copy_fixture_files("arg_choices_multiple", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -319,15 +256,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  notify:
-    args:
-      - message: { choices: ["hello world", "foo-bar", "test_123"] }
-    outputs: [notify.log]
-    cmd: echo "{{ arg.message }}" > notify.log
-""")
+            copy_fixture_files("arg_choices_special_chars", project_root)
 
             original_cwd = os.getcwd()
             try:

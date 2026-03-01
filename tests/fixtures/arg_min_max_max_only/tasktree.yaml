@@ -1,0 +1,6 @@
+tasks:
+  set:
+    args:
+      - percentage: { type: float, max: 100.0 }
+    outputs: [value.txt]
+    cmd: echo "percentage={{ arg.percentage }}" > value.txt

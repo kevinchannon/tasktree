@@ -12,6 +12,7 @@ from typer.testing import CliRunner
 
 from helpers.docker import is_docker_available
 from tasktree.cli import app
+from fixture_utils import copy_fixture_files
 
 
 def strip_ansi_codes(text: str) -> str:
@@ -36,21 +37,7 @@ class TestNestedInvocations(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create tasktree binary in PATH for nested calls
-            # For this test, we'll use the current python module
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  child:
-    outputs: [child.txt]
-    cmd: echo "child output" > child.txt
-
-  parent:
-    outputs: [parent.txt]
-    cmd: |
-      python3 -m tasktree.cli child
-      echo "parent output" > parent.txt
-""")
+            copy_fixture_files("nested_invocation_parent_child", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -90,19 +77,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  child:
-    outputs: [child.txt]
-    cmd: echo "child output" > child.txt
-
-  parent:
-    outputs: [parent.txt]
-    cmd: |
-      python3 -m tasktree.cli child
-      echo "parent output" > parent.txt
-""")
+            copy_fixture_files("nested_invocation_parent_child", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -147,29 +122,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  child1:
-    outputs: [child1.txt]
-    cmd: echo "child1" > child1.txt
-
-  child2:
-    outputs: [child2.txt]
-    cmd: echo "child2" > child2.txt
-
-  child3:
-    outputs: [child3.txt]
-    cmd: echo "child3" > child3.txt
-
-  parent:
-    outputs: [parent.txt]
-    cmd: |
-      python3 -m tasktree.cli child1
-      python3 -m tasktree.cli child2
-      python3 -m tasktree.cli child3
-      echo "parent done" > parent.txt
-""")
+            copy_fixture_files("nested_invocation_multiple_children", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -211,24 +164,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  dep:
-    outputs: [dep.txt]
-    cmd: echo "dependency" > dep.txt
-
-  child:
-    deps: [dep]
-    outputs: [child.txt]
-    cmd: echo "child" > child.txt
-
-  parent:
-    outputs: [parent.txt]
-    cmd: |
-      python3 -m tasktree.cli child
-      echo "parent" > parent.txt
-""")
+            copy_fixture_files("nested_invocation_with_deps", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -269,31 +205,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  d:
-    outputs: [d.txt]
-    cmd: echo "d" > d.txt
-
-  c:
-    outputs: [c.txt]
-    cmd: |
-      python3 -m tasktree.cli d
-      echo "c" > c.txt
-
-  b:
-    outputs: [b.txt]
-    cmd: |
-      python3 -m tasktree.cli c
-      echo "b" > b.txt
-
-  a:
-    outputs: [a.txt]
-    cmd: |
-      python3 -m tasktree.cli b
-      echo "a" > a.txt
-""")
+            copy_fixture_files("nested_invocation_deep_chain", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -345,19 +257,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  failing-child:
-    cmd: exit 1
-
-  parent:
-    outputs: [parent.txt]
-    cmd: |
-      set -e
-      python3 -m tasktree.cli failing-child
-      echo "should not reach here" > parent.txt
-""")
+            copy_fixture_files("nested_invocation_failure", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -383,37 +283,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  e:
-    outputs: [e.txt]
-    cmd: echo "e" > e.txt
-
-  d:
-    outputs: [d.txt]
-    cmd: |
-      python3 -m tasktree.cli e
-      echo "d" > d.txt
-
-  c:
-    outputs: [c.txt]
-    cmd: |
-      python3 -m tasktree.cli d
-      echo "c" > c.txt
-
-  b:
-    outputs: [b.txt]
-    cmd: |
-      python3 -m tasktree.cli c
-      echo "b" > b.txt
-
-  a:
-    outputs: [a.txt]
-    cmd: |
-      python3 -m tasktree.cli b
-      echo "a" > a.txt
-""")
+            copy_fixture_files("nested_invocation_five_level_chain", project_root)
 
             original_cwd = os.getcwd()
             try:

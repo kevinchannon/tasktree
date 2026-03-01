@@ -1,0 +1,18 @@
+tasks:
+  compile:
+    outputs:
+      - binary: "build/app"
+      - "build/app.debug"
+      - symbols: "build/app.sym"
+    cmd: |
+      mkdir -p build
+      echo "binary" > build/app
+      echo "debug" > build/app.debug
+      echo "symbols" > build/app.sym
+
+  package:
+    deps: [compile]
+    cmd: |
+      echo "Packaging {{ dep.compile.outputs.binary }}"
+      echo "Symbols: {{ dep.compile.outputs.symbols }}"
+      cat {{ dep.compile.outputs.binary }} {{ dep.compile.outputs.symbols }}

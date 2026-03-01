@@ -1,0 +1,4 @@
+tasks:
+  build:
+    desc: Build task
+    cmd: echo "building"

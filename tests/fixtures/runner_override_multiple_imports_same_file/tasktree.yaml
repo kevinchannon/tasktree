@@ -1,0 +1,18 @@
+runners:
+  runner_a:
+    shell:
+      cmd: bash
+  runner_b:
+    shell:
+      cmd: sh
+imports:
+  - file: shared.yaml
+    as: set_a
+    run_in: runner_a
+  - file: shared.yaml
+    as: set_b
+    run_in: runner_b
+tasks:
+  all:
+    deps: [set_a.task1, set_b.task1]
+    cmd: echo 'done'

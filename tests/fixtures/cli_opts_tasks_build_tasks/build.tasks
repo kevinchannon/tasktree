@@ -1,0 +1,4 @@
+tasks:
+  compile:
+    desc: Compile code
+    cmd: echo "Compiling"

@@ -1,0 +1,3 @@
+tasks:
+  fail:
+    cmd: python3 -c "import sys; print('before failure'); sys.exit(1)"

@@ -1,0 +1,7 @@
+tasks:
+  process:
+    inputs:
+      - source: data.txt
+    outputs:
+      - result: processed.txt
+    cmd: cat {{ self.inputs.source }} > {{ self.outputs.result }}

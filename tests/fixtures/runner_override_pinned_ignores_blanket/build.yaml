@@ -1,0 +1,11 @@
+runners:
+  special:
+    shell:
+      cmd: sh
+tasks:
+  normal:
+    cmd: echo 'normal task'
+  special:
+    cmd: echo 'special task'
+    run_in: special
+    pin_runner: true

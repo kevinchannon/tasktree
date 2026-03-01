@@ -1,0 +1,10 @@
+tasks:
+  build:
+    args: [ "mode", "optimize" ]
+    cmd: "echo build_mode={{ arg.mode }}_opt={{ arg.optimize }}"
+
+  test:
+    deps:
+      - build: { mode: "{{ arg.env }}", optimize: true }
+    args: [ "env" ]
+    cmd: "echo test_env={{ arg.env }}"

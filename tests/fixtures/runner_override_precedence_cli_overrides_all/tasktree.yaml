@@ -1,0 +1,15 @@
+runners:
+  default: default_runner
+  default_runner:
+    shell:
+      cmd: bash
+  cli_runner:
+    shell:
+      cmd: zsh
+imports:
+  - file: build.yaml
+    as: build
+    run_in: default_runner
+tasks:
+  root_task:
+    cmd: echo 'root task'

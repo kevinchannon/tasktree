@@ -1,0 +1,10 @@
+tasks:
+  build:
+    args: [ "mode" ]
+    cmd: "echo build_mode={{ arg.mode }}"
+
+  deploy:
+    deps:
+      - build: [ "{{ arg.m }}" ]
+    args: [ "m" ]
+    cmd: "echo deploy_mode={{ arg.m }}"

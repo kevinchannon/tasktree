@@ -1,0 +1,5 @@
+tasks:
+  deploy:
+    args: [environment]
+    outputs: ["deploy-{{ arg.environment }}.log"]
+    cmd: echo "Deployed to {{ arg.environment }}" > deploy-{{ arg.environment }}.log

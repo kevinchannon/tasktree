@@ -1,0 +1,10 @@
+runners:
+  default: custom
+  custom:
+    shell:
+      cmd: [bash, -c]
+      preamble: echo "RECIPE DEFAULT"
+
+tasks:
+  test:
+    cmd: echo "Hello"

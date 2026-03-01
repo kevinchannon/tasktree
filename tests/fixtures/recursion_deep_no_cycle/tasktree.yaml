@@ -1,0 +1,28 @@
+tasks:
+  level-1:
+    outputs: [outputs/level1.txt]
+    cmd: |
+      echo "Level 1" > outputs/level1.txt
+      tt level-2
+
+  level-2:
+    outputs: [outputs/level2.txt]
+    cmd: |
+      echo "Level 2" > outputs/level2.txt
+      tt level-3
+
+  level-3:
+    outputs: [outputs/level3.txt]
+    cmd: |
+      echo "Level 3" > outputs/level3.txt
+      tt level-4
+
+  level-4:
+    outputs: [outputs/level4.txt]
+    cmd: |
+      echo "Level 4" > outputs/level4.txt
+      tt level-5
+
+  level-5:
+    outputs: [outputs/level5.txt]
+    cmd: echo "Level 5" > outputs/level5.txt

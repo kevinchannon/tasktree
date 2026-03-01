@@ -1,0 +1,7 @@
+variables:
+  message: "Hello from variables"
+
+tasks:
+  test:
+    outputs: [output.txt]
+    cmd: echo "{{ var.message }}" > output.txt

@@ -10,6 +10,7 @@ from tempfile import TemporaryDirectory
 from typer.testing import CliRunner
 
 from tasktree.cli import app
+from fixture_utils import copy_fixture_files
 
 
 def strip_ansi_codes(text: str) -> str:
@@ -39,19 +40,11 @@ class TestInputDetection(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
+            copy_fixture_files("input_detection_single_file", project_root)
+
             # Create input file
             input_file = project_root / "input.txt"
             input_file.write_text("version 1")
-
-            # Create recipe
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  build:
-    inputs: [input.txt]
-    outputs: [output.txt]
-    cmd: cat input.txt > output.txt
-""")
 
             original_cwd = os.getcwd()
             try:
@@ -93,20 +86,12 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
+            copy_fixture_files("input_detection_glob", project_root)
+
             # Create src directory with one file
             src_dir = project_root / "src"
             src_dir.mkdir()
             (src_dir / "file1.rs").write_text("fn main() {}")
-
-            # Create recipe with glob pattern
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  build:
-    inputs: [src/*.rs]
-    outputs: [output.bin]
-    cmd: echo "compiled" > output.bin
-""")
 
             original_cwd = os.getcwd()
             try:
@@ -144,6 +129,8 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
+            copy_fixture_files("input_detection_glob", project_root)
+
             # Create src directory with two files
             src_dir = project_root / "src"
             src_dir.mkdir()
@@ -151,16 +138,6 @@ tasks:
             file2 = src_dir / "file2.rs"
             file1.write_text("fn main() {}")
             file2.write_text("fn test() {}")
-
-            # Create recipe
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  build:
-    inputs: [src/*.rs]
-    outputs: [output.bin]
-    cmd: echo "compiled" > output.bin
-""")
 
             original_cwd = os.getcwd()
             try:

@@ -1,0 +1,5 @@
+tasks:
+  build:
+    inputs: ["file1.txt", "file2.txt"]
+    outputs: [output.txt]
+    cmd: cat {{ self.inputs.5 }} > output.txt

@@ -1,0 +1,4 @@
+tasks:
+  test:
+    args: [$MY_VAR]
+    cmd: echo %MY_VAR%

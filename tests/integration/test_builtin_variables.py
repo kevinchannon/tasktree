@@ -12,6 +12,7 @@ from tasktree.process_runner import TaskOutputTypes, make_process_runner, Proces
 from tasktree.state import StateManager
 
 from helpers.logging import logger_stub
+from fixture_utils import copy_fixture_files
 
 
 class TestBuiltinVariables(unittest.TestCase):
@@ -38,24 +39,7 @@ class TestBuiltinVariables(unittest.TestCase):
         """
         Test that all 8 built-in variables work in task commands.
         """
-        # Create output file path
-        output_file = Path(self.test_dir) / "output.txt"
-
-        # Create recipe that uses all built-in variables
-        recipe_content = f"""
-tasks:
-  test-vars:
-    cmd: |
-      echo "project_root={{{{ tt.project_root }}}}" > {output_file}
-      echo "recipe_dir={{{{ tt.recipe_dir }}}}" >> {output_file}
-      echo "task_name={{{{ tt.task_name }}}}" >> {output_file}
-      echo "working_dir={{{{ tt.working_dir }}}}" >> {output_file}
-      echo "timestamp={{{{ tt.timestamp }}}}" >> {output_file}
-      echo "timestamp_unix={{{{ tt.timestamp_unix }}}}" >> {output_file}
-      echo "user_home={{{{ tt.user_home }}}}" >> {output_file}
-      echo "user_name={{{{ tt.user_name }}}}" >> {output_file}
-"""
-        self.recipe_file.write_text(recipe_content)
+        copy_fixture_files("builtin_vars_all", Path(self.test_dir))
 
         # Parse recipe and execute task
         recipe = parse_recipe(self.recipe_file)
@@ -65,6 +49,7 @@ tasks:
         executor.execute_task("test-vars", TaskOutputTypes.ALL)
 
         # Read output and verify
+        output_file = Path(self.test_dir) / "output.txt"
         output = output_file.read_text()
         lines = {
             line.split("=", 1)[0]: line.split("=", 1)[1]
@@ -104,20 +89,7 @@ tasks:
         """
         Test that timestamp is consistent throughout a single task execution.
         """
-        output_file = Path(self.test_dir) / "timestamps.txt"
-
-        recipe_content = f"""
-tasks:
-  test-timestamp:
-    cmd: |
-      echo "{{{{ tt.timestamp }}}}" > {output_file}
-      sleep 0.1
-      echo "{{{{ tt.timestamp }}}}" >> {output_file}
-      echo "{{{{ tt.timestamp_unix }}}}" >> {output_file}
-      sleep 0.1
-      echo "{{{{ tt.timestamp_unix }}}}" >> {output_file}
-"""
-        self.recipe_file.write_text(recipe_content)
+        copy_fixture_files("builtin_vars_timestamps", Path(self.test_dir))
 
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
@@ -125,6 +97,7 @@ tasks:
         executor = Executor(recipe, state, logger_stub, make_process_runner)
         executor.execute_task("test-timestamp", TaskOutputTypes.ALL)
 
+        output_file = Path(self.test_dir) / "timestamps.txt"
         output = output_file.read_text()
         lines = output.strip().split("\n")
 
@@ -136,18 +109,11 @@ tasks:
         """
         Test that tt.working_dir reflects the task's working_dir setting.
         """
-        # Create subdirectory
+        copy_fixture_files("builtin_vars_working_dir", Path(self.test_dir))
+
+        # Create subdirectory (required by the task's working_dir setting)
         subdir = Path(self.test_dir) / "subdir"
         subdir.mkdir()
-        output_file = Path(self.test_dir) / "working_dir.txt"
-
-        recipe_content = f"""
-tasks:
-  test-workdir:
-    working_dir: subdir
-    cmd: echo "{{{{ tt.working_dir }}}}" > {output_file}
-"""
-        self.recipe_file.write_text(recipe_content)
 
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
@@ -155,7 +121,7 @@ tasks:
         executor = Executor(recipe, state, logger_stub, make_process_runner)
         executor.execute_task("test-workdir", TaskOutputTypes.ALL)
 
-        output = output_file.read_text().strip()
+        output = (Path(self.test_dir) / "working_dir.txt").read_text().strip()
         # Should show the absolute path to subdir
         self.assertEqual(output, str(subdir.resolve()))
 
@@ -163,17 +129,7 @@ tasks:
         """
         Test that built-in variables work in multi-line commands.
         """
-        output_file = Path(self.test_dir) / "multiline.txt"
-
-        recipe_content = f"""
-tasks:
-  test-multiline:
-    cmd: |
-      PROJECT={{{{ tt.project_root }}}}
-      TASK={{{{ tt.task_name }}}}
-      echo "$PROJECT/$TASK" > {output_file}
-"""
-        self.recipe_file.write_text(recipe_content)
+        copy_fixture_files("builtin_vars_multiline", Path(self.test_dir))
 
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
@@ -181,7 +137,7 @@ tasks:
         executor = Executor(recipe, state, logger_stub, make_process_runner)
         executor.execute_task("test-multiline", TaskOutputTypes.ALL)
 
-        output = output_file.read_text().strip()
+        output = (Path(self.test_dir) / "multiline.txt").read_text().strip()
         expected = f"{recipe.project_root.resolve()}/test-multiline"
         self.assertEqual(output, expected)
 
@@ -189,20 +145,10 @@ tasks:
         """
         Test that recipe_dir points to recipe file location, not project root.
         """
-        # Create recipe in a subdirectory
-        recipe_subdir = Path(self.test_dir) / "config"
-        recipe_subdir.mkdir()
-        recipe_path = recipe_subdir / "tasks.yaml"
-        output_file = Path(self.test_dir) / "recipe_dir.txt"
+        copy_fixture_files("builtin_vars_recipe_in_subdir", Path(self.test_dir))
 
-        recipe_content = f"""
-tasks:
-  test-recipe-dir:
-    cmd: |
-      echo "project={{{{ tt.project_root }}}}" > {output_file}
-      echo "recipe={{{{ tt.recipe_dir }}}}" >> {output_file}
-"""
-        recipe_path.write_text(recipe_content)
+        recipe_path = Path(self.test_dir) / "config" / "tasks.yaml"
+        recipe_subdir = recipe_path.parent
 
         # Parse with explicit project_root (current directory)
         recipe = parse_recipe(recipe_path, project_root=Path(self.test_dir))
@@ -211,7 +157,7 @@ tasks:
         executor = Executor(recipe, state, logger_stub, make_process_runner)
         executor.execute_task("test-recipe-dir", TaskOutputTypes.ALL)
 
-        output = output_file.read_text()
+        output = (Path(self.test_dir) / "recipe_dir.txt").read_text()
         lines = {
             line.split("=", 1)[0]: line.split("=", 1)[1]
             for line in output.strip().split("\n")
@@ -226,23 +172,7 @@ tasks:
         """
         Test built-in variables work alongside regular variables and arguments.
         """
-        output_file = Path(self.test_dir) / "mixed.txt"
-
-        recipe_content = f"""
-variables:
-  server: prod.example.com
-
-tasks:
-  deploy:
-    args: [region]
-    cmd: |
-      echo "Deploying from {{{{ tt.project_root }}}}" > {output_file}
-      echo "Task: {{{{ tt.task_name }}}}" >> {output_file}
-      echo "Server: {{{{ var.server }}}}" >> {output_file}
-      echo "Region: {{{{ arg.region }}}}" >> {output_file}
-      echo "User: {{{{ tt.user_name }}}}" >> {output_file}
-"""
-        self.recipe_file.write_text(recipe_content)
+        copy_fixture_files("builtin_vars_mixed_vars", Path(self.test_dir))
 
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
@@ -252,7 +182,7 @@ tasks:
             "deploy", TaskOutputTypes.ALL, args_dict={"region": "us-west-1"}
         )
 
-        output = output_file.read_text()
+        output = (Path(self.test_dir) / "mixed.txt").read_text()
         lines = [line for line in output.strip().split("\n")]
 
         self.assertIn(f"Deploying from {recipe.project_root.resolve()}", lines[0])
@@ -266,21 +196,11 @@ tasks:
         """
         Test that non-circular builtin variables can be used in working_dir.
         """
+        copy_fixture_files("builtin_vars_in_working_dir_field", Path(self.test_dir))
 
         # Create a directory that matches the task name
         task_dir = Path(self.test_dir) / "build-task"
         task_dir.mkdir()
-        output_file = Path(self.test_dir) / "result.txt"
-
-        recipe_content = f"""
-tasks:
-  build-task:
-    working_dir: "{{{{ tt.task_name }}}}"
-    cmd: |
-      echo "task={{{{ tt.task_name }}}}" > {output_file}
-      echo "wd={{{{ tt.working_dir }}}}" >> {output_file}
-"""
-        self.recipe_file.write_text(recipe_content)
 
         recipe = parse_recipe(self.recipe_file)
         state = StateManager(recipe.project_root)
@@ -288,7 +208,7 @@ tasks:
         executor = Executor(recipe, state, logger_stub, make_process_runner)
         executor.execute_task("build-task", TaskOutputTypes.ALL)
 
-        output = output_file.read_text()
+        output = (Path(self.test_dir) / "result.txt").read_text()
         lines = {
             line.split("=", 1)[0]: line.split("=", 1)[1]
             for line in output.strip().split("\n")
@@ -306,33 +226,7 @@ tasks:
 
         from unittest.mock import patch, Mock
 
-        # TODO why is this not used?
-        # output_file = Path(self.test_dir) / "docker_test.txt"
-
-        recipe_content = """
-runners:
-  test-runner:
-    dockerfile: docker/Dockerfile
-    context: .
-    volumes:
-      - "{{ tt.project_root }}:/workspace"
-      - "{{ tt.recipe_dir }}:/config"
-    env_vars:
-      PROJECT_PATH: "{{ tt.project_root }}"
-      TASK_NAME_VAR: "{{ tt.task_name }}"
-
-tasks:
-  docker-test:
-    run_in: test-runner
-    cmd: echo "Testing builtin vars in docker"
-"""
-        self.recipe_file.write_text(recipe_content)
-
-        # Create docker directory and Dockerfile
-        docker_dir = Path(self.test_dir) / "docker"
-        docker_dir.mkdir()
-        dockerfile = docker_dir / "Dockerfile"
-        dockerfile.write_text("FROM alpine:latest\\n")
+        copy_fixture_files("builtin_vars_runner_volumes", Path(self.test_dir))
 
         # Parse recipe
         recipe = parse_recipe(self.recipe_file)
@@ -440,28 +334,7 @@ tasks:
         os.environ["TEST_ENV_VALUE"] = "test-value"
 
         try:
-            recipe_content = """
-runners:
-  test-runner:
-    dockerfile: docker/Dockerfile
-    context: .
-    volumes:
-      - "{{ env.TEST_MOUNT_PATH }}:/workspace"
-    env_vars:
-      ENV_VAR_VALUE: "{{ env.TEST_ENV_VALUE }}"
-
-tasks:
-  docker-test:
-    run_in: test-runner
-    cmd: echo "Testing env vars in docker"
-"""
-            self.recipe_file.write_text(recipe_content)
-
-            # Create docker directory and Dockerfile
-            docker_dir = Path(self.test_dir) / "docker"
-            docker_dir.mkdir()
-            dockerfile = docker_dir / "Dockerfile"
-            dockerfile.write_text("FROM alpine:latest\\n")
+            copy_fixture_files("builtin_vars_env_in_runner", Path(self.test_dir))
 
             # Parse recipe
             recipe = parse_recipe(self.recipe_file)
@@ -550,32 +423,7 @@ tasks:
 
         from unittest.mock import patch, Mock
 
-        recipe_content = """
-variables:
-  mount_path: /var/data
-  env_value: config-value
-
-runners:
-  test-runner:
-    dockerfile: docker/Dockerfile
-    context: .
-    volumes:
-      - "{{ var.mount_path }}:/workspace"
-    env_vars:
-      VAR_VALUE: "{{ var.env_value }}"
-
-tasks:
-  docker-test:
-    run_in: test-runner
-    cmd: echo "Testing var substitution in docker"
-"""
-        self.recipe_file.write_text(recipe_content)
-
-        # Create docker directory and Dockerfile
-        docker_dir = Path(self.test_dir) / "docker"
-        docker_dir.mkdir()
-        dockerfile = docker_dir / "Dockerfile"
-        dockerfile.write_text("FROM alpine:latest\\n")
+        copy_fixture_files("builtin_vars_var_in_runner", Path(self.test_dir))
 
         # Parse recipe
         recipe = parse_recipe(self.recipe_file)

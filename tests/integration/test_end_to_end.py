@@ -9,6 +9,7 @@ from tempfile import TemporaryDirectory
 from typer.testing import CliRunner
 
 from tasktree.cli import app
+from fixture_utils import copy_fixture_files
 
 
 def strip_ansi_codes(text: str) -> str:
@@ -38,19 +39,7 @@ class TestEndToEnd(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create recipe with typed arguments
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  deploy:
-    args:
-      - environment
-      - region: { type: str, default: us-west-1 }
-      - port: { type: int, default: 8080 }
-      - debug: { type: bool, default: false }
-    outputs: [deploy.log]
-    cmd: echo "env={{ arg.environment }} region={{ arg.region }} port={{ arg.port }} debug={{ arg.debug }}" > deploy.log
-""")
+            copy_fixture_files("e2e_args_flow", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -116,13 +105,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create recipe with failing task
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  failing-task:
-    cmd: exit 42
-""")
+            copy_fixture_files("e2e_task_failure", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -156,13 +139,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create a recipe with a task name containing a dot
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  build.release:
-    cmd: echo "building"
-""")
+            copy_fixture_files("e2e_task_name_with_dot", project_root)
 
             # Change to project directory
             original_cwd = os.getcwd()

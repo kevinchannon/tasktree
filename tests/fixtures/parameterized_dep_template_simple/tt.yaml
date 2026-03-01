@@ -1,0 +1,10 @@
+tasks:
+  foo:
+    args: [ "mode" ]
+    cmd: "echo foo_mode={{ arg.mode }}"
+
+  bar:
+    deps:
+      - foo: [ "{{ arg.env }}" ]
+    args: [ "env" ]
+    cmd: "echo bar_env={{ arg.env }}"

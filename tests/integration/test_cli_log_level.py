@@ -9,6 +9,7 @@ from typer.testing import CliRunner
 
 from tasktree.cli import app
 from helpers.io import strip_ansi_codes
+from fixture_utils import copy_fixture_files
 
 
 class TestLogLevelCLIFlag(unittest.TestCase):
@@ -30,14 +31,7 @@ class TestLogLevelCLIFlag(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create a simple recipe
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  simple:
-    desc: A simple task
-    cmd: echo "Hello world"
-""")
+            copy_fixture_files("log_level_simple_task", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -65,14 +59,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create a simple recipe
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  simple:
-    desc: A simple task
-    cmd: echo "Hello world"
-""")
+            copy_fixture_files("log_level_simple_task", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -94,14 +81,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create a simple recipe
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  simple:
-    desc: A simple task
-    cmd: echo "Hello world"
-""")
+            copy_fixture_files("log_level_simple_task", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -123,17 +103,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create a simple recipe
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  task1:
-    desc: First task
-    cmd: echo "Task 1"
-  task2:
-    desc: Second task
-    cmd: echo "Task 2"
-""")
+            copy_fixture_files("log_level_two_tasks", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -157,14 +127,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create a simple recipe
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  simple:
-    desc: A simple task
-    cmd: echo "Hello world"
-""")
+            copy_fixture_files("log_level_simple_task", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -191,14 +154,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create a simple recipe
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  simple:
-    desc: A simple task
-    cmd: echo "Hello world"
-""")
+            copy_fixture_files("log_level_simple_task", project_root)
 
             original_cwd = os.getcwd()
             try:

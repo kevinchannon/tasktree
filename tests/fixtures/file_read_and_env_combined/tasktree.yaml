@@ -1,0 +1,9 @@
+variables:
+  api_key: { read: api-key.txt }
+  deploy_user: { env: TEST_DEPLOY_USER }
+  regular_var: "myapp"
+
+tasks:
+  test:
+    outputs: [result.txt]
+    cmd: 'echo "{{ var.regular_var }} {{ var.api_key }} {{ var.deploy_user }}" > result.txt'

@@ -1,0 +1,13 @@
+tasks:
+  build:
+    outputs:
+      - artifact: dist/app.js
+    cmd: echo "console.log('app');" > {{ self.outputs.artifact }}
+
+  package:
+    deps: [build]
+    inputs:
+      - config: package.json
+    outputs:
+      - tarball: release.tar.gz
+    cmd: tar czf {{ self.outputs.tarball }} {{ self.inputs.config }} {{ dep.build.outputs.artifact }}

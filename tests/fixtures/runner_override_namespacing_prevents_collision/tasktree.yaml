@@ -1,0 +1,11 @@
+runners:
+  docker:
+    shell:
+      cmd: bash
+imports:
+  - file: build.yaml
+    as: build
+tasks:
+  task2:
+    cmd: echo 'task2 in root docker'
+    run_in: docker

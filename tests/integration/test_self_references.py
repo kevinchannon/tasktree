@@ -11,6 +11,7 @@ from tempfile import TemporaryDirectory
 from typer.testing import CliRunner
 
 from tasktree.cli import app
+from fixture_utils import copy_fixture_files
 
 
 def strip_ansi_codes(text: str) -> str:
@@ -44,16 +45,7 @@ class TestBasicSelfReferences(unittest.TestCase):
             src_file = project_root / "input.txt"
             src_file.write_text("Hello World")
 
-            # Create recipe with self-reference to input
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  process:
-    inputs:
-      - src: input.txt
-    outputs: [output.txt]
-    cmd: cat {{ self.inputs.src }} > output.txt
-""")
+            copy_fixture_files("self_ref_basic_input", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -79,15 +71,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create recipe with self-reference to output
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  generate:
-    outputs:
-      - dest: result.txt
-    cmd: echo "Generated content" > {{ self.outputs.dest }}
-""")
+            copy_fixture_files("self_ref_basic_output", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -117,17 +101,7 @@ tasks:
             src_file = project_root / "data.txt"
             src_file.write_text("Original Data")
 
-            # Create recipe with both input and output self-references
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  transform:
-    inputs:
-      - source: data.txt
-    outputs:
-      - target: processed.txt
-    cmd: cat {{ self.inputs.source }} | tr '[:lower:]' '[:upper:]' > {{ self.outputs.target }}
-""")
+            copy_fixture_files("self_ref_mixed", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -157,17 +131,7 @@ tasks:
             (project_root / "file1.txt").write_text("File 1")
             (project_root / "file2.txt").write_text("File 2")
 
-            # Create recipe with glob pattern in input
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  concat:
-    inputs:
-      - sources: "*.txt"
-    outputs:
-      - combined: all.txt
-    cmd: cat {{ self.inputs.sources }} > {{ self.outputs.combined }}
-""")
+            copy_fixture_files("self_ref_glob_patterns", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -198,15 +162,7 @@ tasks:
             # Create source file
             (project_root / "input.txt").write_text("Anonymous Input")
 
-            # Create recipe with anonymous input (no self-reference)
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  copy:
-    inputs: [input.txt]
-    outputs: [output.txt]
-    cmd: cp input.txt output.txt
-""")
+            copy_fixture_files("self_ref_anonymous_inputs", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -232,14 +188,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create recipe with anonymous output (no self-reference)
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  build:
-    outputs: [build.log]
-    cmd: echo "Build complete" > build.log
-""")
+            copy_fixture_files("self_ref_anonymous_outputs", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -269,21 +218,7 @@ tasks:
             (project_root / "named.txt").write_text("Named")
             (project_root / "anon.txt").write_text("Anonymous")
 
-            # Create recipe with mixed inputs/outputs
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  process:
-    inputs:
-      - config: named.txt
-      - anon.txt
-    outputs:
-      - result: output.txt
-      - debug.log
-    cmd: |
-      cat {{ self.inputs.config }} anon.txt > {{ self.outputs.result }}
-      echo "Processed" > debug.log
-""")
+            copy_fixture_files("self_ref_mixed_named_anonymous", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -328,17 +263,7 @@ class TestSelfReferenceValidation(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create recipe with reference to non-existent input
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  build:
-    inputs:
-      - src: "file.txt"
-      - config: "config.json"
-    outputs: [output.txt]
-    cmd: cat {{ self.inputs.missing }} > output.txt
-""")
+            copy_fixture_files("self_ref_missing_input_name", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -365,16 +290,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create recipe with reference to non-existent output
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  deploy:
-    outputs:
-      - bundle: dist/app.js
-      - sourcemap: dist/app.js.map
-    cmd: cat {{ self.outputs.missing }}
-""")
+            copy_fixture_files("self_ref_missing_output_name", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -405,15 +321,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create recipe with only anonymous inputs
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  build:
-    inputs: ["file.txt", "config.json"]
-    outputs: [output.txt]
-    cmd: cat {{ self.inputs.src }} > output.txt
-""")
+            copy_fixture_files("self_ref_anonymous_input_reference", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -440,14 +348,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create recipe with only anonymous outputs
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  build:
-    outputs: [output.txt, debug.log]
-    cmd: cat {{ self.outputs.dest }}
-""")
+            copy_fixture_files("self_ref_anonymous_output_reference", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -474,14 +375,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create recipe with no inputs
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  build:
-    outputs: [output.txt]
-    cmd: cat {{ self.inputs.src }} > output.txt
-""")
+            copy_fixture_files("self_ref_empty_inputs", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -506,13 +400,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create recipe with no outputs
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  build:
-    cmd: cat {{ self.outputs.dest }}
-""")
+            copy_fixture_files("self_ref_empty_outputs", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -537,16 +425,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create recipe with lowercase input name
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  build:
-    inputs:
-      - src: "file.txt"
-    outputs: [output.txt]
-    cmd: cat {{ self.inputs.SRC }} > output.txt
-""")
+            copy_fixture_files("self_ref_case_sensitive", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -590,20 +469,7 @@ class TestSelfReferencesWithVariables(unittest.TestCase):
             (project_root / "src").mkdir()
             (project_root / "src" / "app-1.0.txt").write_text("Version 1.0")
 
-            # Create recipe with variable in input path
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-variables:
-  version: "1.0"
-
-tasks:
-  process:
-    inputs:
-      - src: "src/app-{{ var.version }}.txt"
-    outputs:
-      - dest: output.txt
-    cmd: cat {{ self.inputs.src }} > {{ self.outputs.dest }}
-""")
+            copy_fixture_files("self_ref_var_in_input_path", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -632,18 +498,7 @@ tasks:
             # Create output directory
             (project_root / "dist").mkdir()
 
-            # Create recipe with variable in output path
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-variables:
-  build_dir: "dist"
-
-tasks:
-  generate:
-    outputs:
-      - artifact: "{{ var.build_dir }}/result.txt"
-    cmd: echo "Generated" > {{ self.outputs.artifact }}
-""")
+            copy_fixture_files("self_ref_var_in_output_path", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -677,21 +532,7 @@ tasks:
             src_file = project_root / "projects" / "myapp" / "v2" / "data.txt"
             src_file.write_text("Multi-var data")
 
-            # Create recipe with multiple variables in paths
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-variables:
-  project: "myapp"
-  version: "2"
-
-tasks:
-  process:
-    inputs:
-      - data: "projects/{{ var.project }}/v{{ var.version }}/data.txt"
-    outputs:
-      - result: "{{ var.project }}-v{{ var.version }}-output.txt"
-    cmd: cat {{ self.inputs.data }} > {{ self.outputs.result }}
-""")
+            copy_fixture_files("self_ref_multiple_vars_in_paths", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -724,23 +565,7 @@ tasks:
             (project_root / "staging").mkdir()
             (project_root / "staging" / "app.js").write_text("console.log('app');")
 
-            # Create recipe where self-ref depends on variable being evaluated first
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-variables:
-  env: "staging"
-
-tasks:
-  deploy:
-    inputs:
-      - bundle: "{{ var.env }}/app.js"
-    outputs:
-      - deployed: "{{ var.env }}/deployed.js"
-    cmd: |
-      # Command uses self-refs which should contain variable-expanded paths
-      echo "Deploying {{ self.inputs.bundle }}"
-      cp {{ self.inputs.bundle }} {{ self.outputs.deployed }}
-""")
+            copy_fixture_files("self_ref_var_evaluated_before_self", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -779,23 +604,7 @@ class TestSelfReferencesWithDependencyOutputs(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create recipe with dependency chain using both reference types
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  build:
-    outputs:
-      - artifact: dist/app.js
-    cmd: echo "console.log('app');" > {{ self.outputs.artifact }}
-
-  package:
-    deps: [build]
-    inputs:
-      - config: package.json
-    outputs:
-      - tarball: release.tar.gz
-    cmd: tar czf {{ self.outputs.tarball }} {{ self.inputs.config }} {{ dep.build.outputs.artifact }}
-""")
+            copy_fixture_files("self_ref_self_and_dep", project_root)
 
             # Create required files
             (project_root / "dist").mkdir()
@@ -824,21 +633,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create recipe where output path uses dep reference
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  prepare:
-    outputs:
-      - outdir: build/v1
-    cmd: mkdir -p {{ self.outputs.outdir }}
-
-  compile:
-    deps: [prepare]
-    outputs:
-      - binary: "{{ dep.prepare.outputs.outdir }}/app.bin"
-    cmd: echo "binary" > {{ self.outputs.binary }}
-""")
+            copy_fixture_files("self_ref_output_contains_dep", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -866,23 +661,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create recipe showing resolution order
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  generate:
-    outputs:
-      - filename: data.json
-    cmd: echo '{"version":"1.0"}' > {{ self.outputs.filename }}
-
-  process:
-    deps: [generate]
-    inputs:
-      - source: "{{ dep.generate.outputs.filename }}"
-    outputs:
-      - result: processed.txt
-    cmd: cat {{ self.inputs.source }} > {{ self.outputs.result }}
-""")
+            copy_fixture_files("self_ref_dep_resolved_before_self", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -908,33 +687,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create recipe with diamond dependency pattern
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  prep:
-    outputs:
-      - config: config.txt
-    cmd: echo "config" > {{ self.outputs.config }}
-
-  buildA:
-    deps: [prep]
-    outputs:
-      - moduleA: moduleA.js
-    cmd: echo "moduleA" > {{ self.outputs.moduleA }}
-
-  buildB:
-    deps: [prep]
-    outputs:
-      - moduleB: moduleB.js
-    cmd: echo "moduleB" > {{ self.outputs.moduleB }}
-
-  bundle:
-    deps: [buildA, buildB]
-    outputs:
-      - bundle: app.js
-    cmd: cat {{ dep.buildA.outputs.moduleA }} {{ dep.buildB.outputs.moduleB }} > {{ self.outputs.bundle }}
-""")
+            copy_fixture_files("self_ref_multiple_deps", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -979,18 +732,7 @@ class TestSelfReferencesWithParameterizedTasks(unittest.TestCase):
             (project_root / "input-debug.txt").write_text("Debug mode")
             (project_root / "input-release.txt").write_text("Release mode")
 
-            # Create recipe with parameterized task using self-references
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  build:
-    args: [mode]
-    inputs:
-      - src: input-{{ arg.mode }}.txt
-    outputs:
-      - dest: output-{{ arg.mode }}.txt
-    cmd: cat {{ self.inputs.src }} > {{ self.outputs.dest }}
-""")
+            copy_fixture_files("self_ref_parameterized", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -1035,18 +777,7 @@ tasks:
             (project_root / "configs" / "dev" / "app.yaml").write_text("env: dev")
             (project_root / "configs" / "prod" / "app.yaml").write_text("env: prod")
 
-            # Create recipe with arg in input path
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  deploy:
-    args: [environment]
-    inputs:
-      - config: configs/{{ arg.environment }}/app.yaml
-    outputs:
-      - deployed: deployed-{{ arg.environment }}.yaml
-    cmd: cp {{ self.inputs.config }} {{ self.outputs.deployed }}
-""")
+            copy_fixture_files("self_ref_arg_in_input_path", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -1091,18 +822,7 @@ tasks:
             (project_root / "src" / "v1" / "stable" / "lib.js").write_text("v1-stable")
             (project_root / "src" / "v2" / "beta" / "lib.js").write_text("v2-beta")
 
-            # Create recipe with multiple args
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  package:
-    args: [version, channel]
-    inputs:
-      - lib: src/{{ arg.version }}/{{ arg.channel }}/lib.js
-    outputs:
-      - bundle: dist-{{ arg.version }}-{{ arg.channel }}.js
-    cmd: cp {{ self.inputs.lib }} {{ self.outputs.bundle }}
-""")
+            copy_fixture_files("self_ref_multiple_args", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -1141,27 +861,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create recipe with parameterized dependency chain
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  compile:
-    args: [platform]
-    outputs:
-      - binary: bin-{{ arg.platform }}.exe
-    cmd: echo "binary for {{ arg.platform }}" > {{ self.outputs.binary }}
-
-  package:
-    args: [platform]
-    deps:
-      - compile:
-          platform: "{{ arg.platform }}"
-    inputs:
-      - installer: package.nsi
-    outputs:
-      - setup: setup-{{ arg.platform }}.exe
-    cmd: cat {{ self.inputs.installer }} {{ dep.compile.outputs.binary }} > {{ self.outputs.setup }}
-""")
+            copy_fixture_files("self_ref_parameterized_deps", project_root)
 
             # Create installer script
             (project_root / "package.nsi").write_text("installer\n")
@@ -1210,17 +910,7 @@ class TestSelfReferencesWithStateManagement(unittest.TestCase):
             src_file = project_root / "input.txt"
             src_file.write_text("Version 1")
 
-            # Create recipe with self-references
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  build:
-    inputs:
-      - src: input.txt
-    outputs:
-      - dest: output.txt
-    cmd: cat {{ self.inputs.src }} > {{ self.outputs.dest }}
-""")
+            copy_fixture_files("self_ref_state_tracking", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -1258,17 +948,7 @@ tasks:
             src_file = project_root / "data.txt"
             src_file.write_text("Original")
 
-            # Create recipe
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  process:
-    inputs:
-      - source: data.txt
-    outputs:
-      - result: processed.txt
-    cmd: cat {{ self.inputs.source }} > {{ self.outputs.result }}
-""")
+            copy_fixture_files("self_ref_input_change", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -1305,15 +985,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create recipe
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  generate:
-    outputs:
-      - artifact: build.txt
-    cmd: echo "Build output" > {{ self.outputs.artifact }}
-""")
+            copy_fixture_files("self_ref_output_change", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -1350,17 +1022,7 @@ tasks:
             # Create source file
             (project_root / "input.txt").write_text("Data")
 
-            # Create initial recipe
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  transform:
-    inputs:
-      - src: input.txt
-    outputs:
-      - dest: output.txt
-    cmd: cat {{ self.inputs.src }} > {{ self.outputs.dest }}
-""")
+            copy_fixture_files("self_ref_task_def_change", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -1371,6 +1033,7 @@ tasks:
                 self.assertEqual(result.exit_code, 0)
 
                 # Modify command (add tr to uppercase)
+                recipe_file = project_root / "tasktree.yaml"
                 recipe_file.write_text("""
 tasks:
   transform:
@@ -1403,17 +1066,7 @@ tasks:
             # Create source file
             (project_root / "source.txt").write_text("Content")
 
-            # Create recipe
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  copy:
-    inputs:
-      - file: source.txt
-    outputs:
-      - copy: dest.txt
-    cmd: cp {{ self.inputs.file }} {{ self.outputs.copy }}
-""")
+            copy_fixture_files("self_ref_force_execution", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -1451,30 +1104,7 @@ tasks:
             header_file = project_root / "config.h"
             header_file.write_text("#define VERSION 1")
 
-            # Create recipe with dependency chain using implicit inputs
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  compile:
-    inputs:
-      - src: main.c
-      - header: config.h
-    outputs:
-      - obj: main.o
-    cmd: cat {{ self.inputs.src }} {{ self.inputs.header }} > {{ self.outputs.obj }}
-
-  link:
-    deps: [compile]
-    outputs:
-      - exe: app.exe
-    cmd: cat main.o > {{ self.outputs.exe }}
-
-  package:
-    deps: [link]
-    outputs:
-      - archive: app.tar.gz
-    cmd: tar czf {{ self.outputs.archive }} app.exe
-""")
+            copy_fixture_files("self_ref_incremental_chain", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -1536,15 +1166,7 @@ class TestPositionalSelfReferences(unittest.TestCase):
             (project_root / "file1.txt").write_text("First")
             (project_root / "file2.txt").write_text("Second")
 
-            # Create recipe with positional input references
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  concat:
-    inputs: ["file1.txt", "file2.txt"]
-    outputs: [result.txt]
-    cmd: cat {{ self.inputs.0 }} {{ self.inputs.1 }} > result.txt
-""")
+            copy_fixture_files("self_ref_positional_input", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -1572,16 +1194,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create recipe with positional output reference
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  generate:
-    outputs: ["first.txt", "second.txt"]
-    cmd: |
-      echo "Output 1" > {{ self.outputs.0 }}
-      echo "Output 2" > {{ self.outputs.1 }}
-""")
+            copy_fixture_files("self_ref_positional_output", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -1614,21 +1227,7 @@ tasks:
             (project_root / "named.txt").write_text("Named")
             (project_root / "anon.txt").write_text("Anonymous")
 
-            # Create recipe with both named and positional references
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  process:
-    inputs:
-      - config: named.txt
-      - anon.txt
-    outputs:
-      - result: output.txt
-      - debug.log
-    cmd: |
-      cat {{ self.inputs.config }} {{ self.inputs.1 }} > {{ self.outputs.result }}
-      echo "Processed" > {{ self.outputs.1 }}
-""")
+            copy_fixture_files("self_ref_mixed_named_positional", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -1663,18 +1262,7 @@ tasks:
             # Create source file
             (project_root / "data.txt").write_text("Data")
 
-            # Create recipe accessing same input by name and index
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  duplicate:
-    inputs:
-      - source: data.txt
-    outputs: [copy1.txt, copy2.txt]
-    cmd: |
-      cat {{ self.inputs.source }} > {{ self.outputs.0 }}
-      cat {{ self.inputs.0 }} > {{ self.outputs.1 }}
-""")
+            copy_fixture_files("self_ref_same_item_name_and_index", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -1706,18 +1294,7 @@ tasks:
             # Create source file with variable-expanded name
             (project_root / "file-1.0.txt").write_text("Version 1.0")
 
-            # Create recipe with variable in input path accessed positionally
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-variables:
-  version: "1.0"
-
-tasks:
-  process:
-    inputs: ["file-{{ var.version }}.txt"]
-    outputs: [result.txt]
-    cmd: cat {{ self.inputs.0 }} > {{ self.outputs.0 }}
-""")
+            copy_fixture_files("self_ref_positional_with_vars", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -1743,15 +1320,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create recipe with out-of-bounds index
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  build:
-    inputs: ["file1.txt", "file2.txt"]
-    outputs: [output.txt]
-    cmd: cat {{ self.inputs.5 }} > output.txt
-""")
+            copy_fixture_files("self_ref_out_of_bounds_input", project_root)
 
             # Create input files
             (project_root / "file1.txt").write_text("File 1")
@@ -1781,14 +1350,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create recipe with out-of-bounds output index
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  generate:
-    outputs: [output.txt]
-    cmd: echo "test" > {{ self.outputs.3 }}
-""")
+            copy_fixture_files("self_ref_out_of_bounds_output", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -1814,14 +1376,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create recipe with no inputs but positional reference
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  build:
-    outputs: [output.txt]
-    cmd: cat {{ self.inputs.0 }} > output.txt
-""")
+            copy_fixture_files("self_ref_empty_inputs_with_index", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -1850,15 +1405,7 @@ tasks:
             (project_root / "a.txt").write_text("A")
             (project_root / "b.txt").write_text("B")
 
-            # Create recipe with glob pattern accessed positionally
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  concat:
-    inputs: ["*.txt"]
-    outputs: [all.txt]
-    cmd: cat {{ self.inputs.0 }} > {{ self.outputs.0 }}
-""")
+            copy_fixture_files("self_ref_positional_glob", project_root)
 
             original_cwd = os.getcwd()
             try:

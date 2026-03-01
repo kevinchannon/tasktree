@@ -1,0 +1,8 @@
+imports:
+  - file: level3.yaml
+    as: l3
+
+tasks:
+  wrapper:
+    deps: [l3.greet]
+    cmd: echo level2 done

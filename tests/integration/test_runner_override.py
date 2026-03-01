@@ -9,6 +9,7 @@ from tempfile import TemporaryDirectory
 from typer.testing import CliRunner
 
 from tasktree.cli import app
+from fixture_utils import copy_fixture_files
 
 
 def strip_ansi_codes(text: str) -> str:
@@ -34,29 +35,7 @@ class TestBlanketRunnerOverride(unittest.TestCase):
         """Test that import-level run_in applies to non-pinned tasks."""
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            # Imported file with a task that has no run_in specified
-            (project_root / "build.yaml").write_text(
-                "tasks:\n"
-                "  compile:\n"
-                "    cmd: echo 'compiling in imported runner'\n"
-            )
-
-            # Root file defines runner and imports with run_in override
-            recipe_path = project_root / "tasktree.yaml"
-            recipe_path.write_text(
-                "runners:\n"
-                "  docker:\n"
-                "    shell:\n      cmd: bash\n"
-                "imports:\n"
-                "  - file: build.yaml\n"
-                "    as: build\n"
-                "    run_in: docker\n"
-                "tasks:\n"
-                "  all:\n"
-                "    deps: [build.compile]\n"
-                "    cmd: echo 'done'\n"
-            )
+            copy_fixture_files("runner_override_blanket_applied_to_non_pinned", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -77,36 +56,7 @@ class TestBlanketRunnerOverride(unittest.TestCase):
         """Test that pinned tasks ignore import-level run_in."""
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            # Imported file with pinned and non-pinned tasks
-            (project_root / "build.yaml").write_text(
-                "runners:\n"
-                "  special:\n"
-                "    shell:\n      cmd: sh\n"
-                "tasks:\n"
-                "  normal:\n"
-                "    cmd: echo 'normal task'\n"
-                "  special:\n"
-                "    cmd: echo 'special task'\n"
-                "    run_in: special\n"
-                "    pin_runner: true\n"
-            )
-
-            # Root file defines different runner and imports with run_in override
-            recipe_path = project_root / "tasktree.yaml"
-            recipe_path.write_text(
-                "runners:\n"
-                "  docker:\n"
-                "    shell:\n      cmd: bash\n"
-                "imports:\n"
-                "  - file: build.yaml\n"
-                "    as: build\n"
-                "    run_in: docker\n"
-                "tasks:\n"
-                "  all:\n"
-                "    deps: [build.normal, build.special]\n"
-                "    cmd: echo 'done'\n"
-            )
+            copy_fixture_files("runner_override_pinned_ignores_blanket", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -135,35 +85,7 @@ class TestBlanketRunnerOverride(unittest.TestCase):
         """Test that blanket runner doesn't override task's own run_in."""
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            # Imported file with pinned task that has explicit run_in
-            # Must be pinned to bring the runner definition with it
-            (project_root / "build.yaml").write_text(
-                "runners:\n"
-                "  local:\n"
-                "    shell:\n      cmd: sh\n"
-                "tasks:\n"
-                "  compile:\n"
-                "    cmd: echo 'compiling'\n"
-                "    run_in: local\n"
-                "    pin_runner: true\n"
-            )
-
-            # Root file defines runner and imports with run_in override
-            recipe_path = project_root / "tasktree.yaml"
-            recipe_path.write_text(
-                "runners:\n"
-                "  docker:\n"
-                "    shell:\n      cmd: bash\n"
-                "imports:\n"
-                "  - file: build.yaml\n"
-                "    as: build\n"
-                "    run_in: docker\n"
-                "tasks:\n"
-                "  all:\n"
-                "    deps: [build.compile]\n"
-                "    cmd: echo 'done'\n"
-            )
+            copy_fixture_files("runner_override_blanket_does_not_override_explicit_run_in", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -192,43 +114,7 @@ class TestSelectiveRunnerImport(unittest.TestCase):
         """Test that only runners referenced by pinned tasks are imported."""
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            # Imported file has 3 runners: A, B, C
-            # task1 is pinned and uses A (A will be imported)
-            # task2 is not pinned and has no run_in (will use blanket override)
-            # B and C are not used by pinned tasks, so they won't be imported
-            (project_root / "build.yaml").write_text(
-                "runners:\n"
-                "  runner_a:\n"
-                "    shell:\n      cmd: sh\n"
-                "  runner_b:\n"
-                "    shell:\n      cmd: bash\n"
-                "  runner_c:\n"
-                "    shell:\n      cmd: zsh\n"
-                "tasks:\n"
-                "  task1:\n"
-                "    cmd: echo 'task1'\n"
-                "    run_in: runner_a\n"
-                "    pin_runner: true\n"
-                "  task2:\n"
-                "    cmd: echo 'task2'\n"
-            )
-
-            # Root file imports with blanket runner override
-            recipe_path = project_root / "tasktree.yaml"
-            recipe_path.write_text(
-                "runners:\n"
-                "  docker:\n"
-                "    shell:\n      cmd: bash\n"
-                "imports:\n"
-                "  - file: build.yaml\n"
-                "    as: build\n"
-                "    run_in: docker\n"
-                "tasks:\n"
-                "  all:\n"
-                "    deps: [build.task1, build.task2]\n"
-                "    cmd: echo 'done'\n"
-            )
+            copy_fixture_files("runner_override_only_pinned_runners_imported", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -268,36 +154,7 @@ class TestSelectiveRunnerImport(unittest.TestCase):
         """Test that no runners are imported when no tasks are pinned."""
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            # Imported file has runners but no pinned tasks
-            (project_root / "build.yaml").write_text(
-                "runners:\n"
-                "  runner_a:\n"
-                "    shell:\n      cmd: sh\n"
-                "  runner_b:\n"
-                "    shell:\n      cmd: bash\n"
-                "tasks:\n"
-                "  task1:\n"
-                "    cmd: echo 'task1'\n"
-                "  task2:\n"
-                "    cmd: echo 'task2'\n"
-            )
-
-            # Root file imports with blanket runner override
-            recipe_path = project_root / "tasktree.yaml"
-            recipe_path.write_text(
-                "runners:\n"
-                "  docker:\n"
-                "    shell:\n      cmd: bash\n"
-                "imports:\n"
-                "  - file: build.yaml\n"
-                "    as: build\n"
-                "    run_in: docker\n"
-                "tasks:\n"
-                "  all:\n"
-                "    deps: [build.task1, build.task2]\n"
-                "    cmd: echo 'done'\n"
-            )
+            copy_fixture_files("runner_override_no_pinned_no_runners_imported", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -325,40 +182,7 @@ class TestSelectiveRunnerImport(unittest.TestCase):
         """Test that all runners are imported when all tasks are pinned."""
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            # Imported file has 2 runners, both tasks are pinned
-            (project_root / "build.yaml").write_text(
-                "runners:\n"
-                "  runner_a:\n"
-                "    shell:\n      cmd: sh\n"
-                "  runner_b:\n"
-                "    shell:\n      cmd: bash\n"
-                "tasks:\n"
-                "  task1:\n"
-                "    cmd: echo 'task1'\n"
-                "    run_in: runner_a\n"
-                "    pin_runner: true\n"
-                "  task2:\n"
-                "    cmd: echo 'task2'\n"
-                "    run_in: runner_b\n"
-                "    pin_runner: true\n"
-            )
-
-            # Root file imports with blanket runner override (should be ignored)
-            recipe_path = project_root / "tasktree.yaml"
-            recipe_path.write_text(
-                "runners:\n"
-                "  docker:\n"
-                "    shell:\n      cmd: bash\n"
-                "imports:\n"
-                "  - file: build.yaml\n"
-                "    as: build\n"
-                "    run_in: docker\n"
-                "tasks:\n"
-                "  all:\n"
-                "    deps: [build.task1, build.task2]\n"
-                "    cmd: echo 'done'\n"
-            )
+            copy_fixture_files("runner_override_all_pinned_all_runners_imported", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -397,33 +221,7 @@ class TestRunnerNamespacing(unittest.TestCase):
         """Test that imported runners are namespaced to prevent name collisions."""
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            # Imported file has a runner named "docker"
-            (project_root / "build.yaml").write_text(
-                "runners:\n"
-                "  docker:\n"
-                "    shell:\n      cmd: sh\n"
-                "tasks:\n"
-                "  task1:\n"
-                "    cmd: echo 'task1 in imported docker'\n"
-                "    run_in: docker\n"
-                "    pin_runner: true\n"
-            )
-
-            # Root file also has a runner named "docker"
-            recipe_path = project_root / "tasktree.yaml"
-            recipe_path.write_text(
-                "runners:\n"
-                "  docker:\n"
-                "    shell:\n      cmd: bash\n"
-                "imports:\n"
-                "  - file: build.yaml\n"
-                "    as: build\n"
-                "tasks:\n"
-                "  task2:\n"
-                "    cmd: echo 'task2 in root docker'\n"
-                "    run_in: docker\n"
-            )
+            copy_fixture_files("runner_override_namespacing_prevents_collision", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -460,33 +258,7 @@ class TestRunnerNamespacing(unittest.TestCase):
         """Test that run_in references are rewritten to use namespaced runner names."""
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            # Imported file with pinned task referencing "my_runner"
-            (project_root / "build.yaml").write_text(
-                "runners:\n"
-                "  my_runner:\n"
-                "    shell:\n      cmd: sh\n"
-                "tasks:\n"
-                "  compile:\n"
-                "    cmd: echo 'compiling'\n"
-                "    run_in: my_runner\n"
-                "    pin_runner: true\n"
-            )
-
-            # Root file imports with namespace "build"
-            recipe_path = project_root / "tasktree.yaml"
-            recipe_path.write_text(
-                "runners:\n"
-                "  default:\n"
-                "    shell:\n      cmd: bash\n"
-                "imports:\n"
-                "  - file: build.yaml\n"
-                "    as: build\n"
-                "tasks:\n"
-                "  all:\n"
-                "    deps: [build.compile]\n"
-                "    cmd: echo 'done'\n"
-            )
+            copy_fixture_files("runner_override_reference_rewritten_in_pinned_task", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -512,41 +284,7 @@ class TestRunnerNamespacing(unittest.TestCase):
         """Test runner namespacing through three levels of imports."""
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            # Deepest level: common.yaml with a runner and pinned task
-            (project_root / "common.yaml").write_text(
-                "runners:\n"
-                "  util_runner:\n"
-                "    shell:\n      cmd: sh\n"
-                "tasks:\n"
-                "  helper:\n"
-                "    cmd: echo 'common helper'\n"
-                "    run_in: util_runner\n"
-                "    pin_runner: true\n"
-            )
-
-            # Middle level: build.yaml imports common.yaml
-            (project_root / "build.yaml").write_text(
-                "imports:\n"
-                "  - file: common.yaml\n"
-                "    as: common\n"
-                "tasks:\n"
-                "  compile:\n"
-                "    deps: [common.helper]\n"
-                "    cmd: echo 'compiling'\n"
-            )
-
-            # Root level: tasktree.yaml imports build.yaml
-            recipe_path = project_root / "tasktree.yaml"
-            recipe_path.write_text(
-                "imports:\n"
-                "  - file: build.yaml\n"
-                "    as: build\n"
-                "tasks:\n"
-                "  all:\n"
-                "    deps: [build.compile]\n"
-                "    cmd: echo 'done'\n"
-            )
+            copy_fixture_files("runner_override_three_level_namespacing", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -579,52 +317,7 @@ class TestRunnerNamespacing(unittest.TestCase):
         """Test runner namespacing through four levels of imports."""
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            # Level 4 (deepest): utils.yaml
-            (project_root / "utils.yaml").write_text(
-                "runners:\n"
-                "  base:\n"
-                "    shell:\n      cmd: sh\n"
-                "tasks:\n"
-                "  base_task:\n"
-                "    cmd: echo 'base'\n"
-                "    run_in: base\n"
-                "    pin_runner: true\n"
-            )
-
-            # Level 3: common.yaml imports utils.yaml
-            (project_root / "common.yaml").write_text(
-                "imports:\n"
-                "  - file: utils.yaml\n"
-                "    as: utils\n"
-                "tasks:\n"
-                "  common_task:\n"
-                "    deps: [utils.base_task]\n"
-                "    cmd: echo 'common'\n"
-            )
-
-            # Level 2: build.yaml imports common.yaml
-            (project_root / "build.yaml").write_text(
-                "imports:\n"
-                "  - file: common.yaml\n"
-                "    as: common\n"
-                "tasks:\n"
-                "  build_task:\n"
-                "    deps: [common.common_task]\n"
-                "    cmd: echo 'build'\n"
-            )
-
-            # Level 1 (root): tasktree.yaml imports build.yaml
-            recipe_path = project_root / "tasktree.yaml"
-            recipe_path.write_text(
-                "imports:\n"
-                "  - file: build.yaml\n"
-                "    as: build\n"
-                "tasks:\n"
-                "  all:\n"
-                "    deps: [build.build_task]\n"
-                "    cmd: echo 'all'\n"
-            )
+            copy_fixture_files("runner_override_four_level_namespacing", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -661,38 +354,7 @@ class TestRunnerPrecedenceOrder(unittest.TestCase):
         """Test that CLI --runner flag takes precedence over all other settings."""
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            # Imported file with pinned task
-            (project_root / "build.yaml").write_text(
-                "runners:\n"
-                "  pinned_runner:\n"
-                "    shell:\n      cmd: sh\n"
-                "tasks:\n"
-                "  pinned_task:\n"
-                "    cmd: echo 'pinned task'\n"
-                "    run_in: pinned_runner\n"
-                "    pin_runner: true\n"
-                "  normal_task:\n"
-                "    cmd: echo 'normal task'\n"
-            )
-
-            # Root file with default runner and blanket override
-            recipe_path = project_root / "tasktree.yaml"
-            recipe_path.write_text(
-                "runners:\n"
-                "  default: default_runner\n"
-                "  default_runner:\n"
-                "    shell:\n      cmd: bash\n"
-                "  cli_runner:\n"
-                "    shell:\n      cmd: zsh\n"
-                "imports:\n"
-                "  - file: build.yaml\n"
-                "    as: build\n"
-                "    run_in: default_runner\n"
-                "tasks:\n"
-                "  root_task:\n"
-                "    cmd: echo 'root task'\n"
-            )
+            copy_fixture_files("runner_override_precedence_cli_overrides_all", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -732,32 +394,7 @@ class TestRunnerPrecedenceOrder(unittest.TestCase):
         """Test that pinned task runner takes precedence over blanket override."""
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            # Imported file with pinned and non-pinned tasks
-            (project_root / "build.yaml").write_text(
-                "runners:\n"
-                "  pinned_runner:\n"
-                "    shell:\n      cmd: sh\n"
-                "tasks:\n"
-                "  pinned_task:\n"
-                "    cmd: echo 'pinned task'\n"
-                "    run_in: pinned_runner\n"
-                "    pin_runner: true\n"
-                "  normal_task:\n"
-                "    cmd: echo 'normal task'\n"
-            )
-
-            # Root file with blanket runner override
-            recipe_path = project_root / "tasktree.yaml"
-            recipe_path.write_text(
-                "runners:\n"
-                "  blanket_runner:\n"
-                "    shell:\n      cmd: bash\n"
-                "imports:\n"
-                "  - file: build.yaml\n"
-                "    as: build\n"
-                "    run_in: blanket_runner\n"
-            )
+            copy_fixture_files("runner_override_precedence_pinned_over_blanket", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -787,28 +424,7 @@ class TestRunnerPrecedenceOrder(unittest.TestCase):
         """Test that blanket runner override takes precedence over default runner."""
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            # Imported file with no task-level runners
-            (project_root / "build.yaml").write_text(
-                "tasks:\n"
-                "  task1:\n"
-                "    cmd: echo 'task1'\n"
-            )
-
-            # Root file with default runner and blanket override
-            recipe_path = project_root / "tasktree.yaml"
-            recipe_path.write_text(
-                "runners:\n"
-                "  default: default_runner\n"
-                "  default_runner:\n"
-                "    shell:\n      cmd: bash\n"
-                "  blanket_runner:\n"
-                "    shell:\n      cmd: sh\n"
-                "imports:\n"
-                "  - file: build.yaml\n"
-                "    as: build\n"
-                "    run_in: blanket_runner\n"
-            )
+            copy_fixture_files("runner_override_precedence_blanket_over_default", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -829,23 +445,7 @@ class TestRunnerPrecedenceOrder(unittest.TestCase):
         """Test that task-level run_in takes precedence over default runner."""
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            # File with task-level run_in and default runner
-            recipe_path = project_root / "tasktree.yaml"
-            recipe_path.write_text(
-                "runners:\n"
-                "  default: default_runner\n"
-                "  default_runner:\n"
-                "    shell:\n      cmd: bash\n"
-                "  task_runner:\n"
-                "    shell:\n      cmd: sh\n"
-                "tasks:\n"
-                "  task_with_runner:\n"
-                "    cmd: echo 'task with runner'\n"
-                "    run_in: task_runner\n"
-                "  task_without_runner:\n"
-                "    cmd: echo 'task without runner'\n"
-            )
+            copy_fixture_files("runner_override_precedence_task_level_over_default", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -874,40 +474,7 @@ class TestRunnerPrecedenceOrder(unittest.TestCase):
         """Test full precedence chain with all levels defined."""
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            # Imported file with pinned task
-            (project_root / "build.yaml").write_text(
-                "runners:\n"
-                "  pinned_runner:\n"
-                "    shell:\n      cmd: sh\n"
-                "tasks:\n"
-                "  pinned_task:\n"
-                "    cmd: echo 'pinned'\n"
-                "    run_in: pinned_runner\n"
-                "    pin_runner: true\n"
-                "  blanket_task:\n"
-                "    cmd: echo 'blanket'\n"
-            )
-
-            # Root file with all runner types
-            recipe_path = project_root / "tasktree.yaml"
-            recipe_path.write_text(
-                "runners:\n"
-                "  default: default_runner\n"
-                "  default_runner:\n"
-                "    shell:\n      cmd: bash\n"
-                "  blanket_runner:\n"
-                "    shell:\n      cmd: zsh\n"
-                "  cli_runner:\n"
-                "    shell:\n      cmd: sh\n"
-                "imports:\n"
-                "  - file: build.yaml\n"
-                "    as: build\n"
-                "    run_in: blanket_runner\n"
-                "tasks:\n"
-                "  default_task:\n"
-                "    cmd: echo 'default'\n"
-            )
+            copy_fixture_files("runner_override_precedence_all_levels", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -963,34 +530,7 @@ class TestEdgeCases(unittest.TestCase):
         """Test importing the same file multiple times with different blanket overrides."""
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            # Shared task file with no runner specified
-            (project_root / "shared.yaml").write_text(
-                "tasks:\n"
-                "  task1:\n"
-                "    cmd: echo 'task1'\n"
-            )
-
-            # Root file imports the same file twice with different blanket overrides
-            recipe_path = project_root / "tasktree.yaml"
-            recipe_path.write_text(
-                "runners:\n"
-                "  runner_a:\n"
-                "    shell:\n      cmd: bash\n"
-                "  runner_b:\n"
-                "    shell:\n      cmd: sh\n"
-                "imports:\n"
-                "  - file: shared.yaml\n"
-                "    as: set_a\n"
-                "    run_in: runner_a\n"
-                "  - file: shared.yaml\n"
-                "    as: set_b\n"
-                "    run_in: runner_b\n"
-                "tasks:\n"
-                "  all:\n"
-                "    deps: [set_a.task1, set_b.task1]\n"
-                "    cmd: echo 'done'\n"
-            )
+            copy_fixture_files("runner_override_multiple_imports_same_file", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -1024,33 +564,7 @@ class TestEdgeCases(unittest.TestCase):
         """Test that pinned task referencing non-existent runner fails only when that task is invoked."""
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            # Imported file with pinned task referencing non-existent runner
-            (project_root / "build.yaml").write_text(
-                "tasks:\n"
-                "  broken_task:\n"
-                "    cmd: echo 'this will fail'\n"
-                "    run_in: nonexistent_runner\n"
-                "    pin_runner: true\n"
-                "  good_task:\n"
-                "    cmd: echo 'this works'\n"
-            )
-
-            # Root file imports the broken task
-            recipe_path = project_root / "tasktree.yaml"
-            recipe_path.write_text(
-                "runners:\n"
-                "  default_runner:\n"
-                "    shell:\n      cmd: bash\n"
-                "    default: true\n"
-                "imports:\n"
-                "  - file: build.yaml\n"
-                "    as: build\n"
-                "tasks:\n"
-                "  root:\n"
-                "    deps: [build.good_task]\n"
-                "    cmd: echo 'done'\n"
-            )
+            copy_fixture_files("runner_override_nonexistent_runner_fails_at_invocation", project_root)
 
             original_cwd = os.getcwd()
             try:

@@ -1,0 +1,6 @@
+tasks:
+  deploy:
+    args:
+      - environment: { choices: ["dev", "staging", "prod"], default: "dev" }
+    outputs: [deploy.log]
+    cmd: echo "environment={{ arg.environment }}" > deploy.log

@@ -1,0 +1,17 @@
+variables:
+  mount_path: /var/data
+  env_value: config-value
+
+runners:
+  test-runner:
+    dockerfile: docker/Dockerfile
+    context: .
+    volumes:
+      - "{{ var.mount_path }}:/workspace"
+    env_vars:
+      VAR_VALUE: "{{ var.env_value }}"
+
+tasks:
+  docker-test:
+    run_in: test-runner
+    cmd: echo "Testing var substitution in docker"

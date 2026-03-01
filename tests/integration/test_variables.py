@@ -8,6 +8,7 @@ from tempfile import TemporaryDirectory
 from typer.testing import CliRunner
 
 from tasktree.cli import app
+from fixture_utils import copy_fixture_files
 
 
 class TestVariablesIntegration(unittest.TestCase):
@@ -28,17 +29,7 @@ class TestVariablesIntegration(unittest.TestCase):
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-variables:
-  message: "Hello from variables"
-
-tasks:
-  test:
-    outputs: [output.txt]
-    cmd: echo "{{ var.message }}" > output.txt
-""")
+            copy_fixture_files("variables_in_command_execution", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -63,19 +54,7 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-variables:
-  server: "prod.example.com"
-  port: 8080
-
-tasks:
-  deploy:
-    args: [app_name]
-    outputs: ["deploy-{{ arg.app_name }}.log"]
-    cmd: echo "Deploy {{ arg.app_name }} to {{ var.server }}:{{ var.port }}" > deploy-{{ arg.app_name }}.log
-""")
+            copy_fixture_files("variables_with_args_combined", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -100,19 +79,7 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-variables:
-  port: 8080
-  debug: true
-  timeout: 30.5
-
-tasks:
-  test:
-    outputs: [config.txt]
-    cmd: echo "port={{ var.port }} debug={{ var.debug }} timeout={{ var.timeout }}" > config.txt
-""")
+            copy_fixture_files("variable_types_stringify", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -136,23 +103,7 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-variables:
-  protocol: "https"
-  domain: "api.example.com"
-  base_url: "{{ var.protocol }}://{{ var.domain }}"
-  users_endpoint: "{{ var.base_url }}/users"
-  posts_endpoint: "{{ var.base_url }}/posts"
-
-tasks:
-  test:
-    outputs: [endpoints.txt]
-    cmd: |
-      echo "{{ var.users_endpoint }}" > endpoints.txt
-      echo "{{ var.posts_endpoint }}" >> endpoints.txt
-""")
+            copy_fixture_files("complex_variable_chain", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -183,17 +134,7 @@ tasks:
             subdir = project_root / "build"
             subdir.mkdir()
 
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-variables:
-  build_dir: "build"
-
-tasks:
-  test:
-    working_dir: "{{ var.build_dir }}"
-    outputs: [build/result.txt]
-    cmd: pwd > result.txt
-""")
+            copy_fixture_files("variables_in_working_dir", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -219,23 +160,7 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-variables:
-  version: "1.2.3"
-  app_name: "myapp"
-
-tasks:
-  build:
-    outputs: [build.log]
-    cmd: echo "Building {{ var.app_name }} v{{ var.version }}" > build.log
-
-  deploy:
-    deps: [build]
-    outputs: [deploy.log]
-    cmd: echo "Deploying {{ var.app_name }} v{{ var.version }}" > deploy.log
-""")
+            copy_fixture_files("variables_in_multiple_tasks", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -261,16 +186,7 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-variables:
-  defined: "value"
-
-tasks:
-  test:
-    cmd: echo "{{ var.undefined }}"
-""")
+            copy_fixture_files("error_undefined_variable", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -293,17 +209,7 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            recipe_file = project_root / "tasktree.yaml"
-            # Test self-referential circular reference
-            recipe_file.write_text("""
-variables:
-  recursive: "value {{ var.recursive }}"
-
-tasks:
-  test:
-    cmd: 'echo test {{ var.recursive }}'
-""")
+            copy_fixture_files("error_circular_reference", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -326,17 +232,7 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text(r"""
-variables:
-  message: "Hello $USER from 'variables'"
-
-tasks:
-  test:
-    outputs: [output.txt]
-    cmd: echo "{{ var.message }}" > output.txt
-""")
+            copy_fixture_files("variables_with_special_characters", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -366,19 +262,7 @@ tasks:
         try:
             with TemporaryDirectory() as tmpdir:
                 project_root = Path(tmpdir)
-
-                recipe_file = project_root / "tasktree.yaml"
-                recipe_file.write_text("""
-variables:
-  api_key: { env: TEST_API_KEY }
-  db_host: { env: TEST_DB_HOST }
-  connection: "{{ var.db_host }}:5432"
-
-tasks:
-  test:
-    outputs: [config.txt]
-    cmd: echo "API={{ var.api_key }} DB={{ var.connection }}" > config.txt
-""")
+                copy_fixture_files("env_variable_in_command", project_root)
 
                 original_cwd = os.getcwd()
                 try:
@@ -412,16 +296,7 @@ tasks:
 
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-variables:
-  missing: { env: TEST_UNDEFINED_VAR }
-
-tasks:
-  test:
-    cmd: echo "{{ var.missing }}"
-""")
+            copy_fixture_files("env_variable_undefined", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -445,14 +320,7 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  test:
-    outputs: [output.txt]
-    cmd: echo "User is {{ env.USER }}" > output.txt
-""")
+            copy_fixture_files("env_substitution_in_command", project_root)
 
             # Set test env var
             test_env = {"NO_COLOR": "1", "USER": "testuser"}
@@ -480,18 +348,7 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-variables:
-  server: "prod.example.com"
-
-tasks:
-  deploy:
-    args: [app_name]
-    outputs: ["deploy.log"]
-    cmd: echo "Deploy {{ arg.app_name }} to {{ var.server }} as {{ env.USER }}" > deploy.log
-""")
+            copy_fixture_files("mixed_substitution_var_arg_env", project_root)
 
             test_env = {"NO_COLOR": "1", "USER": "admin"}
 
@@ -516,13 +373,7 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  test:
-    cmd: echo "{{ env.UNDEFINED_VAR_XYZ }}"
-""")
+            copy_fixture_files("undefined_env_var_error", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -547,14 +398,7 @@ tasks:
             subdir = project_root / "testdir"
             subdir.mkdir()
 
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  test:
-    working_dir: "{{ env.TEST_DIR }}"
-    outputs: [output.txt]
-    cmd: echo "In subdir" > output.txt
-""")
+            copy_fixture_files("env_substitution_in_working_dir", project_root)
 
             test_env = {"NO_COLOR": "1", "TEST_DIR": "testdir"}
 
@@ -583,17 +427,7 @@ tasks:
             secret_file = project_root / "api-key.txt"
             secret_file.write_text("secret-api-key-123\n")
 
-            # Create recipe
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-variables:
-  api_key: { read: api-key.txt }
-
-tasks:
-  test:
-    outputs: [result.txt]
-    cmd: 'echo "Key: {{ var.api_key }}" > result.txt'
-""")
+            copy_fixture_files("file_read_in_command", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -623,18 +457,7 @@ tasks:
             config_file = project_root / "config.txt"
             config_file.write_text("server-{{ var.environment }}")
 
-            # Create recipe
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-variables:
-  environment: "prod"
-  server_name: { read: config.txt }
-
-tasks:
-  test:
-    outputs: [result.txt]
-    cmd: 'echo "{{ var.server_name }}" > result.txt'
-""")
+            copy_fixture_files("file_read_with_variable_expansion", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -667,19 +490,7 @@ tasks:
                 api_key_file = project_root / "api-key.txt"
                 api_key_file.write_text("secret-123")
 
-                # Create recipe
-                recipe_file = project_root / "tasktree.yaml"
-                recipe_file.write_text("""
-variables:
-  api_key: { read: api-key.txt }
-  deploy_user: { env: TEST_DEPLOY_USER }
-  regular_var: "myapp"
-
-tasks:
-  test:
-    outputs: [result.txt]
-    cmd: 'echo "{{ var.regular_var }} {{ var.api_key }} {{ var.deploy_user }}" > result.txt'
-""")
+                copy_fixture_files("file_read_and_env_combined", project_root)
 
                 original_cwd = os.getcwd()
                 try:
@@ -706,17 +517,7 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            # Create recipe referencing non-existent file
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-variables:
-  missing: { read: nonexistent.txt }
-
-tasks:
-  test:
-    cmd: echo test {{ var.missing }}
-""")
+            copy_fixture_files("file_read_error_not_found", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -745,17 +546,7 @@ tasks:
 
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-variables:
-  port: { env: TEST_PORT_DEFAULT, default: "8080" }
-
-tasks:
-  test:
-    outputs: [config.txt]
-    cmd: echo "Port={{ var.port }}" > config.txt
-""")
+            copy_fixture_files("env_variable_with_default_not_set", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -784,17 +575,7 @@ tasks:
         try:
             with TemporaryDirectory() as tmpdir:
                 project_root = Path(tmpdir)
-
-                recipe_file = project_root / "tasktree.yaml"
-                recipe_file.write_text("""
-variables:
-  port: { env: TEST_PORT_OVERRIDE, default: "8080" }
-
-tasks:
-  test:
-    outputs: [config.txt]
-    cmd: echo "Port={{ var.port }}" > config.txt
-""")
+                copy_fixture_files("env_variable_with_default_set", project_root)
 
                 original_cwd = os.getcwd()
                 try:
@@ -826,17 +607,7 @@ tasks:
         try:
             with TemporaryDirectory() as tmpdir:
                 project_root = Path(tmpdir)
-
-                recipe_file = project_root / "tasktree.yaml"
-                recipe_file.write_text("""
-variables:
-  value: { env: TEST_EMPTY_VAR, default: "default_value" }
-
-tasks:
-  test:
-    outputs: [output.txt]
-    cmd: echo "Value=[{{ var.value }}]" > output.txt
-""")
+                copy_fixture_files("env_variable_empty_string_vs_default", project_root)
 
                 original_cwd = os.getcwd()
                 try:
@@ -864,16 +635,7 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-variables:
-  port: { env: TEST_PORT, default: 8080 }
-
-tasks:
-  test:
-    cmd: echo test port = {{ var.port }}
-""")
+            copy_fixture_files("env_variable_default_must_be_string", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -905,19 +667,7 @@ tasks:
 
             with TemporaryDirectory() as tmpdir:
                 project_root = Path(tmpdir)
-
-                recipe_file = project_root / "tasktree.yaml"
-                recipe_file.write_text("""
-variables:
-  host: { env: TEST_HOST, default: "localhost" }
-  port: { env: TEST_PORT, default: "8080" }
-  url: "{{ var.host }}:{{ var.port }}"
-
-tasks:
-  test:
-    outputs: [config.txt]
-    cmd: echo "URL={{ var.url }}" > config.txt
-""")
+                copy_fixture_files("env_variable_multiple_with_defaults", project_root)
 
                 original_cwd = os.getcwd()
                 try:
@@ -949,18 +699,7 @@ tasks:
 
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-variables:
-  base_url: "https://api.example.com"
-  endpoint: { env: TEST_OVERRIDE, default: "{{ var.base_url }}/users" }
-
-tasks:
-  test:
-    outputs: [config.txt]
-    cmd: echo "Endpoint={{ var.endpoint }}" > config.txt
-""")
+            copy_fixture_files("env_variable_default_with_var_substitution", project_root)
 
             original_cwd = os.getcwd()
             try:

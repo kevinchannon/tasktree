@@ -1,0 +1,5 @@
+tasks:
+  bad:
+    args:
+      - name: { type: str, min: 1, max: 10 }
+    cmd: echo "name={{ arg.name }}"

@@ -1,0 +1,7 @@
+tasks:
+  helper:
+    private: true
+    cmd: echo helper
+
+  main:
+    cmd: echo main

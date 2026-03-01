@@ -1,0 +1,3 @@
+tasks:
+  test-single:
+    cmd: echo "Hello World" > output.txt

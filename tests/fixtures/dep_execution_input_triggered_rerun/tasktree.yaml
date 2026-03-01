@@ -1,0 +1,10 @@
+tasks:
+  gen-config:
+    inputs: [config.template]
+    outputs: [config.json]
+    cmd: echo "generated config" > config.json
+
+  build:
+    deps: [gen-config]
+    outputs: [app.bin]
+    cmd: echo "built app" > app.bin

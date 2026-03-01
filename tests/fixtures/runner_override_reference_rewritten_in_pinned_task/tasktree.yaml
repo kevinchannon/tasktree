@@ -1,0 +1,11 @@
+runners:
+  default:
+    shell:
+      cmd: bash
+imports:
+  - file: build.yaml
+    as: build
+tasks:
+  all:
+    deps: [build.compile]
+    cmd: echo 'done'

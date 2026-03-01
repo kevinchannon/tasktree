@@ -1,0 +1,5 @@
+tasks:
+  deploy:
+    args:
+      - environment: { choices: ["dev", "staging", "prod"] }
+    cmd: echo "environment={{ arg.environment }}"

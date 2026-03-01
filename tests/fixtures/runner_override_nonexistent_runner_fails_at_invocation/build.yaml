@@ -1,0 +1,7 @@
+tasks:
+  broken_task:
+    cmd: echo 'this will fail'
+    run_in: nonexistent_runner
+    pin_runner: true
+  good_task:
+    cmd: echo 'this works'

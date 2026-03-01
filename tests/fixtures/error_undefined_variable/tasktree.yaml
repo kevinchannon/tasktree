@@ -1,0 +1,6 @@
+variables:
+  defined: "value"
+
+tasks:
+  test:
+    cmd: echo "{{ var.undefined }}"

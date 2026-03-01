@@ -1,0 +1,9 @@
+runners:
+  base:
+    shell:
+      cmd: sh
+tasks:
+  base_task:
+    cmd: echo 'base'
+    run_in: base
+    pin_runner: true

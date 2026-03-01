@@ -1,0 +1,7 @@
+imports:
+  - file: build.yaml
+    as: build
+tasks:
+  all:
+    deps: [build.compile]
+    cmd: echo 'done'

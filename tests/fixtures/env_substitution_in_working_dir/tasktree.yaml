@@ -1,0 +1,5 @@
+tasks:
+  test:
+    working_dir: "{{ env.TEST_DIR }}"
+    outputs: [output.txt]
+    cmd: echo "In subdir" > output.txt

@@ -1,0 +1,4 @@
+tasks:
+  build:
+    outputs: [output.txt, debug.log]
+    cmd: cat {{ self.outputs.dest }}

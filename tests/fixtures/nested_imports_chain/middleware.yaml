@@ -1,0 +1,14 @@
+imports:
+  - file: base.yaml
+    as: base
+
+tasks:
+  setup:
+    deps: [base.config]
+    outputs: [setup.txt]
+    cmd: echo step 3 > setup.txt
+
+  prepare:
+    deps: [setup]
+    outputs: [prepare.txt]
+    cmd: echo step 4 > prepare.txt

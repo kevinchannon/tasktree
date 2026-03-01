@@ -1,0 +1,9 @@
+tasks:
+  lint:
+    outputs: [lint.log]
+    cmd: echo "linting" > lint.log
+
+  build:
+    deps: [lint]
+    outputs: [build.log]
+    cmd: echo "building" > build.log

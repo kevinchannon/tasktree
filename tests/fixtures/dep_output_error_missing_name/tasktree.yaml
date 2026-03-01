@@ -1,0 +1,9 @@
+tasks:
+  build:
+    outputs:
+      - bundle: "dist/app.js"
+    cmd: echo "build"
+
+  deploy:
+    deps: [build]
+    cmd: echo "{{ dep.build.outputs.missing }}"

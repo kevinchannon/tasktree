@@ -1,0 +1,12 @@
+variables:
+  server: prod.example.com
+
+tasks:
+  deploy:
+    args: [region]
+    cmd: |
+      echo "Deploying from {{ tt.project_root }}" > {{ tt.project_root }}/mixed.txt
+      echo "Task: {{ tt.task_name }}" >> {{ tt.project_root }}/mixed.txt
+      echo "Server: {{ var.server }}" >> {{ tt.project_root }}/mixed.txt
+      echo "Region: {{ arg.region }}" >> {{ tt.project_root }}/mixed.txt
+      echo "User: {{ tt.user_name }}" >> {{ tt.project_root }}/mixed.txt

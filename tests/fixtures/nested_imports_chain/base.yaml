@@ -1,0 +1,9 @@
+tasks:
+  init:
+    outputs: [init.txt]
+    cmd: echo step 1 > init.txt
+
+  config:
+    deps: [init]
+    outputs: [config.txt]
+    cmd: echo step 2 > config.txt

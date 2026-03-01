@@ -9,6 +9,7 @@ from tempfile import TemporaryDirectory
 from typer.testing import CliRunner
 
 from tasktree.cli import app
+from fixture_utils import copy_fixture_files
 
 
 def strip_ansi_codes(text: str) -> str:
@@ -40,27 +41,7 @@ class TestCLIOptionsNoClash(unittest.TestCase):
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            # Create a tasktree.yaml with tasks named after built-in options
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  show:
-    desc: User task named 'show'
-    cmd: echo "Running user's show task"
-
-  tree:
-    desc: User task named 'tree'
-    cmd: echo "Running user's tree task"
-
-  init:
-    desc: User task named 'init'
-    cmd: echo "Running user's init task"
-
-  list:
-    desc: User task named 'list'
-    cmd: echo "Running user's list task"
-""")
+            copy_fixture_files("cli_opts_builtin_names", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -91,20 +72,7 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            # Create a tasktree.yaml with tasks named after built-in options
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  show:
-    desc: User task named 'show'
-    cmd: echo "Running user's show task"
-
-  build:
-    desc: Build task
-    outputs: [output.txt]
-    cmd: echo "building" > output.txt
-""")
+            copy_fixture_files("cli_opts_show_with_build", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -153,14 +121,7 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  build:
-    desc: Build task
-    cmd: echo "building"
-""")
+            copy_fixture_files("cli_opts_simple_build", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -185,15 +146,7 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            # Create a simple recipe
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  build:
-    desc: Build task
-    cmd: echo "building"
-""")
+            copy_fixture_files("cli_opts_simple_build", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -238,16 +191,7 @@ class TestShowOption(unittest.TestCase):
         Test that --show displays multiline commands with proper newlines, not escaped \\n.
         """
         with self.runner.isolated_filesystem():
-            recipe_file = Path("tasktree.yaml")
-            recipe_file.write_text("""
-tasks:
-  multiline:
-    desc: Task with multiline command
-    cmd: |
-      echo "Line 1"
-      echo "Line 2"
-      echo "Line 3"
-""")
+            copy_fixture_files("cli_opts_multiline_show", Path("."))
 
             result = self.runner.invoke(app, ["--show", "multiline"], env=self.env)
 
@@ -269,13 +213,7 @@ tasks:
         Test that --show displays single-line commands cleanly.
         """
         with self.runner.isolated_filesystem():
-            recipe_file = Path("tasktree.yaml")
-            recipe_file.write_text("""
-tasks:
-  single:
-    desc: Task with single line command
-    cmd: echo "Hello world"
-""")
+            copy_fixture_files("cli_opts_single_line_show", Path("."))
 
             result = self.runner.invoke(app, ["--show", "single"], env=self.env)
 
@@ -307,18 +245,10 @@ class TestForceOption(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create input and recipe
+            # Create input file and recipe
             input_file = project_root / "input.txt"
             input_file.write_text("initial")
-
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  build:
-    inputs: [input.txt]
-    outputs: [output.txt]
-    cmd: cat input.txt > output.txt
-""")
+            copy_fixture_files("cli_opts_force_with_input", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -355,13 +285,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  build:
-    outputs: [output.txt]
-    cmd: echo "built" > output.txt
-""")
+            copy_fixture_files("cli_opts_force_output", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -390,24 +314,7 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  lint:
-    outputs: [lint.log]
-    cmd: echo "linting" > lint.log
-
-  build:
-    deps: [lint]
-    outputs: [build.log]
-    cmd: echo "building" > build.log
-
-  test:
-    deps: [build]
-    outputs: [test.log]
-    cmd: echo "testing" > test.log
-""")
+            copy_fixture_files("cli_opts_lint_build_test", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -465,19 +372,7 @@ class TestOnlyOption(unittest.TestCase):
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  lint:
-    outputs: [lint.log]
-    cmd: echo "linting" > lint.log
-
-  build:
-    deps: [lint]
-    outputs: [build.log]
-    cmd: echo "building" > build.log
-""")
+            copy_fixture_files("cli_opts_lint_build", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -503,18 +398,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  lint:
-    outputs: [lint.log]
-    cmd: echo "linting" > lint.log
-
-  build:
-    deps: [lint]
-    outputs: [build.log]
-    cmd: echo "building" > build.log
-""")
+            copy_fixture_files("cli_opts_lint_build", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -540,23 +424,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  lint:
-    outputs: [lint.log]
-    cmd: echo "linting" > lint.log
-
-  build:
-    deps: [lint]
-    outputs: [build.log]
-    cmd: echo "building" > build.log
-
-  test:
-    deps: [build]
-    outputs: [test.log]
-    cmd: echo "testing" > test.log
-""")
+            copy_fixture_files("cli_opts_lint_build_test", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -581,13 +449,7 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            recipe_file = project_root / "tasktree.yaml"
-            recipe_file.write_text("""
-tasks:
-  build:
-    outputs: [build.log]
-    cmd: echo "building" > build.log
-""")
+            copy_fixture_files("cli_opts_only_build", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -631,50 +493,7 @@ class TestListOptionWithImports(unittest.TestCase):
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            # Create base.yaml with some tasks
-            (project_root / "base.yaml").write_text("""
-tasks:
-  setup:
-    desc: Setup base infrastructure
-    cmd: echo "Setting up base"
-
-  configure:
-    desc: Configure base settings
-    cmd: echo "Configuring base"
-""")
-
-            # Create common.yaml that imports base.yaml
-            (project_root / "common.yaml").write_text("""
-imports:
-  - file: base.yaml
-    as: base
-
-tasks:
-  prepare:
-    desc: Prepare common resources
-    deps: [base.setup]
-    cmd: echo "Preparing common"
-""")
-
-            # Create main recipe that imports common.yaml
-            recipe_path = project_root / "tasktree.yaml"
-            recipe_path.write_text("""
-imports:
-  - file: common.yaml
-    as: common
-
-tasks:
-  build:
-    desc: Build the project
-    deps: [common.prepare]
-    cmd: echo "Building project"
-
-  test:
-    desc: Run tests
-    deps: [build]
-    cmd: echo "Running tests"
-""")
+            copy_fixture_files("cli_opts_list_imported", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -712,31 +531,7 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
-
-            # Create imported file
-            (project_root / "shared.yaml").write_text("""
-tasks:
-  lint:
-    desc: Run linter
-    cmd: echo "Linting code"
-
-  format:
-    desc: Format code
-    cmd: echo "Formatting code"
-""")
-
-            # Create main recipe
-            recipe_path = project_root / "tasktree.yaml"
-            recipe_path.write_text("""
-imports:
-  - file: shared.yaml
-    as: shared
-
-tasks:
-  build:
-    desc: Build application
-    cmd: echo "Building"
-""")
+            copy_fixture_files("cli_opts_list_single_import", project_root)
 
             original_cwd = os.getcwd()
             try:
@@ -779,13 +574,7 @@ class TestTasksFileOption(unittest.TestCase):
         Test --tasks option works with .yml extension.
         """
         with self.runner.isolated_filesystem():
-            recipe_file = Path("tasktree.yml")
-            recipe_file.write_text("""
-tasks:
-  build:
-    desc: Build with yml
-    cmd: echo "Building from yml"
-""")
+            copy_fixture_files("cli_opts_tasks_yml", Path("."))
 
             result = self.runner.invoke(
                 app, ["--tasks", "tasktree.yml", "build"], env=self.env
@@ -800,13 +589,7 @@ tasks:
         Test --tasks option works with .tasks extension.
         """
         with self.runner.isolated_filesystem():
-            recipe_file = Path("build.tasks")
-            recipe_file.write_text("""
-tasks:
-  compile:
-    desc: Compile code
-    cmd: echo "Compiling"
-""")
+            copy_fixture_files("cli_opts_tasks_build_tasks", Path("."))
 
             result = self.runner.invoke(
                 app, ["--tasks", "build.tasks", "compile"], env=self.env
@@ -821,12 +604,7 @@ tasks:
         Test -T short flag works.
         """
         with self.runner.isolated_filesystem():
-            recipe_file = Path("my.tasks")
-            recipe_file.write_text("""
-tasks:
-  test:
-    cmd: echo "Testing"
-""")
+            copy_fixture_files("cli_opts_tasks_my_test", Path("."))
 
             result = self.runner.invoke(app, ["-T", "my.tasks", "test"], env=self.env)
 
@@ -839,9 +617,7 @@ tasks:
         Test that having multiple recipe files without --tasks raises error.
         """
         with self.runner.isolated_filesystem():
-            # Create multiple recipe files
-            Path("tasktree.yaml").write_text("tasks:\n  build:\n    cmd: echo yaml")
-            Path("tasktree.yml").write_text("tasks:\n  build:\n    cmd: echo yml")
+            copy_fixture_files("cli_opts_tasks_multiple", Path("."))
 
             # Should fail with helpful error message
             result = self.runner.invoke(app, ["build"], env=self.env)
@@ -855,17 +631,7 @@ tasks:
         Test --tasks option selects specific file when multiple exist.
         """
         with self.runner.isolated_filesystem():
-            # Create multiple recipe files with different task names
-            Path("tasktree.yaml").write_text("""
-tasks:
-  yaml-task:
-    cmd: echo "From yaml"
-""")
-            Path("build.tasks").write_text("""
-tasks:
-  tasks-task:
-    cmd: echo "From tasks"
-""")
+            copy_fixture_files("cli_opts_tasks_select", Path("."))
 
             # Use --tasks to select the .tasks file - should be able to run tasks-task
             result = self.runner.invoke(
@@ -886,16 +652,7 @@ tasks:
         Test --tasks option works with --list.
         """
         with self.runner.isolated_filesystem():
-            recipe_file = Path("custom.tasks")
-            recipe_file.write_text("""
-tasks:
-  task1:
-    desc: First task
-    cmd: echo one
-  task2:
-    desc: Second task
-    cmd: echo two
-""")
+            copy_fixture_files("cli_opts_tasks_custom", Path("."))
 
             result = self.runner.invoke(
                 app, ["--tasks", "custom.tasks", "--list"], env=self.env
@@ -911,13 +668,7 @@ tasks:
         Test --tasks option works with --show.
         """
         with self.runner.isolated_filesystem():
-            recipe_file = Path("my.tasks")
-            recipe_file.write_text("""
-tasks:
-  build:
-    desc: Build task
-    cmd: echo building
-""")
+            copy_fixture_files("cli_opts_tasks_my_build", Path("."))
 
             result = self.runner.invoke(
                 app, ["--tasks", "my.tasks", "--show", "build"], env=self.env

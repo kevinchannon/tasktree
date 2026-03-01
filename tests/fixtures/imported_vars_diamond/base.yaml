@@ -1,0 +1,13 @@
+variables:
+  msg: from base
+
+runners:
+  shell:
+    shell:
+      cmd: sh
+
+tasks:
+  hello:
+    run_in: shell
+    pin_runner: true
+    cmd: echo {{ var.msg }}
