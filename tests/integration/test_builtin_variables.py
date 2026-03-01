@@ -12,7 +12,7 @@ from tasktree.process_runner import TaskOutputTypes, make_process_runner, Proces
 from tasktree.state import StateManager
 
 from helpers.logging import logger_stub
-from tests.fixture_utils import copy_fixture_files
+from fixture_utils import copy_fixture_files
 
 
 class TestBuiltinVariables(unittest.TestCase):

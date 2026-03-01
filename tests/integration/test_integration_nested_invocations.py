@@ -12,7 +12,7 @@ from typer.testing import CliRunner
 
 from helpers.docker import is_docker_available
 from tasktree.cli import app
-from tests.fixture_utils import copy_fixture_files
+from fixture_utils import copy_fixture_files
 
 
 def strip_ansi_codes(text: str) -> str:

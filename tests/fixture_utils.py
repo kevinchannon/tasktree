@@ -14,7 +14,7 @@ is merged into the target, overwriting any files with matching names.
 
 Usage:
 
-    from tests.fixture_utils import copy_fixture_files
+    from fixture_utils import copy_fixture_files
     from pathlib import Path
     import tempfile
 

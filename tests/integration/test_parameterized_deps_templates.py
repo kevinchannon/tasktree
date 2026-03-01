@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from tests.fixture_utils import copy_fixture_files
+from fixture_utils import copy_fixture_files
 
 
 class TestParameterizedDependenciesWithTemplates:

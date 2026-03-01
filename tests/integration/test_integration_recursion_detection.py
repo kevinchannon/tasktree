@@ -9,7 +9,7 @@ from tempfile import TemporaryDirectory
 from typer.testing import CliRunner
 
 from tasktree.cli import app
-from tests.fixture_utils import copy_fixture_files
+from fixture_utils import copy_fixture_files
 
 
 class TestDirectRecursionIntegration(unittest.TestCase):

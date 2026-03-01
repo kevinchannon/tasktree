@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from tests.fixture_utils import copy_fixture_files, FIXTURES
+from fixture_utils import copy_fixture_files, FIXTURES
 
 
 class TestCopyFixtureFiles(unittest.TestCase):
@@ -21,12 +21,12 @@ class TestCopyFixtureFiles(unittest.TestCase):
     # ------------------------------------------------------------------
 
     def test_raises_file_not_found_when_fixture_missing(self):
-        with patch("tests.fixture_utils.FIXTURES", self.fixtures_root):
+        with patch("fixture_utils.FIXTURES", self.fixtures_root):
             with self.assertRaises(FileNotFoundError):
                 copy_fixture_files("nonexistent", self.target)
 
     def test_error_message_includes_fixture_name(self):
-        with patch("tests.fixture_utils.FIXTURES", self.fixtures_root):
+        with patch("fixture_utils.FIXTURES", self.fixtures_root):
             with self.assertRaises(FileNotFoundError) as ctx:
                 copy_fixture_files("my_fixture", self.target)
         self.assertIn("my_fixture", str(ctx.exception))
@@ -40,7 +40,7 @@ class TestCopyFixtureFiles(unittest.TestCase):
         fixture_dir.mkdir(parents=True)
         (fixture_dir / "recipe.yaml").write_text("tasks: {}")
 
-        with patch("tests.fixture_utils.FIXTURES", self.fixtures_root):
+        with patch("fixture_utils.FIXTURES", self.fixtures_root):
             copy_fixture_files("my_fixture", self.target)
 
         self.assertTrue((self.target / "recipe.yaml").exists())
@@ -50,7 +50,7 @@ class TestCopyFixtureFiles(unittest.TestCase):
         fixture_dir.mkdir(parents=True)
         (fixture_dir / "recipe.yaml").write_text("tasks: {}\n")
 
-        with patch("tests.fixture_utils.FIXTURES", self.fixtures_root):
+        with patch("fixture_utils.FIXTURES", self.fixtures_root):
             copy_fixture_files("my_fixture", self.target)
 
         self.assertEqual("tasks: {}\n", (self.target / "recipe.yaml").read_text())
@@ -61,7 +61,7 @@ class TestCopyFixtureFiles(unittest.TestCase):
         (fixture_dir / "a.yaml").write_text("a")
         (fixture_dir / "b.yaml").write_text("b")
 
-        with patch("tests.fixture_utils.FIXTURES", self.fixtures_root):
+        with patch("fixture_utils.FIXTURES", self.fixtures_root):
             copy_fixture_files("my_fixture", self.target)
 
         self.assertTrue((self.target / "a.yaml").exists())
@@ -73,7 +73,7 @@ class TestCopyFixtureFiles(unittest.TestCase):
         subdir.mkdir(parents=True)
         (subdir / "tasks.yaml").write_text("tasks: {}")
 
-        with patch("tests.fixture_utils.FIXTURES", self.fixtures_root):
+        with patch("fixture_utils.FIXTURES", self.fixtures_root):
             copy_fixture_files("my_fixture", self.target)
 
         self.assertTrue((self.target / "config" / "tasks.yaml").exists())
@@ -88,7 +88,7 @@ class TestCopyFixtureFiles(unittest.TestCase):
         (fixture_dir / "recipe.yaml").write_text("tasks: {}")
 
         non_existent = self.target / "deep" / "nested"
-        with patch("tests.fixture_utils.FIXTURES", self.fixtures_root):
+        with patch("fixture_utils.FIXTURES", self.fixtures_root):
             copy_fixture_files("my_fixture", non_existent)
 
         self.assertTrue(non_existent.exists())
@@ -103,8 +103,8 @@ class TestCopyFixtureFiles(unittest.TestCase):
         posix_dir.mkdir(parents=True)
         (posix_dir / "recipe.yaml").write_text("posix content")
 
-        with patch("tests.fixture_utils.FIXTURES", self.fixtures_root):
-            with patch("tests.fixture_utils._current_platform", return_value="windows"):
+        with patch("fixture_utils.FIXTURES", self.fixtures_root):
+            with patch("fixture_utils._current_platform", return_value="windows"):
                 copy_fixture_files("my_fixture", self.target)
 
         self.assertFalse((self.target / "posix").exists())
@@ -115,8 +115,8 @@ class TestCopyFixtureFiles(unittest.TestCase):
         windows_dir.mkdir(parents=True)
         (windows_dir / "recipe.yaml").write_text("windows content")
 
-        with patch("tests.fixture_utils.FIXTURES", self.fixtures_root):
-            with patch("tests.fixture_utils._current_platform", return_value="posix"):
+        with patch("fixture_utils.FIXTURES", self.fixtures_root):
+            with patch("fixture_utils._current_platform", return_value="posix"):
                 copy_fixture_files("my_fixture", self.target)
 
         self.assertFalse((self.target / "windows").exists())
@@ -132,8 +132,8 @@ class TestCopyFixtureFiles(unittest.TestCase):
         (fixture_dir / "recipe.yaml").write_text("base content")
         (posix_dir / "recipe.yaml").write_text("posix content")
 
-        with patch("tests.fixture_utils.FIXTURES", self.fixtures_root):
-            with patch("tests.fixture_utils._current_platform", return_value="posix"):
+        with patch("fixture_utils.FIXTURES", self.fixtures_root):
+            with patch("fixture_utils._current_platform", return_value="posix"):
                 copy_fixture_files("my_fixture", self.target)
 
         self.assertEqual("posix content", (self.target / "recipe.yaml").read_text())
@@ -145,8 +145,8 @@ class TestCopyFixtureFiles(unittest.TestCase):
         (fixture_dir / "recipe.yaml").write_text("base content")
         (windows_dir / "recipe.yaml").write_text("windows content")
 
-        with patch("tests.fixture_utils.FIXTURES", self.fixtures_root):
-            with patch("tests.fixture_utils._current_platform", return_value="windows"):
+        with patch("fixture_utils.FIXTURES", self.fixtures_root):
+            with patch("fixture_utils._current_platform", return_value="windows"):
                 copy_fixture_files("my_fixture", self.target)
 
         self.assertEqual("windows content", (self.target / "recipe.yaml").read_text())
@@ -158,8 +158,8 @@ class TestCopyFixtureFiles(unittest.TestCase):
         (fixture_dir / "shared.yaml").write_text("shared")
         (posix_dir / "platform_only.yaml").write_text("posix only")
 
-        with patch("tests.fixture_utils.FIXTURES", self.fixtures_root):
-            with patch("tests.fixture_utils._current_platform", return_value="posix"):
+        with patch("fixture_utils.FIXTURES", self.fixtures_root):
+            with patch("fixture_utils._current_platform", return_value="posix"):
                 copy_fixture_files("my_fixture", self.target)
 
         self.assertTrue((self.target / "shared.yaml").exists())
@@ -170,8 +170,8 @@ class TestCopyFixtureFiles(unittest.TestCase):
         fixture_dir.mkdir(parents=True)
         (fixture_dir / "recipe.yaml").write_text("base content")
 
-        with patch("tests.fixture_utils.FIXTURES", self.fixtures_root):
-            with patch("tests.fixture_utils._current_platform", return_value="posix"):
+        with patch("fixture_utils.FIXTURES", self.fixtures_root):
+            with patch("fixture_utils._current_platform", return_value="posix"):
                 copy_fixture_files("my_fixture", self.target)
 
         self.assertEqual("base content", (self.target / "recipe.yaml").read_text())
@@ -183,8 +183,8 @@ class TestCopyFixtureFiles(unittest.TestCase):
         (fixture_dir / "recipe.yaml").write_text("base content")
         (posix_dir / "recipe.yaml").write_text("posix content")
 
-        with patch("tests.fixture_utils.FIXTURES", self.fixtures_root):
-            with patch("tests.fixture_utils._current_platform", return_value="windows"):
+        with patch("fixture_utils.FIXTURES", self.fixtures_root):
+            with patch("fixture_utils._current_platform", return_value="windows"):
                 copy_fixture_files("my_fixture", self.target)
 
         self.assertEqual("base content", (self.target / "recipe.yaml").read_text())
@@ -196,8 +196,8 @@ class TestCopyFixtureFiles(unittest.TestCase):
         (fixture_dir / "recipe.yaml").write_text("base content")
         (windows_dir / "recipe.yaml").write_text("windows content")
 
-        with patch("tests.fixture_utils.FIXTURES", self.fixtures_root):
-            with patch("tests.fixture_utils._current_platform", return_value="posix"):
+        with patch("fixture_utils.FIXTURES", self.fixtures_root):
+            with patch("fixture_utils._current_platform", return_value="posix"):
                 copy_fixture_files("my_fixture", self.target)
 
         self.assertEqual("base content", (self.target / "recipe.yaml").read_text())

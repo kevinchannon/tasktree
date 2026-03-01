@@ -8,7 +8,7 @@ from tempfile import TemporaryDirectory
 from tasktree.cli import app
 from typer.testing import CliRunner
 
-from tests.fixture_utils import copy_fixture_files
+from fixture_utils import copy_fixture_files
 
 
 class TestDependencyOutputReferences(unittest.TestCase):

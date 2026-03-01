@@ -11,7 +11,7 @@ from tasktree.executor import Executor
 from tasktree.parser import parse_recipe, parse_task_args
 from tasktree.process_runner import TaskOutputTypes, make_process_runner
 from tasktree.state import StateManager
-from tests.fixture_utils import copy_fixture_files
+from fixture_utils import copy_fixture_files
 
 
 class TestExportedArgs(unittest.TestCase):

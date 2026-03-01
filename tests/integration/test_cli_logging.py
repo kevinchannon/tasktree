@@ -9,7 +9,7 @@ from typer.testing import CliRunner
 
 from tasktree.cli import app
 from helpers.io import strip_ansi_codes
-from tests.fixture_utils import copy_fixture_files
+from fixture_utils import copy_fixture_files
 
 
 class TestCLILogging(unittest.TestCase):

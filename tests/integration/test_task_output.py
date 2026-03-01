@@ -12,7 +12,7 @@ from typer.testing import CliRunner
 
 from helpers.logging import logger_stub
 from tasktree.cli import app
-from tests.fixture_utils import copy_fixture_files
+from fixture_utils import copy_fixture_files
 from tasktree.executor import Executor, ExecutionError
 from tasktree.parser import parse_recipe
 from tasktree.process_runner import TaskOutputTypes, make_process_runner
