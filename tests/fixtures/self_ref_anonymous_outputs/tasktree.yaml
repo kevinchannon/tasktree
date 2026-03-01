@@ -1,4 +1,4 @@
 tasks:
   build:
     outputs: [build.log]
-    cmd: echo "Build complete" > build.log
+    cmd: python3 -c "open('build.log', 'w').write('Build complete\n')"

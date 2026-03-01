@@ -4,4 +4,4 @@ tasks:
       - sources: "*.txt"
     outputs:
       - combined: all.txt
-    cmd: cat {{ self.inputs.sources }} > {{ self.outputs.combined }}
+    cmd: python3 -c "import pathlib; out=pathlib.Path('{{ self.outputs.combined }}'); out.write_text(''.join(f.read_text() for f in sorted(pathlib.Path('.').glob('{{ self.inputs.sources }}')) if f.resolve() != out.resolve()))"

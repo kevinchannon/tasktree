@@ -2,4 +2,4 @@ tasks:
   concat:
     inputs: ["*.txt"]
     outputs: [all.txt]
-    cmd: cat {{ self.inputs.0 }} > {{ self.outputs.0 }}
+    cmd: python3 -c "import pathlib; out=pathlib.Path('{{ self.outputs.0 }}'); out.write_text(''.join(f.read_text() for f in sorted(pathlib.Path('.').glob('{{ self.inputs.0 }}')) if f.resolve() != out.resolve()))"

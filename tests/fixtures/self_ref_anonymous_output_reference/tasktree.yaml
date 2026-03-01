@@ -1,4 +1,4 @@
 tasks:
   build:
     outputs: [output.txt, debug.log]
-    cmd: cat {{ self.outputs.dest }}
+    cmd: python3 -c "import pathlib; print(pathlib.Path('{{ self.outputs.dest }}').read_text())"

@@ -2,4 +2,4 @@ tasks:
   concat:
     inputs: ["file1.txt", "file2.txt"]
     outputs: [result.txt]
-    cmd: cat {{ self.inputs.0 }} {{ self.inputs.1 }} > result.txt
+    cmd: python3 -c "open('result.txt', 'w').write(open('{{ self.inputs.0 }}').read() + open('{{ self.inputs.1 }}').read())"

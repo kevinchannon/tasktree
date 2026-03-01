@@ -3,4 +3,4 @@ tasks:
     inputs:
       - src: "file.txt"
     outputs: [output.txt]
-    cmd: cat {{ self.inputs.SRC }} > output.txt
+    cmd: python3 -c "import shutil; shutil.copy('{{ self.inputs.SRC }}', 'output.txt')"

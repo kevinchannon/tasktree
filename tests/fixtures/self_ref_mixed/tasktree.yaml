@@ -4,4 +4,4 @@ tasks:
       - source: data.txt
     outputs:
       - target: processed.txt
-    cmd: cat {{ self.inputs.source }} | tr '[:lower:]' '[:upper:]' > {{ self.outputs.target }}
+    cmd: python3 -c "import pathlib; pathlib.Path('{{ self.outputs.target }}').write_text(pathlib.Path('{{ self.inputs.source }}').read_text().upper())"

@@ -5,16 +5,16 @@ tasks:
       - header: config.h
     outputs:
       - obj: main.o
-    cmd: cat {{ self.inputs.src }} {{ self.inputs.header }} > {{ self.outputs.obj }}
+    cmd: python3 -c "open('{{ self.outputs.obj }}', 'w').write(open('{{ self.inputs.src }}').read() + open('{{ self.inputs.header }}').read())"
 
   link:
     deps: [compile]
     outputs:
       - exe: app.exe
-    cmd: cat main.o > {{ self.outputs.exe }}
+    cmd: python3 -c "import shutil; shutil.copy('main.o', '{{ self.outputs.exe }}')"
 
   package:
     deps: [link]
     outputs:
       - archive: app.tar.gz
-    cmd: tar czf {{ self.outputs.archive }} app.exe
+    cmd: python3 -c "import tarfile; tf=tarfile.open('{{ self.outputs.archive }}', 'w:gz'); tf.add('app.exe'); tf.close()"

@@ -5,4 +5,4 @@ tasks:
   generate:
     outputs:
       - artifact: "{{ var.build_dir }}/result.txt"
-    cmd: echo "Generated" > {{ self.outputs.artifact }}
+    cmd: python3 -c "import pathlib; pathlib.Path('{{ self.outputs.artifact }}').parent.mkdir(parents=True, exist_ok=True); open('{{ self.outputs.artifact }}', 'w').write('Generated\n')"

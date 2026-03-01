@@ -7,7 +7,4 @@ tasks:
       - bundle: "{{ var.env }}/app.js"
     outputs:
       - deployed: "{{ var.env }}/deployed.js"
-    cmd: |
-      # Command uses self-refs which should contain variable-expanded paths
-      echo "Deploying {{ self.inputs.bundle }}"
-      cp {{ self.inputs.bundle }} {{ self.outputs.deployed }}
+    cmd: python3 -c "import shutil, pathlib; pathlib.Path('{{ self.outputs.deployed }}').parent.mkdir(parents=True, exist_ok=True); shutil.copy('{{ self.inputs.bundle }}', '{{ self.outputs.deployed }}')"
