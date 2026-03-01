@@ -6,4 +6,4 @@ tasks:
   prepare:
     deps: [base.setup]
     outputs: [common-output.txt]
-    cmd: echo common prepare complete > common-output.txt
+    cmd: python3 -c "open('common-output.txt', 'w').write('common prepare complete\n')"

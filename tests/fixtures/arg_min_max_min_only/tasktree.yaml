@@ -3,4 +3,4 @@ tasks:
     args:
       - port: { type: int, min: 1024 }
     outputs: [port.txt]
-    cmd: echo "port={{ arg.port }}" > port.txt
+    cmd: python3 -c "open('port.txt', 'w').write('port={{ arg.port }}\n')"

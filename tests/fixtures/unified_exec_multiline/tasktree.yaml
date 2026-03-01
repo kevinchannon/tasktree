@@ -1,5 +1,5 @@
 tasks:
   test-multi:
     cmd: |
-      echo "Line 1" > output.txt
-      echo "Line 2" >> output.txt
+      python3 -c "open('output.txt', 'w').write('Line 1\n')"
+      python3 -c "open('output.txt', 'a').write('Line 2\n')"

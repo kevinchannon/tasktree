@@ -1,14 +1,14 @@
 tasks:
   lint:
     outputs: [lint.log]
-    cmd: echo "linting" > lint.log
+    cmd: python3 -c "open('lint.log', 'w').write('linting\n')"
 
   build:
     deps: [lint]
     outputs: [build.log]
-    cmd: echo "building" > build.log
+    cmd: python3 -c "open('build.log', 'w').write('building\n')"
 
   test:
     deps: [build]
     outputs: [test.log]
-    cmd: echo "testing" > test.log
+    cmd: python3 -c "open('test.log', 'w').write('testing\n')"

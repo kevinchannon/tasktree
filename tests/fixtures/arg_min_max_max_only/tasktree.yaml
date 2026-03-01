@@ -3,4 +3,4 @@ tasks:
     args:
       - percentage: { type: float, max: 100.0 }
     outputs: [value.txt]
-    cmd: echo "percentage={{ arg.percentage }}" > value.txt
+    cmd: python3 -c "open('value.txt', 'w').write('percentage={{ arg.percentage }}\n')"

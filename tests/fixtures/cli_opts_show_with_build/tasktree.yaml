@@ -6,4 +6,4 @@ tasks:
   build:
     desc: Build task
     outputs: [output.txt]
-    cmd: echo "building" > output.txt
+    cmd: python3 -c "open('output.txt', 'w').write('building\n')"

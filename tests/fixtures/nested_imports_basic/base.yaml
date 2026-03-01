@@ -1,4 +1,4 @@
 tasks:
   setup:
     outputs: [base-output.txt]
-    cmd: echo base setup complete > base-output.txt
+    cmd: python3 -c "open('base-output.txt', 'w').write('base setup complete\n')"

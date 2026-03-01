@@ -5,7 +5,7 @@ tasks:
       - pretty: { type: bool, default: false }
     outputs:
       - "data.{{arg.format}}"
-    cmd: echo "{{arg.format}},pretty={{arg.pretty}}" > data.{{arg.format}}
+    cmd: python3 -c "open('data.{{arg.format}}', 'w').write('{{arg.format}},pretty={{arg.pretty}}\n')"
 
   process:
     deps:
@@ -13,4 +13,4 @@ tasks:
           format: xml
           pretty: true
     outputs: [processed.log]
-    cmd: echo "Processing XML" > processed.log
+    cmd: python3 -c "open('processed.log', 'w').write('Processing XML\n')"

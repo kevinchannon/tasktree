@@ -6,9 +6,9 @@ tasks:
   setup:
     deps: [base.config]
     outputs: [setup.txt]
-    cmd: echo step 3 > setup.txt
+    cmd: python3 -c "open('setup.txt', 'w').write('step 3\n')"
 
   prepare:
     deps: [setup]
     outputs: [prepare.txt]
-    cmd: echo step 4 > prepare.txt
+    cmd: python3 -c "open('prepare.txt', 'w').write('step 4\n')"

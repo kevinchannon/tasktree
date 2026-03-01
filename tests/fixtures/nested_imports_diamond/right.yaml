@@ -6,4 +6,4 @@ tasks:
   right-task:
     deps: [base.shared-setup]
     outputs: [right.txt]
-    cmd: echo right completed > right.txt
+    cmd: python3 -c "open('right.txt', 'w').write('right completed\n')"

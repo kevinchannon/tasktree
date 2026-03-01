@@ -1,15 +1,15 @@
 tasks:
   child1:
     outputs: [child1.txt]
-    cmd: echo "child1" > child1.txt
+    cmd: python3 -c "open('child1.txt', 'w').write('child1\n')"
 
   child2:
     outputs: [child2.txt]
-    cmd: echo "child2" > child2.txt
+    cmd: python3 -c "open('child2.txt', 'w').write('child2\n')"
 
   child3:
     outputs: [child3.txt]
-    cmd: echo "child3" > child3.txt
+    cmd: python3 -c "open('child3.txt', 'w').write('child3\n')"
 
   parent:
     outputs: [parent.txt]
@@ -17,4 +17,4 @@ tasks:
       python3 -m tasktree.cli child1
       python3 -m tasktree.cli child2
       python3 -m tasktree.cli child3
-      echo "parent done" > parent.txt
+      python3 -c "open('parent.txt', 'w').write('parent done\n')"

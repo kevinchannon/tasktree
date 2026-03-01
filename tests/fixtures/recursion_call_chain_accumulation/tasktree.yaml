@@ -1,13 +1,13 @@
 tasks:
   parent:
     cmd: |
-      echo "$TT_CALL_CHAIN" > markers/parent_chain.txt
+      python3 -c "import os,pathlib; pathlib.Path('markers').mkdir(exist_ok=True); open('markers/parent_chain.txt', 'w').write(os.environ.get('TT_CALL_CHAIN', '') + chr(10))"
       tt child
 
   child:
     cmd: |
-      echo "$TT_CALL_CHAIN" > markers/child_chain.txt
+      python3 -c "import os,pathlib; pathlib.Path('markers').mkdir(exist_ok=True); open('markers/child_chain.txt', 'w').write(os.environ.get('TT_CALL_CHAIN', '') + chr(10))"
       tt grandchild
 
   grandchild:
-    cmd: echo "$TT_CALL_CHAIN" > markers/grandchild_chain.txt
+    cmd: python3 -c "import os,pathlib; pathlib.Path('markers').mkdir(exist_ok=True); open('markers/grandchild_chain.txt', 'w').write(os.environ.get('TT_CALL_CHAIN', '') + chr(10))"

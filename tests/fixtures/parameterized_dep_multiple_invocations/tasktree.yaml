@@ -4,7 +4,7 @@ tasks:
       - target
     outputs:
       - "compiled-{{arg.target}}.o"
-    cmd: echo "Compiling for {{arg.target}}" > compiled-{{arg.target}}.o
+    cmd: python3 -c "open('compiled-{{arg.target}}.o', 'w').write('Compiling for {{arg.target}}\n')"
 
   link:
     deps:
@@ -12,6 +12,4 @@ tasks:
       - compile: [arm]
     outputs:
       - linked.bin
-    cmd: |
-      echo "Linking all targets" > linked.bin
-      cat compiled-x86.o compiled-arm.o >> linked.bin
+    cmd: python3 -c "open('linked.bin', 'w').write('Linking all targets\n'); open('linked.bin', 'a').write(open('compiled-x86.o').read() + open('compiled-arm.o').read())"

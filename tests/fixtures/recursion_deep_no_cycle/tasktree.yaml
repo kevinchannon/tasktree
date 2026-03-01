@@ -2,27 +2,27 @@ tasks:
   level-1:
     outputs: [outputs/level1.txt]
     cmd: |
-      echo "Level 1" > outputs/level1.txt
+      python3 -c "import pathlib; pathlib.Path('outputs').mkdir(exist_ok=True); open('outputs/level1.txt', 'w').write('Level 1\n')"
       tt level-2
 
   level-2:
     outputs: [outputs/level2.txt]
     cmd: |
-      echo "Level 2" > outputs/level2.txt
+      python3 -c "import pathlib; pathlib.Path('outputs').mkdir(exist_ok=True); open('outputs/level2.txt', 'w').write('Level 2\n')"
       tt level-3
 
   level-3:
     outputs: [outputs/level3.txt]
     cmd: |
-      echo "Level 3" > outputs/level3.txt
+      python3 -c "import pathlib; pathlib.Path('outputs').mkdir(exist_ok=True); open('outputs/level3.txt', 'w').write('Level 3\n')"
       tt level-4
 
   level-4:
     outputs: [outputs/level4.txt]
     cmd: |
-      echo "Level 4" > outputs/level4.txt
+      python3 -c "import pathlib; pathlib.Path('outputs').mkdir(exist_ok=True); open('outputs/level4.txt', 'w').write('Level 4\n')"
       tt level-5
 
   level-5:
     outputs: [outputs/level5.txt]
-    cmd: echo "Level 5" > outputs/level5.txt
+    cmd: python3 -c "import pathlib; pathlib.Path('outputs').mkdir(exist_ok=True); open('outputs/level5.txt', 'w').write('Level 5\n')"
