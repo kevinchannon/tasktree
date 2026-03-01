@@ -9,4 +9,4 @@ runners:
 tasks:
   test-preamble:
     run_in: strict
-    cmd: python3 -c "import os; open('output.txt', 'w').write(os.environ.get('TEST_VAR', '') + chr(10))"
+    cmd: echo "$TEST_VAR" > output.txt

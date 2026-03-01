@@ -5,18 +5,18 @@ tasks:
       - optimize: { type: bool, default: false }
     outputs:
       - "build-{{arg.mode}}.log"
-    cmd: python3 -c "open('build-{{arg.mode}}.log', 'w').write('Building {{arg.mode}} optimize={{arg.optimize}}\n')"
+    cmd: echo "Building {{arg.mode}} optimize={{arg.optimize}}" > build-{{arg.mode}}.log
 
   test_debug:
     deps:
       - build: [debug, false]
     outputs:
       - test-debug.log
-    cmd: python3 -c "open('test-debug.log', 'w').write('Testing debug build\n')"
+    cmd: echo "Testing debug build" > test-debug.log
 
   test_release:
     deps:
       - build: [release, true]
     outputs:
       - test-release.log
-    cmd: python3 -c "open('test-release.log', 'w').write('Testing release build\n')"
+    cmd: echo "Testing release build" > test-release.log

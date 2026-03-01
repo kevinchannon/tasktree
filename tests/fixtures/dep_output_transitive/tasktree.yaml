@@ -2,14 +2,19 @@ tasks:
   base:
     outputs:
       - lib: "out/libbase.a"
-    cmd: python3 -c "import pathlib; pathlib.Path('out').mkdir(exist_ok=True); open('out/libbase.a', 'w').write('base-lib\n')"
+    cmd: |
+      mkdir -p out
+      echo "base-lib" > out/libbase.a
 
   middleware:
     deps: [base]
     outputs:
       - lib: "out/libmiddleware.a"
-    cmd: python3 -c "open('out/libmiddleware.a', 'w').write('middleware uses {{ dep.base.outputs.lib }}\n')"
+    cmd: |
+      echo "middleware uses {{ dep.base.outputs.lib }}" > out/libmiddleware.a
 
   app:
     deps: [middleware]
-    cmd: python3 -c "print('App uses {{ dep.middleware.outputs.lib }}'); print(open('{{ dep.middleware.outputs.lib }}').read(), end='')"
+    cmd: |
+      echo "App uses {{ dep.middleware.outputs.lib }}"
+      cat {{ dep.middleware.outputs.lib }}

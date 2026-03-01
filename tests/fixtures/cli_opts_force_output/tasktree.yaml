@@ -1,4 +1,4 @@
 tasks:
   build:
     outputs: [output.txt]
-    cmd: python3 -c "open('output.txt', 'w').write('built\n')"
+    cmd: echo "built" > output.txt

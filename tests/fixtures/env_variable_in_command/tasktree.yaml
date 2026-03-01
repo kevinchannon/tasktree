@@ -6,4 +6,4 @@ variables:
 tasks:
   test:
     outputs: [config.txt]
-    cmd: python3 -c "open('config.txt', 'w').write('API={{ var.api_key }} DB={{ var.connection }}\n')"
+    cmd: echo "API={{ var.api_key }} DB={{ var.connection }}" > config.txt

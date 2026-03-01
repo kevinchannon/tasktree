@@ -1,22 +1,22 @@
 tasks:
   d:
     outputs: [d.txt]
-    cmd: python3 -c "open('d.txt', 'w').write('d\n')"
+    cmd: echo "d" > d.txt
 
   c:
     outputs: [c.txt]
     cmd: |
       python3 -m tasktree.cli d
-      python3 -c "open('c.txt', 'w').write('c\n')"
+      echo "c" > c.txt
 
   b:
     outputs: [b.txt]
     cmd: |
       python3 -m tasktree.cli c
-      python3 -c "open('b.txt', 'w').write('b\n')"
+      echo "b" > b.txt
 
   a:
     outputs: [a.txt]
     cmd: |
       python3 -m tasktree.cli b
-      python3 -c "open('a.txt', 'w').write('a\n')"
+      echo "a" > a.txt

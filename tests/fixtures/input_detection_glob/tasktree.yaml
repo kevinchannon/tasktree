@@ -2,4 +2,4 @@ tasks:
   build:
     inputs: [src/*.rs]
     outputs: [output.bin]
-    cmd: python3 -c "open('output.bin', 'w').write('compiled\n')"
+    cmd: echo "compiled" > output.bin

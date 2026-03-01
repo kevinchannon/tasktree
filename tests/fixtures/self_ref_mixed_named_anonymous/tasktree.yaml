@@ -6,4 +6,6 @@ tasks:
     outputs:
       - result: output.txt
       - debug.log
-    cmd: python3 -c "open('{{ self.outputs.result }}', 'w').write(open('{{ self.inputs.config }}').read() + open('anon.txt').read()); open('debug.log', 'w').write('Processed\n')"
+    cmd: |
+      cat {{ self.inputs.config }} anon.txt > {{ self.outputs.result }}
+      echo "Processed" > debug.log

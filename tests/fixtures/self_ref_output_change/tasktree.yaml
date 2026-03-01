@@ -2,4 +2,4 @@ tasks:
   generate:
     outputs:
       - artifact: build.txt
-    cmd: python3 -c "open('{{ self.outputs.artifact }}', 'w').write('Build output\n')"
+    cmd: echo "Build output" > {{ self.outputs.artifact }}

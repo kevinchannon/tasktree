@@ -4,4 +4,9 @@ variables:
 tasks:
   deploy:
     args: [region]
-    cmd: python3 -c "open('{{ tt.project_root }}/mixed.txt', 'w').write('Deploying from {{ tt.project_root }}\nTask: {{ tt.task_name }}\nServer: {{ var.server }}\nRegion: {{ arg.region }}\nUser: {{ tt.user_name }}\n')"
+    cmd: |
+      echo "Deploying from {{ tt.project_root }}" > {{ tt.project_root }}/mixed.txt
+      echo "Task: {{ tt.task_name }}" >> {{ tt.project_root }}/mixed.txt
+      echo "Server: {{ var.server }}" >> {{ tt.project_root }}/mixed.txt
+      echo "Region: {{ arg.region }}" >> {{ tt.project_root }}/mixed.txt
+      echo "User: {{ tt.user_name }}" >> {{ tt.project_root }}/mixed.txt

@@ -3,4 +3,4 @@ tasks:
     args:
       - replicas: { type: int, min: 1, max: 10 }
     outputs: [deploy.log]
-    cmd: python3 -c "open('deploy.log', 'w').write('replicas={{ arg.replicas }}\n')"
+    cmd: echo "replicas={{ arg.replicas }}" > deploy.log

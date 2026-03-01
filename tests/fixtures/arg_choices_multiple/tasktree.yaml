@@ -4,4 +4,4 @@ tasks:
       - environment: { choices: ["dev", "staging", "prod"] }
       - region: { choices: ["us-east-1", "eu-west-1"] }
     outputs: [deploy.log]
-    cmd: python3 -c "open('deploy.log', 'w').write('{{ arg.environment }} in {{ arg.region }}\n')"
+    cmd: echo "{{ arg.environment }} in {{ arg.region }}" > deploy.log

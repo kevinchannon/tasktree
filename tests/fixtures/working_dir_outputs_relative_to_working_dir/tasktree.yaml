@@ -2,4 +2,4 @@ tasks:
   build:
     working_dir: project
     outputs: [target/bin]
-    cmd: python3 -c "import pathlib; pathlib.Path('target').mkdir(exist_ok=True); open('target/bin', 'w').write('binary\n')"
+    cmd: mkdir -p target && echo binary > target/bin

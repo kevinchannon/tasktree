@@ -5,4 +5,4 @@ tasks:
   test:
     working_dir: "{{ var.build_dir }}"
     outputs: [build/result.txt]
-    cmd: python3 -c "import os; open('result.txt', 'w').write(os.getcwd() + chr(10))"
+    cmd: pwd > result.txt

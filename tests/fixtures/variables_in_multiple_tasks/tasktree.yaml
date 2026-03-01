@@ -5,9 +5,9 @@ variables:
 tasks:
   build:
     outputs: [build.log]
-    cmd: python3 -c "open('build.log', 'w').write('Building {{ var.app_name }} v{{ var.version }}\n')"
+    cmd: echo "Building {{ var.app_name }} v{{ var.version }}" > build.log
 
   deploy:
     deps: [build]
     outputs: [deploy.log]
-    cmd: python3 -c "open('deploy.log', 'w').write('Deploying {{ var.app_name }} v{{ var.version }}\n')"
+    cmd: echo "Deploying {{ var.app_name }} v{{ var.version }}" > deploy.log

@@ -5,4 +5,4 @@ variables:
 tasks:
   test:
     outputs: [config.txt]
-    cmd: python3 -c "open('config.txt', 'w').write('Endpoint={{ var.endpoint }}\n')"
+    cmd: echo "Endpoint={{ var.endpoint }}" > config.txt

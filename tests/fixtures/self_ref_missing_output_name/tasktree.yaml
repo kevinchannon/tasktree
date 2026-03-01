@@ -3,4 +3,4 @@ tasks:
     outputs:
       - bundle: dist/app.js
       - sourcemap: dist/app.js.map
-    cmd: python3 -c "import pathlib; print(pathlib.Path('{{ self.outputs.missing }}').read_text())"
+    cmd: cat {{ self.outputs.missing }}

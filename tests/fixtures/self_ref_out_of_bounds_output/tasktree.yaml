@@ -1,4 +1,4 @@
 tasks:
   generate:
     outputs: [output.txt]
-    cmd: python3 -c "open('{{ self.outputs.3 }}', 'w').write('test\n')"
+    cmd: echo "test" > {{ self.outputs.3 }}

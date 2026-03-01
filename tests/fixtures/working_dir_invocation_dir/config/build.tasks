@@ -1,4 +1,4 @@
 tasks:
   check-location:
     desc: Check where we execute from
-    cmd: python3 -c "import os; open('location.txt', 'w').write(os.getcwd() + chr(10))"
+    cmd: pwd > location.txt

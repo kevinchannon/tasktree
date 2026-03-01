@@ -2,10 +2,10 @@ tasks:
   prepare:
     outputs:
       - outdir: build/v1
-    cmd: python3 -c "import pathlib; pathlib.Path('{{ self.outputs.outdir }}').mkdir(parents=True, exist_ok=True)"
+    cmd: mkdir -p {{ self.outputs.outdir }}
 
   compile:
     deps: [prepare]
     outputs:
       - binary: "{{ dep.prepare.outputs.outdir }}/app.bin"
-    cmd: python3 -c "open('{{ self.outputs.binary }}', 'w').write('binary\n')"
+    cmd: echo "binary" > {{ self.outputs.binary }}

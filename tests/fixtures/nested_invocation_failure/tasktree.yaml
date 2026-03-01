@@ -1,10 +1,10 @@
 tasks:
   failing-child:
-    cmd: python3 -c "import sys; sys.exit(1)"
+    cmd: exit 1
 
   parent:
     outputs: [parent.txt]
     cmd: |
       set -e
       python3 -m tasktree.cli failing-child
-      python3 -c "open('parent.txt', 'w').write('should not reach here\n')"
+      echo "should not reach here" > parent.txt

@@ -1,4 +1,4 @@
 tasks:
   test:
     outputs: [output.txt]
-    cmd: python3 -c "open('output.txt', 'w').write('User is {{ env.USER }}\n')"
+    cmd: echo "User is {{ env.USER }}" > output.txt

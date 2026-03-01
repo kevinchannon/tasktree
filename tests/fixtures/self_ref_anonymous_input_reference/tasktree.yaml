@@ -2,4 +2,4 @@ tasks:
   build:
     inputs: ["file.txt", "config.json"]
     outputs: [output.txt]
-    cmd: python3 -c "import shutil; shutil.copy('{{ self.inputs.src }}', 'output.txt')"
+    cmd: cat {{ self.inputs.src }} > output.txt

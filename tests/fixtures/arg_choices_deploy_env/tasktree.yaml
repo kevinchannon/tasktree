@@ -3,4 +3,4 @@ tasks:
     args:
       - environment: { type: str, choices: ["dev", "staging", "prod"] }
     outputs: [deploy.log]
-    cmd: python3 -c "open('deploy.log', 'w').write('environment={{ arg.environment }}\n')"
+    cmd: echo "environment={{ arg.environment }}" > deploy.log

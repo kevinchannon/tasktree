@@ -3,4 +3,4 @@ tasks:
     args:
       - message: { choices: ["hello world", "foo-bar", "test_123"] }
     outputs: [notify.log]
-    cmd: python3 -c "open('notify.log', 'w').write('{{ arg.message }}\n')"
+    cmd: echo "{{ arg.message }}" > notify.log

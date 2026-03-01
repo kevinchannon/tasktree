@@ -3,4 +3,4 @@ tasks:
     args:
       - region: { choices: ["us-east-1", "eu-west-1"] }
     outputs: [config.log]
-    cmd: python3 -c "open('config.log', 'w').write('region={{ arg.region }}\n')"
+    cmd: echo "region={{ arg.region }}" > config.log

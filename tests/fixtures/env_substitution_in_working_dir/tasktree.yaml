@@ -2,4 +2,4 @@ tasks:
   test:
     working_dir: "{{ env.TEST_DIR }}"
     outputs: [output.txt]
-    cmd: python3 -c "open('output.txt', 'w').write('In subdir\n')"
+    cmd: echo "In subdir" > output.txt

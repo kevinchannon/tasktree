@@ -1,4 +1,4 @@
 tasks:
   shared-setup:
     outputs: [base-setup.txt]
-    cmd: python3 -c "open('base-setup.txt', 'w').write('base setup\n')"
+    cmd: echo base setup > base-setup.txt

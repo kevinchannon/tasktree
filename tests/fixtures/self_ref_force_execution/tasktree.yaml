@@ -4,4 +4,4 @@ tasks:
       - file: source.txt
     outputs:
       - copy: dest.txt
-    cmd: python3 -c "import shutil; shutil.copy('{{ self.inputs.file }}', '{{ self.outputs.copy }}')"
+    cmd: cp {{ self.inputs.file }} {{ self.outputs.copy }}

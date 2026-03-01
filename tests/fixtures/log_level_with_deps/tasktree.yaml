@@ -1,7 +1,7 @@
 tasks:
   dep:
     outputs: [dep.txt]
-    cmd: python3 -c "open('dep.txt', 'w').write('dependency\n')"
+    cmd: echo "dependency" > dep.txt
 
   main:
     deps: [dep]

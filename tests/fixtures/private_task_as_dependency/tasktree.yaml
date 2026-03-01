@@ -1,8 +1,8 @@
 tasks:
   helper:
     private: true
-    cmd: python3 -c "open('output.txt', 'w').write('helper\n')"
+    cmd: echo "helper" > output.txt
 
   main:
     deps: [helper]
-    cmd: python3 -c "open('output.txt', 'a').write('main\n')"
+    cmd: echo "main" >> output.txt

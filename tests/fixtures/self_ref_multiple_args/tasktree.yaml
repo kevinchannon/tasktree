@@ -5,4 +5,4 @@ tasks:
       - lib: src/{{ arg.version }}/{{ arg.channel }}/lib.js
     outputs:
       - bundle: dist-{{ arg.version }}-{{ arg.channel }}.js
-    cmd: python3 -c "import shutil; shutil.copy('{{ self.inputs.lib }}', '{{ self.outputs.bundle }}')"
+    cmd: cp {{ self.inputs.lib }} {{ self.outputs.bundle }}

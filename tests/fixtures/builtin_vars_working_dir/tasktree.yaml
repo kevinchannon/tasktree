@@ -1,4 +1,4 @@
 tasks:
   test-workdir:
     working_dir: subdir
-    cmd: python3 -c "open('{{ tt.project_root }}/working_dir.txt', 'w').write('{{ tt.working_dir }}\n')"
+    cmd: echo "{{ tt.working_dir }}" > {{ tt.project_root }}/working_dir.txt

@@ -6,4 +6,4 @@ tasks:
   left-task:
     deps: [base.shared-setup]
     outputs: [left.txt]
-    cmd: python3 -c "open('left.txt', 'w').write('left completed\n')"
+    cmd: echo left completed > left.txt

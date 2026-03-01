@@ -1,4 +1,6 @@
 tasks:
   build-task:
     working_dir: "{{ tt.task_name }}"
-    cmd: python3 -c "open('{{ tt.project_root }}/result.txt', 'w').write('task={{ tt.task_name }}\nwd={{ tt.working_dir }}\n')"
+    cmd: |
+      echo "task={{ tt.task_name }}" > {{ tt.project_root }}/result.txt
+      echo "wd={{ tt.working_dir }}" >> {{ tt.project_root }}/result.txt

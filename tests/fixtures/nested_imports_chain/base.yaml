@@ -1,9 +1,9 @@
 tasks:
   init:
     outputs: [init.txt]
-    cmd: python3 -c "open('init.txt', 'w').write('step 1\n')"
+    cmd: echo step 1 > init.txt
 
   config:
     deps: [init]
     outputs: [config.txt]
-    cmd: python3 -c "open('config.txt', 'w').write('step 2\n')"
+    cmd: echo step 2 > config.txt

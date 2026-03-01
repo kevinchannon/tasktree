@@ -6,9 +6,9 @@ tasks:
   build:
     deps: [mid.prepare, mid.base.config]
     outputs: [build.txt]
-    cmd: python3 -c "open('build.txt', 'w').write('step 5\n')"
+    cmd: echo step 5 > build.txt
 
   deploy:
     deps: [build]
     outputs: [deploy.txt]
-    cmd: python3 -c "open('deploy.txt', 'w').write('step 6\n')"
+    cmd: echo step 6 > deploy.txt

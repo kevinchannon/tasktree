@@ -4,4 +4,4 @@ tasks:
       - src: "file.txt"
       - config: "config.json"
     outputs: [output.txt]
-    cmd: python3 -c "import shutil; shutil.copy('{{ self.inputs.missing }}', 'output.txt')"
+    cmd: cat {{ self.inputs.missing }} > output.txt

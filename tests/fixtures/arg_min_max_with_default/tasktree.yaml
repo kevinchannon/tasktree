@@ -3,4 +3,4 @@ tasks:
     args:
       - workers: { type: int, min: 1, max: 16, default: 4 }
     outputs: [workers.txt]
-    cmd: python3 -c "open('workers.txt', 'w').write('workers={{ arg.workers }}\n')"
+    cmd: echo "workers={{ arg.workers }}" > workers.txt

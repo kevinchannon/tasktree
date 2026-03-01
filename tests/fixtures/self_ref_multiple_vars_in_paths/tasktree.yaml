@@ -8,4 +8,4 @@ tasks:
       - data: "projects/{{ var.project }}/v{{ var.version }}/data.txt"
     outputs:
       - result: "{{ var.project }}-v{{ var.version }}-output.txt"
-    cmd: python3 -c "import shutil; shutil.copy('{{ self.inputs.data }}', '{{ self.outputs.result }}')"
+    cmd: cat {{ self.inputs.data }} > {{ self.outputs.result }}

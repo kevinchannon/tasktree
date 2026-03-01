@@ -4,4 +4,4 @@ variables:
 tasks:
   test:
     outputs: [output.txt]
-    cmd: python3 -c "open('output.txt', 'w').write('Value=[{{ var.value }}]\n')"
+    cmd: echo "Value=[{{ var.value }}]" > output.txt

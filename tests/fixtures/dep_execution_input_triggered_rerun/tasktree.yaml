@@ -2,9 +2,9 @@ tasks:
   gen-config:
     inputs: [config.template]
     outputs: [config.json]
-    cmd: python3 -c "open('config.json', 'w').write('generated config\n')"
+    cmd: echo "generated config" > config.json
 
   build:
     deps: [gen-config]
     outputs: [app.bin]
-    cmd: python3 -c "open('app.bin', 'w').write('built app\n')"
+    cmd: echo "built app" > app.bin

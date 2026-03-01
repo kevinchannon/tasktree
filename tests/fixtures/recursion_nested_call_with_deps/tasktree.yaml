@@ -1,15 +1,15 @@
 tasks:
   dep-task:
     outputs: [outputs/dep.txt]
-    cmd: python3 -c "import pathlib; pathlib.Path('outputs').mkdir(exist_ok=True); open('outputs/dep.txt', 'w').write('Dependency\n')"
+    cmd: echo "Dependency" > outputs/dep.txt
 
   parent:
     deps: [dep-task]
     outputs: [outputs/parent.txt]
     cmd: |
-      python3 -c "import pathlib; pathlib.Path('outputs').mkdir(exist_ok=True); open('outputs/parent.txt', 'w').write('Parent\n')"
+      echo "Parent" > outputs/parent.txt
       tt child
 
   child:
     outputs: [outputs/child.txt]
-    cmd: python3 -c "import pathlib; pathlib.Path('outputs').mkdir(exist_ok=True); open('outputs/child.txt', 'w').write('Child\n')"
+    cmd: echo "Child" > outputs/child.txt

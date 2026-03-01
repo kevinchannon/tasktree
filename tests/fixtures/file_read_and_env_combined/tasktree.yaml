@@ -6,4 +6,4 @@ variables:
 tasks:
   test:
     outputs: [result.txt]
-    cmd: python3 -c "open('result.txt', 'w').write('{{ var.regular_var }} {{ var.api_key }} {{ var.deploy_user }}\n')"
+    cmd: 'echo "{{ var.regular_var }} {{ var.api_key }} {{ var.deploy_user }}" > result.txt'

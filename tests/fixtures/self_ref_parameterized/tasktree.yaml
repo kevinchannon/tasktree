@@ -5,4 +5,4 @@ tasks:
       - src: input-{{ arg.mode }}.txt
     outputs:
       - dest: output-{{ arg.mode }}.txt
-    cmd: python3 -c "import shutil; shutil.copy('{{ self.inputs.src }}', '{{ self.outputs.dest }}')"
+    cmd: cat {{ self.inputs.src }} > {{ self.outputs.dest }}

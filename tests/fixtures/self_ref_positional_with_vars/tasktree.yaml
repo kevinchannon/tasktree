@@ -5,4 +5,4 @@ tasks:
   process:
     inputs: ["file-{{ var.version }}.txt"]
     outputs: [result.txt]
-    cmd: python3 -c "import shutil; shutil.copy('{{ self.inputs.0 }}', '{{ self.outputs.0 }}')"
+    cmd: cat {{ self.inputs.0 }} > {{ self.outputs.0 }}

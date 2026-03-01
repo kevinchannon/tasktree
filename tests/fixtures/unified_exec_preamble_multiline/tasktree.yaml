@@ -10,6 +10,6 @@ tasks:
   test-multi-preamble:
     run_in: strict
     cmd: |
-      python3 -c "open('output.txt', 'w').write('Start\n')"
-      python3 -c "import os; open('output.txt', 'a').write(os.environ.get('MY_VAR', '') + chr(10))"
-      python3 -c "open('output.txt', 'a').write('End\n')"
+      echo "Start" > output.txt
+      echo "$MY_VAR" >> output.txt
+      echo "End" >> output.txt

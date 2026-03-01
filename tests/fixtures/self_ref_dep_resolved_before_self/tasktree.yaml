@@ -2,7 +2,7 @@ tasks:
   generate:
     outputs:
       - filename: data.json
-    cmd: python3 -c "open('{{ self.outputs.filename }}', 'w').write('{' + chr(34) + 'version' + chr(34) + ':' + chr(34) + '1.0' + chr(34) + '}' + chr(10))"
+    cmd: echo '{"version":"1.0"}' > {{ self.outputs.filename }}
 
   process:
     deps: [generate]
@@ -10,4 +10,4 @@ tasks:
       - source: "{{ dep.generate.outputs.filename }}"
     outputs:
       - result: processed.txt
-    cmd: python3 -c "import shutil; shutil.copy('{{ self.inputs.source }}', '{{ self.outputs.result }}')"
+    cmd: cat {{ self.inputs.source }} > {{ self.outputs.result }}

@@ -3,4 +3,4 @@ tasks:
     args:
       - timeout: { type: float, min: 0.5, max: 30.0 }
     outputs: [config.txt]
-    cmd: python3 -c "open('config.txt', 'w').write('timeout={{ arg.timeout }}\n')"
+    cmd: echo "timeout={{ arg.timeout }}" > config.txt

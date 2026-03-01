@@ -3,7 +3,7 @@ tasks:
     args: [platform]
     outputs:
       - binary: bin-{{ arg.platform }}.exe
-    cmd: python3 -c "open('{{ self.outputs.binary }}', 'w').write('binary for {{ arg.platform }}\n')"
+    cmd: echo "binary for {{ arg.platform }}" > {{ self.outputs.binary }}
 
   package:
     args: [platform]
@@ -14,4 +14,4 @@ tasks:
       - installer: package.nsi
     outputs:
       - setup: setup-{{ arg.platform }}.exe
-    cmd: python3 -c "open('{{ self.outputs.setup }}', 'w').write(open('{{ self.inputs.installer }}').read() + open('{{ dep.compile.outputs.binary }}').read())"
+    cmd: cat {{ self.inputs.installer }} {{ dep.compile.outputs.binary }} > {{ self.outputs.setup }}

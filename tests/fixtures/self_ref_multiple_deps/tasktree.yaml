@@ -2,22 +2,22 @@ tasks:
   prep:
     outputs:
       - config: config.txt
-    cmd: python3 -c "open('{{ self.outputs.config }}', 'w').write('config\n')"
+    cmd: echo "config" > {{ self.outputs.config }}
 
   buildA:
     deps: [prep]
     outputs:
       - moduleA: moduleA.js
-    cmd: python3 -c "open('{{ self.outputs.moduleA }}', 'w').write('moduleA\n')"
+    cmd: echo "moduleA" > {{ self.outputs.moduleA }}
 
   buildB:
     deps: [prep]
     outputs:
       - moduleB: moduleB.js
-    cmd: python3 -c "open('{{ self.outputs.moduleB }}', 'w').write('moduleB\n')"
+    cmd: echo "moduleB" > {{ self.outputs.moduleB }}
 
   bundle:
     deps: [buildA, buildB]
     outputs:
       - bundle: app.js
-    cmd: python3 -c "open('{{ self.outputs.bundle }}', 'w').write(open('{{ dep.buildA.outputs.moduleA }}').read() + open('{{ dep.buildB.outputs.moduleB }}').read())"
+    cmd: cat {{ dep.buildA.outputs.moduleA }} {{ dep.buildB.outputs.moduleB }} > {{ self.outputs.bundle }}

@@ -2,7 +2,7 @@ tasks:
   build:
     outputs:
       - artifact: dist/app.js
-    cmd: python3 -c "import pathlib; pathlib.Path('dist').mkdir(exist_ok=True); open('{{ self.outputs.artifact }}', 'w').write('app code\n')"
+    cmd: echo "console.log('app');" > {{ self.outputs.artifact }}
 
   package:
     deps: [build]
@@ -10,4 +10,4 @@ tasks:
       - config: package.json
     outputs:
       - tarball: release.tar.gz
-    cmd: python3 -c "import tarfile; tf=tarfile.open('{{ self.outputs.tarball }}', 'w:gz'); tf.add('{{ self.inputs.config }}'); tf.add('{{ dep.build.outputs.artifact }}'); tf.close()"
+    cmd: tar czf {{ self.outputs.tarball }} {{ self.inputs.config }} {{ dep.build.outputs.artifact }}
