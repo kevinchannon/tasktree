@@ -1,0 +1,13 @@
+tasks:
+  build:
+    outputs: ["dist/bundle.js", "dist/bundle.css"]
+    cmd: |
+      mkdir dist
+      echo js > dist/bundle.js
+      echo css > dist/bundle.css
+
+  deploy:
+    deps: [build]
+    cmd: |
+      echo Deploying
+      type dist/bundle.js dist/bundle.css
