@@ -3,6 +3,7 @@
 import os
 import subprocess
 import sys
+import tempfile
 import unittest
 from io import StringIO
 from unittest.mock import patch
@@ -90,7 +91,7 @@ class TestPassthroughProcessRunner(unittest.TestCase):
         """
         run() executes command in specified working directory.
         """
-        test_dir = "/tmp"
+        test_dir = tempfile.gettempdir()
         result = self.runner.run(
             [sys.executable, "-c", "import os; print(os.getcwd())"],
             cwd=test_dir,
@@ -245,7 +246,7 @@ class TestSilentProcessRunner(unittest.TestCase):
                 "-c",
                 "import os; print(os.getcwd()); print(os.environ.get('TEST_VAR'))",
             ],
-            cwd="/tmp",
+            cwd=tempfile.gettempdir(),
             env=env,
         )
 
