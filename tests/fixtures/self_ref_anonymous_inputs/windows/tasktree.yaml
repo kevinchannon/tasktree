@@ -1,0 +1,5 @@
+tasks:
+  copy:
+    inputs: [input.txt]
+    outputs: [output.txt]
+    cmd: copy /Y input.txt output.txt
