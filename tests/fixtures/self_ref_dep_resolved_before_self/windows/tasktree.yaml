@@ -1,0 +1,13 @@
+tasks:
+  generate:
+    outputs:
+      - filename: data.json
+    cmd: echo {"version":"1.0"} > {{ self.outputs.filename }}
+
+  process:
+    deps: [generate]
+    inputs:
+      - source: "{{ dep.generate.outputs.filename }}"
+    outputs:
+      - result: processed.txt
+    cmd: copy /Y {{ self.inputs.source }} {{ self.outputs.result }}
