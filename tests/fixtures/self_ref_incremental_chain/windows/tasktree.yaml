@@ -1,0 +1,20 @@
+tasks:
+  compile:
+    inputs:
+      - src: main.c
+      - header: config.h
+    outputs:
+      - obj: main.o
+    cmd: copy /b {{ self.inputs.src }}+{{ self.inputs.header }} {{ self.outputs.obj }}
+
+  link:
+    deps: [compile]
+    outputs:
+      - exe: app.exe
+    cmd: copy /Y main.o {{ self.outputs.exe }}
+
+  package:
+    deps: [link]
+    outputs:
+      - archive: app.tar.gz
+    cmd: tar czf {{ self.outputs.archive }} app.exe
