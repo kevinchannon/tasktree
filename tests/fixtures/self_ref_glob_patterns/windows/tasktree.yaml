@@ -1,0 +1,7 @@
+tasks:
+  concat:
+    inputs:
+      - sources: "*.txt"
+    outputs:
+      - combined: all.txt
+    cmd: type {{ self.inputs.sources }} > {{ self.outputs.combined }}
