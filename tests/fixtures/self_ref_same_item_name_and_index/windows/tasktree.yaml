@@ -1,0 +1,8 @@
+tasks:
+  duplicate:
+    inputs:
+      - source: data.txt
+    outputs: [copy1.txt, copy2.txt]
+    cmd: |
+      copy /Y {{ self.inputs.source }} {{ self.outputs.0 }}
+      copy /Y {{ self.inputs.0 }} {{ self.outputs.1 }}
