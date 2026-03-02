@@ -525,8 +525,8 @@ class TestDockerManager(unittest.TestCase):
 
     @patch("tasktree.docker.subprocess.run")
     @patch("tasktree.docker.platform.system")
-    @patch("tasktree.docker.os.getuid")
-    @patch("tasktree.docker.os.getgid")
+    @patch("tasktree.docker.os.getuid", create=True)
+    @patch("tasktree.docker.os.getgid", create=True)
     def test_run_in_container_adds_user_flag_by_default(
         self, mock_getgid, mock_getuid, mock_platform, mock_run
     ):
@@ -716,8 +716,8 @@ class TestDockerManager(unittest.TestCase):
 
     @patch("tasktree.docker.subprocess.run")
     @patch("tasktree.docker.platform.system")
-    @patch("tasktree.docker.os.getuid")
-    @patch("tasktree.docker.os.getgid")
+    @patch("tasktree.docker.os.getuid", create=True)
+    @patch("tasktree.docker.os.getgid", create=True)
     def test_run_in_container_respects_run_as_root_flag(
         self, mock_getgid, mock_getuid, mock_platform, mock_run
     ):
