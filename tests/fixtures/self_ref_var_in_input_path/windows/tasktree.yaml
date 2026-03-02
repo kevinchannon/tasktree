@@ -1,0 +1,10 @@
+variables:
+  version: "1.0"
+
+tasks:
+  process:
+    inputs:
+      - src: "src/app-{{ var.version }}.txt"
+    outputs:
+      - dest: output.txt
+    cmd: copy /Y {{ self.inputs.src }} {{ self.outputs.dest }}
