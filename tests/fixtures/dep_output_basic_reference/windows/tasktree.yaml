@@ -12,7 +12,7 @@ tasks:
       - bundle: "dist/app.js"
     cmd: |
       mkdir dist
-      copy /Y {{ dep.generate.outputs.config }} dist/app.js
+      type {{ dep.generate.outputs.config }} > dist/app.js
       echo  bundled >> dist/app.js
 
   deploy:
