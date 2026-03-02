@@ -2528,7 +2528,7 @@ variables:
 tasks:
   test:
     cmd: echo test
-""")
+""", encoding="utf-8")
 
             recipe = parse_recipe(recipe_path)
             self.assertIn("🙏🤷💩", recipe.variables)
@@ -2587,7 +2587,7 @@ runners:
 tasks:
   test:
     cmd: echo test
-""")
+""", encoding="utf-8")
 
             recipe = parse_recipe(recipe_path)
             self.assertIn("🚀", recipe.runners)
