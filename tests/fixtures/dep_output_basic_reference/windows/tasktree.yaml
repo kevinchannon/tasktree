@@ -1,0 +1,22 @@
+tasks:
+  generate:
+    outputs:
+      - config: "generated/config.txt"
+    cmd: |
+      mkdir generated
+      echo config-data > generated/config.txt
+
+  build:
+    deps: [generate]
+    outputs:
+      - bundle: "dist/app.js"
+    cmd: |
+      mkdir dist
+      copy /Y {{ dep.generate.outputs.config }} dist/app.js
+      echo  bundled >> dist/app.js
+
+  deploy:
+    deps: [build]
+    cmd: |
+      echo Deploying {{ dep.build.outputs.bundle }}
+      type {{ dep.build.outputs.bundle }}
