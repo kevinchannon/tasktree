@@ -863,8 +863,10 @@ class TestDockerManager(unittest.TestCase):
 
     @patch("tasktree.docker.subprocess.run")
     @patch("tasktree.docker.platform.system")
+    @patch("tasktree.docker.os.getuid", create=True, return_value=1000)
+    @patch("tasktree.docker.os.getgid", create=True, return_value=1000)
     def test_run_in_container_with_substituted_variables_in_volumes(
-        self, mock_platform, mock_run
+        self, mock_getgid, mock_getuid, mock_platform, mock_run
     ):
         """
         Test that volume mounts work correctly after variable substitution.
@@ -919,7 +921,9 @@ class TestDockerManager(unittest.TestCase):
 
     @patch("tasktree.docker.subprocess.run")
     @patch("tasktree.docker.platform.system")
-    def test_run_in_container_with_preamble(self, mock_platform, mock_run):
+    @patch("tasktree.docker.os.getuid", create=True, return_value=1000)
+    @patch("tasktree.docker.os.getgid", create=True, return_value=1000)
+    def test_run_in_container_with_preamble(self, mock_getgid, mock_getuid, mock_platform, mock_run):
         """
         Test that preamble is passed to TempScript and included in mounted script.
         """
@@ -959,7 +963,9 @@ class TestDockerManager(unittest.TestCase):
 
     @patch("tasktree.docker.subprocess.run")
     @patch("tasktree.docker.platform.system")
-    def test_run_in_container_with_windows_shell(self, mock_platform, mock_run):
+    @patch("tasktree.docker.os.getuid", create=True, return_value=1000)
+    @patch("tasktree.docker.os.getgid", create=True, return_value=1000)
+    def test_run_in_container_with_windows_shell(self, mock_getgid, mock_getuid, mock_platform, mock_run):
         """
         Test that Windows shells (cmd.exe) use appropriate script extension and no shebang.
         """
@@ -1002,7 +1008,9 @@ class TestDockerManager(unittest.TestCase):
 
     @patch("tasktree.docker.subprocess.run")
     @patch("tasktree.docker.platform.system")
-    def test_run_in_container_with_powershell(self, mock_platform, mock_run):
+    @patch("tasktree.docker.os.getuid", create=True, return_value=1000)
+    @patch("tasktree.docker.os.getgid", create=True, return_value=1000)
+    def test_run_in_container_with_powershell(self, mock_getgid, mock_getuid, mock_platform, mock_run):
         """
         Test that PowerShell uses .ps1 extension.
         """
@@ -1175,7 +1183,9 @@ class TestDockerManager(unittest.TestCase):
 
     @patch("tasktree.docker.subprocess.run")
     @patch("tasktree.docker.platform.system")
-    def test_error_on_docker_run_failure(self, mock_platform, mock_run):
+    @patch("tasktree.docker.os.getuid", create=True, return_value=1000)
+    @patch("tasktree.docker.os.getgid", create=True, return_value=1000)
+    def test_error_on_docker_run_failure(self, mock_getgid, mock_getuid, mock_platform, mock_run):
         """
         Test that DockerError is raised when docker run fails.
         """

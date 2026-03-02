@@ -325,10 +325,12 @@ class DockerManager:
         # Expand home directory (preserve as string to keep forward slashes on all platforms)
         if host_path.startswith("~"):
             host_path = os.path.expanduser(host_path)
-        # Resolve relative paths relative to project root
-        elif not Path(host_path).is_absolute():
+        # Treat paths starting with / as absolute (POSIX-style, used in Docker volume specs)
+        # and paths that are absolute on the native OS as absolute too
+        elif not host_path.startswith("/") and not Path(host_path).is_absolute():
+            # Relative path: resolve relative to project root
             host_path = str(self._project_root / host_path)
-        # Absolute paths used as-is (no Path conversion to preserve path separators)
+        # Absolute paths (POSIX /... or native OS absolute) used as-is
 
         return f"{host_path}:{container_path}"
 
