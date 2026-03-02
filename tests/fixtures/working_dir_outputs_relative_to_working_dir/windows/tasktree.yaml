@@ -1,0 +1,5 @@
+tasks:
+  build:
+    working_dir: project
+    outputs: [target/bin]
+    cmd: mkdir target && echo binary > target/bin
