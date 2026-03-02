@@ -1,0 +1,17 @@
+tasks:
+  generate:
+    outputs:
+      - id_file: "gen/build-id.txt"
+    cmd: |
+      mkdir gen
+      echo 12345 > gen/build-id.txt
+
+  build:
+    deps: [generate]
+    outputs:
+      - artifact: "dist/app-build.tar.gz"
+    cmd: |
+      mkdir dist
+      for /f "tokens=*" %%i in ({{ dep.generate.outputs.id_file }}) do set ID=%%i
+      echo artifact-%ID% > dist/app-build.tar.gz
+      echo Using ID from: {{ dep.generate.outputs.id_file }} >> dist/app-build.tar.gz
