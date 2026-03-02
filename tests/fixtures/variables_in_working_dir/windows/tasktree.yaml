@@ -1,0 +1,8 @@
+variables:
+  build_dir: "build"
+
+tasks:
+  test:
+    working_dir: "{{ var.build_dir }}"
+    outputs: [build/result.txt]
+    cmd: echo %cd% > result.txt
