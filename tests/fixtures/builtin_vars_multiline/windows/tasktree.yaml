@@ -1,0 +1,6 @@
+tasks:
+  test-multiline:
+    cmd: |
+      set PROJECT={{ tt.project_root }}
+      set TASK={{ tt.task_name }}
+      >%PROJECT%/multiline.txt echo %PROJECT%/%TASK%

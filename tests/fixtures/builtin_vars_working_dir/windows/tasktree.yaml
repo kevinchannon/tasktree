@@ -1,0 +1,5 @@
+tasks:
+  test-workdir:
+    working_dir: subdir
+    cmd: |
+      >{{ tt.project_root }}/working_dir.txt echo {{ tt.working_dir }}
