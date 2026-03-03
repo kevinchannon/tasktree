@@ -1,0 +1,13 @@
+tasks:
+  parent:
+    cmd: |
+      echo %TT_CALL_CHAIN%>markers/parent_chain.txt
+      tt child
+
+  child:
+    cmd: |
+      echo %TT_CALL_CHAIN%>markers/child_chain.txt
+      tt grandchild
+
+  grandchild:
+    cmd: echo %TT_CALL_CHAIN%>markers/grandchild_chain.txt

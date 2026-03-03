@@ -1,0 +1,11 @@
+runners:
+  strict:
+    shell:
+      cmd: [cmd.exe, /c]
+      preamble: |
+        set TEST_VAR=from_preamble
+
+tasks:
+  test-preamble:
+    run_in: strict
+    cmd: echo %TEST_VAR%>output.txt
