@@ -15,4 +15,3 @@ tasks:
     cmd: |
       echo Packaging {{ dep.compile.outputs.binary }}
       echo Symbols: {{ dep.compile.outputs.symbols }}
-      type {{ dep.compile.outputs.binary }} {{ dep.compile.outputs.symbols }}

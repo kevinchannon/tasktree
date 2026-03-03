@@ -17,4 +17,3 @@ tasks:
     deps: [middleware]
     cmd: |
       echo App uses {{ dep.middleware.outputs.lib }}
-      type {{ dep.middleware.outputs.lib }}

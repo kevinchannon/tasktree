@@ -19,4 +19,3 @@ tasks:
     deps: [build]
     cmd: |
       echo Deploying {{ dep.build.outputs.bundle }}
-      type {{ dep.build.outputs.bundle }}

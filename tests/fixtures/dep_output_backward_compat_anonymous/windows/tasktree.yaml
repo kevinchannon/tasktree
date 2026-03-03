@@ -10,4 +10,3 @@ tasks:
     deps: [build]
     cmd: |
       echo Deploying
-      type dist/bundle.js dist/bundle.css
