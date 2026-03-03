@@ -9,4 +9,4 @@ tasks:
       - deployed: "{{ var.env }}/deployed.js"
     cmd: |
       echo Deploying {{ self.inputs.bundle }}
-      copy /Y {{ self.inputs.bundle }} {{ self.outputs.deployed }}
+      copy /b /y {{ self.inputs.bundle }} {{ self.outputs.deployed }}
