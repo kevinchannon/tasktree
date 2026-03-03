@@ -1,0 +1,5 @@
+tasks:
+  concat:
+    inputs: ["*.txt"]
+    outputs: [all.txt]
+    cmd: copy /Y {{ self.inputs.0 }} {{ self.outputs.0 }}

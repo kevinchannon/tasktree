@@ -1,0 +1,8 @@
+variables:
+  api_key: { read: api-key.txt }
+
+tasks:
+  test:
+    outputs: [result.txt]
+    cmd: |
+      python -c "open('result.txt', 'w').write('Key: {{ var.api_key }}\n')"

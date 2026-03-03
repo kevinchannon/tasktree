@@ -1,0 +1,7 @@
+tasks:
+  transform:
+    inputs:
+      - source: data.txt
+    outputs:
+      - target: processed.txt
+    cmd: powershell -NoProfile -Command "(Get-Content '{{ self.inputs.source }}').ToUpper() | Set-Content '{{ self.outputs.target }}'"

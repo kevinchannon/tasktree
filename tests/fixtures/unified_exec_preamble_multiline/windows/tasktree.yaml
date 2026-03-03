@@ -1,0 +1,14 @@
+runners:
+  strict:
+    shell:
+      cmd: [cmd.exe, /c]
+      preamble: |
+        set MY_VAR=preamble_value
+
+tasks:
+  test-multi-preamble:
+    run_in: strict
+    cmd: |
+      echo Start>output.txt
+      echo %MY_VAR%>>output.txt
+      echo End>>output.txt

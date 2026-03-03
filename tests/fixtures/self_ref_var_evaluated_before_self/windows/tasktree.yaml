@@ -1,0 +1,12 @@
+variables:
+  env: "staging"
+
+tasks:
+  deploy:
+    inputs:
+      - bundle: "{{ var.env }}/app.js"
+    outputs:
+      - deployed: "{{ var.env }}/deployed.js"
+    cmd: |
+      echo Deploying {{ self.inputs.bundle }}
+      python -c "import shutil; shutil.copy('{{ self.inputs.bundle }}', '{{ self.outputs.deployed }}')"

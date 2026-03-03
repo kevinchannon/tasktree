@@ -382,7 +382,7 @@ class TestVariablesIntegration(unittest.TestCase):
                 result = self.runner.invoke(app, ["test"], env=self.env)
                 self.assertNotEqual(result.exit_code, 0)
                 self.assertIn("UNDEFINED_VAR_XYZ", result.output)
-                self.assertIn("not set", result.output)
+                self.assertIn("not set", " ".join(result.output.split()))
 
             finally:
                 os.chdir(original_cwd)

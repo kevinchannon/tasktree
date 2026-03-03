@@ -1,0 +1,6 @@
+tasks:
+  build-task:
+    working_dir: "{{ tt.task_name }}"
+    cmd: |
+      >{{ tt.project_root }}/result.txt echo task={{ tt.task_name }}
+      >>{{ tt.project_root }}/result.txt echo wd={{ tt.working_dir }}

@@ -1,6 +1,7 @@
 """Tests for executor module."""
 
 import os
+import platform
 import tempfile
 import time
 import unittest
@@ -262,10 +263,12 @@ class TestExecutor(unittest.TestCase):
             process_runner_spy.run.assert_called_once()
             call_args = process_runner_spy.run.call_args
             script_path = call_args[0][0][0]
-            self.assertTrue(script_path.endswith(".sh"))
+            expected_ext = ".bat" if platform.system() == "Windows" else ".sh"
+            self.assertTrue(script_path.endswith(expected_ext))
 
-            # Verify chmod was called to make script executable
-            mock_chmod.assert_called_once()
+            # Verify chmod was called to make script executable (Unix only)
+            if platform.system() != "Windows":
+                mock_chmod.assert_called_once()
 
             # Verify cleanup (unlink) was called
             mock_unlink.assert_called_once()
@@ -300,7 +303,8 @@ class TestExecutor(unittest.TestCase):
             )
 
             process_runner_spy.run.assert_called_once()
-            chmod_spy.assert_called_once()
+            if platform.system() != "Windows":
+                chmod_spy.assert_called_once()
             unlink_spy.assert_called_once()
 
     @patch("tasktree.temp_script.os.chmod")
@@ -333,7 +337,8 @@ class TestExecutor(unittest.TestCase):
             )
 
             process_runner_spy.run.assert_called_once()
-            chmod_spy.assert_called_once()
+            if platform.system() != "Windows":
+                chmod_spy.assert_called_once()
             unlink_spy.assert_called_once()
 
     def test_run_command_as_script_comprehensive_validation(self):
@@ -862,6 +867,7 @@ tasks:
             with self.assertRaises(ExecutionError):
                 executor.execute_task("test", TaskOutputTypes.ALL, {})
 
+    @unittest.skipUnless(platform.system() != "Windows", "Unix file permission enforcement not applicable on Windows")
     def test_execute_permission_denied(self):
         """
         Test error when command not executable.

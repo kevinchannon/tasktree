@@ -1,0 +1,5 @@
+tasks:
+  concat:
+    inputs: ["file1.txt", "file2.txt"]
+    outputs: [result.txt]
+    cmd: copy /b {{ self.inputs.0 }}+{{ self.inputs.1 }} result.txt

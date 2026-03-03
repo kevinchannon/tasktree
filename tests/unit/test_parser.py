@@ -2528,7 +2528,7 @@ variables:
 tasks:
   test:
     cmd: echo test
-""")
+""", encoding="utf-8")
 
             recipe = parse_recipe(recipe_path)
             self.assertIn("🙏🤷💩", recipe.variables)
@@ -2587,7 +2587,7 @@ runners:
 tasks:
   test:
     cmd: echo test
-""")
+""", encoding="utf-8")
 
             recipe = parse_recipe(recipe_path)
             self.assertIn("🚀", recipe.runners)
@@ -3315,11 +3315,13 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
+            # Use echo without single quotes to avoid platform differences:
+            # On POSIX, echo 'text' strips the quotes; on Windows cmd.exe, they are literal.
             recipe_path.write_text("""
 variables:
   base: "test"
   # Command outputs a string with variable reference
-  template: { eval: "echo '{{ var.base }}-value'" }
+  template: { eval: "echo {{ var.base }}-value" }
 
 tasks:
   test:
@@ -3400,17 +3402,22 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            # This tests that the environment resolution works
-            # We use a simple command that works in both bash and cmd
-            recipe_path.write_text("""
+            # Use a platform-appropriate shell to test that default_runner is respected
+            if platform.system() == "Windows":
+                runner_name = "cmd-env"
+                shell_cmd = "cmd.exe"
+            else:
+                runner_name = "bash-env"
+                shell_cmd = "bash"
+            recipe_path.write_text(f"""
 runners:
-  default: bash-env
-  bash-env:
+  default: {runner_name}
+  {runner_name}:
     shell:
-      cmd: bash
+      cmd: {shell_cmd}
 
 variables:
-  result: { eval: "echo test" }
+  result: {{ eval: "echo test" }}
 
 tasks:
   test:
@@ -3427,8 +3434,8 @@ tasks:
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
             if platform.system() == "Windows":
-                # Windows cmd piping
-                cmd = "echo test | findstr test"
+                # Windows cmd.exe: no space before | to avoid trailing space in echo output
+                cmd = "echo test|findstr test"
             else:
                 cmd = "echo test | grep test"
             recipe_path.write_text(f"""

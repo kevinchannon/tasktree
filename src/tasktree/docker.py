@@ -104,11 +104,7 @@ class DockerManager:
         True if --user flag should be added, False otherwise
         """
         # Skip on Windows - Docker Desktop handles UID mapping differently
-        if platform.system() == "Windows":
-            return False
-
-        # Check if os.getuid() and os.getgid() are available (Linux/macOS)
-        return hasattr(os, "getuid") and hasattr(os, "getgid")
+        return platform.system() != "Windows"
 
     def ensure_image_built(
         self, env: Runner, process_runner: ProcessRunner
@@ -326,18 +322,17 @@ class DockerManager:
 
         host_path, container_path = volume.split(":", 1)
 
-        # Expand home directory
+        # Expand home directory (preserve as string to keep forward slashes on all platforms)
         if host_path.startswith("~"):
             host_path = os.path.expanduser(host_path)
-            resolved_host_path = Path(host_path)
-        # Resolve relative paths
-        elif not Path(host_path).is_absolute():
-            resolved_host_path = self._project_root / host_path
-        # Absolute paths used as-is
-        else:
-            resolved_host_path = Path(host_path)
+        # Treat paths starting with / as absolute (POSIX-style, used in Docker volume specs)
+        # and paths that are absolute on the native OS as absolute too
+        elif not host_path.startswith("/") and not Path(host_path).is_absolute():
+            # Relative path: resolve relative to project root
+            host_path = str(self._project_root / host_path)
+        # Absolute paths (POSIX /... or native OS absolute) used as-is
 
-        return f"{resolved_host_path}:{container_path}"
+        return f"{host_path}:{container_path}"
 
     @staticmethod
     def _check_docker_available() -> None:

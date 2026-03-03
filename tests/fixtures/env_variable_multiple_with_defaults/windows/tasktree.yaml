@@ -1,0 +1,9 @@
+variables:
+  host: { env: TEST_HOST, default: "localhost" }
+  port: { env: TEST_PORT, default: "8080" }
+  url: "{{ var.host }}:{{ var.port }}"
+
+tasks:
+  test:
+    outputs: [config.txt]
+    cmd: echo URL={{ var.url }}>config.txt

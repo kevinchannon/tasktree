@@ -1,0 +1,19 @@
+tasks:
+  base:
+    outputs:
+      - lib: "out/libbase.a"
+    cmd: |
+      mkdir out
+      echo base-lib > out/libbase.a
+
+  middleware:
+    deps: [base]
+    outputs:
+      - lib: "out/libmiddleware.a"
+    cmd: |
+      echo middleware uses {{ dep.base.outputs.lib }} > out/libmiddleware.a
+
+  app:
+    deps: [middleware]
+    cmd: |
+      echo App uses {{ dep.middleware.outputs.lib }}

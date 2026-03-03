@@ -5,6 +5,7 @@ into dependency arguments using {{ arg.* }} templates.
 """
 
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -24,7 +25,7 @@ class TestParameterizedDependenciesWithTemplates:
             copy_fixture_files("parameterized_dep_template_simple", Path(tmp_dir))
 
             result = subprocess.run(
-                ["python3", "-m", "tasktree.cli", "bar", "production"],
+                [sys.executable, "-m", "tasktree.cli", "bar", "production"],
                 cwd=tmp_dir,
                 capture_output=True,
                 text=True,
@@ -42,7 +43,7 @@ class TestParameterizedDependenciesWithTemplates:
             copy_fixture_files("parameterized_dep_template_string_type", Path(tmp_dir))
 
             result = subprocess.run(
-                ["python3", "-m", "tasktree.cli", "deploy", "release"],
+                [sys.executable, "-m", "tasktree.cli", "deploy", "release"],
                 cwd=tmp_dir,
                 capture_output=True,
                 text=True,
@@ -62,7 +63,7 @@ class TestParameterizedDependenciesWithTemplates:
             copy_fixture_files("parameterized_dep_template_multiple", Path(tmp_dir))
 
             result = subprocess.run(
-                ["python3", "-m", "tasktree.cli", "test", "release", "x86_64"],
+                [sys.executable, "-m", "tasktree.cli", "test", "release", "x86_64"],
                 cwd=tmp_dir,
                 capture_output=True,
                 text=True,
@@ -80,7 +81,7 @@ class TestParameterizedDependenciesWithTemplates:
             copy_fixture_files("parameterized_dep_template_named_args", Path(tmp_dir))
 
             result = subprocess.run(
-                ["python3", "-m", "tasktree.cli", "test", "debug"],
+                [sys.executable, "-m", "tasktree.cli", "test", "debug"],
                 cwd=tmp_dir,
                 capture_output=True,
                 text=True,
@@ -100,7 +101,7 @@ class TestParameterizedDependenciesWithTemplates:
             )
 
             result = subprocess.run(
-                ["python3", "-m", "tasktree.cli", "test"],
+                [sys.executable, "-m", "tasktree.cli", "test"],
                 cwd=tmp_dir,
                 capture_output=True,
                 text=True,
@@ -118,7 +119,7 @@ class TestParameterizedDependenciesWithTemplates:
             copy_fixture_files("parameterized_dep_template_choices", Path(tmp_dir))
 
             result = subprocess.run(
-                ["python3", "-m", "tasktree.cli", "test", "release"],
+                [sys.executable, "-m", "tasktree.cli", "test", "release"],
                 cwd=tmp_dir,
                 capture_output=True,
                 text=True,
@@ -136,7 +137,7 @@ class TestParameterizedDependenciesWithTemplates:
             copy_fixture_files("parameterized_dep_template_invalid_ref", Path(tmp_dir))
 
             result = subprocess.run(
-                ["python3", "-m", "tasktree.cli", "test", "debug"],
+                [sys.executable, "-m", "tasktree.cli", "test", "debug"],
                 cwd=tmp_dir,
                 capture_output=True,
                 text=True,

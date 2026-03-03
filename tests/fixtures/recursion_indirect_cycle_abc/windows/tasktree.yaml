@@ -1,0 +1,15 @@
+tasks:
+  task-a:
+    cmd: |
+      echo Task A
+      uv run tt task-b || exit /b 1
+
+  task-b:
+    cmd: |
+      echo Task B
+      uv run tt task-c || exit /b 1
+
+  task-c:
+    cmd: |
+      echo Task C
+      uv run tt task-a || exit /b 1

@@ -1,0 +1,8 @@
+variables:
+  version: "1.0"
+
+tasks:
+  process:
+    inputs: ["file-{{ var.version }}.txt"]
+    outputs: [result.txt]
+    cmd: copy /Y {{ self.inputs.0 }} {{ self.outputs.0 }}

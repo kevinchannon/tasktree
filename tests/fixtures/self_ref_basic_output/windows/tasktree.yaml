@@ -1,0 +1,5 @@
+tasks:
+  generate:
+    outputs:
+      - dest: result.txt
+    cmd: echo Generated content>{{ self.outputs.dest }}

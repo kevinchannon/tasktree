@@ -1,0 +1,7 @@
+tasks:
+  copy:
+    inputs:
+      - file: source.txt
+    outputs:
+      - copy: dest.txt
+    cmd: copy /Y {{ self.inputs.file }} {{ self.outputs.copy }}

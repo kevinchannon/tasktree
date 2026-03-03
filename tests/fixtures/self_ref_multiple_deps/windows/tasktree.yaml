@@ -1,0 +1,23 @@
+tasks:
+  prep:
+    outputs:
+      - config: config.txt
+    cmd: echo config > {{ self.outputs.config }}
+
+  buildA:
+    deps: [prep]
+    outputs:
+      - moduleA: moduleA.js
+    cmd: echo moduleA > {{ self.outputs.moduleA }}
+
+  buildB:
+    deps: [prep]
+    outputs:
+      - moduleB: moduleB.js
+    cmd: echo moduleB > {{ self.outputs.moduleB }}
+
+  bundle:
+    deps: [buildA, buildB]
+    outputs:
+      - bundle: app.js
+    cmd: copy /b {{ dep.buildA.outputs.moduleA }}+{{ dep.buildB.outputs.moduleB }} {{ self.outputs.bundle }}

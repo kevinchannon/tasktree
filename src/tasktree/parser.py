@@ -1988,7 +1988,7 @@ def _parse_file_with_env(
 
     # Only parse runners and variables from the root file (namespace is None)
     if namespace is None:
-        with open(file_path, "r") as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
             yaml_data = data or {}
 
@@ -2309,8 +2309,8 @@ def _parse_file(
     # Add current file to stack
     import_stack.append(file_path)
 
-    # Load YAML
-    with open(file_path, "r") as f:
+    # Load YAML (explicit UTF-8 encoding to handle Unicode on Windows where default is cp1252)
+    with open(file_path, "r", encoding="utf-8") as f:
         data = yaml.safe_load(f)
 
     if data is None:

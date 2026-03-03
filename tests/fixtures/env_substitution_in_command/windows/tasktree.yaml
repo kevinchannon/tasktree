@@ -1,0 +1,4 @@
+tasks:
+  test:
+    outputs: [output.txt]
+    cmd: echo User is {{ env.USER }}>output.txt

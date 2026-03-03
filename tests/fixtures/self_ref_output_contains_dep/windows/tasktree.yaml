@@ -1,0 +1,11 @@
+tasks:
+  prepare:
+    outputs:
+      - outdir: build/v1
+    cmd: mkdir build\v1
+
+  compile:
+    deps: [prepare]
+    outputs:
+      - binary: "{{ dep.prepare.outputs.outdir }}/app.bin"
+    cmd: echo binary>{{ self.outputs.binary }}

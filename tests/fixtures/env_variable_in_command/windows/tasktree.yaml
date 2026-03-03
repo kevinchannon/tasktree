@@ -1,0 +1,9 @@
+variables:
+  api_key: { env: TEST_API_KEY }
+  db_host: { env: TEST_DB_HOST }
+  connection: "{{ var.db_host }}:5432"
+
+tasks:
+  test:
+    outputs: [config.txt]
+    cmd: echo API={{ var.api_key }} DB={{ var.connection }}>config.txt

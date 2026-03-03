@@ -1,0 +1,8 @@
+tasks:
+  package:
+    args: [version, channel]
+    inputs:
+      - lib: src/{{ arg.version }}/{{ arg.channel }}/lib.js
+    outputs:
+      - bundle: dist-{{ arg.version }}-{{ arg.channel }}.js
+    cmd: python -c "import shutil; shutil.copy('{{ self.inputs.lib }}', '{{ self.outputs.bundle }}')"

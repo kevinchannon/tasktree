@@ -563,7 +563,8 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
                 "TT_CONTAINERIZED_RUNNER": "test-runner"
             }):
                 state_manager = StateManager(project_root)
-                self.assertEqual(str(state_manager.state_path), custom_state_path)
+                # Compare as Path objects to handle platform-specific path separators
+                self.assertEqual(state_manager.state_path, Path(custom_state_path))
                 self.assertEqual(state_manager.project_root, Path("/tasktree-internal"))
 
     def test_state_manager_default_path_when_no_env(self):
@@ -849,15 +850,17 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
             executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             # No TT_CONTAINERIZED_RUNNER env var (local execution)
-            with patch.dict("os.environ", {}, clear=True):
-                with patch.object(executor, "_run_task_in_docker") as mock_docker:
-                    with patch.object(executor, "_run_command_as_script") as mock_script:
-                        process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
-                        executor._run_task(recipe.tasks["docker_task"], {}, process_runner)
+            # Mock Path.home() to avoid RuntimeError when HOME is not set
+            with patch("tasktree.executor.Path.home", return_value=Path(tmpdir)):
+                with patch.dict("os.environ", {}, clear=True):
+                    with patch.object(executor, "_run_task_in_docker") as mock_docker:
+                        with patch.object(executor, "_run_command_as_script") as mock_script:
+                            process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
+                            executor._run_task(recipe.tasks["docker_task"], {}, process_runner)
 
-                        # Verify Docker execution was used
-                        mock_docker.assert_called_once()
-                        mock_script.assert_not_called()
+                            # Verify Docker execution was used
+                            mock_docker.assert_called_once()
+                            mock_script.assert_not_called()
 
     def test_docker_env_vars_include_tt_vars(self):
         """

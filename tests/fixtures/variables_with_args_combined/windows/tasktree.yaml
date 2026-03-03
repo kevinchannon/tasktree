@@ -1,0 +1,9 @@
+variables:
+  server: "prod.example.com"
+  port: 8080
+
+tasks:
+  deploy:
+    args: [app_name]
+    outputs: ["deploy-{{ arg.app_name }}.log"]
+    cmd: echo Deploy {{ arg.app_name }} to {{ var.server }}:{{ var.port }}>deploy-{{ arg.app_name }}.log

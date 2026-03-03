@@ -1,0 +1,6 @@
+tasks:
+  build:
+    inputs: [input.txt]
+    outputs: [output.txt]
+    cmd: |
+      python -c "open('output.txt', 'w').write(open('input.txt').read())"
