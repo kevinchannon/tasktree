@@ -6,23 +6,23 @@ tasks:
   d:
     outputs: [d.txt]
     cmd: |
-      python3 -m tasktree.cli e
+      python -m tasktree.cli e
       echo d>d.txt
 
   c:
     outputs: [c.txt]
     cmd: |
-      python3 -m tasktree.cli d
+      python -m tasktree.cli d
       echo c>c.txt
 
   b:
     outputs: [b.txt]
     cmd: |
-      python3 -m tasktree.cli c
+      python -m tasktree.cli c
       echo b>b.txt
 
   a:
     outputs: [a.txt]
     cmd: |
-      python3 -m tasktree.cli b
+      python -m tasktree.cli b
       echo a>a.txt

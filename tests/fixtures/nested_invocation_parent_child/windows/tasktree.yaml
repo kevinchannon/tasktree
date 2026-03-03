@@ -6,5 +6,5 @@ tasks:
   parent:
     outputs: [parent.txt]
     cmd: |
-      python3 -m tasktree.cli child
+      python -m tasktree.cli child
       echo parent output>parent.txt
