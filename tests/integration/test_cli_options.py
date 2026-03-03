@@ -269,7 +269,7 @@ class TestForceOption(unittest.TestCase):
                 # Third run with --force - task executes even though fresh
                 import time
 
-                time.sleep(0.01)  # Ensure mtime can change
+                time.sleep(1.1)  # Ensure mtime can change (Windows has ~1s mtime resolution)
                 result = self.runner.invoke(app, ["--force", "build"], env=self.env)
                 self.assertEqual(result.exit_code, 0)
                 output_time_3 = (project_root / "output.txt").stat().st_mtime
