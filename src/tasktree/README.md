@@ -313,7 +313,7 @@ runners:
 
   python:
     shell:
-      cmd: [python, -c]       # python is not a known shorthand; use explicit cmd list
+      cmd: [python]           # python is not a known shorthand; use explicit cmd list
 
   powershell:
     shell:
@@ -357,7 +357,9 @@ The `shell` field must be a dict. The `cmd` field inside accepts two forms:
 | `cmd.exe` | `["cmd.exe", "/c"]` |
 | `powershell` | `["powershell", "-Command"]` |
 
-For any other shell (e.g. `python`, `pwsh`, `/usr/local/bin/bash`), use an explicit list: `cmd: [python, -c]`. Using an unknown name as a string shorthand raises a configuration error at load time.
+For any other shell (e.g. `python`, `pwsh`, `/usr/local/bin/bash`), use an explicit list: `cmd: [python]`. Using an unknown name as a string shorthand raises a configuration error at load time.
+
+> **Note:** Task commands are executed via a temporary script file (with a shebang on Unix/macOS), not via `-c`. So `cmd: [python]` is the correct form — no `-c` flag is needed or used.
 
 **Runner resolution priority:**
 1. CLI override: `tt --runner python build`

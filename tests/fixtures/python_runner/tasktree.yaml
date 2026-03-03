@@ -1,0 +1,14 @@
+runners:
+  python:
+    shell:
+      cmd: [python3]
+
+tasks:
+  run-python:
+    run_in: python
+    outputs:
+      - output.txt
+    cmd: |
+      import sys
+      with open("output.txt", "w") as f:
+          f.write(f"from-python-{sys.version_info.major}")
