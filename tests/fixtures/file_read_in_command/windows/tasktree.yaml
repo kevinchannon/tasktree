@@ -4,4 +4,5 @@ variables:
 tasks:
   test:
     outputs: [result.txt]
-    cmd: >result.txt echo Key: {{ var.api_key }}
+    cmd: |
+      python -c "open('result.txt', 'w').write('Key: {{ var.api_key }}\n')"
