@@ -14,7 +14,7 @@ def is_docker_available() -> bool:
             text=True,
             timeout=5,
         )
-        return result.returncode == 0
+        return result.returncode == 0 and "OSType: linux" in result.stdout
     except (
         subprocess.CalledProcessError,
         FileNotFoundError,
