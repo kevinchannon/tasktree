@@ -1,0 +1,7 @@
+variables:
+  value: { env: TEST_EMPTY_VAR, default: "default_value" }
+
+tasks:
+  test:
+    outputs: [output.txt]
+    cmd: echo Value=[{{ var.value }}]>output.txt

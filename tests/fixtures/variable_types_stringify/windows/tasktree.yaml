@@ -1,0 +1,9 @@
+variables:
+  port: 8080
+  debug: true
+  timeout: 30.5
+
+tasks:
+  test:
+    outputs: [config.txt]
+    cmd: echo port={{ var.port }} debug={{ var.debug }} timeout={{ var.timeout }}>config.txt

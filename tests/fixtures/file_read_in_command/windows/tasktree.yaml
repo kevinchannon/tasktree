@@ -1,0 +1,7 @@
+variables:
+  api_key: { read: api-key.txt }
+
+tasks:
+  test:
+    outputs: [result.txt]
+    cmd: echo Key: {{ var.api_key }}>result.txt

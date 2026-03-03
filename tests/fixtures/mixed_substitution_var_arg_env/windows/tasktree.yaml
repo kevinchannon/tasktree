@@ -1,0 +1,8 @@
+variables:
+  server: "prod.example.com"
+
+tasks:
+  deploy:
+    args: [app_name]
+    outputs: ["deploy.log"]
+    cmd: echo Deploy {{ arg.app_name }} to {{ var.server }} as {{ env.USER }}>deploy.log
