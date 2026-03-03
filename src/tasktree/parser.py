@@ -1864,12 +1864,9 @@ def _parse_runners_from_data(
                 f"(for shell runners) or 'dockerfile' (for Docker runners)"
             )
 
-        # Validate Docker runner requirements
+        # Default context to the Dockerfile's directory if not specified
         if dockerfile and not context:
-            raise ValueError(
-                f"Docker runner '{env_name}' must specify 'context' "
-                f"when 'dockerfile' is specified"
-            )
+            context = str(Path(dockerfile).parent)
 
         # Validate that Dockerfile exists if specified
         if dockerfile:
