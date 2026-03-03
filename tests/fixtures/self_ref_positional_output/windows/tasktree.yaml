@@ -2,5 +2,5 @@ tasks:
   generate:
     outputs: ["first.txt", "second.txt"]
     cmd: |
-      echo Output 1>{{ self.outputs.0 }}
-      echo Output 2>{{ self.outputs.1 }}
+      >{{ self.outputs.0 }} echo Output 1
+      >{{ self.outputs.1 }} echo Output 2

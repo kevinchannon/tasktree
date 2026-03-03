@@ -4,4 +4,4 @@ variables:
 tasks:
   test:
     outputs: [result.txt]
-    cmd: echo Key: {{ var.api_key }}>result.txt
+    cmd: >result.txt echo Key: {{ var.api_key }}

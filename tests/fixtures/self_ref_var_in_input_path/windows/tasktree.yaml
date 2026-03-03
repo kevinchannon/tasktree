@@ -7,4 +7,4 @@ tasks:
       - src: "src/app-{{ var.version }}.txt"
     outputs:
       - dest: output.txt
-    cmd: copy /b /y {{ self.inputs.src }} {{ self.outputs.dest }}
+    cmd: python -c "import shutil; shutil.copy('{{ self.inputs.src }}', '{{ self.outputs.dest }}')"

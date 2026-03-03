@@ -9,4 +9,4 @@ tasks:
       - deployed: "{{ var.env }}/deployed.js"
     cmd: |
       echo Deploying {{ self.inputs.bundle }}
-      copy /b /y {{ self.inputs.bundle }} {{ self.outputs.deployed }}
+      python -c "import shutil; shutil.copy('{{ self.inputs.bundle }}', '{{ self.outputs.deployed }}')"
