@@ -30,6 +30,14 @@ from tasktree.hasher import hash_runner_definition
 from tasktree.temp_script import TempScript
 
 
+_POWERSHELL_SHELLS = frozenset({"powershell", "pwsh", "powershell.exe", "pwsh.exe"})
+
+
+def _is_powershell_shell(shell: str) -> bool:
+    """Return True if the shell is a PowerShell variant."""
+    return shell.lower() in _POWERSHELL_SHELLS
+
+
 @dataclass
 class TaskStatus:
     """
@@ -1097,8 +1105,20 @@ class Executor:
         # Prepare environment with exported args and call chain
         env = self._prepare_env_with_exports(exported_env_vars, call_chain)
 
+        # On Windows with a PowerShell shell, create a .ps1 file and invoke PowerShell
+        # explicitly. For all other cases, use the platform default (.bat on Windows,
+        # .sh on Unix) and run the script directly.
+        is_win_powershell = platform.system() == "Windows" and _is_powershell_shell(shell)
+        script_ext = ".ps1" if is_win_powershell else None
+
         # Create temporary script using context manager
-        with TempScript(logger=self.logger, cmd=cmd, preamble=preamble, shell=shell) as script_path:
+        with TempScript(logger=self.logger, cmd=cmd, preamble=preamble, shell=shell, script_extension=script_ext) as script_path:
+            run_cmd = (
+                [shell, "-ExecutionPolicy", "Bypass", "-File", str(script_path)]
+                if is_win_powershell
+                else [str(script_path)]
+            )
+
             # Execute script file
             try:
                 # Check if stdout/stderr support fileno() (real file descriptors)
@@ -1130,7 +1150,7 @@ class Executor:
                 ):
                     # CliRunner path: capture and write manually
                     result = process_runner.run(
-                        [str(script_path)],
+                        run_cmd,
                         cwd=working_dir,
                         check=True,
                         capture_output=True,
@@ -1144,7 +1164,7 @@ class Executor:
                 else:
                     # Normal execution path: use target streams (including DEVNULL when suppressing)
                     process_runner.run(
-                        [str(script_path)],
+                        run_cmd,
                         cwd=working_dir,
                         check=True,
                         stdout=stdout_target,

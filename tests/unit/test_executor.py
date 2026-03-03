@@ -10,7 +10,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, patch, call
 
 from helpers.logging import logger_stub
-from tasktree.executor import Executor
+from tasktree.executor import Executor, _is_powershell_shell
 from tasktree.parser import Recipe, Task, parse_recipe
 from tasktree.process_runner import ProcessRunner, TaskOutputTypes, make_process_runner
 from tasktree.state import StateManager, TaskState
@@ -500,6 +500,58 @@ class TestExecutor(unittest.TestCase):
             self.assertLess(
                 chmod_idx, subprocess_idx, "chmod should come before subprocess.run"
             )
+
+    def test_is_powershell_shell_recognises_powershell_variants(self):
+        """
+        Test _is_powershell_shell returns True for known PowerShell shell names.
+        """
+        for name in ("powershell", "pwsh", "powershell.exe", "pwsh.exe",
+                     "PowerShell", "PWSH", "PowerShell.exe"):
+            self.assertTrue(_is_powershell_shell(name), f"Expected True for {name!r}")
+
+    def test_is_powershell_shell_returns_false_for_other_shells(self):
+        """
+        Test _is_powershell_shell returns False for non-PowerShell shells.
+        """
+        for name in ("bash", "sh", "zsh", "cmd.exe", "fish", ""):
+            self.assertFalse(_is_powershell_shell(name), f"Expected False for {name!r}")
+
+    @patch("tasktree.temp_script.os.unlink")
+    @unittest.skipUnless(platform.system() == "Windows", "Windows-only test")
+    def test_run_command_as_script_uses_ps1_and_powershell_on_windows(self, mock_unlink):
+        """
+        Test _run_command_as_script creates a .ps1 file and invokes PowerShell explicitly.
+
+        On Windows with a PowerShell shell, the script must be a .ps1 file invoked
+        via 'powershell -ExecutionPolicy Bypass -File <script>' rather than running
+        a .bat file through cmd.exe.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+            tasks = {"test": Task(name="test", cmd="Write-Output hello")}
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            process_runner_spy = MagicMock(spec=ProcessRunner)
+
+            executor._run_command_as_script(
+                cmd="Write-Output hello",
+                working_dir=project_root,
+                task_name="test",
+                shell="powershell",
+                preamble="",
+                process_runner=process_runner_spy,
+            )
+
+            process_runner_spy.run.assert_called_once()
+            run_cmd = process_runner_spy.run.call_args[0][0]
+            self.assertEqual(run_cmd[0], "powershell")
+            self.assertIn("-File", run_cmd)
+            self.assertTrue(run_cmd[-1].endswith(".ps1"))
 
 
 class TestMissingOutputs(unittest.TestCase):
