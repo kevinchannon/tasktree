@@ -4653,5 +4653,36 @@ tasks:
             self.assertIn("level1.level2.deep_task", recipe.tasks)
 
 
+class TestDockerRunnerDefaultContext(unittest.TestCase):
+    """
+    Tests that the Dockerfile's directory is used as the default context.
+    """
+
+    def test_context_defaults_to_dockerfile_directory(self):
+        """
+        When no context is specified, the context should default to the
+        directory containing the Dockerfile.
+        """
+        with TemporaryDirectory() as tmpdir:
+            docker_dir = Path(tmpdir) / "docker"
+            docker_dir.mkdir()
+            dockerfile_path = docker_dir / "Dockerfile"
+            dockerfile_path.write_text("FROM scratch\n")
+
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+runners:
+  my_runner:
+    dockerfile: docker/Dockerfile
+
+tasks:
+  test:
+    cmd: echo hello
+""")
+
+            recipe = parse_recipe(recipe_path)
+            self.assertEqual(recipe.runners["my_runner"].context, "docker")
+
+
 if __name__ == "__main__":
     unittest.main()
