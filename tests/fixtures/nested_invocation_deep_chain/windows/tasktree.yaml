@@ -1,0 +1,22 @@
+tasks:
+  d:
+    outputs: [d.txt]
+    cmd: echo d>d.txt
+
+  c:
+    outputs: [c.txt]
+    cmd: |
+      python3 -m tasktree.cli d
+      echo c>c.txt
+
+  b:
+    outputs: [b.txt]
+    cmd: |
+      python3 -m tasktree.cli c
+      echo b>b.txt
+
+  a:
+    outputs: [a.txt]
+    cmd: |
+      python3 -m tasktree.cli b
+      echo a>a.txt
