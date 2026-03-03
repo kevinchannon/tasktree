@@ -2,4 +2,5 @@ tasks:
   build:
     inputs: [input.txt]
     outputs: [output.txt]
-    cmd: copy /Y input.txt output.txt
+    cmd: |
+      python -c "open('output.txt', 'w').write(open('input.txt').read())"
