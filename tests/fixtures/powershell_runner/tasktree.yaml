@@ -7,4 +7,6 @@ tasks:
   one:
     run_in: runner-1
     desc: "This is task 1"
-    cmd: "Write-Output 'from-powershell' | Out-File output.txt"
+    outputs:
+      - output.txt
+    cmd: "Write-Output 'from-powershell' | Out-File output.txt -Encoding utf8"

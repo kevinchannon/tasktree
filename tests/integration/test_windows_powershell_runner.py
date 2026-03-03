@@ -1,5 +1,6 @@
 """Integration tests for PowerShell runner on Windows."""
 
+import shutil
 import sys
 import tempfile
 import unittest
@@ -21,11 +22,16 @@ class TestWindowsPowershellRunner(unittest.TestCase):
     """
 
     def setUp(self):
+        """
+        Create temporary directory for test recipes.
+        """
         self.test_dir = tempfile.mkdtemp()
         self.recipe_file = Path(self.test_dir) / "tasktree.yaml"
 
     def tearDown(self):
-        import shutil
+        """
+        Clean up temporary directory.
+        """
         shutil.rmtree(self.test_dir, ignore_errors=True)
 
     def test_powershell_runner_executes_in_powershell(self):
@@ -41,7 +47,8 @@ class TestWindowsPowershellRunner(unittest.TestCase):
         state = StateManager(recipe.project_root)
         state.load()
         executor = Executor(recipe, state, logger_stub, make_process_runner)
-        executor.execute_task("one", TaskOutputTypes.ALL)
+        statuses = executor.execute_task("one", TaskOutputTypes.ALL)
+        self.assertIn("one", statuses)
 
         output_file = Path(self.test_dir) / "output.txt"
         self.assertTrue(output_file.exists(), "Output file was not created by PowerShell runner")
