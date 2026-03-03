@@ -100,7 +100,7 @@
             },
             "context": {
               "type": "string",
-              "description": "Path to Docker build context directory (relative to recipe file). Required if dockerfile is specified."
+              "description": "Path to Docker build context directory (relative to recipe file). Defaults to the directory of the Dockerfile if not specified."
             },
             "volumes": {
               "description": "Volume mounts for Docker container (format: 'host_path:container_path')",
