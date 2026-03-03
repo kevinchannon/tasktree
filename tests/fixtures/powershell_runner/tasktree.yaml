@@ -1,0 +1,10 @@
+runners:
+  runner-1:
+    shell:
+      cmd: "powershell"
+
+tasks:
+  one:
+    run_in: runner-1
+    desc: "This is task 1"
+    cmd: "Write-Output 'from-powershell' | Out-File output.txt"
