@@ -30,13 +30,6 @@ from tasktree.hasher import hash_runner_definition
 from tasktree.temp_script import TempScript
 
 
-_POWERSHELL_SHELLS = frozenset({"powershell", "pwsh", "powershell.exe", "pwsh.exe"})
-
-
-def _is_powershell_shell(shell: str) -> bool:
-    """Return True if the shell is a PowerShell variant."""
-    return shell.lower() in _POWERSHELL_SHELLS
-
 
 @dataclass
 class TaskStatus:
@@ -1055,7 +1048,7 @@ class Executor:
                 cmd,
                 working_dir,
                 task.name,
-                shell_config.cmd[0],
+                shell_config.cmd,
                 shell_config.preamble,
                 process_runner,
                 exported_env_vars,
@@ -1076,7 +1069,7 @@ class Executor:
         cmd: str,
         working_dir: Path,
         task_name: str,
-        shell: str,
+        shell_cmd: list[str],
         preamble: str,
         process_runner: ProcessRunner,
         exported_env_vars: dict[str, str] | None = None,
@@ -1089,11 +1082,15 @@ class Executor:
         them to a temporary script file and executing the script. This provides
         consistent behavior and allows preamble to work with all commands.
 
+        The shell_cmd list is prepended to the script path when invoking the
+        subprocess, e.g. ["python"] + ["/tmp/script"] → ["python", "/tmp/script"].
+        This is shell-agnostic and works for any interpreter on any platform.
+
         Args:
         cmd: Command string (single-line or multi-line)
         working_dir: Working directory
         task_name: Task name (for error messages)
-        shell: Shell to use for script execution
+        shell_cmd: Full shell invocation list (e.g. ["bash"] or ["python"])
         preamble: Preamble text to prepend to script
         process_runner: ProcessRunner instance to use for subprocess execution
         exported_env_vars: Exported arguments to set as environment variables
@@ -1105,19 +1102,15 @@ class Executor:
         # Prepare environment with exported args and call chain
         env = self._prepare_env_with_exports(exported_env_vars, call_chain)
 
-        # On Windows with a PowerShell shell, create a .ps1 file and invoke PowerShell
-        # explicitly. For all other cases, use the platform default (.bat on Windows,
-        # .sh on Unix) and run the script directly.
-        is_win_powershell = platform.system() == "Windows" and _is_powershell_shell(shell)
-        script_ext = ".ps1" if is_win_powershell else None
+        # On Windows, use .bat extension so cmd.exe can execute the script.
+        # On all other platforms, no extension is needed: the interpreter is
+        # specified explicitly in shell_cmd and accepts any filename.
+        script_ext = ".bat" if platform.system() == "Windows" else ""
 
-        # Create temporary script using context manager
-        with TempScript(logger=self.logger, cmd=cmd, preamble=preamble, shell=shell, script_extension=script_ext) as script_path:
-            run_cmd = (
-                [shell, "-ExecutionPolicy", "Bypass", "-File", str(script_path)]
-                if is_win_powershell
-                else [str(script_path)]
-            )
+        # Create temporary script using context manager — no shebang needed since
+        # the interpreter is passed explicitly as shell_cmd in the subprocess call.
+        with TempScript(logger=self.logger, cmd=cmd, preamble=preamble, use_shebang=False, script_extension=script_ext) as script_path:
+            run_cmd = shell_cmd + [str(script_path)]
 
             # Execute script file
             try:
