@@ -49,6 +49,22 @@ SHELL_LOOKUP: dict[str, list[str]] = {
 }
 
 
+def _get_windows_script_extension(shell_cmd: list[str]) -> str:
+    """Return the appropriate Windows script file extension for the given shell.
+
+    cmd.exe needs .bat, PowerShell needs .ps1, and Unix shells (bash, sh,
+    python, etc.) work without an extension even on Windows.
+    """
+    if not shell_cmd:
+        return ".bat"
+    shell = shell_cmd[0].lower()
+    if "powershell" in shell:
+        return ".ps1"
+    if "cmd" in shell:
+        return ".bat"
+    return ""
+
+
 @dataclass
 class ShellConfig:
     """
@@ -1327,7 +1343,7 @@ def _resolve_eval_variable(
         shell_cmd = _get_default_shell_cmd()
 
     # Write command to a temp script file (same mechanism as task execution)
-    script_ext = ".bat" if platform.system() == "Windows" else ""
+    script_ext = _get_windows_script_extension(shell_cmd) if platform.system() == "Windows" else ""
     script_path = None
     try:
         import tempfile
@@ -1335,7 +1351,7 @@ def _resolve_eval_variable(
             mode="w", suffix=script_ext, delete=False, encoding="utf-8"
         ) as script_file:
             script_path = script_file.name
-            if platform.system() == "Windows":
+            if script_ext == ".bat":
                 script_file.write("@echo off\n")
             script_file.write(command)
 

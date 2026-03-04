@@ -450,7 +450,7 @@ class TestExecutor(unittest.TestCase):
             run_cmd = process_runner_spy.run.call_args[0][0]
             self.assertEqual(run_cmd[0], "powershell")
             self.assertIn("-File", run_cmd)
-            self.assertTrue(run_cmd[-1].endswith(".bat"))
+            self.assertTrue(run_cmd[-1].endswith(".ps1"))
 
 
 class TestMissingOutputs(unittest.TestCase):

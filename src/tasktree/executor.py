@@ -23,7 +23,7 @@ from tasktree.graph import (
 )
 from tasktree.hasher import hash_args, hash_task, make_cache_key
 from tasktree.logging import Logger, LogLevel
-from tasktree.parser import DockerArgs, Recipe, Task, Runner, ShellConfig, SHELL_LOOKUP
+from tasktree.parser import DockerArgs, Recipe, Task, Runner, ShellConfig, SHELL_LOOKUP, _get_windows_script_extension
 from tasktree.process_runner import ProcessRunner, TaskOutputTypes
 from tasktree.state import StateManager, TaskState
 from tasktree.hasher import hash_runner_definition
@@ -1102,10 +1102,9 @@ class Executor:
         # Prepare environment with exported args and call chain
         env = self._prepare_env_with_exports(exported_env_vars, call_chain)
 
-        # On Windows, use .bat extension so cmd.exe can execute the script.
-        # On all other platforms, no extension is needed: the interpreter is
-        # specified explicitly in shell_cmd and accepts any filename.
-        script_ext = ".bat" if platform.system() == "Windows" else ""
+        # Determine script extension: shell-aware on Windows (cmd.exe needs .bat,
+        # PowerShell needs .ps1, bash/sh/python need no extension), empty elsewhere.
+        script_ext = _get_windows_script_extension(shell_cmd) if platform.system() == "Windows" else ""
 
         # Create temporary script using context manager — no shebang needed since
         # the interpreter is passed explicitly as shell_cmd in the subprocess call.
