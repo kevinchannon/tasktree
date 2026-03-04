@@ -1035,7 +1035,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
 
             docker_runner = Runner(
                 name="build",
-                shell=ShellConfig(cmd=["/bin/zsh", "-c"], preamble="set -euo pipefail"),
+                shell=ShellConfig(cmd=["/bin/zsh"], preamble="set -euo pipefail"),
                 dockerfile="Dockerfile",
                 context=".",
             )
@@ -1070,8 +1070,8 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
             with patch.dict("os.environ", {"TT_CONTAINERIZED_RUNNER": "build"}):
                 # Mock _run_command_as_script to capture shell/preamble
                 captured_args = {}
-                def mock_run_script(cmd, working_dir, task_name, shell, preamble, *args, **kwargs):
-                    captured_args["shell"] = shell
+                def mock_run_script(cmd, working_dir, task_name, shell_cmd, preamble, *args, **kwargs):
+                    captured_args["shell_cmd"] = shell_cmd
                     captured_args["preamble"] = preamble
 
                 with patch.object(executor, "_run_command_as_script", side_effect=mock_run_script):
@@ -1079,7 +1079,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
                     executor._run_task(recipe.tasks["test"], {}, process_runner)
 
                 # Verify runner's shell and preamble were used
-                self.assertEqual(captured_args["shell"], "/bin/zsh")
+                self.assertEqual(captured_args["shell_cmd"], ["/bin/zsh"])
                 self.assertEqual(captured_args["preamble"], "set -euo pipefail")
 
     def test_volume_mount_conflict_detection(self):
