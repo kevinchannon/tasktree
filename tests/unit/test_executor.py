@@ -264,11 +264,9 @@ class TestExecutor(unittest.TestCase):
             run_cmd = call_args[0][0]
             self.assertEqual(run_cmd[0], "bash")
             script_path = run_cmd[-1]
-            # No extension on Unix, .bat on Windows
-            if platform.system() == "Windows":
-                self.assertTrue(script_path.endswith(".bat"))
-            else:
-                self.assertFalse(script_path.endswith(".sh"))
+            # bash uses no platform-specific extension on any platform
+            self.assertFalse(script_path.endswith(".bat"))
+            self.assertFalse(script_path.endswith(".sh"))
 
             # No chmod needed — script is not run directly
             # Verify cleanup (unlink) was called
