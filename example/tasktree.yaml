@@ -5,7 +5,7 @@ runners:
   # Default runner: bash with strict mode enabled
   bash-strict:
     shell:
-      cmd: ["/bin/bash", "-c"]
+      cmd: ["/bin/bash"]
       preamble: set -euo pipefail
 
   # Docker runner: uses an Alpine image for containerised tasks
