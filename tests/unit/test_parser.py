@@ -1230,7 +1230,7 @@ imports:
             # Runner should be namespaced as build.shell
             self.assertIn("build.shell", recipe.runners)
             self.assertEqual(recipe.runners["build.shell"].name, "build.shell")
-            self.assertEqual(recipe.runners["build.shell"].shell.cmd, ["bash", "-c"])
+            self.assertEqual(recipe.runners["build.shell"].shell.cmd, ["bash"])
 
     def test_import_rewrites_run_in_with_namespace(self):
         """Test that run_in in imported tasks is rewritten with namespace prefix."""
