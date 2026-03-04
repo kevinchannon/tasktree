@@ -2,7 +2,7 @@ runners:
   default: custom
   custom:
     shell:
-      cmd: [bash, -c]
+      cmd: [bash]
       preamble: echo "RECIPE DEFAULT"
 
 tasks:
