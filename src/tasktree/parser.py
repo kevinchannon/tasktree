@@ -1335,6 +1335,8 @@ def _resolve_eval_variable(
             mode="w", suffix=script_ext, delete=False, encoding="utf-8"
         ) as script_file:
             script_path = script_file.name
+            if platform.system() == "Windows":
+                script_file.write("@echo off\n")
             script_file.write(command)
 
         cmd_list = shell_cmd + [script_path]
