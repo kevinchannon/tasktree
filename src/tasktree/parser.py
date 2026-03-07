@@ -8,6 +8,7 @@ import os
 import platform
 import re
 import subprocess
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from collections.abc import KeysView
@@ -1346,7 +1347,6 @@ def _resolve_eval_variable(
     script_ext = _get_windows_script_extension(shell_cmd) if platform.system() == "Windows" else ""
     script_path = None
     try:
-        import tempfile
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=script_ext, delete=False, encoding="utf-8"
         ) as script_file:
@@ -1382,8 +1382,7 @@ def _resolve_eval_variable(
     finally:
         if script_path:
             try:
-                import os as _os
-                _os.unlink(script_path)
+                os.unlink(script_path)
             except OSError:
                 pass
 
