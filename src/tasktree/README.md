@@ -359,6 +359,8 @@ The `shell` field must be a dict. The `cmd` field inside accepts two forms:
 
 TaskTree writes the task `cmd` to a temporary script file and executes `shell_cmd + [script_path]`. No shebang is needed — the interpreter is specified explicitly. This works for any language on any platform.
 
+> **Note:** Do not add a shebang line (e.g. `#!/bin/bash`) to your `cmd` content. Because the interpreter is passed explicitly in the subprocess call, a shebang in `cmd` is silently ignored — it is treated as a comment by most shells or as plain text by other interpreters.
+
 For any interpreter not in the table (e.g. `python3`, `ruby`, `/usr/local/bin/bash`), use an explicit list: `cmd: [python3]`. Using an unknown name as a string shorthand raises a configuration error at load time.
 
 **Runner resolution priority:**
