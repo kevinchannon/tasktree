@@ -74,7 +74,7 @@ class ShellConfig:
     prepended to every task command run in this shell.
     """
 
-    cmd: list[str]  # Full invocation list, e.g. ["bash", "-c"]
+    cmd: list[str]  # Full invocation list, e.g. ["bash"]
     preamble: str = ""  # Optional preamble prepended to every task body
 
 
