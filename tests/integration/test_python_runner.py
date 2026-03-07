@@ -24,7 +24,7 @@ class TestPythonRunner(unittest.TestCase):
         self.runner = CliRunner()
         self.env = {"NO_COLOR": "1"}
 
-    @unittest.skipUnless(sys.platform != "win32", "posix only: uses python3")
+    @unittest.skipIf(sys.platform == "win32", "python3 command not available on Windows")
     def test_python_runner_executes_python_script(self):
         """
         Test that a task with run_in: python3 runner executes as a Python script.
