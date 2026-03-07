@@ -175,7 +175,7 @@ class TestParseConfigFile(unittest.TestCase):
             self.assertIsInstance(result, Runner)
             self.assertEqual(result.name, "default")
             self.assertIsNotNone(result.shell)
-            self.assertEqual(result.shell.cmd, ["bash", "-c"])
+            self.assertEqual(result.shell.cmd, ["bash"])
             self.assertEqual(result.shell.preamble, "set -euo pipefail")
             self.assertEqual(result.dockerfile, "")
 
@@ -367,7 +367,7 @@ class TestParseConfigFile(unittest.TestCase):
             result = parse_config_file(config_path)
             self.assertIsNotNone(result)
             self.assertIsNotNone(result.shell)
-            self.assertEqual(result.shell.cmd, ["bash", "-c"])
+            self.assertEqual(result.shell.cmd, ["bash"])
             self.assertEqual(result.shell.preamble, "")
             self.assertEqual(result.args.build, [])
             self.assertEqual(result.args.run, [])

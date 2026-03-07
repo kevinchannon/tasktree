@@ -48,7 +48,7 @@ class TestConfigHierarchy(unittest.TestCase):
 runners:
   default:
     shell:
-      cmd: [bash, -c]
+      cmd: [bash]
       preamble: echo "PROJECT CONFIG"
 """)
 
@@ -78,7 +78,7 @@ runners:
 runners:
   default:
     shell:
-      cmd: [bash, -c]
+      cmd: [bash]
       preamble: echo "PROJECT CONFIG"
 """)
 
@@ -108,7 +108,7 @@ runners:
 runners:
   default:
     shell:
-      cmd: [bash, -c]
+      cmd: [bash]
       preamble: echo "PROJECT CONFIG"
 """)
 
@@ -139,7 +139,7 @@ runners:
 runners:
   default:
     shell:
-      cmd: [bash, -c]
+      cmd: [bash]
       preamble: echo "PROJECT CONFIG"
 """)
 
@@ -198,7 +198,7 @@ runners:
 runners:
   default:
     shell:
-      cmd: [bash, -c]
+      cmd: [bash]
       preamble: echo "USER CONFIG"
 """)
             mock_user_config.return_value = user_config_file
@@ -231,7 +231,7 @@ runners:
 runners:
   default:
     shell:
-      cmd: [bash, -c]
+      cmd: [bash]
       preamble: echo "USER CONFIG"
 """)
             mock_user_config.return_value = user_config_file
@@ -242,7 +242,7 @@ runners:
 runners:
   default:
     shell:
-      cmd: [bash, -c]
+      cmd: [bash]
       preamble: echo "PROJECT CONFIG"
 """)
 
@@ -278,7 +278,7 @@ runners:
 runners:
   default:
     shell:
-      cmd: [bash, -c]
+      cmd: [bash]
       preamble: echo "MACHINE CONFIG"
 """)
             mock_machine_config.return_value = machine_config_file
@@ -289,7 +289,7 @@ runners:
 runners:
   default:
     shell:
-      cmd: [bash, -c]
+      cmd: [bash]
       preamble: echo "USER CONFIG"
 """)
             mock_user_config.return_value = user_config_file
@@ -300,7 +300,7 @@ runners:
 runners:
   default:
     shell:
-      cmd: [bash, -c]
+      cmd: [bash]
       preamble: echo "PROJECT CONFIG"
 """)
 
@@ -331,7 +331,7 @@ runners:
 runners:
   default:
     shell:
-      cmd: [bash, -c]
+      cmd: [bash]
       preamble: echo "PROJECT CONFIG"
 """)
 

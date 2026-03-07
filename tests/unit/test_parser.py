@@ -7,12 +7,14 @@ import platform
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import MagicMock, patch
 
 import yaml
 
 from tasktree.parser import (
     CircularImportError,
     Task,
+    _resolve_eval_variable,
     find_recipe_file,
     parse_arg_spec,
     parse_recipe,
@@ -1230,7 +1232,7 @@ imports:
             # Runner should be namespaced as build.shell
             self.assertIn("build.shell", recipe.runners)
             self.assertEqual(recipe.runners["build.shell"].name, "build.shell")
-            self.assertEqual(recipe.runners["build.shell"].shell.cmd, ["bash", "-c"])
+            self.assertEqual(recipe.runners["build.shell"].shell.cmd, ["bash"])
 
     def test_import_rewrites_run_in_with_namespace(self):
         """Test that run_in in imported tasks is rewritten with namespace prefix."""
@@ -3485,6 +3487,54 @@ tasks:
                 )
             finally:
                 del os.environ["TEST_EVAL_VAR"]
+
+    def test_eval_uses_script_file_execution(self):
+        """
+        Test that _resolve_eval_variable writes command to a temp script file
+        and invokes shell_cmd + [script_path] via subprocess.
+        """
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("tasks:\n  t:\n    cmd: echo done\n")
+            command = "echo hello"
+            recipe_data = {}
+
+            created_script_paths = []
+
+            original_run = __import__("subprocess").run
+
+            def capturing_run(cmd, **kwargs):
+                if cmd and len(cmd) > 1:
+                    script_path = cmd[-1]
+                    if os.path.exists(script_path):
+                        created_script_paths.append(script_path)
+                        content = open(script_path).read()
+                        assert command in content, f"Command not in script: {content!r}"
+                mock_result = MagicMock()
+                mock_result.returncode = 0
+                mock_result.stdout = "hello\n"
+                mock_result.stderr = ""
+                return mock_result
+
+            shell_cmd_used = []
+
+            def capturing_run_full(cmd, **kwargs):
+                shell_cmd_used.append(list(cmd))
+                return capturing_run(cmd, **kwargs)
+
+            with patch("tasktree.parser.subprocess.run", side_effect=capturing_run_full):
+                result = _resolve_eval_variable(
+                    "my_var", command, recipe_path, recipe_data
+                )
+
+            self.assertEqual(result, "hello")
+            self.assertEqual(len(shell_cmd_used), 1)
+            invocation = shell_cmd_used[0]
+            # Last element is the script path, everything before is the shell cmd
+            self.assertGreaterEqual(len(invocation), 2)
+            script_path_used = invocation[-1]
+            # Verify the script file no longer exists (was cleaned up)
+            self.assertFalse(os.path.exists(script_path_used), "Temp script was not deleted")
 
 
 class TestArgMinMax(unittest.TestCase):
