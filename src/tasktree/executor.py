@@ -30,6 +30,14 @@ from tasktree.hasher import hash_runner_definition
 from tasktree.temp_script import TempScript
 
 
+def _supports_fileno(stream) -> bool:
+    """Check if a stream has a working fileno() method."""
+    try:
+        stream.fileno()
+        return True
+    except (AttributeError, OSError, io.UnsupportedOperation):
+        return False
+
 
 @dataclass
 class TaskStatus:
@@ -1113,33 +1121,10 @@ class Executor:
 
             # Execute script file
             try:
-                # Check if stdout/stderr support fileno() (real file descriptors)
-                # CliRunner uses StringIO which has fileno() method but raises when called
-                def supports_fileno(stream):
-                    """Check if a stream has a working fileno() method."""
-                    try:
-                        stream.fileno()
-                        return True
-                    except (AttributeError, OSError, io.UnsupportedOperation):
-                        return False
-
-                # Determine output targets based on task_output mode
-                # For "all" mode: show everything
-                # Future modes: use subprocess.DEVNULL for suppression
-                should_suppress = False  # Will be: self.task_output == "none", etc.
-
-                if should_suppress:
-                    stdout_target = subprocess.DEVNULL
-                    stderr_target = subprocess.DEVNULL
-                else:
-                    stdout_target = sys.stdout
-                    stderr_target = sys.stderr
-
-                # If streams support fileno, pass target streams directly (most efficient)
-                # Otherwise capture and manually write (CliRunner compatibility)
-                if not should_suppress and not (
-                    supports_fileno(sys.stdout) and supports_fileno(sys.stderr)
-                ):
+                # If streams support fileno, pass them directly (most efficient).
+                # CliRunner uses StringIO which has fileno() but raises on call,
+                # so capture and write manually in that case.
+                if not (_supports_fileno(sys.stdout) and _supports_fileno(sys.stderr)):
                     # CliRunner path: capture and write manually
                     result = process_runner.run(
                         run_cmd,
@@ -1154,13 +1139,12 @@ class Executor:
                     if result.stderr:
                         sys.stderr.write(result.stderr)
                 else:
-                    # Normal execution path: use target streams (including DEVNULL when suppressing)
                     process_runner.run(
                         run_cmd,
                         cwd=working_dir,
                         check=True,
-                        stdout=stdout_target,
-                        stderr=stderr_target,
+                        stdout=sys.stdout,
+                        stderr=sys.stderr,
                         env=env,
                     )
             except FileNotFoundError as e:
