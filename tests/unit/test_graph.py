@@ -154,6 +154,7 @@ class TestGetImplicitInputs(unittest.TestCase):
 
         implicit = get_implicit_inputs(recipe, tasks["package"])
         self.assertIn("build/output.txt", implicit)
+        self.assertIn("Dockerfile", implicit)
 
 
 class TestGraphErrors(unittest.TestCase):
