@@ -1606,11 +1606,6 @@ class Executor:
         """
         Check if any input files have changed since last run.
 
-        Handles both regular file inputs and Docker-specific inputs:
-        - Regular files: checked via mtime
-        - Docker context: checked via directory walk with early exit
-        - Dockerfile digests: checked via parsing and comparison
-
         Args:
         task: Task to check
         cached_state: Cached state from previous run
@@ -1625,73 +1620,7 @@ class Executor:
         input_files = self._expand_globs(all_inputs, task.working_dir)
         self.logger.trace(f"Checking {len(input_files)} input file(s) for task '{task.name}'")
 
-        # Check if task uses Docker environment
-        env_name = self._get_effective_runner_name(task)
-        docker_env = None
-        if env_name:
-            docker_env = self.recipe.get_runner(env_name)
-            if docker_env and not docker_env.dockerfile:
-                docker_env = None  # Not a Docker environment
-
         for file_path in input_files:
-            # Handle Docker context directory check
-            if file_path.startswith("_docker_context_"):
-                if docker_env:
-                    context_name = file_path.replace("_docker_context_", "")
-                    context_path = self.recipe.project_root / context_name
-                    dockerignore_path = context_path / ".dockerignore"
-
-                    # Get last context check time
-                    cached_context_time = cached_state.input_state.get(
-                        f"_context_{context_name}"
-                    )
-                    if cached_context_time is None:
-                        # Never checked before - consider changed
-                        self.logger.trace(f"Docker context '{context_name}' has no cached timestamp, treating as changed")
-                        changed_files.append(f"Docker context: {context_name}")
-                        continue
-
-                    # Check if context changed (with early exit optimization)
-                    self.logger.trace(f"Checking Docker context '{context_name}' (last checked: {cached_context_time})")
-                    if docker_module.context_changed_since(
-                        context_path, dockerignore_path, cached_context_time
-                    ):
-                        self.logger.trace(f"Docker context '{context_name}' has changed")
-                        changed_files.append(f"Docker context: {context_name}")
-                continue
-
-            # Handle Docker Dockerfile digest check
-            if file_path.startswith("_docker_dockerfile_"):
-                if docker_env:
-                    dockerfile_name = file_path.replace("_docker_dockerfile_", "")
-                    dockerfile_path = self.recipe.project_root / dockerfile_name
-
-                    try:
-                        dockerfile_content = dockerfile_path.read_text()
-                        current_digests = set(
-                            docker_module.parse_base_image_digests(dockerfile_content)
-                        )
-
-                        # Get cached digests
-                        cached_digests = set()
-                        for key in cached_state.input_state:
-                            if key.startswith("_digest_"):
-                                digest = key.replace("_digest_", "")
-                                cached_digests.add(digest)
-
-                        # Check if digests changed
-                        self.logger.trace(f"Checking Dockerfile '{dockerfile_name}' base image digests (current: {current_digests}, cached: {cached_digests})")
-                        if current_digests != cached_digests:
-                            self.logger.trace(f"Dockerfile '{dockerfile_name}' base image digests changed")
-                            changed_files.append(
-                                f"Docker base image digests in {dockerfile_name}"
-                            )
-                    except (OSError, IOError):
-                        # Can't read Dockerfile - consider changed
-                        self.logger.trace(f"Unable to read Dockerfile '{dockerfile_name}', treating as changed")
-                        changed_files.append(f"Dockerfile: {dockerfile_name}")
-                continue
-
             # Regular file check
             file_path_obj = self.recipe.project_root / task.working_dir / file_path
             if not file_path_obj.exists():
@@ -1831,10 +1760,6 @@ class Executor:
 
         input_state = {}
         for file_path in input_files:
-            # Skip Docker special markers (handled separately)
-            if file_path.startswith("_docker_"):
-                continue
-
             file_path_obj = self.recipe.project_root / task.working_dir / file_path
             if file_path_obj.exists():
                 input_state[file_path] = file_path_obj.stat().st_mtime
