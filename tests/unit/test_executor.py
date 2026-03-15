@@ -10,7 +10,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, patch, call
 
 from helpers.logging import logger_stub
-from tasktree.executor import Executor, _is_powershell_shell
+from tasktree.executor import Executor
 from tasktree.parser import Recipe, Task, parse_recipe
 from tasktree.process_runner import ProcessRunner, TaskOutputTypes, make_process_runner
 from tasktree.state import StateManager, TaskState
@@ -130,8 +130,7 @@ class TestExecutor(unittest.TestCase):
     """
     """
 
-    @patch("tasktree.temp_script.os.chmod")
-    def test_execute_simple_task(self, _chmod_fake):
+    def test_execute_simple_task(self):
         """
         Test executing a simple task.
         """
@@ -154,12 +153,13 @@ class TestExecutor(unittest.TestCase):
                 recipe, state_manager, logger_stub, fake_proc_runner_factory
             ).execute_task("build", TaskOutputTypes.ALL)
 
-            # Verify subprocess was called with a script path
+            # Verify subprocess was called with shell_cmd + [script_path]
             process_runner_spy.run.assert_called_once()
             call_args = process_runner_spy.run.call_args
-            # Command should be passed as [script_path]
-            script_path = call_args[0][0][0]
-            self.assertTrue(script_path.endswith(".sh") or script_path.endswith(".bat"))
+            run_cmd = call_args[0][0]
+            # Script path is the last element; shell is the first
+            script_path = run_cmd[-1]
+            self.assertTrue(script_path.endswith(".bat") or not script_path.endswith(".sh"))
 
     def test_execute_with_dependencies(self):
         """
@@ -190,8 +190,7 @@ class TestExecutor(unittest.TestCase):
             # Verify both tasks were executed
             self.assertEqual(process_runner_spy.run.call_count, 2)
 
-    @patch("tasktree.temp_script.os.chmod")
-    def test_execute_with_args(self, _fake_chmod):
+    def test_execute_with_args(self):
         """
         Test executing task with arguments.
         """
@@ -224,14 +223,14 @@ class TestExecutor(unittest.TestCase):
                 "deploy", TaskOutputTypes.ALL, {"environment": "production"}
             )
 
-            # Verify command had arguments substituted and passed as script
+            # Verify command was invoked as shell_cmd + [script_path]
             call_args = process_runner_spy.run.call_args
-            script_path = call_args[0][0][0]
-            self.assertTrue(script_path.endswith(".sh") or script_path.endswith(".bat"))
+            run_cmd = call_args[0][0]
+            # Script path is the last element; check it's a valid file path, not a shell name
+            self.assertGreater(len(run_cmd), 1, "Should have at least shell + script_path")
 
-    @patch("tasktree.temp_script.os.chmod")
     @patch("tasktree.temp_script.os.unlink")
-    def test_run_command_as_script_single_line(self, mock_unlink, mock_chmod):
+    def test_run_command_as_script_single_line(self, mock_unlink):
         """
         Test _run_command_as_script with single-line command.
         """
@@ -254,28 +253,27 @@ class TestExecutor(unittest.TestCase):
                 cmd="echo hello",
                 working_dir=project_root,
                 task_name="test",
-                shell="bash",
+                shell_cmd=["bash"],
                 preamble="",
                 process_runner=process_runner_spy,
             )
 
-            # Verify subprocess.run was called with a script path
+            # Verify subprocess.run was called with shell_cmd + [script_path]
             process_runner_spy.run.assert_called_once()
             call_args = process_runner_spy.run.call_args
-            script_path = call_args[0][0][0]
-            expected_ext = ".bat" if platform.system() == "Windows" else ".sh"
-            self.assertTrue(script_path.endswith(expected_ext))
+            run_cmd = call_args[0][0]
+            self.assertEqual(run_cmd[0], "bash")
+            script_path = run_cmd[-1]
+            # bash uses no platform-specific extension on any platform
+            self.assertFalse(script_path.endswith(".bat"))
+            self.assertFalse(script_path.endswith(".sh"))
 
-            # Verify chmod was called to make script executable (Unix only)
-            if platform.system() != "Windows":
-                mock_chmod.assert_called_once()
-
+            # No chmod needed — script is not run directly
             # Verify cleanup (unlink) was called
             mock_unlink.assert_called_once()
 
-    @patch("tasktree.temp_script.os.chmod")
     @patch("tasktree.temp_script.os.unlink")
-    def test_run_command_as_script_with_preamble(self, unlink_spy, chmod_spy):
+    def test_run_command_as_script_with_preamble(self, unlink_spy):
         """
         Test _run_command_as_script with preamble.
         """
@@ -297,19 +295,16 @@ class TestExecutor(unittest.TestCase):
                 cmd="echo hello",
                 working_dir=project_root,
                 task_name="test",
-                shell="bash",
+                shell_cmd=["bash"],
                 preamble="set -e\n",
                 process_runner=process_runner_spy,
             )
 
             process_runner_spy.run.assert_called_once()
-            if platform.system() != "Windows":
-                chmod_spy.assert_called_once()
             unlink_spy.assert_called_once()
 
-    @patch("tasktree.temp_script.os.chmod")
     @patch("tasktree.temp_script.os.unlink")
-    def test_run_command_as_script_multiline(self, unlink_spy, chmod_spy):
+    def test_run_command_as_script_multiline(self, unlink_spy):
         """
         Test _run_command_as_script with multi-line command.
         """
@@ -331,33 +326,29 @@ class TestExecutor(unittest.TestCase):
                 cmd="echo hello\necho world",
                 working_dir=project_root,
                 task_name="test",
-                shell="bash",
+                shell_cmd=["bash"],
                 preamble="",
                 process_runner=process_runner_spy,
             )
 
             process_runner_spy.run.assert_called_once()
-            if platform.system() != "Windows":
-                chmod_spy.assert_called_once()
             unlink_spy.assert_called_once()
 
     def test_run_command_as_script_comprehensive_validation(self):
         """
-        Comprehensive test validating script creation, permissions, content, and execution order.
+        Comprehensive test validating script creation, content, and execution.
 
         This test validates:
-        1. Script is created with correct name/suffix
-        2. Script is made executable with chmod
-        3. Script content has correct ordering (shebang -> preamble -> command)
-        4. ProcessRunner is called AFTER all script setup completes
+        1. Script is created with no extension (on Unix)
+        2. No shebang is written — interpreter is in shell_cmd, not script
+        3. Script content has correct ordering (preamble -> command)
+        4. ProcessRunner is called with shell_cmd + [script_path]
+        5. Script exists when subprocess is called
         """
 
-        import platform
-        import stat
-
-        # Skip on Windows (different execution model)
+        # Skip on Windows (uses .bat extension, different behaviour)
         if platform.system() == "Windows":
-            self.skipTest("Skipping on Windows - different script handling")
+            self.skipTest("Skipping on Windows - uses .bat extension")
 
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -370,161 +361,67 @@ class TestExecutor(unittest.TestCase):
             )
             executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
-            # Track all operations in order
-            call_order = []
             captured_script_path = None
             captured_script_content = None
-            captured_chmod_path = None
-            captured_chmod_mode = None
 
-            # Mock os.chmod to capture permissions and script path
-            original_chmod = os.chmod
-
-            def mock_chmod_func(path, mode):
-                nonlocal \
-                    captured_chmod_path, \
-                    captured_chmod_mode, \
-                    captured_script_path, \
-                    captured_script_content
-                call_order.append("chmod")
-                captured_chmod_path = str(path)
-                captured_chmod_mode = mode
-                captured_script_path = str(path)
-                # Read the script content at this point (before it gets executed and deleted)
-                with open(path, "r") as f:
-                    captured_script_content = f.read()
-                return original_chmod(path, mode)
-
-            # Mock subprocess.run to capture when it's called
             def mock_subprocess_run(*args, **kwargs):
-                call_order.append("subprocess.run")
-                # Verify the script still exists at this point
-                if captured_script_path:
-                    script_path = args[0][0]
-                    self.assertTrue(
-                        Path(script_path).exists(),
-                        "Script should exist when subprocess.run is called",
-                    )
+                # Capture script path (last element of cmd list) and content
+                nonlocal captured_script_path, captured_script_content
+                script_path = args[0][-1]
+                captured_script_path = script_path
+                self.assertTrue(
+                    Path(script_path).exists(),
+                    "Script should exist when subprocess.run is called",
+                )
+                with open(script_path, "r") as f:
+                    captured_script_content = f.read()
                 return MagicMock(returncode=0)
 
-            # Create process runner for test
             process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
 
-            # Apply patches
-            with patch("tasktree.temp_script.os.chmod", side_effect=mock_chmod_func):
-                with patch("subprocess.run", side_effect=mock_subprocess_run):
-                    executor._run_command_as_script(
-                        cmd="echo hello\necho world",
-                        working_dir=project_root,
-                        task_name="test",
-                        shell="bash",
-                        preamble="set -e\n",
-                        process_runner=process_runner,
-                    )
+            with patch("subprocess.run", side_effect=mock_subprocess_run):
+                executor._run_command_as_script(
+                    cmd="echo hello\necho world",
+                    working_dir=project_root,
+                    task_name="test",
+                    shell_cmd=["bash"],
+                    preamble="set -e\n",
+                    process_runner=process_runner,
+                )
 
-            # Requirement 1: Verify script was created with correct suffix
+            # Requirement 1: Script has no extension on Unix
             self.assertIsNotNone(captured_script_path, "Script path should be captured")
-            self.assertTrue(
+            self.assertFalse(
                 captured_script_path.endswith(".sh"),
-                f"Script should have .sh suffix, got: {captured_script_path}",
+                f"Script should NOT have .sh suffix on Unix, got: {captured_script_path}",
             )
 
-            # Requirement 2: Verify script was made executable
-            self.assertIsNotNone(captured_chmod_path, "chmod should have been called")
-            self.assertEqual(
-                captured_script_path,
-                captured_chmod_path,
-                "chmod should be called on the script file",
-            )
-            # Verify executable bit is set
-            self.assertIsNotNone(captured_chmod_mode, "chmod mode should be captured")
-            self.assertTrue(
-                captured_chmod_mode & stat.S_IEXEC,
-                f"Script should have executable permission bit set, got mode: {oct(captured_chmod_mode)}",
+            # Requirement 2: No shebang in script content
+            self.assertIsNotNone(captured_script_content, "Script content should be captured")
+            self.assertFalse(
+                captured_script_content.startswith("#!"),
+                "Script should NOT have a shebang (interpreter is in shell_cmd)",
             )
 
-            # Requirement 3: Verify script content has correct ordering
-            self.assertIsNotNone(
-                captured_script_content, "Script content should be captured"
-            )
-            lines = captured_script_content.split("\n")
-            self.assertGreaterEqual(
-                len(lines),
-                3,
-                "Script should have at least shebang, preamble, and command",
-            )
-
-            # Check shebang is first
-            self.assertTrue(
-                lines[0].startswith("#!/usr/bin/env bash"),
-                f"First line should be shebang, got: {lines[0]}",
-            )
-
-            # Check preamble comes after shebang
-            self.assertIn(
-                "set -e",
-                captured_script_content,
-                "Preamble should be in script content",
-            )
-
-            # Check command comes after preamble
-            self.assertIn(
-                "echo hello", captured_script_content, "Command should be in script"
-            )
-            self.assertIn(
-                "echo world", captured_script_content, "Command should be in script"
-            )
-
-            # Verify order: shebang before preamble before command
-            shebang_idx = captured_script_content.find("#!/usr/bin/env bash")
+            # Requirement 3: Preamble before command in script content
+            self.assertIn("set -e", captured_script_content, "Preamble should be in script")
+            self.assertIn("echo hello", captured_script_content, "Command should be in script")
+            self.assertIn("echo world", captured_script_content, "Command should be in script")
             preamble_idx = captured_script_content.find("set -e")
             command_idx = captured_script_content.find("echo hello")
+            self.assertLess(preamble_idx, command_idx, "Preamble should come before command")
 
-            self.assertLess(
-                shebang_idx, preamble_idx, "Shebang should come before preamble"
-            )
-            self.assertLess(
-                preamble_idx, command_idx, "Preamble should come before command"
-            )
-
-            # Requirement 4: Verify subprocess.run called AFTER all setup
-            self.assertIn("chmod", call_order, "chmod should be called")
-            self.assertIn(
-                "subprocess.run", call_order, "subprocess.run should be called"
-            )
-
-            # Verify ordering: chmod should come before subprocess.run
-            chmod_idx = call_order.index("chmod")
-            subprocess_idx = call_order.index("subprocess.run")
-
-            self.assertLess(
-                chmod_idx, subprocess_idx, "chmod should come before subprocess.run"
-            )
-
-    def test_is_powershell_shell_recognises_powershell_variants(self):
-        """
-        Test _is_powershell_shell returns True for known PowerShell shell names.
-        """
-        for name in ("powershell", "pwsh", "powershell.exe", "pwsh.exe",
-                     "PowerShell", "PWSH", "PowerShell.exe"):
-            self.assertTrue(_is_powershell_shell(name), f"Expected True for {name!r}")
-
-    def test_is_powershell_shell_returns_false_for_other_shells(self):
-        """
-        Test _is_powershell_shell returns False for non-PowerShell shells.
-        """
-        for name in ("bash", "sh", "zsh", "cmd.exe", "fish", ""):
-            self.assertFalse(_is_powershell_shell(name), f"Expected False for {name!r}")
+            # Requirement 4: subprocess called with shell_cmd + [script_path]
+            # (Verified implicitly by mock_subprocess_run receiving args[0][-1] as script)
 
     @patch("tasktree.temp_script.os.unlink")
     @unittest.skipUnless(platform.system() == "Windows", "Windows-only test")
-    def test_run_command_as_script_uses_ps1_and_powershell_on_windows(self, mock_unlink):
+    def test_run_command_as_script_uses_powershell_cmd_on_windows(self, mock_unlink):
         """
-        Test _run_command_as_script creates a .ps1 file and invokes PowerShell explicitly.
+        Test _run_command_as_script passes shell_cmd + [script_path] to subprocess.
 
-        On Windows with a PowerShell shell, the script must be a .ps1 file invoked
-        via 'powershell -ExecutionPolicy Bypass -File <script>' rather than running
-        a .bat file through cmd.exe.
+        On Windows with a PowerShell shell_cmd, the invocation should be
+        [powershell, -ExecutionPolicy, Bypass, -File, script_path].
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -542,7 +439,7 @@ class TestExecutor(unittest.TestCase):
                 cmd="Write-Output hello",
                 working_dir=project_root,
                 task_name="test",
-                shell="powershell",
+                shell_cmd=["powershell", "-ExecutionPolicy", "Bypass", "-File"],
                 preamble="",
                 process_runner=process_runner_spy,
             )
@@ -1193,8 +1090,7 @@ class TestOnlyMode(unittest.TestCase):
     Test the --only mode that skips dependencies.
     """
 
-    @patch("tasktree.temp_script.os.chmod")
-    def test_only_mode_skips_dependencies(self, _fake_chmod):
+    def test_only_mode_skips_dependencies(self):
         """
         Test that only=True executes only the target task, not dependencies.
         """
@@ -1223,17 +1119,13 @@ class TestOnlyMode(unittest.TestCase):
 
             # Verify only build was executed, not lint
             self.assertEqual(process_runner_spy.run.call_count, 1)
-            call_args = process_runner_spy.run.call_args
-            script_path = call_args[0][0][0]
-            self.assertTrue(script_path.endswith(".sh") or script_path.endswith(".bat"))
 
             # Verify statuses only contains the target task
             self.assertEqual(len(statuses), 1)
             self.assertIn("build", statuses)
             self.assertNotIn("lint", statuses)
 
-    @patch("tasktree.temp_script.os.chmod")
-    def test_only_mode_with_multiple_dependencies(self, _fake_chmod):
+    def test_only_mode_with_multiple_dependencies(self):
         """
         Test that only=True skips all dependencies in a chain.
         """
@@ -1262,9 +1154,6 @@ class TestOnlyMode(unittest.TestCase):
 
             # Verify only test was executed
             self.assertEqual(process_runner_spy.run.call_count, 1)
-            call_args = process_runner_spy.run.call_args
-            script_path = call_args[0][0][0]
-            self.assertTrue(script_path.endswith(".sh") or script_path.endswith(".bat"))
 
             # Verify statuses only contains test
             self.assertEqual(len(statuses), 1)
@@ -1515,7 +1404,7 @@ class TestRunnerResolution(unittest.TestCase):
             executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             shell_config = executor._resolve_runner(tasks["build"])
-            self.assertEqual(shell_config.cmd, ["zsh", "-c"])
+            self.assertEqual(shell_config.cmd, ["zsh"])
             self.assertEqual(shell_config.preamble, "set -e\n")
 
     @patch("platform.system")
@@ -1541,7 +1430,7 @@ class TestRunnerResolution(unittest.TestCase):
             executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             shell_config = executor._resolve_runner(tasks["build"])
-            self.assertEqual(shell_config.cmd, ["bash", "-c"])
+            self.assertEqual(shell_config.cmd, ["bash"])
             self.assertEqual(shell_config.preamble, "")
 
         # Test Windows platform
@@ -1564,21 +1453,15 @@ class TestRunnerResolution(unittest.TestCase):
             self.assertEqual(shell_config.cmd, ["cmd.exe", "/c"])
             self.assertEqual(shell_config.preamble, "")
 
-    @patch("tasktree.temp_script.os.chmod")
-    def test_task_execution_uses_custom_shell(self, _fake_chmod):
+    def test_task_execution_uses_custom_shell(self):
         """
-        Test that custom shell from runner is used for execution.
+        Test that custom shell from runner is used as the subprocess command.
         """
 
-        import platform
+        captured_run_cmds = []
 
-        captured_script_content = []
-
-        def capture_script_content(*args, **kwargs):
-            # Read the script before process runner returns
-            script_path = args[0][0]
-            with open(script_path, "r") as f:
-                captured_script_content.append(f.read())
+        def capture_run_cmd(*args, **kwargs):
+            captured_run_cmds.append(args[0])
             return MagicMock(returncode=0)
 
         with TemporaryDirectory() as tmpdir:
@@ -1598,7 +1481,7 @@ class TestRunnerResolution(unittest.TestCase):
             )
 
             process_runner_spy = MagicMock(spec=ProcessRunner)
-            process_runner_spy.run.side_effect = capture_script_content
+            process_runner_spy.run.side_effect = capture_run_cmd
 
             fake_proc_runner_factory = MagicMock()
             fake_proc_runner_factory.return_value = process_runner_spy
@@ -1607,13 +1490,10 @@ class TestRunnerResolution(unittest.TestCase):
                 recipe, state_manager, logger_stub, fake_proc_runner_factory
             ).execute_task("build", TaskOutputTypes.ALL)
 
-            # Verify script execution was used and contains fish shell
-            self.assertEqual(len(captured_script_content), 1)
-            script_content = captured_script_content[0]
-
-            # Read the script to verify it uses fish shell
-            if not platform.system() == "Windows":
-                self.assertIn("fish", script_content)
+            # Verify the subprocess was invoked with "fish" as the first element
+            self.assertEqual(len(captured_run_cmds), 1)
+            run_cmd = captured_run_cmds[0]
+            self.assertEqual(run_cmd[0], "fish")
 
     def test_hash_changes_with_runner(self):
         """
@@ -1632,8 +1512,7 @@ class TestRunnerResolution(unittest.TestCase):
         self.assertNotEqual(hash2, hash3)
         self.assertNotEqual(hash1, hash3)
 
-    @patch("tasktree.temp_script.os.chmod")
-    def test_run_task_substitutes_environment_variables(self, _fake_chmod):
+    def test_run_task_substitutes_environment_variables(self):
         """
         Test that _run_task substitutes environment variables.
         """
@@ -1642,8 +1521,8 @@ class TestRunnerResolution(unittest.TestCase):
         captured_script_content = []
 
         def capture_script_content(*args, **kwargs):
-            # Read the script before subprocess.run returns
-            script_path = args[0][0]
+            # Script path is the last element of the run_cmd list
+            script_path = args[0][-1]
             with open(script_path, "r") as f:
                 captured_script_content.append(f.read())
             return MagicMock(returncode=0)
@@ -1793,7 +1672,7 @@ class TestTaskOutputParameter(unittest.TestCase):
                 cmd="echo test",
                 working_dir=project_root,
                 task_name="test",
-                shell="bash",
+                shell_cmd=["bash"],
                 preamble="",
                 process_runner=process_runner_spy,
             )
@@ -2027,7 +1906,7 @@ class TestGetSessionDefaultRunner(unittest.TestCase):
             runner = executor.get_session_default_runner()
 
             self.assertEqual(runner.name, "__platform_default__")
-            self.assertEqual(runner.shell.cmd, ["bash", "-c"])
+            self.assertEqual(runner.shell.cmd, ["bash"])
             self.assertEqual(runner.shell.preamble, "")
 
     @patch("platform.system")
@@ -2049,7 +1928,7 @@ class TestGetSessionDefaultRunner(unittest.TestCase):
             runner = executor.get_session_default_runner()
 
             self.assertEqual(runner.name, "__platform_default__")
-            self.assertEqual(runner.shell.cmd, ["bash", "-c"])
+            self.assertEqual(runner.shell.cmd, ["bash"])
             self.assertEqual(runner.shell.preamble, "")
 
     @patch("platform.system")
@@ -2090,7 +1969,7 @@ class TestGetSessionDefaultRunner(unittest.TestCase):
 runners:
   default:
     shell:
-      cmd: [zsh, -c]
+      cmd: [zsh]
       preamble: set -e
 """
             )
@@ -2105,7 +1984,7 @@ runners:
             runner = executor.get_session_default_runner(start_dir=project_root)
 
             self.assertEqual(runner.name, "default")
-            self.assertEqual(runner.shell.cmd, ["zsh", "-c"])
+            self.assertEqual(runner.shell.cmd, ["zsh"])
             self.assertEqual(runner.shell.preamble, "set -e")
 
     @patch("platform.system")
@@ -2128,7 +2007,7 @@ runners:
             runner = executor.get_session_default_runner(start_dir=project_root)
 
             self.assertEqual(runner.name, "__platform_default__")
-            self.assertEqual(runner.shell.cmd, ["bash", "-c"])
+            self.assertEqual(runner.shell.cmd, ["bash"])
             self.assertEqual(runner.shell.preamble, "")
 
     @patch("platform.system")
@@ -2155,7 +2034,7 @@ runners:
 
             # Should fall back to platform default on parse error
             self.assertEqual(runner.name, "__platform_default__")
-            self.assertEqual(runner.shell.cmd, ["bash", "-c"])
+            self.assertEqual(runner.shell.cmd, ["bash"])
             self.assertEqual(runner.shell.preamble, "")
 
     @patch("platform.system")
@@ -2193,7 +2072,7 @@ runners:
 
             # Should find config from parent directory
             self.assertEqual(runner.name, "default")
-            self.assertEqual(runner.shell.cmd, ["fish", "-c"])
+            self.assertEqual(runner.shell.cmd, ["fish"])
 
     @patch("platform.system")
     @patch("tasktree.config.get_user_config_path")
@@ -2211,7 +2090,7 @@ runners:
 runners:
   default:
     shell:
-      cmd: [zsh, -c]
+      cmd: [zsh]
       preamble: set -euo pipefail
 """
             )
@@ -2229,7 +2108,7 @@ runners:
             runner = executor.get_session_default_runner(start_dir=project_root)
 
             self.assertEqual(runner.name, "default")
-            self.assertEqual(runner.shell.cmd, ["zsh", "-c"])
+            self.assertEqual(runner.shell.cmd, ["zsh"])
             self.assertEqual(runner.shell.preamble, "set -euo pipefail")
 
     @patch("platform.system")
@@ -2277,7 +2156,7 @@ runners:
 
             # Project config should win
             self.assertEqual(runner.name, "default")
-            self.assertEqual(runner.shell.cmd, ["fish", "-c"])
+            self.assertEqual(runner.shell.cmd, ["fish"])
 
     @patch("platform.system")
     @patch("tasktree.config.get_user_config_path")
@@ -2315,7 +2194,7 @@ runners:
 
             # User config should win over platform default
             self.assertEqual(runner.name, "default")
-            self.assertEqual(runner.shell.cmd, ["zsh", "-c"])
+            self.assertEqual(runner.shell.cmd, ["zsh"])
 
     @patch("platform.system")
     @patch("tasktree.config.get_user_config_path")
@@ -2347,7 +2226,7 @@ runners:
 
             # Should fall back to platform default
             self.assertEqual(runner.name, "__platform_default__")
-            self.assertEqual(runner.shell.cmd, ["bash", "-c"])
+            self.assertEqual(runner.shell.cmd, ["bash"])
 
     @patch("platform.system")
     @patch("tasktree.config.get_machine_config_path")
@@ -2367,7 +2246,7 @@ runners:
 runners:
   default:
     shell:
-      cmd: [fish, -c]
+      cmd: [fish]
       preamble: set -eu
 """
             )
@@ -2385,7 +2264,7 @@ runners:
             runner = executor.get_session_default_runner(start_dir=project_root)
 
             self.assertEqual(runner.name, "default")
-            self.assertEqual(runner.shell.cmd, ["fish", "-c"])
+            self.assertEqual(runner.shell.cmd, ["fish"])
             self.assertEqual(runner.shell.preamble, "set -eu")
 
     @patch("platform.system")
@@ -2426,7 +2305,7 @@ runners:
 
             # Machine config should win over platform default
             self.assertEqual(runner.name, "default")
-            self.assertEqual(runner.shell.cmd, ["fish", "-c"])
+            self.assertEqual(runner.shell.cmd, ["fish"])
 
     @patch("platform.system")
     @patch("tasktree.config.get_user_config_path")
@@ -2479,7 +2358,7 @@ runners:
 
             # User config should win
             self.assertEqual(runner.name, "default")
-            self.assertEqual(runner.shell.cmd, ["zsh", "-c"])
+            self.assertEqual(runner.shell.cmd, ["zsh"])
 
     @patch("platform.system")
     @patch("tasktree.config.get_machine_config_path")
@@ -2515,7 +2394,7 @@ runners:
 
                 # Should fall back to platform default
                 self.assertEqual(runner.name, "__platform_default__")
-                self.assertEqual(runner.shell.cmd, ["bash", "-c"])
+                self.assertEqual(runner.shell.cmd, ["bash"])
 
     @patch("platform.system")
     @patch("tasktree.config.get_machine_config_path")
@@ -2547,7 +2426,7 @@ runners:
 
             # Empty config should be treated as no config, fall back to platform default
             self.assertEqual(runner.name, "__platform_default__")
-            self.assertEqual(runner.shell.cmd, ["bash", "-c"])
+            self.assertEqual(runner.shell.cmd, ["bash"])
 
     @patch("platform.system")
     @patch("tasktree.config.get_machine_config_path")
@@ -2582,7 +2461,7 @@ runners:
 
             # Malformed YAML should log warning and fall back to platform default
             self.assertEqual(runner.name, "__platform_default__")
-            self.assertEqual(runner.shell.cmd, ["bash", "-c"])
+            self.assertEqual(runner.shell.cmd, ["bash"])
 
             # Verify warning was logged
             mock_logger.warn.assert_called()

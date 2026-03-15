@@ -12,6 +12,7 @@ Tests the full 7-level configuration hierarchy:
 
 import os
 import re
+import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -21,6 +22,13 @@ from typer.testing import CliRunner
 
 from tasktree.cli import app
 from fixture_utils import copy_fixture_files
+
+
+def _make_runner_config(preamble: str) -> str:
+    """Return a minimal runner config YAML for the current platform."""
+    if sys.platform == "win32":
+        return f"runners:\n  default:\n    shell:\n      cmd: [cmd.exe, /c]\n      preamble: echo {preamble}\n"
+    return f'runners:\n  default:\n    shell:\n      cmd: [bash]\n      preamble: echo "{preamble}"\n'
 
 
 def strip_ansi_codes(text: str) -> str:
@@ -44,13 +52,7 @@ class TestConfigHierarchy(unittest.TestCase):
 
             # Create project config
             config_file = project_root / ".tasktree-config.yml"
-            config_file.write_text("""
-runners:
-  default:
-    shell:
-      cmd: [bash, -c]
-      preamble: echo "PROJECT CONFIG"
-""")
+            config_file.write_text(_make_runner_config("PROJECT CONFIG"))
 
             copy_fixture_files("config_hierarchy_project_overrides_platform", project_root)
 
@@ -74,13 +76,7 @@ runners:
 
             # Create project config with one preamble
             config_file = project_root / ".tasktree-config.yml"
-            config_file.write_text("""
-runners:
-  default:
-    shell:
-      cmd: [bash, -c]
-      preamble: echo "PROJECT CONFIG"
-""")
+            config_file.write_text(_make_runner_config("PROJECT CONFIG"))
 
             copy_fixture_files("config_hierarchy_recipe_default_overrides_project", project_root)
 
@@ -104,13 +100,7 @@ runners:
 
             # Create project config
             config_file = project_root / ".tasktree-config.yml"
-            config_file.write_text("""
-runners:
-  default:
-    shell:
-      cmd: [bash, -c]
-      preamble: echo "PROJECT CONFIG"
-""")
+            config_file.write_text(_make_runner_config("PROJECT CONFIG"))
 
             copy_fixture_files("config_hierarchy_task_run_in_overrides_all", project_root)
 
@@ -135,13 +125,7 @@ runners:
 
             # Create project config
             config_file = project_root / ".tasktree-config.yml"
-            config_file.write_text("""
-runners:
-  default:
-    shell:
-      cmd: [bash, -c]
-      preamble: echo "PROJECT CONFIG"
-""")
+            config_file.write_text(_make_runner_config("PROJECT CONFIG"))
 
             copy_fixture_files("config_hierarchy_cli_runner_overrides_everything", project_root)
 
@@ -194,13 +178,7 @@ runners:
 
             # Create user config
             user_config_file = user_config_dir / "config.yml"
-            user_config_file.write_text("""
-runners:
-  default:
-    shell:
-      cmd: [bash, -c]
-      preamble: echo "USER CONFIG"
-""")
+            user_config_file.write_text(_make_runner_config("USER CONFIG"))
             mock_user_config.return_value = user_config_file
 
             copy_fixture_files("config_hierarchy_simple_task", project_root)
@@ -227,24 +205,12 @@ runners:
 
             # Create user config
             user_config_file = user_config_dir / "config.yml"
-            user_config_file.write_text("""
-runners:
-  default:
-    shell:
-      cmd: [bash, -c]
-      preamble: echo "USER CONFIG"
-""")
+            user_config_file.write_text(_make_runner_config("USER CONFIG"))
             mock_user_config.return_value = user_config_file
 
             # Create project config
             project_config = project_root / ".tasktree-config.yml"
-            project_config.write_text("""
-runners:
-  default:
-    shell:
-      cmd: [bash, -c]
-      preamble: echo "PROJECT CONFIG"
-""")
+            project_config.write_text(_make_runner_config("PROJECT CONFIG"))
 
             copy_fixture_files("config_hierarchy_simple_task", project_root)
 
@@ -274,35 +240,17 @@ runners:
 
             # Create machine config
             machine_config_file = config_dir / "machine.yml"
-            machine_config_file.write_text("""
-runners:
-  default:
-    shell:
-      cmd: [bash, -c]
-      preamble: echo "MACHINE CONFIG"
-""")
+            machine_config_file.write_text(_make_runner_config("MACHINE CONFIG"))
             mock_machine_config.return_value = machine_config_file
 
             # Create user config
             user_config_file = config_dir / "user.yml"
-            user_config_file.write_text("""
-runners:
-  default:
-    shell:
-      cmd: [bash, -c]
-      preamble: echo "USER CONFIG"
-""")
+            user_config_file.write_text(_make_runner_config("USER CONFIG"))
             mock_user_config.return_value = user_config_file
 
             # Create project config
             project_config = project_root / ".tasktree-config.yml"
-            project_config.write_text("""
-runners:
-  default:
-    shell:
-      cmd: [bash, -c]
-      preamble: echo "PROJECT CONFIG"
-""")
+            project_config.write_text(_make_runner_config("PROJECT CONFIG"))
 
             copy_fixture_files("config_hierarchy_simple_task", project_root)
 
@@ -327,13 +275,7 @@ runners:
 
             # Create project config at root
             config_file = project_root / ".tasktree-config.yml"
-            config_file.write_text("""
-runners:
-  default:
-    shell:
-      cmd: [bash, -c]
-      preamble: echo "PROJECT CONFIG"
-""")
+            config_file.write_text(_make_runner_config("PROJECT CONFIG"))
 
             copy_fixture_files("config_hierarchy_discovery_walks_up_tree", project_root)
             nested_dir = project_root / "subdir" / "nested"

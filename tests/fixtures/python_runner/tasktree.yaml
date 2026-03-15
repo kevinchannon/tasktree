@@ -1,0 +1,12 @@
+runners:
+  python:
+    shell:
+      cmd: [python3]
+
+tasks:
+  test-python:
+    run_in: python
+    cmd: |
+      import os
+      with open("output.txt", "w") as f:
+          f.write("Hello from Python\n")

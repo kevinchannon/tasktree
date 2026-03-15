@@ -8,6 +8,7 @@ import os
 import platform
 import re
 import subprocess
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from collections.abc import KeysView
@@ -40,13 +41,29 @@ class CircularImportError(Exception):
 # Built-in lookup table mapping shell names to their conventional invocation arguments.
 # Used when 'shell' is specified as a bare string shorthand.
 SHELL_LOOKUP: dict[str, list[str]] = {
-    "bash": ["bash", "-c"],
-    "sh": ["sh", "-c"],
-    "zsh": ["zsh", "-c"],
-    "fish": ["fish", "-c"],
+    "bash": ["bash"],
+    "sh": ["sh"],
+    "zsh": ["zsh"],
+    "fish": ["fish"],
     "cmd.exe": ["cmd.exe", "/c"],
-    "powershell": ["powershell", "-Command"],
+    "powershell": ["powershell", "-ExecutionPolicy", "Bypass", "-File"],
 }
+
+
+def _get_windows_script_extension(shell_cmd: list[str]) -> str:
+    """Return the appropriate Windows script file extension for the given shell.
+
+    cmd.exe needs .bat, PowerShell needs .ps1, and Unix shells (bash, sh,
+    python, etc.) work without an extension even on Windows.
+    """
+    if not shell_cmd:
+        return ".bat"
+    shell = shell_cmd[0].lower()
+    if "powershell" in shell:
+        return ".ps1"
+    if "cmd" in shell:
+        return ".bat"
+    return ""
 
 
 @dataclass
@@ -58,7 +75,7 @@ class ShellConfig:
     prepended to every task command run in this shell.
     """
 
-    cmd: list[str]  # Full invocation list, e.g. ["bash", "-c"]
+    cmd: list[str]  # Full invocation list, e.g. ["bash"]
     preamble: str = ""  # Optional preamble prepended to every task body
 
 
@@ -1268,18 +1285,18 @@ def _validate_eval_reference(var_name: str, value: dict) -> str:
     return command
 
 
-def _get_default_shell_and_args() -> tuple[str, list[str]]:
+def _get_default_shell_cmd() -> list[str]:
     """
-    Get default shell and args for current platform.
+    Get default shell command list for current platform.
 
     Returns:
-    Tuple of (shell, args) for platform default
+    Shell cmd list for script-file execution (e.g. ["bash"] or ["cmd.exe", "/c"])
     """
     is_windows = platform.system() == "Windows"
     if is_windows:
-        return "cmd", ["/c"]
+        return list(SHELL_LOOKUP["cmd.exe"])
     else:
-        return "bash", ["-c"]
+        return list(SHELL_LOOKUP["bash"])
 
 
 def _resolve_eval_variable(
@@ -1287,6 +1304,9 @@ def _resolve_eval_variable(
 ) -> str:
     """
     Execute command and capture output for variable value.
+
+    Writes the command to a temporary script file and executes it via the
+    configured shell (or platform default), consistent with how tasks are run.
 
     Args:
     var_name: Name of the variable being defined
@@ -1301,7 +1321,7 @@ def _resolve_eval_variable(
     ValueError: If command fails or cannot be executed
     """
     # Determine shell command list to use
-    cmd_list = None
+    shell_cmd = None
 
     # Check if recipe has default_runner specified
     if recipe_data and "runners" in recipe_data:
@@ -1315,39 +1335,56 @@ def _resolve_eval_variable(
                     if shell_value is not None:
                         try:
                             shell_config = parse_shell_config(shell_value, default_runner_name)
-                            cmd_list = shell_config.cmd + [command]
+                            shell_cmd = shell_config.cmd
                         except ValueError:
                             pass  # Fall through to platform default
 
     # Use platform default if no runner specified or shell config invalid
-    if cmd_list is None:
-        default_shell, default_args = _get_default_shell_and_args()
-        cmd_list = [default_shell] + default_args + [command]
+    if shell_cmd is None:
+        shell_cmd = _get_default_shell_cmd()
 
-    # Execute from recipe file directory
-    working_dir = recipe_file_path.parent
-
+    # Write command to a temp script file (same mechanism as task execution)
+    script_ext = _get_windows_script_extension(shell_cmd) if platform.system() == "Windows" else ""
+    script_path = None
     try:
-        result = subprocess.run(
-            cmd_list,
-            capture_output=True,
-            text=True,
-            cwd=working_dir,
-            check=False,
-        )
-    except FileNotFoundError:
-        raise ValueError(
-            f"Failed to execute command for variable '{var_name}'.\n"
-            f"Shell not found: {cmd_list[0]}\n\n"
-            f"Command: {command}\n\n"
-            f"Ensure the shell is installed and available in PATH."
-        )
-    except Exception as e:
-        raise ValueError(
-            f"Failed to execute command for variable '{var_name}'.\n"
-            f"Command: {command}\n"
-            f"Error: {e}"
-        )
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=script_ext, delete=False, encoding="utf-8"
+        ) as script_file:
+            script_path = script_file.name
+            if script_ext == ".bat":
+                script_file.write("@echo off\n")
+            script_file.write(command)
+
+        cmd_list = shell_cmd + [script_path]
+        working_dir = recipe_file_path.parent
+
+        try:
+            result = subprocess.run(
+                cmd_list,
+                capture_output=True,
+                text=True,
+                cwd=working_dir,
+                check=False,
+            )
+        except FileNotFoundError:
+            raise ValueError(
+                f"Failed to execute command for variable '{var_name}'.\n"
+                f"Shell not found: {shell_cmd[0]}\n\n"
+                f"Command: {command}\n\n"
+                f"Ensure the shell is installed and available in PATH."
+            )
+        except Exception as e:
+            raise ValueError(
+                f"Failed to execute command for variable '{var_name}'.\n"
+                f"Command: {command}\n"
+                f"Error: {e}"
+            )
+    finally:
+        if script_path:
+            try:
+                os.unlink(script_path)
+            except OSError:
+                pass
 
     # Check exit code
     if result.returncode != 0:

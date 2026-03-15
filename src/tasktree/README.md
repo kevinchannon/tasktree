@@ -283,7 +283,7 @@ tasks:
       rsync -av dist/ server:/opt/app/
 ```
 
-Commands preserve shell syntax (line continuations, heredocs, etc.) and support shebangs on Unix/macOS.
+Commands preserve shell syntax (line continuations, heredocs, etc.).
 
 Or use folded blocks for long single-line commands:
 
@@ -313,7 +313,7 @@ runners:
 
   python:
     shell:
-      cmd: [python, -c]       # python is not a known shorthand; use explicit cmd list
+      cmd: [python3]          # python3 is not a known shorthand; use explicit cmd list
 
   powershell:
     shell:
@@ -350,14 +350,18 @@ The `shell` field must be a dict. The `cmd` field inside accepts two forms:
 
 | Shorthand | Invocation |
 |-----------|------------|
-| `bash` | `["bash", "-c"]` |
-| `sh` | `["sh", "-c"]` |
-| `zsh` | `["zsh", "-c"]` |
-| `fish` | `["fish", "-c"]` |
+| `bash` | `["bash"]` |
+| `sh` | `["sh"]` |
+| `zsh` | `["zsh"]` |
+| `fish` | `["fish"]` |
 | `cmd.exe` | `["cmd.exe", "/c"]` |
-| `powershell` | `["powershell", "-Command"]` |
+| `powershell` | `["powershell", "-ExecutionPolicy", "Bypass", "-File"]` |
 
-For any other shell (e.g. `python`, `pwsh`, `/usr/local/bin/bash`), use an explicit list: `cmd: [python, -c]`. Using an unknown name as a string shorthand raises a configuration error at load time.
+TaskTree writes the task `cmd` to a temporary script file and executes `shell_cmd + [script_path]`. No shebang is needed — the interpreter is specified explicitly. This works for any language on any platform.
+
+> **Note:** Do not add a shebang line (e.g. `#!/bin/bash`) to your `cmd` content. Because the interpreter is passed explicitly in the subprocess call, a shebang in `cmd` is silently ignored — it is treated as a comment by most shells or as plain text by other interpreters.
+
+For any interpreter not in the table (e.g. `python3`, `ruby`, `/usr/local/bin/bash`), use an explicit list: `cmd: [python3]`. Using an unknown name as a string shorthand raises a configuration error at load time.
 
 **Runner resolution priority:**
 1. CLI override: `tt --runner python build`
@@ -583,7 +587,8 @@ runners:
   linux-builder:
     dockerfile: Dockerfile
     context: .
-    shell: bash  # or sh, zsh - uses .sh extension with shebang
+    shell:
+      cmd: bash
 ```
 
 **Windows Containers:**
@@ -592,7 +597,8 @@ runners:
   windows-builder:
     dockerfile: Dockerfile.windows
     context: .
-    shell: cmd.exe  # Uses .bat extension, no shebang
+    shell:
+      cmd: cmd.exe  # Uses .bat extension on the host side
 ```
 
 **PowerShell Containers:**
@@ -601,25 +607,22 @@ runners:
   powershell-builder:
     dockerfile: Dockerfile.windows
     context: .
-    shell: powershell  # uses .ps1 extension, no shebang
+    shell:
+      cmd: powershell
 ```
 
 **Script Execution Details:**
 
 When a task runs in a Docker container:
-1. Task Tree creates a temporary script file on the host
-2. The script extension is determined from the shell executable (the first element of `shell.cmd`):
-   - `bash`, `sh`, `zsh`, etc. → `.sh` (with `#!/usr/bin/env {shell}` shebang)
-   - `cmd.exe`, `cmd` → `.bat` (no shebang)
-   - `powershell` → `.ps1` (no shebang)
-3. The script is mounted into the container at a unique path (e.g., `/tmp/tt-script-{uuid}.sh`)
-4. The container executes the script using the specified shell
+1. Task Tree writes the task `cmd` to a temporary script file on the host
+2. The script extension is `.bat` on Windows hosts, empty on all other platforms
+3. The script is mounted into the container at a unique path
+4. The container executes the script as `shell_cmd + [script_path]`
 5. The script is automatically cleaned up after execution
 
 **Important Notes:**
 
-- The script type is determined by the **container's shell**, not the host OS
-- You can run Windows containers from a Linux host (and vice versa) - the script will use the appropriate format
+- No shebang is written — the interpreter is passed explicitly in the subprocess call
 - Script paths are unique per execution (using UUIDs) to prevent collisions in concurrent runs
 - Scripts are mounted read-only for security
 
@@ -629,7 +632,8 @@ runners:
   win-container:
     dockerfile: Dockerfile.windows
     context: .
-    shell: cmd.exe
+    shell:
+      cmd: cmd.exe
     volumes:
       - .:/workspace
 
@@ -642,7 +646,7 @@ tasks:
       copy file.txt C:\output\file.txt
 ```
 
-Even if running on a Linux or macOS host, this task will create a `.bat` script (no shebang) and execute it with `cmd.exe` inside the Windows container.
+Even if running on a Linux or macOS host, this task will execute `["cmd.exe", "/c", script_path]` inside the Windows container.
 
 ### Parameterised Tasks
 

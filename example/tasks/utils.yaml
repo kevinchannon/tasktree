@@ -4,7 +4,7 @@ runners:
   # pinned tasks will continue to use this runner.
   bash-utils:
     shell:
-      cmd: ["/bin/bash", "-c"]
+      cmd: ["/bin/bash"]
       preamble: set -euo pipefail
 
 tasks:

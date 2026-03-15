@@ -530,7 +530,7 @@ runners:
 
   lint:
     shell:
-      cmd: [sh, -c]
+      cmd: [sh]
       preamble: "set -e"
 
 tasks:

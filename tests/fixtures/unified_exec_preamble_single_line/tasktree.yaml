@@ -1,7 +1,7 @@
 runners:
   strict:
     shell:
-      cmd: [bash, -c]
+      cmd: [bash]
       preamble: |
         set -e
         export TEST_VAR="from_preamble"
