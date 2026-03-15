@@ -342,5 +342,74 @@ class TestDependencyExecution(unittest.TestCase):
             ], f"Build should run, got reason={statuses['build'].reason}"
 
 
+class TestRunnerTaskDependencyTracking(unittest.TestCase):
+    """
+    Test that tasks using a named runner correctly re-run when dependency outputs change.
+
+    This covers the bug where Docker-runner tasks appeared to only re-run when the
+    Dockerfile changed, because dependency output tracking was not wired up correctly.
+    """
+
+    def setUp(self):
+        self.runner = CliRunner()
+        self.env = {"NO_COLOR": "1"}
+
+    def test_runner_task_reruns_when_dependency_output_changes(self):
+        """
+        Test that a task using a named runner re-runs when its dependency's output changes.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            recipe = {
+                "runners": {
+                    "shell": {"shell": "/bin/bash"},
+                },
+                "tasks": {
+                    "gen": {
+                        "outputs": ["gen-output.txt"],
+                        "cmd": "echo generated > gen-output.txt",
+                    },
+                    "process": {
+                        "deps": ["gen"],
+                        "outputs": ["processed.txt"],
+                        "cmd": "cp gen-output.txt processed.txt",
+                        "run_in": "shell",
+                    },
+                },
+            }
+            recipe_path = project_root / "tasktree.yaml"
+            recipe_path.write_text(yaml.dump(recipe))
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # First run: both tasks execute
+                result = self.runner.invoke(app, ["process"], env=self.env)
+                self.assertEqual(result.exit_code, 0)
+                self.assertTrue((project_root / "processed.txt").exists())
+                processed_time_1 = (project_root / "processed.txt").stat().st_mtime
+
+                # Second run: both skip (outputs are fresh)
+                result = self.runner.invoke(app, ["process"], env=self.env)
+                self.assertEqual(result.exit_code, 0)
+                processed_time_2 = (project_root / "processed.txt").stat().st_mtime
+                self.assertEqual(processed_time_1, processed_time_2)
+
+                # Modify the dependency's output directly
+                time.sleep(0.01)
+                (project_root / "gen-output.txt").write_text("modified content\n")
+
+                # Third run: process should re-run because its implicit input changed
+                result = self.runner.invoke(app, ["process"], env=self.env)
+                self.assertEqual(result.exit_code, 0)
+                processed_time_3 = (project_root / "processed.txt").stat().st_mtime
+                self.assertGreater(processed_time_3, processed_time_2)
+
+            finally:
+                os.chdir(original_cwd)
+
+
 if __name__ == "__main__":
     unittest.main()

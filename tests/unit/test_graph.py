@@ -11,7 +11,7 @@ from tasktree.graph import (
     resolve_execution_order,
     resolve_self_references,
 )
-from tasktree.parser import Recipe, Task
+from tasktree.parser import Recipe, Runner, Task
 
 
 class TestResolveExecutionOrder(unittest.TestCase):
@@ -132,6 +132,28 @@ class TestGetImplicitInputs(unittest.TestCase):
 
         implicit = get_implicit_inputs(recipe, tasks["build"])
         self.assertEqual(implicit, ["src/**/*.rs"])
+
+    def test_docker_runner_task_inherits_dependency_outputs(self):
+        """
+        Test that a Docker-runner task inherits dependency outputs as implicit inputs.
+        """
+        runner = Runner(name="docker", dockerfile="Dockerfile", context=".")
+        tasks = {
+            "build": Task(name="build", cmd="make", outputs=["build/output.txt"]),
+            "package": Task(
+                name="package", cmd="zip package.zip build/output.txt",
+                deps=["build"], run_in="docker"
+            ),
+        }
+        recipe = Recipe(
+            tasks=tasks,
+            project_root=Path("/tmp"),
+            recipe_path=Path("/tmp/tasktree.yaml"),
+            runners={"docker": runner},
+        )
+
+        implicit = get_implicit_inputs(recipe, tasks["package"])
+        self.assertIn("build/output.txt", implicit)
 
 
 class TestGraphErrors(unittest.TestCase):
