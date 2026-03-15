@@ -2,6 +2,7 @@
 
 import os
 import re
+import sys
 import time
 import unittest
 import yaml
@@ -354,6 +355,7 @@ class TestRunnerTaskDependencyTracking(unittest.TestCase):
         self.runner = CliRunner()
         self.env = {"NO_COLOR": "1"}
 
+    @unittest.skipIf(sys.platform == "win32", "bash and cp are not available on Windows")
     def test_runner_task_reruns_when_dependency_output_changes(self):
         """
         Test that a task using a named runner re-runs when its dependency's output changes.
@@ -363,7 +365,7 @@ class TestRunnerTaskDependencyTracking(unittest.TestCase):
 
             recipe = {
                 "runners": {
-                    "shell": {"shell": "/bin/bash"},
+                    "shell": {"shell": {"cmd": "bash"}},
                 },
                 "tasks": {
                     "gen": {
@@ -398,7 +400,7 @@ class TestRunnerTaskDependencyTracking(unittest.TestCase):
                 self.assertEqual(processed_time_1, processed_time_2)
 
                 # Modify the dependency's output directly
-                time.sleep(0.01)
+                time.sleep(0.1)
                 (project_root / "gen-output.txt").write_text("modified content\n")
 
                 # Third run: process should re-run because its implicit input changed
