@@ -566,12 +566,6 @@ def get_implicit_inputs(recipe: Recipe, task: Task) -> list[str]:
                 )
                 implicit_inputs.append(relative_dockerignore)
 
-            # Add special markers for context directory and digest tracking
-            # These are tracked differently in state management (not file paths)
-            # The executor will handle these specially
-            implicit_inputs.append(f"_docker_context_{env.context}")
-            implicit_inputs.append(f"_docker_dockerfile_{env.dockerfile}")
-
     return implicit_inputs
 
 
