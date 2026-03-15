@@ -1,0 +1,16 @@
+runners:
+  default: custom
+  custom:
+    shell:
+      cmd: [cmd.exe, /c]
+      preamble: echo RECIPE DEFAULT
+
+  task-specific:
+    shell:
+      cmd: [cmd.exe, /c]
+      preamble: echo TASK SPECIFIC
+
+tasks:
+  test:
+    run_in: task-specific
+    cmd: echo Hello

@@ -1,0 +1,21 @@
+runners:
+  default: recipe-default
+  recipe-default:
+    shell:
+      cmd: [cmd.exe, /c]
+      preamble: echo RECIPE DEFAULT
+
+  task-specific:
+    shell:
+      cmd: [cmd.exe, /c]
+      preamble: echo TASK SPECIFIC
+
+  cli-override:
+    shell:
+      cmd: [cmd.exe, /c]
+      preamble: echo CLI OVERRIDE
+
+tasks:
+  test:
+    run_in: task-specific
+    cmd: echo Hello
