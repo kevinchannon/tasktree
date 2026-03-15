@@ -2,6 +2,7 @@
 
 import os
 import re
+import sys
 import time
 import unittest
 import yaml
@@ -340,6 +341,86 @@ class TestDependencyExecution(unittest.TestCase):
                 "inputs_changed",
                 "never_run",
             ], f"Build should run, got reason={statuses['build'].reason}"
+
+
+class TestRunnerTaskDependencyTracking(unittest.TestCase):
+    """
+    Test that tasks using a named runner correctly re-run when dependency outputs change.
+
+    This covers the bug where Docker-runner tasks appeared to only re-run when the
+    Dockerfile changed, because dependency output tracking was not wired up correctly.
+    """
+
+    def setUp(self):
+        self.runner = CliRunner()
+        self.env = {"NO_COLOR": "1"}
+
+    @unittest.skipIf(sys.platform == "win32", "bash and cp are not available on Windows")
+    def test_runner_task_reruns_when_dependency_output_changes(self):
+        """
+        Test that a task using a named runner re-runs when its dependency's output changes.
+
+        The 'gen' task has an input file so it can be skipped when nothing changes.
+        We then modify gen-output.txt directly (bypassing gen's tracking) to simulate
+        the dependency output changing, and verify that 'process' re-runs.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # 'gen' must have an input so it can skip on re-runs (tasks with no inputs
+            # always re-run, which would defeat the purpose of this test)
+            (project_root / "source.txt").write_text("initial\n")
+
+            recipe = {
+                "runners": {
+                    "shell": {"shell": {"cmd": "bash"}},
+                },
+                "tasks": {
+                    "gen": {
+                        "inputs": ["source.txt"],
+                        "outputs": ["gen-output.txt"],
+                        "cmd": "cat source.txt > gen-output.txt",
+                    },
+                    "process": {
+                        "deps": ["gen"],
+                        "outputs": ["processed.txt"],
+                        "cmd": "cp gen-output.txt processed.txt",
+                        "run_in": "shell",
+                    },
+                },
+            }
+            recipe_path = project_root / "tasktree.yaml"
+            recipe_path.write_text(yaml.dump(recipe))
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_root)
+
+                # First run: both tasks execute
+                result = self.runner.invoke(app, ["process"], env=self.env)
+                self.assertEqual(result.exit_code, 0, msg=result.output)
+                self.assertTrue((project_root / "processed.txt").exists())
+                processed_time_1 = (project_root / "processed.txt").stat().st_mtime
+
+                # Second run: both skip (outputs are fresh, source.txt unchanged)
+                result = self.runner.invoke(app, ["process"], env=self.env)
+                self.assertEqual(result.exit_code, 0, msg=result.output)
+                processed_time_2 = (project_root / "processed.txt").stat().st_mtime
+                self.assertEqual(processed_time_1, processed_time_2)
+
+                # Modify gen-output.txt directly (simulating an external change to the
+                # dependency output, without touching source.txt so gen itself skips)
+                time.sleep(0.1)
+                (project_root / "gen-output.txt").write_text("modified content\n")
+
+                # Third run: process should re-run because its implicit input changed
+                result = self.runner.invoke(app, ["process"], env=self.env)
+                self.assertEqual(result.exit_code, 0, msg=result.output)
+                processed_time_3 = (project_root / "processed.txt").stat().st_mtime
+                self.assertGreater(processed_time_3, processed_time_2)
+
+            finally:
+                os.chdir(original_cwd)
 
 
 if __name__ == "__main__":

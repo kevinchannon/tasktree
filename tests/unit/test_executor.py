@@ -1028,6 +1028,42 @@ class TestExecutorPrivateMethods(unittest.TestCase):
             # Should detect change because current mtime > cached mtime
             self.assertEqual(changed, ["input.txt"])
 
+    def test_check_inputs_changed_detects_dep_output_changes_for_runner_task(self):
+        """
+        Test that changes to dependency output files are detected for tasks using a named runner.
+        """
+        from tasktree.parser import Runner, ShellConfig
+
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create the dependency output file
+            dep_output = project_root / "dep-output.txt"
+            dep_output.write_text("initial content")
+            original_mtime = dep_output.stat().st_mtime
+
+            runner = Runner(name="shell", shell=ShellConfig(cmd=["bash", "-c"]))
+            task = Task(name="package", cmd="zip pkg.zip dep-output.txt", run_in="shell")
+            tasks = {"package": task}
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+                runners={"shell": runner},
+            )
+            state_manager = StateManager(project_root)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+
+            # Cached state records an older mtime, simulating dep output that changed since last run
+            cached_state = TaskState(
+                last_run=time.time(),
+                input_state={"dep-output.txt": original_mtime - 100},
+            )
+
+            changed = executor._check_inputs_changed(task, cached_state, ["dep-output.txt"])
+
+            self.assertIn("dep-output.txt", changed)
+
     def test_check_outputs_missing(self):
         """
         Test detects missing output files.
