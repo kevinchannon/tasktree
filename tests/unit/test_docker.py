@@ -11,6 +11,7 @@ from tasktree.docker import (
     _is_windows_shell,
     check_unpinned_images,
     extract_from_images,
+    get_local_base_image_digest,
     is_docker_runner,
     parse_base_image_digests,
     resolve_container_working_dir,
@@ -1230,6 +1231,68 @@ class TestDockerManager(unittest.TestCase):
         # Verify error message mentions container execution
         self.assertIn("container execution failed", str(context.exception).lower())
         self.assertIn("125", str(context.exception))
+
+
+class TestGetLocalBaseImageDigest(unittest.TestCase):
+    """
+    Test get_local_base_image_digest() for querying locally cached image IDs.
+    """
+
+    @patch("tasktree.docker.subprocess.run")
+    def test_returns_image_id_when_image_present(self, mock_run):
+        """
+        Test that the local image ID is returned when the image exists locally.
+        """
+        mock_result = Mock()
+        mock_result.stdout = "sha256:abc123def456\n"
+        mock_run.return_value = mock_result
+
+        result = get_local_base_image_digest("python:3.11")
+
+        self.assertEqual(result, "sha256:abc123def456")
+        mock_run.assert_called_once_with(
+            ["docker", "inspect", "--format={{.Id}}", "python:3.11"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+    @patch("tasktree.docker.subprocess.run")
+    def test_returns_none_when_image_not_found(self, mock_run):
+        """
+        Test that None is returned when the image is not present locally.
+        """
+        import subprocess
+
+        mock_run.side_effect = subprocess.CalledProcessError(1, "docker inspect")
+
+        result = get_local_base_image_digest("python:3.11")
+
+        self.assertIsNone(result)
+
+    @patch("tasktree.docker.subprocess.run")
+    def test_returns_none_when_docker_not_available(self, mock_run):
+        """
+        Test that None is returned when docker is not installed.
+        """
+        mock_run.side_effect = FileNotFoundError
+
+        result = get_local_base_image_digest("python:3.11")
+
+        self.assertIsNone(result)
+
+    @patch("tasktree.docker.subprocess.run")
+    def test_strips_trailing_whitespace_from_output(self, mock_run):
+        """
+        Test that trailing newlines/spaces in docker inspect output are stripped.
+        """
+        mock_result = Mock()
+        mock_result.stdout = "sha256:deadbeef  \n"
+        mock_run.return_value = mock_result
+
+        result = get_local_base_image_digest("ubuntu:latest")
+
+        self.assertEqual(result, "sha256:deadbeef")
 
 
 if __name__ == "__main__":
