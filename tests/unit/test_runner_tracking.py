@@ -1,7 +1,11 @@
 """Unit tests for runner definition tracking."""
 
+import os
+import stat
+import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from helpers.logging import logger_stub
 from tasktree.executor import Executor
@@ -454,6 +458,130 @@ class TestCheckDockerImageChanged(unittest.TestCase):
 
         # Verify docker manager was NOT called (early exit on YAML change)
         self.executor.docker_manager.ensure_image_built.assert_not_called()
+
+
+class TestDockerInputsToModifiedTimes(unittest.TestCase):
+    """
+    Test per-file mtime recording for Docker context directory.
+    """
+
+    def _make_executor(self, project_root: Path, context_dir: str) -> Executor:
+        runner = Runner(name="builder", dockerfile="Dockerfile", context=context_dir)
+        recipe = Recipe(
+            tasks={},
+            project_root=project_root,
+            recipe_path=project_root / "tasktree.yaml",
+            runners={"builder": runner},
+        )
+        state_manager = StateManager(project_root)
+        return Executor(recipe, state_manager, logger_stub, make_process_runner)
+
+    def test_records_per_file_mtime_keys_for_context(self):
+        """
+        Files in context directory are stored with _ctx_{env_name}_{relpath} keys.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            context_dir = project_root / "ctx"
+            context_dir.mkdir()
+            src_file = context_dir / "app.py"
+            src_file.write_text("print('hello')")
+
+            executor = self._make_executor(project_root, "ctx")
+            env = executor.recipe.runners["builder"]
+            result = executor._docker_inputs_to_modified_times("builder", env)
+
+            expected_key = f"_ctx_builder_ctx/app.py"
+            self.assertIn(expected_key, result)
+            self.assertAlmostEqual(result[expected_key], src_file.stat().st_mtime, places=3)
+
+    def test_records_mtime_for_multiple_context_files(self):
+        """
+        All files in context directory are recorded.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            context_dir = project_root / "ctx"
+            context_dir.mkdir()
+            (context_dir / "a.txt").write_text("a")
+            (context_dir / "b.txt").write_text("b")
+            subdir = context_dir / "sub"
+            subdir.mkdir()
+            (subdir / "c.txt").write_text("c")
+
+            executor = self._make_executor(project_root, "ctx")
+            env = executor.recipe.runners["builder"]
+            result = executor._docker_inputs_to_modified_times("builder", env)
+
+            self.assertIn("_ctx_builder_ctx/a.txt", result)
+            self.assertIn("_ctx_builder_ctx/b.txt", result)
+            self.assertIn("_ctx_builder_ctx/sub/c.txt", result)
+
+    def test_does_not_include_old_single_context_key(self):
+        """
+        The old _context_{env.context} key is not present — replaced by per-file keys.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            context_dir = project_root / "ctx"
+            context_dir.mkdir()
+            (context_dir / "app.py").write_text("x")
+
+            executor = self._make_executor(project_root, "ctx")
+            env = executor.recipe.runners["builder"]
+            result = executor._docker_inputs_to_modified_times("builder", env)
+
+            self.assertNotIn("_context_ctx", result)
+
+    def test_empty_context_directory_produces_no_ctx_keys(self):
+        """
+        An empty context directory produces no _ctx_* keys.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            context_dir = project_root / "ctx"
+            context_dir.mkdir()
+
+            executor = self._make_executor(project_root, "ctx")
+            env = executor.recipe.runners["builder"]
+            result = executor._docker_inputs_to_modified_times("builder", env)
+
+            ctx_keys = [k for k in result if k.startswith("_ctx_")]
+            self.assertEqual(ctx_keys, [])
+
+    def test_nonexistent_context_directory_produces_no_ctx_keys(self):
+        """
+        A missing context directory is handled gracefully (no _ctx_* keys, no exception).
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            # Do NOT create context dir
+
+            executor = self._make_executor(project_root, "ctx")
+            env = executor.recipe.runners["builder"]
+            result = executor._docker_inputs_to_modified_times("builder", env)
+
+            ctx_keys = [k for k in result if k.startswith("_ctx_")]
+            self.assertEqual(ctx_keys, [])
+
+    def test_respects_dockerignore_patterns(self):
+        """
+        Files matched by .dockerignore are excluded from mtime tracking.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            context_dir = project_root / "ctx"
+            context_dir.mkdir()
+            (context_dir / "app.py").write_text("code")
+            (context_dir / "notes.log").write_text("log")
+            (context_dir / ".dockerignore").write_text("*.log\n")
+
+            executor = self._make_executor(project_root, "ctx")
+            env = executor.recipe.runners["builder"]
+            result = executor._docker_inputs_to_modified_times("builder", env)
+
+            self.assertIn("_ctx_builder_ctx/app.py", result)
+            self.assertNotIn("_ctx_builder_ctx/notes.log", result)
 
 
 if __name__ == "__main__":

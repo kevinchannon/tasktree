@@ -1786,8 +1786,21 @@ class Executor:
             )
             input_state[relative_dockerignore] = dockerignore_path.stat().st_mtime
 
-        # Record context check timestamp
-        input_state[f"_context_{env.context}"] = time.time()
+        # Record per-file mtimes for context directory (respecting .dockerignore)
+        dockerignore_spec = docker_module.parse_dockerignore(dockerignore_path)
+        if context_path.is_dir():
+            for file_path in context_path.rglob("*"):
+                if not file_path.is_file():
+                    continue
+                if dockerignore_spec is not None:
+                    try:
+                        relative_to_context = file_path.relative_to(context_path)
+                        if dockerignore_spec.match_file(str(relative_to_context)):
+                            continue
+                    except ValueError:
+                        pass
+                relative_path = file_path.relative_to(self.recipe.project_root)
+                input_state[f"_ctx_{env_name}_{relative_path}"] = file_path.stat().st_mtime
 
         # Parse and record base image digests from Dockerfile
         try:
