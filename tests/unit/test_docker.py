@@ -1,5 +1,6 @@
 """Unit tests for Docker integration."""
 
+import subprocess
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -1262,8 +1263,6 @@ class TestGetLocalBaseImageDigest(unittest.TestCase):
         """
         Test that None is returned when the image is not present locally.
         """
-        import subprocess
-
         mock_run.side_effect = subprocess.CalledProcessError(1, "docker inspect")
 
         result = get_local_base_image_digest("python:3.11")
@@ -1293,6 +1292,30 @@ class TestGetLocalBaseImageDigest(unittest.TestCase):
         result = get_local_base_image_digest("ubuntu:latest")
 
         self.assertEqual(result, "sha256:deadbeef")
+
+    @patch("tasktree.docker.subprocess.run")
+    def test_returns_none_when_docker_daemon_unavailable(self, mock_run):
+        """
+        Test that None is returned when the Docker daemon is unavailable (PermissionError).
+        """
+        mock_run.side_effect = PermissionError
+
+        result = get_local_base_image_digest("python:3.11")
+
+        self.assertIsNone(result)
+
+    @patch("tasktree.docker.subprocess.run")
+    def test_returns_none_when_docker_returns_empty_output(self, mock_run):
+        """
+        Test that None is returned when docker inspect exits 0 but returns empty output.
+        """
+        mock_result = Mock()
+        mock_result.stdout = ""
+        mock_run.return_value = mock_result
+
+        result = get_local_base_image_digest("python:3.11")
+
+        self.assertIsNone(result)
 
 
 if __name__ == "__main__":
