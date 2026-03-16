@@ -370,14 +370,7 @@ class DockerManager:
         DockerError: If cannot inspect image
         """
         try:
-            result = subprocess.run(
-                ["docker", "inspect", "--format={{.Id}}", image_tag],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-            image_id = result.stdout.strip()
-            return image_id
+            return _run_docker_inspect(image_tag)
         except subprocess.CalledProcessError as e:
             raise DockerError(f"Failed to inspect image {image_tag}: {e.stderr}")
 
@@ -555,3 +548,46 @@ def parse_base_image_digests(dockerfile_content: str) -> list[str]:
     """
     images = extract_from_images(dockerfile_content)
     return [digest for _image, digest in images if digest is not None]
+
+
+def _run_docker_inspect(image_name: str) -> str:
+    """
+    Run 'docker inspect --format={{.Id}}' and return the stripped image ID.
+
+    Args:
+    image_name: Docker image reference (e.g., "python:3.11", "tt-env-builder")
+
+    Returns:
+    Stripped image ID string
+
+    Raises:
+    subprocess.CalledProcessError: If image not found or inspect fails
+    FileNotFoundError: If docker is not installed
+    PermissionError: If docker daemon is unavailable
+    """
+    result = subprocess.run(
+        ["docker", "inspect", "--format={{.Id}}", image_name],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip()
+
+
+def get_local_base_image_digest(image_name: str) -> str | None:
+    """
+    Get the local image ID for a given base image name.
+
+    Queries the locally cached Docker image (does not contact remote registry).
+    Returns None if the image is not present locally.
+
+    Args:
+    image_name: Docker image reference (e.g., "python:3.11", "ubuntu:latest")
+
+    Returns:
+    Local image ID string (e.g., "sha256:abc123..."), or None if not found locally
+    """
+    try:
+        return _run_docker_inspect(image_name) or None
+    except (subprocess.CalledProcessError, FileNotFoundError, PermissionError):
+        return None
