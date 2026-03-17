@@ -1769,7 +1769,11 @@ class Executor:
     def _docker_inputs_to_modified_times(
         self, env_name: str, env: Runner
     ) -> dict[str, float]:
-        """
+        """Record mtimes for all inputs that affect a Docker runner's build context.
+
+        Tracks: Dockerfile mtime, .dockerignore mtime (explicit key), per-file
+        mtimes for every non-ignored file in the context directory, and base
+        image digests parsed from the Dockerfile.
         """
         input_state = dict()
         # Record Dockerfile mtime
@@ -1785,11 +1789,13 @@ class Executor:
             input_state[relative_dockerignore] = dockerignore_path.stat().st_mtime
 
         # Record per-file mtimes for context directory (respecting .dockerignore)
-        dockerignore_spec = docker_module.parse_dockerignore(dockerignore_path)
         if context_path.is_dir():
+            dockerignore_spec = docker_module.parse_dockerignore(dockerignore_path) if dockerignore_path.exists() else None
             for file_path in context_path.rglob("*"):
                 if not file_path.is_file():
                     continue
+                if file_path == dockerignore_path:
+                    continue  # Already tracked explicitly above
                 if dockerignore_spec is not None:
                     try:
                         relative_to_context = file_path.relative_to(context_path)
