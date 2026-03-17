@@ -583,6 +583,47 @@ class TestDockerInputsToModifiedTimes(unittest.TestCase):
             self.assertIn("_ctx_builder_ctx/app.py", result)
             self.assertNotIn("_ctx_builder_ctx/notes.log", result)
 
+    def test_dockerignore_not_in_ctx_keys(self):
+        """
+        .dockerignore is tracked under its own explicit key, not as a _ctx_* key.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            context_dir = project_root / "ctx"
+            context_dir.mkdir()
+            (context_dir / "app.py").write_text("code")
+            (context_dir / ".dockerignore").write_text("*.log\n")
+
+            executor = self._make_executor(project_root, "ctx")
+            env = executor.recipe.runners["builder"]
+            result = executor._docker_inputs_to_modified_times("builder", env)
+
+            self.assertNotIn("_ctx_builder_ctx/.dockerignore", result)
+            self.assertIn("ctx/.dockerignore", result)
+
+    def test_all_context_files_included_when_pathspec_unavailable(self):
+        """
+        When parse_dockerignore returns None (pathspec not installed), all
+        context files are still included in mtime tracking.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            context_dir = project_root / "ctx"
+            context_dir.mkdir()
+            (context_dir / "app.py").write_text("code")
+            (context_dir / "notes.log").write_text("log")
+            (context_dir / ".dockerignore").write_text("*.log\n")
+
+            executor = self._make_executor(project_root, "ctx")
+            env = executor.recipe.runners["builder"]
+
+            import tasktree.docker as docker_module
+            with patch.object(docker_module, "parse_dockerignore", return_value=None):
+                result = executor._docker_inputs_to_modified_times("builder", env)
+
+            self.assertIn("_ctx_builder_ctx/app.py", result)
+            self.assertIn("_ctx_builder_ctx/notes.log", result)
+
 
 if __name__ == "__main__":
     unittest.main()
