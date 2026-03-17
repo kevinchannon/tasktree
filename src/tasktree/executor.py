@@ -1769,7 +1769,11 @@ class Executor:
     def _docker_inputs_to_modified_times(
         self, env_name: str, env: Runner
     ) -> dict[str, float]:
-        """
+        """Record mtimes for all inputs that affect a Docker runner's build context.
+
+        Tracks: Dockerfile mtime, .dockerignore mtime (explicit key), per-file
+        mtimes for every non-ignored file in the context directory, and base
+        image digests parsed from the Dockerfile.
         """
         input_state = dict()
         # Record Dockerfile mtime
@@ -1781,13 +1785,26 @@ class Executor:
         context_path = self.recipe.project_root / env.context
         dockerignore_path = context_path / ".dockerignore"
         if dockerignore_path.exists():
-            relative_dockerignore = str(
-                dockerignore_path.relative_to(self.recipe.project_root)
-            )
+            relative_dockerignore = dockerignore_path.relative_to(self.recipe.project_root).as_posix()
             input_state[relative_dockerignore] = dockerignore_path.stat().st_mtime
 
-        # Record context check timestamp
-        input_state[f"_context_{env.context}"] = time.time()
+        # Record per-file mtimes for context directory (respecting .dockerignore)
+        if context_path.is_dir():
+            dockerignore_spec = docker_module.parse_dockerignore(dockerignore_path) if dockerignore_path.exists() else None
+            for file_path in context_path.rglob("*"):
+                if not file_path.is_file():
+                    continue
+                if file_path == dockerignore_path:
+                    continue  # Already tracked explicitly above
+                if dockerignore_spec is not None:
+                    try:
+                        relative_to_context = file_path.relative_to(context_path)
+                        if dockerignore_spec.match_file(str(relative_to_context)):
+                            continue
+                    except ValueError:
+                        pass
+                relative_path = file_path.relative_to(self.recipe.project_root).as_posix()
+                input_state[f"_ctx_{env_name}_{relative_path}"] = file_path.stat().st_mtime
 
         # Parse and record base image digests from Dockerfile
         try:
