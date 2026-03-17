@@ -1600,6 +1600,87 @@ class Executor:
 
         return False
 
+    def _check_docker_context_changed(
+        self,
+        env_name: str,
+        env: Runner,
+        cached_state: TaskState,
+    ) -> bool:
+        """Check if any file in the Docker build context has changed.
+
+        Compares current context file mtimes against values cached under
+        ``_ctx_{env_name}_{relpath}`` keys.  Returns True if any file is
+        new, modified, or deleted since the last run.
+
+        Args:
+        env_name: Runner name (used as part of cache-key prefix)
+        env: Docker runner definition (provides ``context`` path)
+        cached_state: Cached state from previous run
+
+        Returns:
+        True if the context directory contents have changed, False otherwise
+        """
+        prefix = f"_ctx_{env_name}_"
+        cached_ctx: dict[str, float] = {
+            k[len(prefix):]: v
+            for k, v in cached_state.input_state.items()
+            if k.startswith(prefix)
+        }
+
+        context_path = self.recipe.project_root / env.context
+        dockerignore_path = context_path / ".dockerignore"
+        dockerignore_spec = (
+            docker_module.parse_dockerignore(dockerignore_path)
+            if dockerignore_path.exists()
+            else None
+        )
+
+        current_ctx = self._current_context_mtimes(context_path, dockerignore_path, dockerignore_spec, env_name)
+
+        # New or modified files
+        for rel_path, mtime in current_ctx.items():
+            if rel_path not in cached_ctx:
+                self.logger.trace(f"New context file detected for runner '{env_name}': {rel_path}")
+                return True
+            if mtime != cached_ctx[rel_path]:
+                self.logger.trace(f"Modified context file detected for runner '{env_name}': {rel_path}")
+                return True
+
+        # Deleted files
+        for rel_path in cached_ctx:
+            if rel_path not in current_ctx:
+                self.logger.trace(f"Deleted context file detected for runner '{env_name}': {rel_path}")
+                return True
+
+        return False
+
+    def _current_context_mtimes(
+        self,
+        context_path: Path,
+        dockerignore_path: Path,
+        dockerignore_spec,
+        env_name: str,
+    ) -> dict[str, float]:
+        """Return relative-path → mtime for every tracked file in the context directory."""
+        current_ctx: dict[str, float] = {}
+        if not context_path.is_dir():
+            return current_ctx
+        for file_path in context_path.rglob("*"):
+            if not file_path.is_file():
+                continue
+            if file_path == dockerignore_path:
+                continue
+            if dockerignore_spec is not None:
+                try:
+                    relative_to_context = file_path.relative_to(context_path)
+                    if dockerignore_spec.match_file(str(relative_to_context)):
+                        continue
+                except ValueError:
+                    pass
+            relative_path = file_path.relative_to(self.recipe.project_root).as_posix()
+            current_ctx[relative_path] = file_path.stat().st_mtime
+        return current_ctx
+
     def _check_inputs_changed(
         self, task: Task, cached_state: TaskState, all_inputs: list[str]
     ) -> list[str]:
