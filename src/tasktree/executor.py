@@ -1781,9 +1781,7 @@ class Executor:
         context_path = self.recipe.project_root / env.context
         dockerignore_path = context_path / ".dockerignore"
         if dockerignore_path.exists():
-            relative_dockerignore = str(
-                dockerignore_path.relative_to(self.recipe.project_root)
-            )
+            relative_dockerignore = dockerignore_path.relative_to(self.recipe.project_root).as_posix()
             input_state[relative_dockerignore] = dockerignore_path.stat().st_mtime
 
         # Record per-file mtimes for context directory (respecting .dockerignore)
@@ -1799,7 +1797,7 @@ class Executor:
                             continue
                     except ValueError:
                         pass
-                relative_path = file_path.relative_to(self.recipe.project_root)
+                relative_path = file_path.relative_to(self.recipe.project_root).as_posix()
                 input_state[f"_ctx_{env_name}_{relative_path}"] = file_path.stat().st_mtime
 
         # Parse and record base image digests from Dockerfile
