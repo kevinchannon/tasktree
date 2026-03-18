@@ -764,6 +764,41 @@ class TestCheckDockerContextChanged(unittest.TestCase):
 
             self.assertTrue(result)
 
+    def test_returns_false_when_context_is_none(self):
+        """Runner with no context (env.context is None) → False without raising."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            runner = Runner(name="builder", dockerfile="Dockerfile", context=None)
+            from tasktree.parser import Recipe
+            recipe = Recipe(
+                tasks={},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+                runners={"builder": runner},
+            )
+            from tasktree.state import StateManager
+            state_manager = StateManager(project_root)
+            from tasktree.process_runner import make_process_runner
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            env = recipe.runners["builder"]
+            cached_state = TaskState(last_run=123.0, input_state={})
+
+            result = executor._check_docker_context_changed("builder", env, cached_state)
+
+            self.assertFalse(result)
+
+    def test_returns_false_when_context_dir_does_not_exist(self):
+        """Runner whose context path does not exist on disk → False."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            executor = self._make_executor(project_root, "nonexistent_ctx")
+            env = executor.recipe.runners["builder"]
+            cached_state = TaskState(last_run=123.0, input_state={})
+
+            result = executor._check_docker_context_changed("builder", env, cached_state)
+
+            self.assertFalse(result)
+
 
 if __name__ == "__main__":
     unittest.main()

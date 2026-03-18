@@ -1620,6 +1620,9 @@ class Executor:
         Returns:
             True if the context directory contents have changed, False otherwise
         """
+        if not env.context:
+            return False
+
         prefix = f"_ctx_{env_name}_"
         cached_ctx: dict[str, float] = {
             k[len(prefix):]: v
