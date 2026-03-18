@@ -459,6 +459,53 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         # Verify docker manager was NOT called (early exit on YAML change)
         self.executor.docker_manager.ensure_image_built.assert_not_called()
 
+    def test_check_runner_changed_returns_true_when_context_file_modified(self):
+        """
+        Test that _check_runner_changed returns True when a context file has changed.
+        """
+        from unittest.mock import Mock
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            context_dir = project_root / "ctx"
+            context_dir.mkdir()
+            src_file = context_dir / "app.py"
+            src_file.write_text("original")
+
+            runner = Runner(name="builder", dockerfile="Dockerfile", context="ctx")
+            recipe = Recipe(
+                tasks={},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+                runners={"builder": runner},
+            )
+            executor = Executor(recipe, StateManager(project_root), logger_stub, make_process_runner)
+
+            runner_hash = hash_runner_definition(runner)
+            # Cache state with a stale mtime for the context file
+            stale_mtime = src_file.stat().st_mtime - 1.0
+            cached_state = TaskState(
+                last_run=123.0,
+                input_state={
+                    "_runner_hash_builder": runner_hash,
+                    "_ctx_builder_ctx/app.py": stale_mtime,
+                },
+            )
+
+            executor.docker_manager.ensure_image_built = Mock()
+
+            task = Task(name="test", cmd="echo test", run_in="builder")
+            result = executor._check_runner_changed(
+                task,
+                cached_state,
+                "builder",
+                make_process_runner(TaskOutputTypes.ALL, logger_stub),
+            )
+
+            self.assertTrue(result)
+            # ensure_image_built should NOT be called — context change detected first
+            executor.docker_manager.ensure_image_built.assert_not_called()
+
 
 class TestDockerInputsToModifiedTimes(unittest.TestCase):
     """
