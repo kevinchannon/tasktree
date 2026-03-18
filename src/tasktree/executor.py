@@ -1540,8 +1540,10 @@ class Executor:
             self.logger.trace(f"Runner '{env_name}' hash changed (cached: {cached_env_hash}, current: {current_env_hash})")
             return True  # YAML changed, no need to check image
 
-        # For Docker environments, also check if image ID changed
+        # For Docker environments, also check context files and image ID
         if env.dockerfile:
+            if self._check_docker_context_changed(env_name, env, cached_state):
+                return True
             return self._check_docker_image_changed(
                 env, cached_state, env_name, process_runner
             )
