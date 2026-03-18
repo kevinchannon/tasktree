@@ -625,5 +625,207 @@ class TestDockerInputsToModifiedTimes(unittest.TestCase):
             self.assertIn("_ctx_builder_ctx/notes.log", result)
 
 
+class TestCheckDockerContextChanged(unittest.TestCase):
+    """
+    Test _check_docker_context_changed() detects context file changes.
+    """
+
+    def _make_executor(self, project_root: Path, context_dir: str) -> "Executor":
+        runner = Runner(name="builder", dockerfile="Dockerfile", context=context_dir)
+        recipe = Recipe(
+            tasks={},
+            project_root=project_root,
+            recipe_path=project_root / "tasktree.yaml",
+            runners={"builder": runner},
+        )
+        state_manager = StateManager(project_root)
+        return Executor(recipe, state_manager, logger_stub, make_process_runner)
+
+    def _ctx_key(self, env_name: str, rel_path: str) -> str:
+        return f"_ctx_{env_name}_{rel_path}"
+
+    def test_returns_true_when_no_cached_ctx_state_and_files_exist(self):
+        """First run: no _ctx_* keys cached but context files exist → True."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            context_dir = project_root / "ctx"
+            context_dir.mkdir()
+            (context_dir / "app.py").write_text("x")
+
+            executor = self._make_executor(project_root, "ctx")
+            env = executor.recipe.runners["builder"]
+            cached_state = TaskState(last_run=123.0, input_state={})
+
+            result = executor._check_docker_context_changed("builder", env, cached_state)
+
+            self.assertTrue(result)
+
+    def test_returns_false_when_no_cached_ctx_state_and_no_files(self):
+        """Empty context dir with no cached state → False (nothing to track)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            context_dir = project_root / "ctx"
+            context_dir.mkdir()
+
+            executor = self._make_executor(project_root, "ctx")
+            env = executor.recipe.runners["builder"]
+            cached_state = TaskState(last_run=123.0, input_state={})
+
+            result = executor._check_docker_context_changed("builder", env, cached_state)
+
+            self.assertFalse(result)
+
+    def test_returns_false_when_context_unchanged(self):
+        """Context files match cached mtimes → False."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            context_dir = project_root / "ctx"
+            context_dir.mkdir()
+            src = context_dir / "app.py"
+            src.write_text("x")
+
+            executor = self._make_executor(project_root, "ctx")
+            env = executor.recipe.runners["builder"]
+            mtime = src.stat().st_mtime
+            cached_state = TaskState(
+                last_run=123.0,
+                input_state={self._ctx_key("builder", "ctx/app.py"): mtime},
+            )
+
+            result = executor._check_docker_context_changed("builder", env, cached_state)
+
+            self.assertFalse(result)
+
+    def test_returns_true_when_file_modified(self):
+        """A context file has a newer mtime than cached → True."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            context_dir = project_root / "ctx"
+            context_dir.mkdir()
+            src = context_dir / "app.py"
+            src.write_text("x")
+
+            executor = self._make_executor(project_root, "ctx")
+            env = executor.recipe.runners["builder"]
+            # Cached mtime is in the past
+            cached_state = TaskState(
+                last_run=123.0,
+                input_state={self._ctx_key("builder", "ctx/app.py"): src.stat().st_mtime - 1.0},
+            )
+
+            result = executor._check_docker_context_changed("builder", env, cached_state)
+
+            self.assertTrue(result)
+
+    def test_returns_true_when_new_file_added(self):
+        """A new file in context dir that wasn't cached → True."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            context_dir = project_root / "ctx"
+            context_dir.mkdir()
+            old_file = context_dir / "app.py"
+            old_file.write_text("x")
+            new_file = context_dir / "new.py"
+            new_file.write_text("y")
+
+            executor = self._make_executor(project_root, "ctx")
+            env = executor.recipe.runners["builder"]
+            # Only app.py is in cached state
+            cached_state = TaskState(
+                last_run=123.0,
+                input_state={self._ctx_key("builder", "ctx/app.py"): old_file.stat().st_mtime},
+            )
+
+            result = executor._check_docker_context_changed("builder", env, cached_state)
+
+            self.assertTrue(result)
+
+    def test_returns_true_when_file_deleted(self):
+        """A file that was cached no longer exists → True."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            context_dir = project_root / "ctx"
+            context_dir.mkdir()
+            remaining = context_dir / "app.py"
+            remaining.write_text("x")
+
+            executor = self._make_executor(project_root, "ctx")
+            env = executor.recipe.runners["builder"]
+            # Cached state references a file that no longer exists
+            cached_state = TaskState(
+                last_run=123.0,
+                input_state={
+                    self._ctx_key("builder", "ctx/app.py"): remaining.stat().st_mtime,
+                    self._ctx_key("builder", "ctx/deleted.py"): 1234567890.0,
+                },
+            )
+
+            result = executor._check_docker_context_changed("builder", env, cached_state)
+
+            self.assertTrue(result)
+
+    def test_returns_false_when_context_is_none(self):
+        """Runner with no context (env.context is None) → False without raising."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            runner = Runner(name="builder", dockerfile="Dockerfile", context=None)
+            from tasktree.parser import Recipe
+            recipe = Recipe(
+                tasks={},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+                runners={"builder": runner},
+            )
+            from tasktree.state import StateManager
+            state_manager = StateManager(project_root)
+            from tasktree.process_runner import make_process_runner
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            env = recipe.runners["builder"]
+            cached_state = TaskState(last_run=123.0, input_state={})
+
+            result = executor._check_docker_context_changed("builder", env, cached_state)
+
+            self.assertFalse(result)
+
+    def test_returns_false_when_context_dir_does_not_exist(self):
+        """Runner whose context path does not exist on disk → False."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            executor = self._make_executor(project_root, "nonexistent_ctx")
+            env = executor.recipe.runners["builder"]
+            cached_state = TaskState(last_run=123.0, input_state={})
+
+            result = executor._check_docker_context_changed("builder", env, cached_state)
+
+            self.assertFalse(result)
+
+    def test_ignored_file_change_does_not_trigger(self):
+        """.dockerignore-excluded file changes do not produce a false positive."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            context_dir = project_root / "ctx"
+            context_dir.mkdir()
+
+            tracked = context_dir / "app.py"
+            tracked.write_text("x")
+            ignored = context_dir / "build.log"
+            ignored.write_text("log")
+
+            (context_dir / ".dockerignore").write_text("*.log\n")
+
+            executor = self._make_executor(project_root, "ctx")
+            env = executor.recipe.runners["builder"]
+            mtime = tracked.stat().st_mtime
+            # Only app.py is cached; build.log is ignored so not cached either
+            cached_state = TaskState(
+                last_run=123.0,
+                input_state={self._ctx_key("builder", "ctx/app.py"): mtime},
+            )
+
+            result = executor._check_docker_context_changed("builder", env, cached_state)
+
+            self.assertFalse(result)
+
+
 if __name__ == "__main__":
     unittest.main()
