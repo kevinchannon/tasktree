@@ -799,6 +799,33 @@ class TestCheckDockerContextChanged(unittest.TestCase):
 
             self.assertFalse(result)
 
+    def test_ignored_file_change_does_not_trigger(self):
+        """.dockerignore-excluded file changes do not produce a false positive."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            context_dir = project_root / "ctx"
+            context_dir.mkdir()
+
+            tracked = context_dir / "app.py"
+            tracked.write_text("x")
+            ignored = context_dir / "build.log"
+            ignored.write_text("log")
+
+            (context_dir / ".dockerignore").write_text("*.log\n")
+
+            executor = self._make_executor(project_root, "ctx")
+            env = executor.recipe.runners["builder"]
+            mtime = tracked.stat().st_mtime
+            # Only app.py is cached; build.log is ignored so not cached either
+            cached_state = TaskState(
+                last_run=123.0,
+                input_state={self._ctx_key("builder", "ctx/app.py"): mtime},
+            )
+
+            result = executor._check_docker_context_changed("builder", env, cached_state)
+
+            self.assertFalse(result)
+
 
 if __name__ == "__main__":
     unittest.main()
