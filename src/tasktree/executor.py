@@ -1613,12 +1613,12 @@ class Executor:
         new, modified, or deleted since the last run.
 
         Args:
-        env_name: Runner name (used as part of cache-key prefix)
-        env: Docker runner definition (provides ``context`` path)
-        cached_state: Cached state from previous run
+            env_name: Runner name (used as part of cache-key prefix)
+            env: Docker runner definition (provides ``context`` path)
+            cached_state: Cached state from previous run
 
         Returns:
-        True if the context directory contents have changed, False otherwise
+            True if the context directory contents have changed, False otherwise
         """
         prefix = f"_ctx_{env_name}_"
         cached_ctx: dict[str, float] = {
@@ -1635,7 +1635,7 @@ class Executor:
             else None
         )
 
-        current_ctx = self._current_context_mtimes(context_path, dockerignore_path, dockerignore_spec, env_name)
+        current_ctx = self._current_context_mtimes(context_path, dockerignore_path, dockerignore_spec)
 
         # New or modified files
         for rel_path, mtime in current_ctx.items():
@@ -1659,7 +1659,6 @@ class Executor:
         context_path: Path,
         dockerignore_path: Path,
         dockerignore_spec,
-        env_name: str,
     ) -> dict[str, float]:
         """Return relative-path → mtime for every tracked file in the context directory."""
         current_ctx: dict[str, float] = {}
