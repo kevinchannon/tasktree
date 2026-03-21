@@ -315,7 +315,7 @@ class Executor:
                     return runner
             else:
                 self.logger.trace(f"No {config_level} config found at '{config_path}'")
-        except (ConfigError, OSError, IOError) as e:
+        except (ConfigError, OSError) as e:
             # PermissionError (subclass of OSError) may be expected for some configs
             # (e.g., machine-level on Unix) - log at trace level if requested
             # Other errors indicate real problems - log at warn level
@@ -1691,7 +1691,7 @@ class Executor:
         dockerfile_path = self.recipe.project_root / env.dockerfile
         try:
             dockerfile_content = dockerfile_path.read_text()
-        except (OSError, IOError):
+        except OSError:
             return False
 
         images = docker_module.extract_from_images(dockerfile_content)
@@ -1952,7 +1952,7 @@ class Executor:
                 digest = docker_module.get_local_base_image_digest(image_name)
                 if digest is not None:
                     input_state[f"_base_img_{env_name}_{image_name}"] = digest
-        except (OSError, IOError):
+        except OSError:
             pass
 
         # For Docker environments, also store the image ID

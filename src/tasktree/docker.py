@@ -536,19 +536,6 @@ def check_unpinned_images(dockerfile_content: str) -> list[str]:
     return [image for image, digest in images if digest is None]
 
 
-def parse_base_image_digests(dockerfile_content: str) -> list[str]:
-    """
-    Parse pinned base image digests from Dockerfile.
-
-    Args:
-    dockerfile_content: Content of Dockerfile
-
-    Returns:
-    List of digests (e.g., ["sha256:abc123...", "sha256:def456..."])
-    """
-    images = extract_from_images(dockerfile_content)
-    return [digest for _image, digest in images if digest is not None]
-
 
 def _run_docker_inspect(image_name: str) -> str:
     """

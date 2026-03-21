@@ -14,7 +14,6 @@ from tasktree.docker import (
     extract_from_images,
     get_local_base_image_digest,
     is_docker_runner,
-    parse_base_image_digests,
     resolve_container_working_dir,
 )
 from tasktree.parser import DockerArgs, Runner, ShellConfig
@@ -121,39 +120,6 @@ FROM python:3.11
         """
         unpinned = check_unpinned_images(dockerfile)
         self.assertEqual(unpinned, ["python:3.11"])
-
-
-class TestParseBaseImageDigests(unittest.TestCase):
-    """
-    Test base image digest parsing.
-    """
-
-    def test_no_digests(self):
-        """
-        Test Dockerfile with no pinned digests.
-        """
-        dockerfile = "FROM python:3.11"
-        digests = parse_base_image_digests(dockerfile)
-        self.assertEqual(digests, [])
-
-    def test_single_digest(self):
-        """
-        Test Dockerfile with single digest.
-        """
-        dockerfile = "FROM python:3.11@sha256:abc123def456"
-        digests = parse_base_image_digests(dockerfile)
-        self.assertEqual(digests, ["sha256:abc123def456"])
-
-    def test_multiple_digests(self):
-        """
-        Test Dockerfile with multiple digests.
-        """
-        dockerfile = """
-FROM rust:1.75@sha256:abc123 AS builder
-FROM debian:slim@sha256:def456
-        """
-        digests = parse_base_image_digests(dockerfile)
-        self.assertEqual(digests, ["sha256:abc123", "sha256:def456"])
 
 
 class TestIsDockerRunner(unittest.TestCase):

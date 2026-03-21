@@ -73,7 +73,7 @@ class TestDockerContextFileChangeTriggersRerun(unittest.TestCase):
                     self.assertEqual(output_file.stat().st_mtime, mtime_1)
 
                     # Modify a context file
-                    time.sleep(0.01)
+                    time.sleep(0.05)
                     (project_root / "ctx" / "app.py").write_text("version 2")
 
                     # Third run — task re-runs (context file changed)
@@ -108,7 +108,7 @@ class TestDockerContextFileChangeTriggersRerun(unittest.TestCase):
                     self.assertEqual(output_file.stat().st_mtime, mtime_1)
 
                     # Add a new file to the context
-                    time.sleep(0.01)
+                    time.sleep(0.05)
                     (project_root / "ctx" / "new_module.py").write_text("new code")
 
                     # Third run — re-runs (new context file)
@@ -168,11 +168,10 @@ class TestBaseImageDigestChangeTriggersRerun(unittest.TestCase):
                 with patch("tasktree.executor.docker_module.DockerManager") as MockDM:
                     MockDM.return_value = self._make_mock_docker_manager(output_file)
 
-                    # Control get_local_base_image_digest: v1 for first two runs, v2 for third
-                    digest_sequence = ["sha256:base-v1", "sha256:base-v1", "sha256:base-v2", "sha256:base-v2"]
+                    mock_digest = Mock(return_value="sha256:base-v1")
                     with patch(
                         "tasktree.executor.docker_module.get_local_base_image_digest",
-                        side_effect=digest_sequence,
+                        mock_digest,
                     ):
                         # First run — task executes (no prior state)
                         result = self.runner.invoke(app, ["build"], env=self.env)
@@ -186,7 +185,8 @@ class TestBaseImageDigestChangeTriggersRerun(unittest.TestCase):
                         self.assertEqual(output_file.stat().st_mtime, mtime_1)
 
                         # Third run — task re-runs (digest changed after docker pull)
-                        time.sleep(0.01)
+                        mock_digest.return_value = "sha256:base-v2"
+                        time.sleep(0.05)
                         result = self.runner.invoke(app, ["build"], env=self.env)
                         self.assertEqual(result.exit_code, 0)
                         self.assertGreater(output_file.stat().st_mtime, mtime_1)

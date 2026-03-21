@@ -8,6 +8,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 from helpers.logging import logger_stub
+import tasktree.docker as docker_module
 from tasktree.executor import Executor
 from tasktree.hasher import hash_runner_definition
 from tasktree.parser import DockerArgs, Runner, Recipe, ShellConfig, Task
@@ -715,7 +716,6 @@ class TestDockerInputsToModifiedTimes(unittest.TestCase):
             executor = self._make_executor(project_root, "ctx")
             env = executor.recipe.runners["builder"]
 
-            import tasktree.docker as docker_module
             with patch.object(docker_module, "get_local_base_image_digest", return_value="sha256:abc123"):
                 result = executor._docker_inputs_to_modified_times("builder", env)
 
@@ -732,7 +732,6 @@ class TestDockerInputsToModifiedTimes(unittest.TestCase):
             executor = self._make_executor(project_root, "ctx")
             env = executor.recipe.runners["builder"]
 
-            import tasktree.docker as docker_module
             with patch.object(docker_module, "get_local_base_image_digest", return_value=None):
                 result = executor._docker_inputs_to_modified_times("builder", env)
 
@@ -753,7 +752,6 @@ class TestDockerInputsToModifiedTimes(unittest.TestCase):
             env = executor.recipe.runners["builder"]
 
             digests = {"python:3.11": "sha256:py311", "alpine:3.18": "sha256:alpine318"}
-            import tasktree.docker as docker_module
             with patch.object(
                 docker_module, "get_local_base_image_digest", side_effect=lambda n: digests.get(n)
             ):
@@ -778,7 +776,6 @@ class TestDockerInputsToModifiedTimes(unittest.TestCase):
             executor = self._make_executor(project_root, "ctx")
             env = executor.recipe.runners["builder"]
 
-            import tasktree.docker as docker_module
             with patch.object(docker_module, "parse_dockerignore", return_value=None):
                 result = executor._docker_inputs_to_modified_times("builder", env)
 
@@ -1034,7 +1031,6 @@ class TestCheckBaseImageDigestsChanged(unittest.TestCase):
                 input_state={"_base_img_builder_python:3.11": "sha256:abc"},
             )
 
-            import tasktree.docker as docker_module
             with patch.object(docker_module, "get_local_base_image_digest", return_value="sha256:abc"):
                 result = executor._check_base_image_digests_changed("builder", env, cached_state)
 
@@ -1052,7 +1048,6 @@ class TestCheckBaseImageDigestsChanged(unittest.TestCase):
                 input_state={"_base_img_builder_python:3.11": "sha256:v1"},
             )
 
-            import tasktree.docker as docker_module
             with patch.object(docker_module, "get_local_base_image_digest", return_value="sha256:v2"):
                 result = executor._check_base_image_digests_changed("builder", env, cached_state)
 
@@ -1067,7 +1062,6 @@ class TestCheckBaseImageDigestsChanged(unittest.TestCase):
             env = executor.recipe.runners["builder"]
             cached_state = TaskState(last_run=123.0, input_state={})
 
-            import tasktree.docker as docker_module
             with patch.object(docker_module, "get_local_base_image_digest", return_value=None):
                 result = executor._check_base_image_digests_changed("builder", env, cached_state)
 
@@ -1082,7 +1076,6 @@ class TestCheckBaseImageDigestsChanged(unittest.TestCase):
             env = executor.recipe.runners["builder"]
             cached_state = TaskState(last_run=123.0, input_state={})
 
-            import tasktree.docker as docker_module
             with patch.object(docker_module, "get_local_base_image_digest", return_value="sha256:new"):
                 result = executor._check_base_image_digests_changed("builder", env, cached_state)
 
@@ -1100,7 +1093,6 @@ class TestCheckBaseImageDigestsChanged(unittest.TestCase):
                 input_state={"_base_img_builder_python:3.11": "sha256:old"},
             )
 
-            import tasktree.docker as docker_module
             with patch.object(docker_module, "get_local_base_image_digest", return_value=None):
                 result = executor._check_base_image_digests_changed("builder", env, cached_state)
 
@@ -1131,7 +1123,6 @@ class TestCheckBaseImageDigestsChanged(unittest.TestCase):
             executor.docker_manager.ensure_image_built = Mock()
             task = Task(name="test", cmd="echo test", run_in="builder")
 
-            import tasktree.docker as docker_module
             with patch.object(docker_module, "get_local_base_image_digest", return_value="sha256:v2"):
                 result = executor._check_runner_changed(
                     task,
