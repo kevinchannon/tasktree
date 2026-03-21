@@ -124,7 +124,7 @@ tasks:
       touch logs/.ready
 
   docker-logs:
-    desc: Write a log file from inside Docker, demonstrating {{ var.* }} substitution in runner volume mount path
+    desc: Write a log file from inside Docker, demonstrating var.* substitution in runner volume mount path
     deps: [prepare-logs]
     run_in: alpine-with-logs
     cmd: |
