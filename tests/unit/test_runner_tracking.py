@@ -466,11 +466,12 @@ class TestCheckDockerImageChanged(unittest.TestCase):
             runner_hash = hash_runner_definition(runner)
             # Cache state with a stale mtime for the context file
             stale_mtime = src_file.stat().st_mtime - 1.0
+            ctx_key = f"_ctx_builder_{src_file.relative_to(project_root).as_posix()}"
             cached_state = TaskState(
                 last_run=123.0,
                 input_state={
                     "_runner_hash_builder": runner_hash,
-                    "_ctx_builder_ctx/app.py": stale_mtime,
+                    ctx_key: stale_mtime,
                 },
             )
 
