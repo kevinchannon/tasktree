@@ -443,6 +443,35 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         # Verify docker manager was NOT called (early exit on YAML change)
         self.executor.docker_manager.ensure_image_built.assert_not_called()
 
+    def test_check_runner_changed_returns_true_when_base_image_updated(self):
+        """YAML and context unchanged but built image ID differs (base image updated)."""
+        task = Task(name="test", cmd="echo test", run_in="builder")
+
+        runner_hash = hash_runner_definition(self.runner)
+        old_image_id = "sha256:abc123"
+        cached_state = TaskState(
+            last_run=123.0,
+            input_state={
+                "_runner_hash_builder": runner_hash,
+                "_docker_image_id_builder": old_image_id,
+            },
+        )
+
+        # Simulate base image being pulled: same Dockerfile, different resulting image ID
+        new_image_id = "sha256:def456"
+        self.executor.docker_manager.ensure_image_built = Mock(
+            return_value=("tt-runner-builder", new_image_id)
+        )
+
+        result = self.executor._check_runner_changed(
+            task,
+            cached_state,
+            "builder",
+            make_process_runner(TaskOutputTypes.ALL, logger_stub),
+        )
+
+        self.assertTrue(result)
+
     def test_check_runner_changed_returns_true_when_context_file_modified(self):
         """
         Test that _check_runner_changed returns True when a context file has changed.
