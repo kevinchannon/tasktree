@@ -116,12 +116,12 @@ tasks:
         > /workspace/output/docker-result.txt
 
   prepare-logs:
-    desc: Create the logs parent directory on the host before Docker mounts it
+    desc: Create the timestamped log directory on the host before Docker mounts it
     outputs:
-      - logs/.ready
+      - dir_marker: logs/{{ var.log_dir }}/.ready
     cmd: |
-      mkdir -p logs
-      touch logs/.ready
+      mkdir -p logs/{{ var.log_dir }}
+      touch logs/{{ var.log_dir }}/.ready
 
   docker-logs:
     desc: Write a log file from inside Docker, demonstrating var.* substitution in runner volume mount path
