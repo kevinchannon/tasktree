@@ -5,7 +5,7 @@ import stat
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from helpers.logging import logger_stub
 from tasktree.executor import Executor
@@ -307,16 +307,12 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         """
 
         # Cached state has runner hash but no image ID (old state file)
-        from tasktree.hasher import hash_runner_definition
-
         runner_hash = hash_runner_definition(self.runner)
         cached_state = TaskState(
             last_run=123.0, input_state={"_runner_hash_builder": runner_hash}
         )
 
         # Mock docker manager to return image ID
-        from unittest.mock import Mock
-
         self.executor.docker_manager.ensure_image_built = Mock(
             return_value=("tt-runner-builder", "sha256:abc123")
         )
@@ -342,8 +338,6 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         )
 
         # Mock docker manager to return same image ID
-        from unittest.mock import Mock
-
         self.executor.docker_manager.ensure_image_built = Mock(
             return_value=("tt-runner-builder", image_id)
         )
@@ -369,8 +363,6 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         )
 
         # Mock docker manager to return new image ID (base image updated)
-        from unittest.mock import Mock
-
         new_image_id = "sha256:def456"
         self.executor.docker_manager.ensure_image_built = Mock(
             return_value=("tt-runner-builder", new_image_id)
@@ -393,8 +385,6 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         task = Task(name="test", cmd="echo test", run_in="builder")
 
         # Cached state with matching runner hash AND matching image ID
-        from tasktree.hasher import hash_runner_definition
-
         runner_hash = hash_runner_definition(self.runner)
         image_id = "sha256:abc123"
         cached_state = TaskState(
@@ -406,8 +396,6 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         )
 
         # Mock docker manager to return same image ID
-        from unittest.mock import Mock
-
         self.executor.docker_manager.ensure_image_built = Mock(
             return_value=("tt-runner-builder", image_id)
         )
@@ -430,8 +418,6 @@ class TestCheckDockerImageChanged(unittest.TestCase):
 
         # Cached state with OLD runner hash (YAML changed)
         old_runner = Runner(name="builder", dockerfile="OldDockerfile", context=".")
-        from tasktree.hasher import hash_runner_definition
-
         old_runner_hash = hash_runner_definition(old_runner)
 
         cached_state = TaskState(
@@ -443,8 +429,6 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         )
 
         # Mock should NOT be called (YAML change detected early)
-        from unittest.mock import Mock
-
         self.executor.docker_manager.ensure_image_built = Mock()
 
         # Should return True (YAML changed)
@@ -463,8 +447,6 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         """
         Test that _check_runner_changed returns True when a context file has changed.
         """
-        from unittest.mock import Mock
-
         with tempfile.TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             context_dir = project_root / "ctx"
@@ -816,16 +798,13 @@ class TestCheckDockerContextChanged(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             runner = Runner(name="builder", dockerfile="Dockerfile", context=None)
-            from tasktree.parser import Recipe
             recipe = Recipe(
                 tasks={},
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
                 runners={"builder": runner},
             )
-            from tasktree.state import StateManager
             state_manager = StateManager(project_root)
-            from tasktree.process_runner import make_process_runner
             executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
             env = recipe.runners["builder"]
             cached_state = TaskState(last_run=123.0, input_state={})
