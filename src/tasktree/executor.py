@@ -315,7 +315,7 @@ class Executor:
                     return runner
             else:
                 self.logger.trace(f"No {config_level} config found at '{config_path}'")
-        except (ConfigError, OSError, IOError) as e:
+        except (ConfigError, OSError) as e:
             # PermissionError (subclass of OSError) may be expected for some configs
             # (e.g., machine-level on Unix) - log at trace level if requested
             # Other errors indicate real problems - log at warn level
@@ -1540,9 +1540,11 @@ class Executor:
             self.logger.trace(f"Runner '{env_name}' hash changed (cached: {cached_env_hash}, current: {current_env_hash})")
             return True  # YAML changed, no need to check image
 
-        # For Docker environments, also check context files and image ID
+        # For Docker environments, also check context files, base image digests, and image ID
         if env.dockerfile:
             if self._check_docker_context_changed(env_name, env, cached_state):
+                return True
+            if self._check_base_image_digests_changed(env_name, env, cached_state):
                 return True
             return self._check_docker_image_changed(
                 env, cached_state, env_name, process_runner
@@ -1659,6 +1661,48 @@ class Executor:
 
         if self._check_dockerignore_changed(env_name, dockerignore_path, cached_state):
             return True
+
+        return False
+
+    def _check_base_image_digests_changed(
+        self,
+        env_name: str,
+        env: Runner,
+        cached_state: TaskState,
+    ) -> bool:
+        """Check if any base image's local digest has changed since last run.
+
+        Reads the Dockerfile, extracts FROM directives, and compares each
+        image's current local digest (via ``docker inspect``) against the
+        value stored in cached state.  Returns True if any digest differs or
+        is newly present.
+
+        Args:
+            env_name: Runner name (used as part of cache-key prefix)
+            env: Docker runner definition
+            cached_state: Cached state from previous run
+
+        Returns:
+            True if any base image digest has changed, False otherwise
+        """
+        if not env.dockerfile:
+            return False
+
+        dockerfile_path = self.recipe.project_root / env.dockerfile
+        try:
+            dockerfile_content = dockerfile_path.read_text()
+        except OSError:
+            return False
+
+        images = docker_module.extract_from_images(dockerfile_content)
+        for image_name, _ in images:
+            current_digest = docker_module.get_local_base_image_digest(image_name)
+            cached_digest = cached_state.input_state.get(f"_base_img_{env_name}_{image_name}")
+            if current_digest != cached_digest:
+                self.logger.trace(
+                    f"Base image digest changed for '{image_name}' in runner '{env_name}'"
+                )
+                return True
 
         return False
 
@@ -1900,15 +1944,15 @@ class Executor:
         for rel_path, mtime in self._current_context_mtimes(context_path, dockerignore_path, dockerignore_spec).items():
             input_state[f"_ctx_{env_name}_{rel_path}"] = mtime
 
-        # Parse and record base image digests from Dockerfile
+        # Record local digests of base images from Dockerfile
         try:
             dockerfile_content = dockerfile_path.read_text()
-            digests = docker_module.parse_base_image_digests(dockerfile_content)
-            for digest in digests:
-                # Store digest with Dockerfile's mtime
-                input_state[f"_digest_{digest}"] = dockerfile_path.stat().st_mtime
-        except (OSError, IOError):
-            # If we can't read Dockerfile, skip digest tracking
+            images = docker_module.extract_from_images(dockerfile_content)
+            for image_name, _ in images:
+                digest = docker_module.get_local_base_image_digest(image_name)
+                if digest is not None:
+                    input_state[f"_base_img_{env_name}_{image_name}"] = digest
+        except OSError:
             pass
 
         # For Docker environments, also store the image ID
