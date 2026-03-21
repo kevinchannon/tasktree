@@ -489,6 +489,50 @@ class TestCheckDockerImageChanged(unittest.TestCase):
             # ensure_image_built should NOT be called — context change detected first
             executor.docker_manager.ensure_image_built.assert_not_called()
 
+    def test_check_runner_changed_returns_true_when_dockerignore_modified(self):
+        """_check_runner_changed returns True when .dockerignore has been modified."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            context_dir = project_root / "ctx"
+            context_dir.mkdir()
+            (context_dir / "app.py").write_text("code")
+            dockerignore = context_dir / ".dockerignore"
+            dockerignore.write_text("*.log\n")
+
+            runner = Runner(name="builder", dockerfile="Dockerfile", context="ctx")
+            recipe = Recipe(
+                tasks={},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+                runners={"builder": runner},
+            )
+            executor = Executor(recipe, StateManager(project_root), logger_stub, make_process_runner)
+
+            runner_hash = hash_runner_definition(runner)
+            ctx_key = f"_ctx_builder_{(context_dir / 'app.py').relative_to(project_root).as_posix()}"
+            dockerignore_key = dockerignore.relative_to(project_root).as_posix()
+            cached_state = TaskState(
+                last_run=123.0,
+                input_state={
+                    "_runner_hash_builder": runner_hash,
+                    ctx_key: (context_dir / "app.py").stat().st_mtime,
+                    dockerignore_key: dockerignore.stat().st_mtime - 1.0,
+                },
+            )
+
+            executor.docker_manager.ensure_image_built = Mock()
+
+            task = Task(name="test", cmd="echo test", run_in="builder")
+            result = executor._check_runner_changed(
+                task,
+                cached_state,
+                "builder",
+                make_process_runner(TaskOutputTypes.ALL, logger_stub),
+            )
+
+            self.assertTrue(result)
+            executor.docker_manager.ensure_image_built.assert_not_called()
+
 
 class TestDockerInputsToModifiedTimes(unittest.TestCase):
     """
