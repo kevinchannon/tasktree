@@ -916,10 +916,16 @@ class TestCheckDockerContextChanged(unittest.TestCase):
             executor = self._make_executor(project_root, "ctx")
             env = executor.recipe.runners["builder"]
             mtime = tracked.stat().st_mtime
-            # Only app.py is cached; build.log is ignored so not cached either
+            dockerignore = context_dir / ".dockerignore"
+            dockerignore_key = dockerignore.relative_to(project_root).as_posix()
+            # Only app.py is cached; build.log is ignored so not cached either;
+            # .dockerignore is cached so its presence doesn't count as a change
             cached_state = TaskState(
                 last_run=123.0,
-                input_state={self._ctx_key("builder", "ctx/app.py"): mtime},
+                input_state={
+                    self._ctx_key("builder", "ctx/app.py"): mtime,
+                    dockerignore_key: dockerignore.stat().st_mtime,
+                },
             )
 
             result = executor._check_docker_context_changed("builder", env, cached_state)
