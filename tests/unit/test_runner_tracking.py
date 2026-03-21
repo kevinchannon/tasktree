@@ -704,6 +704,64 @@ class TestDockerInputsToModifiedTimes(unittest.TestCase):
             self.assertNotIn("_ctx_builder_ctx/.dockerignore", result)
             self.assertIn("ctx/.dockerignore", result)
 
+    def test_records_local_base_image_digest(self):
+        """get_local_base_image_digest result stored under _base_img_{env}_{name}."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            context_dir = project_root / "ctx"
+            context_dir.mkdir()
+            (project_root / "Dockerfile").write_text("FROM python:3.11\nRUN echo hello\n")
+
+            executor = self._make_executor(project_root, "ctx")
+            env = executor.recipe.runners["builder"]
+
+            import tasktree.docker as docker_module
+            with patch.object(docker_module, "get_local_base_image_digest", return_value="sha256:abc123"):
+                result = executor._docker_inputs_to_modified_times("builder", env)
+
+            self.assertEqual(result["_base_img_builder_python:3.11"], "sha256:abc123")
+
+    def test_does_not_record_missing_local_base_image(self):
+        """When get_local_base_image_digest returns None, no _base_img_* key is stored."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            context_dir = project_root / "ctx"
+            context_dir.mkdir()
+            (project_root / "Dockerfile").write_text("FROM python:3.11\n")
+
+            executor = self._make_executor(project_root, "ctx")
+            env = executor.recipe.runners["builder"]
+
+            import tasktree.docker as docker_module
+            with patch.object(docker_module, "get_local_base_image_digest", return_value=None):
+                result = executor._docker_inputs_to_modified_times("builder", env)
+
+            base_img_keys = [k for k in result if k.startswith("_base_img_")]
+            self.assertEqual(base_img_keys, [])
+
+    def test_records_multiple_base_images(self):
+        """Multi-stage Dockerfile: each FROM image is tracked under its own key."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            context_dir = project_root / "ctx"
+            context_dir.mkdir()
+            (project_root / "Dockerfile").write_text(
+                "FROM python:3.11 AS builder\nFROM alpine:3.18\n"
+            )
+
+            executor = self._make_executor(project_root, "ctx")
+            env = executor.recipe.runners["builder"]
+
+            digests = {"python:3.11": "sha256:py311", "alpine:3.18": "sha256:alpine318"}
+            import tasktree.docker as docker_module
+            with patch.object(
+                docker_module, "get_local_base_image_digest", side_effect=lambda n: digests.get(n)
+            ):
+                result = executor._docker_inputs_to_modified_times("builder", env)
+
+            self.assertEqual(result["_base_img_builder_python:3.11"], "sha256:py311")
+            self.assertEqual(result["_base_img_builder_alpine:3.18"], "sha256:alpine318")
+
     def test_all_context_files_included_when_pathspec_unavailable(self):
         """
         When parse_dockerignore returns None (pathspec not installed), all
@@ -931,6 +989,159 @@ class TestCheckDockerContextChanged(unittest.TestCase):
             result = executor._check_docker_context_changed("builder", env, cached_state)
 
             self.assertFalse(result)
+
+
+class TestCheckBaseImageDigestsChanged(unittest.TestCase):
+    """Test _check_base_image_digests_changed() detects base image digest changes."""
+
+    def _make_executor(self, project_root: Path) -> Executor:
+        runner = Runner(name="builder", dockerfile="Dockerfile", context="ctx")
+        recipe = Recipe(
+            tasks={},
+            project_root=project_root,
+            recipe_path=project_root / "tasktree.yaml",
+            runners={"builder": runner},
+        )
+        return Executor(recipe, StateManager(project_root), logger_stub, make_process_runner)
+
+    def test_returns_false_when_no_dockerfile(self):
+        """Runner with no dockerfile → False without raising."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            runner = Runner(name="builder", dockerfile=None, context=None)
+            recipe = Recipe(
+                tasks={},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+                runners={"builder": runner},
+            )
+            executor = Executor(recipe, StateManager(project_root), logger_stub, make_process_runner)
+            cached_state = TaskState(last_run=123.0, input_state={})
+
+            result = executor._check_base_image_digests_changed("builder", runner, cached_state)
+
+            self.assertFalse(result)
+
+    def test_returns_false_when_digest_unchanged(self):
+        """Same digest as cached → False."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            (project_root / "Dockerfile").write_text("FROM python:3.11\n")
+            executor = self._make_executor(project_root)
+            env = executor.recipe.runners["builder"]
+            cached_state = TaskState(
+                last_run=123.0,
+                input_state={"_base_img_builder_python:3.11": "sha256:abc"},
+            )
+
+            import tasktree.docker as docker_module
+            with patch.object(docker_module, "get_local_base_image_digest", return_value="sha256:abc"):
+                result = executor._check_base_image_digests_changed("builder", env, cached_state)
+
+            self.assertFalse(result)
+
+    def test_returns_true_when_digest_changed(self):
+        """Different digest from cached → True."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            (project_root / "Dockerfile").write_text("FROM python:3.11\n")
+            executor = self._make_executor(project_root)
+            env = executor.recipe.runners["builder"]
+            cached_state = TaskState(
+                last_run=123.0,
+                input_state={"_base_img_builder_python:3.11": "sha256:v1"},
+            )
+
+            import tasktree.docker as docker_module
+            with patch.object(docker_module, "get_local_base_image_digest", return_value="sha256:v2"):
+                result = executor._check_base_image_digests_changed("builder", env, cached_state)
+
+            self.assertTrue(result)
+
+    def test_returns_false_when_both_none(self):
+        """Image not available locally and not cached → False (no false positive)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            (project_root / "Dockerfile").write_text("FROM python:3.11\n")
+            executor = self._make_executor(project_root)
+            env = executor.recipe.runners["builder"]
+            cached_state = TaskState(last_run=123.0, input_state={})
+
+            import tasktree.docker as docker_module
+            with patch.object(docker_module, "get_local_base_image_digest", return_value=None):
+                result = executor._check_base_image_digests_changed("builder", env, cached_state)
+
+            self.assertFalse(result)
+
+    def test_returns_true_when_new_digest_appeared(self):
+        """Previously no cached digest (None), now image present locally → True."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            (project_root / "Dockerfile").write_text("FROM python:3.11\n")
+            executor = self._make_executor(project_root)
+            env = executor.recipe.runners["builder"]
+            cached_state = TaskState(last_run=123.0, input_state={})
+
+            import tasktree.docker as docker_module
+            with patch.object(docker_module, "get_local_base_image_digest", return_value="sha256:new"):
+                result = executor._check_base_image_digests_changed("builder", env, cached_state)
+
+            self.assertTrue(result)
+
+    def test_returns_true_when_cached_digest_gone(self):
+        """Cached digest was present, now Docker returns None → True."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            (project_root / "Dockerfile").write_text("FROM python:3.11\n")
+            executor = self._make_executor(project_root)
+            env = executor.recipe.runners["builder"]
+            cached_state = TaskState(
+                last_run=123.0,
+                input_state={"_base_img_builder_python:3.11": "sha256:old"},
+            )
+
+            import tasktree.docker as docker_module
+            with patch.object(docker_module, "get_local_base_image_digest", return_value=None):
+                result = executor._check_base_image_digests_changed("builder", env, cached_state)
+
+            self.assertTrue(result)
+
+    def test_check_runner_changed_returns_true_when_base_image_digest_changes(self):
+        """_check_runner_changed returns True when base image digest differs from cached."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            (project_root / "ctx").mkdir()
+            (project_root / "Dockerfile").write_text("FROM python:3.11\n")
+            runner = Runner(name="builder", dockerfile="Dockerfile", context="ctx")
+            recipe = Recipe(
+                tasks={},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+                runners={"builder": runner},
+            )
+            executor = Executor(recipe, StateManager(project_root), logger_stub, make_process_runner)
+            runner_hash = hash_runner_definition(runner)
+            cached_state = TaskState(
+                last_run=123.0,
+                input_state={
+                    "_runner_hash_builder": runner_hash,
+                    "_base_img_builder_python:3.11": "sha256:v1",
+                },
+            )
+            executor.docker_manager.ensure_image_built = Mock()
+            task = Task(name="test", cmd="echo test", run_in="builder")
+
+            import tasktree.docker as docker_module
+            with patch.object(docker_module, "get_local_base_image_digest", return_value="sha256:v2"):
+                result = executor._check_runner_changed(
+                    task,
+                    cached_state,
+                    "builder",
+                    make_process_runner(TaskOutputTypes.ALL, logger_stub),
+                )
+
+            self.assertTrue(result)
+            executor.docker_manager.ensure_image_built.assert_not_called()
 
 
 if __name__ == "__main__":
