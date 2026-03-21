@@ -15,6 +15,17 @@ runners:
     volumes:
       - ./output:/workspace/output
 
+  # Runner that mounts a timestamped log directory into the container.
+  # {{ var.log_dir }} is substituted before Docker starts, so each invocation
+  # writes to a unique directory on the host — variable substitution works in
+  # any runner field, including volume mount paths.
+  alpine-with-logs:
+    dockerfile: ./Dockerfile
+    context: .
+    volumes:
+      - ./output:/workspace/output
+      - ./logs/{{ var.log_dir }}:/workspace/logs
+
 variables:
   # Value from environment variable with fallback default
   log_level: { env: LOG_LEVEL, default: "info" }
@@ -22,6 +33,10 @@ variables:
   build_number: { eval: "echo -n $(( $(cat build_num.txt) + 1 ))" }
   # Value read directly from a file
   project_name: { read: project-name.txt }
+  # Timestamp evaluated at runtime; used as the host-side log directory name.
+  # Demonstrates that {{ var.* }} substitution works in runner fields such as
+  # Docker volume mount paths.
+  log_dir: { eval: "date +%Y%m%d_%H%M%S" }
 
 imports:
   - file: tasks/utils.yaml
@@ -100,8 +115,24 @@ tasks:
       echo "Hello from Docker! Project={{ var.project_name }} Build={{ var.build_number }}" \
         > /workspace/output/docker-result.txt
 
+  prepare-logs:
+    desc: Create the logs parent directory on the host before Docker mounts it
+    outputs:
+      - logs/.ready
+    cmd: |
+      mkdir -p logs
+      touch logs/.ready
+
+  docker-logs:
+    desc: Write a log file from inside Docker, demonstrating {{ var.* }} substitution in runner volume mount path
+    deps: [prepare-logs]
+    run_in: alpine-with-logs
+    cmd: |
+      mkdir -p /workspace/logs
+      echo "Logging from Docker, log_dir={{ var.log_dir }}" > /workspace/logs/run.log
+
   clean:
     desc: Remove all generated files
     cmd: |
-      rm -rf build/ processed/ output/ archive.tar.gz reports/
+      rm -rf build/ processed/ output/ archive.tar.gz reports/ logs/
       echo "Cleaned."
