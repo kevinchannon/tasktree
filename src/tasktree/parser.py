@@ -590,8 +590,11 @@ class Recipe:
                     resolved_args.append(arg)
             task.args = resolved_args
 
-        # Substitute evaluated variables into all runners
-        for env in self.runners.values():
+        # Substitute evaluated variables into reachable runners only
+        reachable_runner_names = self._collect_reachable_runners(reachable_tasks)
+        for env_name, env in self.runners.items():
+            if env_name not in reachable_runner_names:
+                continue
             if env.shell is not None and env.shell.preamble:
                 env.shell.preamble = substitute_variables(
                     env.shell.preamble, self.evaluated_variables
