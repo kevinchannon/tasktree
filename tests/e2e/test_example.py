@@ -159,6 +159,35 @@ class TestExampleRecipe(unittest.TestCase):
             self.assertTrue(archive.exists(), "archive.tar.gz not created by package task")
 
     @unittest.skipUnless(is_docker_available(), "Docker not available")
+    def test_docker_logs_task_creates_timestamped_log_directory(self):
+        """docker-logs task shows {{ var.* }} substitution in Docker volume mount path.
+
+        A runtime-evaluated log_dir variable is used as the host-side path in
+        the alpine-with-logs runner's volume mount.  The test verifies that a
+        timestamped subdirectory is created under logs/ and contains the
+        expected log file, proving that the variable was resolved before
+        Docker started.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = copy_example(Path(tmpdir))
+
+            result = run_tasktree_cli(["docker-logs"], cwd=project_root, timeout=120)
+
+            self.assertEqual(
+                result.returncode,
+                0,
+                f"docker-logs failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
+            )
+            logs_dir = project_root / "logs"
+            self.assertTrue(logs_dir.exists(), "logs/ directory not created")
+            log_files = list(logs_dir.glob("*/run.log"))
+            self.assertTrue(
+                len(log_files) > 0,
+                f"no timestamped run.log found under logs/; contents: {list(logs_dir.iterdir())}",
+            )
+            self.assertIn("Logging from Docker", log_files[0].read_text())
+
+    @unittest.skipUnless(is_docker_available(), "Docker not available")
     def test_docker_echo_task_creates_output(self):
         """docker-echo task creates an output file via a Docker container."""
         with TemporaryDirectory() as tmpdir:
