@@ -1657,6 +1657,28 @@ class Executor:
                 self.logger.trace(f"Deleted context file detected for runner '{env_name}': {rel_path}")
                 return True
 
+        if self._check_dockerignore_changed(env_name, dockerignore_path, cached_state):
+            return True
+
+        return False
+
+    def _check_dockerignore_changed(
+        self,
+        env_name: str,
+        dockerignore_path: Path,
+        cached_state: TaskState,
+    ) -> bool:
+        """Check if the .dockerignore file has been added, modified, or deleted."""
+        dockerignore_key = dockerignore_path.relative_to(self.recipe.project_root).as_posix()
+        cached_mtime = cached_state.input_state.get(dockerignore_key)
+        if dockerignore_path.exists():
+            current_mtime = dockerignore_path.stat().st_mtime
+            if cached_mtime is None or current_mtime != cached_mtime:
+                self.logger.trace(f".dockerignore changed for runner '{env_name}'")
+                return True
+        elif cached_mtime is not None:
+            self.logger.trace(f".dockerignore deleted for runner '{env_name}'")
+            return True
         return False
 
     def _current_context_mtimes(

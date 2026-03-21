@@ -5,7 +5,7 @@ import stat
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from helpers.logging import logger_stub
 from tasktree.executor import Executor
@@ -307,16 +307,12 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         """
 
         # Cached state has runner hash but no image ID (old state file)
-        from tasktree.hasher import hash_runner_definition
-
         runner_hash = hash_runner_definition(self.runner)
         cached_state = TaskState(
             last_run=123.0, input_state={"_runner_hash_builder": runner_hash}
         )
 
         # Mock docker manager to return image ID
-        from unittest.mock import Mock
-
         self.executor.docker_manager.ensure_image_built = Mock(
             return_value=("tt-runner-builder", "sha256:abc123")
         )
@@ -342,8 +338,6 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         )
 
         # Mock docker manager to return same image ID
-        from unittest.mock import Mock
-
         self.executor.docker_manager.ensure_image_built = Mock(
             return_value=("tt-runner-builder", image_id)
         )
@@ -369,8 +363,6 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         )
 
         # Mock docker manager to return new image ID (base image updated)
-        from unittest.mock import Mock
-
         new_image_id = "sha256:def456"
         self.executor.docker_manager.ensure_image_built = Mock(
             return_value=("tt-runner-builder", new_image_id)
@@ -393,8 +385,6 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         task = Task(name="test", cmd="echo test", run_in="builder")
 
         # Cached state with matching runner hash AND matching image ID
-        from tasktree.hasher import hash_runner_definition
-
         runner_hash = hash_runner_definition(self.runner)
         image_id = "sha256:abc123"
         cached_state = TaskState(
@@ -406,8 +396,6 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         )
 
         # Mock docker manager to return same image ID
-        from unittest.mock import Mock
-
         self.executor.docker_manager.ensure_image_built = Mock(
             return_value=("tt-runner-builder", image_id)
         )
@@ -430,8 +418,6 @@ class TestCheckDockerImageChanged(unittest.TestCase):
 
         # Cached state with OLD runner hash (YAML changed)
         old_runner = Runner(name="builder", dockerfile="OldDockerfile", context=".")
-        from tasktree.hasher import hash_runner_definition
-
         old_runner_hash = hash_runner_definition(old_runner)
 
         cached_state = TaskState(
@@ -443,8 +429,6 @@ class TestCheckDockerImageChanged(unittest.TestCase):
         )
 
         # Mock should NOT be called (YAML change detected early)
-        from unittest.mock import Mock
-
         self.executor.docker_manager.ensure_image_built = Mock()
 
         # Should return True (YAML changed)
@@ -458,6 +442,125 @@ class TestCheckDockerImageChanged(unittest.TestCase):
 
         # Verify docker manager was NOT called (early exit on YAML change)
         self.executor.docker_manager.ensure_image_built.assert_not_called()
+
+    def test_check_runner_changed_returns_true_when_base_image_updated(self):
+        """YAML and context unchanged but built image ID differs (base image updated)."""
+        task = Task(name="test", cmd="echo test", run_in="builder")
+
+        runner_hash = hash_runner_definition(self.runner)
+        old_image_id = "sha256:abc123"
+        cached_state = TaskState(
+            last_run=123.0,
+            input_state={
+                "_runner_hash_builder": runner_hash,
+                "_docker_image_id_builder": old_image_id,
+            },
+        )
+
+        # Simulate base image being pulled: same Dockerfile, different resulting image ID
+        new_image_id = "sha256:def456"
+        self.executor.docker_manager.ensure_image_built = Mock(
+            return_value=("tt-runner-builder", new_image_id)
+        )
+
+        result = self.executor._check_runner_changed(
+            task,
+            cached_state,
+            "builder",
+            make_process_runner(TaskOutputTypes.ALL, logger_stub),
+        )
+
+        self.assertTrue(result)
+
+    def test_check_runner_changed_returns_true_when_context_file_modified(self):
+        """
+        Test that _check_runner_changed returns True when a context file has changed.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            context_dir = project_root / "ctx"
+            context_dir.mkdir()
+            src_file = context_dir / "app.py"
+            src_file.write_text("original")
+
+            runner = Runner(name="builder", dockerfile="Dockerfile", context="ctx")
+            recipe = Recipe(
+                tasks={},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+                runners={"builder": runner},
+            )
+            executor = Executor(recipe, StateManager(project_root), logger_stub, make_process_runner)
+
+            runner_hash = hash_runner_definition(runner)
+            # Cache state with a stale mtime for the context file
+            stale_mtime = src_file.stat().st_mtime - 1.0
+            ctx_key = f"_ctx_builder_{src_file.relative_to(project_root).as_posix()}"
+            cached_state = TaskState(
+                last_run=123.0,
+                input_state={
+                    "_runner_hash_builder": runner_hash,
+                    ctx_key: stale_mtime,
+                },
+            )
+
+            executor.docker_manager.ensure_image_built = Mock()
+
+            task = Task(name="test", cmd="echo test", run_in="builder")
+            result = executor._check_runner_changed(
+                task,
+                cached_state,
+                "builder",
+                make_process_runner(TaskOutputTypes.ALL, logger_stub),
+            )
+
+            self.assertTrue(result)
+            # ensure_image_built should NOT be called — context change detected first
+            executor.docker_manager.ensure_image_built.assert_not_called()
+
+    def test_check_runner_changed_returns_true_when_dockerignore_modified(self):
+        """_check_runner_changed returns True when .dockerignore has been modified."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            context_dir = project_root / "ctx"
+            context_dir.mkdir()
+            (context_dir / "app.py").write_text("code")
+            dockerignore = context_dir / ".dockerignore"
+            dockerignore.write_text("*.log\n")
+
+            runner = Runner(name="builder", dockerfile="Dockerfile", context="ctx")
+            recipe = Recipe(
+                tasks={},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+                runners={"builder": runner},
+            )
+            executor = Executor(recipe, StateManager(project_root), logger_stub, make_process_runner)
+
+            runner_hash = hash_runner_definition(runner)
+            ctx_key = f"_ctx_builder_{(context_dir / 'app.py').relative_to(project_root).as_posix()}"
+            dockerignore_key = dockerignore.relative_to(project_root).as_posix()
+            cached_state = TaskState(
+                last_run=123.0,
+                input_state={
+                    "_runner_hash_builder": runner_hash,
+                    ctx_key: (context_dir / "app.py").stat().st_mtime,
+                    dockerignore_key: dockerignore.stat().st_mtime - 1.0,
+                },
+            )
+
+            executor.docker_manager.ensure_image_built = Mock()
+
+            task = Task(name="test", cmd="echo test", run_in="builder")
+            result = executor._check_runner_changed(
+                task,
+                cached_state,
+                "builder",
+                make_process_runner(TaskOutputTypes.ALL, logger_stub),
+            )
+
+            self.assertTrue(result)
+            executor.docker_manager.ensure_image_built.assert_not_called()
 
 
 class TestDockerInputsToModifiedTimes(unittest.TestCase):
@@ -769,16 +872,13 @@ class TestCheckDockerContextChanged(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             runner = Runner(name="builder", dockerfile="Dockerfile", context=None)
-            from tasktree.parser import Recipe
             recipe = Recipe(
                 tasks={},
                 project_root=project_root,
                 recipe_path=project_root / "tasktree.yaml",
                 runners={"builder": runner},
             )
-            from tasktree.state import StateManager
             state_manager = StateManager(project_root)
-            from tasktree.process_runner import make_process_runner
             executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
             env = recipe.runners["builder"]
             cached_state = TaskState(last_run=123.0, input_state={})
@@ -816,10 +916,16 @@ class TestCheckDockerContextChanged(unittest.TestCase):
             executor = self._make_executor(project_root, "ctx")
             env = executor.recipe.runners["builder"]
             mtime = tracked.stat().st_mtime
-            # Only app.py is cached; build.log is ignored so not cached either
+            dockerignore = context_dir / ".dockerignore"
+            dockerignore_key = dockerignore.relative_to(project_root).as_posix()
+            # Only app.py is cached; build.log is ignored so not cached either;
+            # .dockerignore is cached so its presence doesn't count as a change
             cached_state = TaskState(
                 last_run=123.0,
-                input_state={self._ctx_key("builder", "ctx/app.py"): mtime},
+                input_state={
+                    self._ctx_key("builder", "ctx/app.py"): mtime,
+                    dockerignore_key: dockerignore.stat().st_mtime,
+                },
             )
 
             result = executor._check_docker_context_changed("builder", env, cached_state)
