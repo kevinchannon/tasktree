@@ -5,7 +5,6 @@ of one of its dependencies changes — even when both tasks use a Docker runner
 with the Dockerfile in a project subdirectory.
 """
 
-import time
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -13,6 +12,7 @@ from tempfile import TemporaryDirectory
 from . import is_docker_available, run_tasktree_cli
 
 
+@unittest.skipUnless(is_docker_available(), "Docker not available")
 class TestDockerDependencyTracking(unittest.TestCase):
     """
     Test that Docker-runner tasks correctly re-run when dependency outputs change.
@@ -20,14 +20,6 @@ class TestDockerDependencyTracking(unittest.TestCase):
     This covers the bug where Docker-runner tasks appeared to only re-run when the
     Dockerfile changed, rather than when the output of a dependency task changed.
     """
-
-    @classmethod
-    def setUpClass(cls):
-        if not is_docker_available():
-            raise RuntimeError(
-                "Docker is not available or not running. "
-                "E2E tests require Docker to be installed and the daemon to be running."
-            )
 
     def test_docker_runner_task_reruns_when_dependency_output_changes(self):
         """
@@ -65,28 +57,28 @@ class TestDockerDependencyTracking(unittest.TestCase):
 
             # The runner mounts the project root into the container at the same
             # absolute path so that {{ tt.project_root }} is a valid working dir.
-            recipe = (
-                "runners:\n"
-                "  docker:\n"
-                "    dockerfile: docker/Dockerfile\n"
-                "    context: docker\n"
-                "    volumes:\n"
-                "      - \"{{ tt.project_root }}:{{ tt.project_root }}\"\n"
-                "    working_dir: \"{{ tt.project_root }}\"\n"
-                "\n"
-                "tasks:\n"
-                "  foo:\n"
-                "    run_in: docker\n"
-                "    inputs: [source.txt]\n"
-                "    outputs: [foo-output.txt]\n"
-                "    cmd: cat source.txt > foo-output.txt\n"
-                "\n"
-                "  bar:\n"
-                "    run_in: docker\n"
-                "    deps: [foo]\n"
-                "    outputs: [bar-output.txt]\n"
-                "    cmd: cat foo-output.txt > bar-output.txt\n"
-            )
+            recipe = """\
+runners:
+  docker:
+    dockerfile: docker/Dockerfile
+    context: docker
+    volumes:
+      - "{{ tt.project_root }}:{{ tt.project_root }}"
+    working_dir: "{{ tt.project_root }}"
+
+tasks:
+  foo:
+    run_in: docker
+    inputs: [source.txt]
+    outputs: [foo-output.txt]
+    cmd: cat source.txt > foo-output.txt
+
+  bar:
+    run_in: docker
+    deps: [foo]
+    outputs: [bar-output.txt]
+    cmd: cat foo-output.txt > bar-output.txt
+"""
             (project_root / "tasktree.yaml").write_text(recipe)
 
             # First run: both tasks must execute.
@@ -104,6 +96,7 @@ class TestDockerDependencyTracking(unittest.TestCase):
                 (project_root / "bar-output.txt").exists(),
                 "bar-output.txt was not created on first run",
             )
+            foo_mtime_1 = (project_root / "foo-output.txt").stat().st_mtime
             bar_mtime_1 = (project_root / "bar-output.txt").stat().st_mtime
 
             # Second run: both tasks should be skipped (outputs are fresh).
@@ -113,7 +106,13 @@ class TestDockerDependencyTracking(unittest.TestCase):
                 0,
                 f"Second run failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
             )
+            foo_mtime_2 = (project_root / "foo-output.txt").stat().st_mtime
             bar_mtime_2 = (project_root / "bar-output.txt").stat().st_mtime
+            self.assertEqual(
+                foo_mtime_1,
+                foo_mtime_2,
+                "foo-output.txt was unexpectedly updated on second run (task should have been skipped)",
+            )
             self.assertEqual(
                 bar_mtime_1,
                 bar_mtime_2,
@@ -122,7 +121,6 @@ class TestDockerDependencyTracking(unittest.TestCase):
 
             # Modify foo-output.txt directly, bypassing 'foo's input tracking so
             # that only 'bar's implicit-input tracking is exercised.
-            time.sleep(0.1)
             (project_root / "foo-output.txt").write_text("modified foo content\n")
 
             # Third run: 'bar' must re-run because its implicit input changed.
@@ -132,12 +130,11 @@ class TestDockerDependencyTracking(unittest.TestCase):
                 0,
                 f"Third run failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
             )
-            bar_mtime_3 = (project_root / "bar-output.txt").stat().st_mtime
-            self.assertGreater(
-                bar_mtime_3,
-                bar_mtime_2,
-                "bar-output.txt was NOT updated on third run — "
-                "'bar' should have re-run because its implicit input (foo-output.txt) changed",
+            bar_content_3 = (project_root / "bar-output.txt").read_text()
+            self.assertIn(
+                "modified foo content",
+                bar_content_3,
+                "'bar' should have re-run and copied the modified foo-output.txt content into bar-output.txt",
             )
 
 
