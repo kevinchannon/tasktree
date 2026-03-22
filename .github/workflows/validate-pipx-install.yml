@@ -32,7 +32,6 @@ jobs:
         run: |
           echo "Waiting 90 seconds for PyPI to propagate the new package..."
           sleep 90
-        shell: bash
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -43,34 +42,25 @@ jobs:
         run: |
           python -m pip install --user pipx
           python -m pipx ensurepath
-        shell: bash
 
       - name: Install tasktree via pipx
-        run: |
-          python -m pipx install tasktree
-        shell: bash
+        run: python -m pipx install tasktree
 
       - name: Get installed tt version
         working-directory: example
-        run: |
-          tt --version
-        shell: bash
+        run: tt --version
 
       - name: Test tt --list command
         working-directory: example
-        run: |
-          tt --list
-        shell: bash
+        run: tt --list
 
       - name: Run test task
         working-directory: example
-        run: |
-          tt package
+        run: tt package
         shell: bash
 
       - name: Verify installation
-        run: |
-          echo "✓ tasktree successfully installed via pipx on ${{ matrix.platform }}"
+        run: echo "✓ tasktree successfully installed via pipx on ${{ matrix.platform }}"
 
   validate-centos:
     # Only run if the release workflow succeeded
