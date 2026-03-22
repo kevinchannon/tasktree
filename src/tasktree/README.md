@@ -2,6 +2,8 @@
 
 [![Tests](https://github.com/kevinchannon/task-tree/actions/workflows/test.yml/badge.svg)](https://github.com/kevinchannon/task-tree/actions/workflows/test.yml)
 
+![Project Logo](https://raw.githubusercontent.com/kevinchannon/tasktree/refs/heads/main/src/tasktree/logo.png)
+
 A task automation tool that combines simple command execution with dependency tracking and incremental execution.
 
 ## TL;DR;
