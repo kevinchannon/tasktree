@@ -8,6 +8,10 @@ runners:
       cmd: ["/bin/bash"]
       preamble: set -euo pipefail
 
+  windows-runner:
+    shell:
+      cmd: ["cmd.exe"]
+
   # Docker runner: uses an Alpine image for containerised tasks
   alpine:
     dockerfile: ./Dockerfile
@@ -136,3 +140,8 @@ tasks:
     cmd: |
       rm -rf build/ processed/ output/ archive.tar.gz reports/ logs/
       echo "Cleaned."
+
+  windows-task:
+    desc: A task that runs in cmd.exe
+    run_in: windows-runner
+    cmd: dir
