@@ -1885,7 +1885,8 @@ class Executor:
                 if env.dockerfile:
                     input_state |= self._docker_inputs_to_modified_times(env_name, env)
 
-        new_state = TaskState(last_run=time.time(), input_state=input_state)
+        output_state = self._output_files_to_modified_times(task)
+        new_state = TaskState(last_run=time.time(), input_state=input_state, output_state=output_state)
         self.state.set(cache_key, new_state)
         self.state.save()
 
@@ -1916,6 +1917,24 @@ class Executor:
                 input_state[file_path] = file_path_obj.stat().st_mtime
 
         return input_state
+
+    def _output_files_to_modified_times(self, task: Task) -> dict[str, float]:
+        """
+        Expand output patterns to actual files and record their mtimes.
+
+        Used to detect when individual files within a glob-matched output set
+        are later deleted, even if other files in the set still exist.
+        """
+        output_paths = self._expand_output_paths(task)
+        output_files = self._expand_globs(output_paths, task.working_dir)
+
+        output_state = {}
+        for file_path in output_files:
+            file_path_obj = self.recipe.project_root / task.working_dir / file_path
+            if file_path_obj.exists():
+                output_state[file_path] = file_path_obj.stat().st_mtime
+
+        return output_state
 
     def _docker_inputs_to_modified_times(
         self, env_name: str, env: Runner
