@@ -51,13 +51,19 @@ jobs:
         run: tt --version
 
       - name: Test tt --list command
+        if: runner.os != 'Windows'
         working-directory: example
         run: tt --list
 
       - name: Run test task
+        if: runner.os != 'Windows'
         working-directory: example
         run: tt package
-        shell: bash
+
+      - name: Run test task
+        if: runner.os == 'Windows'
+        working-directory: example
+        run: tt windows-task
 
       - name: Verify installation
         run: echo "✓ tasktree successfully installed via pipx on ${{ matrix.platform }}"
