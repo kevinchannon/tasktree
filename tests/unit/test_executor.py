@@ -1092,6 +1092,81 @@ class TestExecutorPrivateMethods(unittest.TestCase):
             # Should detect output.txt is missing
             self.assertEqual(missing, ["output.txt"])
 
+    def test_check_outputs_missing_detects_deleted_glob_member(self):
+        """
+        Test that _check_outputs_missing detects when an individual file that
+        previously matched a glob output pattern has since been deleted, even
+        when other files in the glob still exist.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+
+            bin_dir = project_root / "bin"
+            bin_dir.mkdir()
+            exe1 = bin_dir / "exe1"
+            exe2 = bin_dir / "exe2"
+            exe1.write_text("exe1")
+            exe2.write_text("exe2")
+
+            task = Task(name="build", cmd="make", outputs=["bin/*"])
+            tasks = {"build": task}
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+
+            # Cached state records both files as outputs from the previous run
+            cached_state = TaskState(
+                last_run=time.time(),
+                input_state={},
+                output_state={"bin/exe1": exe1.stat().st_mtime, "bin/exe2": exe2.stat().st_mtime},
+            )
+
+            # Delete exe1 — glob still matches exe2, but exe1 is gone
+            exe1.unlink()
+
+            missing = executor._check_outputs_missing(task, cached_state)
+
+            self.assertIn("bin/exe1", missing)
+
+    def test_check_inputs_changed_detects_deleted_input_file(self):
+        """
+        Test that _check_inputs_changed detects when a file that was previously
+        in the input set (via a glob pattern) has since been deleted.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            bin_dir = project_root / "bin"
+            bin_dir.mkdir()
+            exe2 = bin_dir / "exe2"
+            exe2.write_text("exe2")
+            exe2_mtime = exe2.stat().st_mtime
+
+            task = Task(name="test", cmd="run tests", inputs=["bin/*"])
+            tasks = {"test": task}
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+            state_manager = StateManager(project_root)
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+
+            # Cached state records exe1 and exe2 from a previous run where both existed
+            cached_state = TaskState(
+                last_run=time.time(),
+                input_state={"bin/exe1": 1000.0, "bin/exe2": exe2_mtime},
+            )
+
+            # exe1 has been deleted; only exe2 exists
+            changed = executor._check_inputs_changed(task, cached_state, ["bin/*"])
+
+            self.assertIn("bin/exe1", changed)
+
     def test_expand_globs_multiple_patterns(self):
         """
         Test expanding multiple glob patterns.
