@@ -20,6 +20,7 @@ class TaskState:
 
     last_run: float
     input_state: dict[str, float | str] = field(default_factory=dict)
+    output_state: dict[str, float] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -28,6 +29,7 @@ class TaskState:
         return {
             "last_run": self.last_run,
             "input_state": self.input_state,
+            "output_state": self.output_state,
         }
 
     @classmethod
@@ -38,6 +40,7 @@ class TaskState:
         return cls(
             last_run=data["last_run"],
             input_state=data.get("input_state", {}),
+            output_state=data.get("output_state", {}),
         )
 
 
