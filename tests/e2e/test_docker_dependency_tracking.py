@@ -69,7 +69,7 @@ class TestDockerDependencyTracking(unittest.TestCase):
                 "runners:\n"
                 "  docker:\n"
                 "    dockerfile: docker/Dockerfile\n"
-                "    context: \"{{ tt.project_root }}\"\n"
+                "    context: docker\n"
                 "    volumes:\n"
                 "      - \"{{ tt.project_root }}:{{ tt.project_root }}\"\n"
                 "    working_dir: \"{{ tt.project_root }}\"\n"
