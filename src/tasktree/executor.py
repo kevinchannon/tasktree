@@ -629,7 +629,7 @@ class Executor:
             )
 
         # Check if declared outputs are missing
-        missing_outputs = self._check_outputs_missing(task)
+        missing_outputs = self._check_outputs_missing(task, cached_state)
         if missing_outputs:
             outputs_list = ", ".join(missing_outputs)
             self.logger.debug(f"Task '{task.name}' will run: outputs missing: {outputs_list}")
@@ -1814,15 +1814,22 @@ class Executor:
                 paths.extend(output.values())
         return paths
 
-    def _check_outputs_missing(self, task: Task) -> list[str]:
+    def _check_outputs_missing(
+        self, task: Task, cached_state: "TaskState | None" = None
+    ) -> list[str]:
         """
         Check if any declared outputs are missing.
 
+        Also checks whether any individual file that was part of a glob-matched
+        output set on the previous run has since been deleted, even if other
+        files in the set still exist.
+
         Args:
         task: Task to check
+        cached_state: Previously saved state (used to detect deleted glob members)
 
         Returns:
-        List of output patterns that have no matching files
+        List of output patterns or file paths that are missing
         """
         if not task.outputs:
             return []
@@ -1842,6 +1849,17 @@ class Executor:
                 missing_patterns.append(pattern)
             else:
                 self.logger.trace(f"Output pattern '{pattern}' has {len(matches)} match(es): {[str(m.relative_to(base_path)) for m in matches]}")
+
+        # Also detect individual files that were previously output but are now deleted.
+        # This catches the case where a glob like "build/bin/*" previously matched
+        # [exe1, exe2] but now only matches [exe2] — exe1 is missing even though
+        # the pattern still has matches.
+        if cached_state and cached_state.output_state:
+            for file_path in cached_state.output_state:
+                file_path_obj = self.recipe.project_root / task.working_dir / file_path
+                if not file_path_obj.exists():
+                    self.logger.trace(f"Previously-tracked output file '{file_path}' is now missing")
+                    missing_patterns.append(file_path)
 
         return missing_patterns
 
