@@ -1770,6 +1770,7 @@ class Executor:
         # Expand glob patterns
         input_files = self._expand_globs(all_inputs, task.working_dir)
         self.logger.trace(f"Checking {len(input_files)} input file(s) for task '{task.name}'")
+        current_input_set = set(input_files)
 
         for file_path in input_files:
             # Regular file check
@@ -1790,6 +1791,18 @@ class Executor:
                 changed_files.append(file_path)
             else:
                 self.logger.trace(f"Input file '{file_path}' is unchanged (mtime: {current_mtime})")
+
+        # Also detect files that were previously tracked as inputs but are now deleted.
+        # Keys starting with '_' are special entries (runner hashes, docker image ids, etc.)
+        # and are not file paths — skip them.
+        for cached_path in cached_state.input_state:
+            if cached_path.startswith("_"):
+                continue
+            if cached_path not in current_input_set:
+                file_path_obj = self.recipe.project_root / task.working_dir / cached_path
+                if not file_path_obj.exists():
+                    self.logger.trace(f"Previously-tracked input file '{cached_path}' has been deleted")
+                    changed_files.append(cached_path)
 
         return changed_files
 
