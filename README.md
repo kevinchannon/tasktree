@@ -110,7 +110,7 @@ uv run tt dev-setup
 
 ## Development Workflow
 
-In order to test with the actual changes you're making, and not an installed version of tasktree, invoke `tt` as `uv run tt <task>`. This will use the repo version of the `tt` code, and not the installed version. For other projects on your machine that may use `tt` for things, then continue to just invoke directly, as normal. 
+In order to test with the actual changes you're making, and not an installed version of tasktree, invoke `tt <task>` as `uv run tt <task>`. This will use the repo version of the `tt` code, and not the installed version. For other projects on your machine that may use `tt` for things, then continue to just invoke directly, as normal. 
 
 ### Test Organization
 
