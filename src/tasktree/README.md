@@ -4,8 +4,37 @@
 
 A task automation tool that combines simple command execution with dependency tracking and incremental execution.
 
+## TL;DR;
+Use Tasktree to replace piles of build, test, release, etc. scripts with a single, declarative, self-documenting source of truth for project dev operations:
+```yaml
+tasks:
+  build:
+    desc: Compile binaries
+    outputs: [target/release/bin]
+    cmd: cargo build --release
+
+  package:
+     desc: Build installers
+     deps: [build]
+     outputs: [awesome.deb]
+     cmd: |
+        for bin in target/release/*; do
+            if [[ -x "$bin" && ! -d "$bin" ]]; then
+                install -Dm755 "$bin" "debian/awesome/usr/bin/$(basename "$bin")"
+            fi
+        done
+
+        dpkg-buildpackage -us -uc
+
+  test:
+    desc: Run tests
+    deps: [package]
+    inputs: [tests/**/*.py]
+    cmd: PYTHONPATH=src python3 -m pytest tests/ -v
+```
+
 ## Motivation
-In any project of even moderate size, various scripts inevitably come into being along the way. These scripts often must be run in a particular order, or at a particular time. For historical reasons, this almost certainly a problem if your project is developed in a Linux environment; in Windows, an IDE like Visual Studio may be taking care of a significant proportion of your build, packaging and deployment tasks. Then again, it may not...
+In any project of even moderate size, various scripts inevitably come into being along the way. These scripts often must be run in a particular order, or at a particular time. For historical reasons, this almost certainly a problem if your project is developed in a Linux environmen. In Windows, an IDE like Visual Studio may be taking care of a significant proportion of your build, packaging and deployment tasks. Then again, it may not...
 
 The various incantations that have to be issued to build, package, test and deploy a project can build up and then all of a sudden there's only a few people that remember which to invoke and when and then people start making helpful readme guides on what to do with the scripts and then those become out of date and start telling lies about things and so on.
 
@@ -62,12 +91,12 @@ The tasks you need to perform to deliver your project become summarised in an ex
 ```yaml
 tasks:
   build:
-    desc: Compile stuff
+    desc: Compile binaries
     outputs: [target/release/bin]
     cmd: cargo build --release
 
   package:
-     desc: build installers
+     desc: Build installers
      deps: [build]
      outputs: [awesome.deb]
      cmd: |
@@ -91,6 +120,14 @@ If you want to run the tests then:
 tt test
 ```
 Boom! Done. `build` will always run, because there's no sensible way to know what Cargo did. However, if Cargo decided that nothing needed to be done and didn't touch the binaries, then `package` will realize that and not do anything. Then `test` will just run with the new tests that you just wrote. If you then immediately run `test` again, then `test` will figure out that none of the dependencies did anything and that none of the test files have changed and then just _do nothing_ - as it should.
+
+If you want to know what dev things can be done in the project, then `tt --list` tells you that too:
+```
+$ tt --list
+  build         Compile binaries
+  package       Build installers
+  test          Run tests
+```
 
 This is a toy example, but you can image how it plays out on a more complex project.
 
@@ -308,8 +345,7 @@ runners:
   bash-strict:
     shell:
       cmd: bash
-      preamble: |             # Prepended to all commands
-        set -euo pipefail
+      preamble: set -euo pipefail  # Prepended to all commands
 
   python:
     shell:
@@ -318,8 +354,7 @@ runners:
   powershell:
     shell:
       cmd: powershell
-      preamble: |
-        $ErrorActionPreference = 'Stop'
+      preamble: $ErrorActionPreference = 'Stop'
 
 tasks:
   build:
@@ -335,8 +370,7 @@ tasks:
 
   windows-task:
     run_in: powershell
-    cmd: |
-      Compress-Archive -Path dist/* -DestinationPath package.zip
+    cmd: Compress-Archive -Path dist/* -DestinationPath package.zip
 ```
 
 **Shell field format:**
