@@ -212,6 +212,8 @@ tasks:
             self.assertTrue(exe2.exists(), "exe2 was not created on first run")
             self.assertTrue(bar_out.exists(), "bar-output.txt was not created on first run")
             bar_mtime_1 = bar_out.stat().st_mtime
+            exe1_mtime_1 = exe1.stat().st_mtime
+            exe2_mtime_1 = exe2.stat().st_mtime
 
             # Second run: foo runs (idempotent — outputs unchanged); bar skips.
             result = run_tasktree_cli(["bar"], cwd=project_root, timeout=120)
@@ -225,6 +227,16 @@ tasks:
                 bar_mtime_1,
                 bar_mtime_2,
                 "bar-output.txt was unexpectedly updated on second run (bar should have been skipped)",
+            )
+            self.assertEqual(
+                exe1.stat().st_mtime,
+                exe1_mtime_1,
+                "exe1 should not have been modified on second run (foo's command is idempotent)",
+            )
+            self.assertEqual(
+                exe2.stat().st_mtime,
+                exe2_mtime_1,
+                "exe2 should not have been modified on second run (foo's command is idempotent)",
             )
 
             # Delete one of foo's output files.
