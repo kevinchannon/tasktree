@@ -629,7 +629,7 @@ class Executor:
             )
 
         # Check if declared outputs are missing
-        missing_outputs = self._check_outputs_missing(task)
+        missing_outputs = self._check_outputs_missing(task, cached_state)
         if missing_outputs:
             outputs_list = ", ".join(missing_outputs)
             self.logger.debug(f"Task '{task.name}' will run: outputs missing: {outputs_list}")
@@ -1770,6 +1770,7 @@ class Executor:
         # Expand glob patterns
         input_files = self._expand_globs(all_inputs, task.working_dir)
         self.logger.trace(f"Checking {len(input_files)} input file(s) for task '{task.name}'")
+        current_input_set = set(input_files)
 
         for file_path in input_files:
             # Regular file check
@@ -1790,6 +1791,18 @@ class Executor:
                 changed_files.append(file_path)
             else:
                 self.logger.trace(f"Input file '{file_path}' is unchanged (mtime: {current_mtime})")
+
+        # Also detect files that were previously tracked as inputs but are now deleted.
+        # Keys starting with '_' are special entries (runner hashes, docker image ids, etc.)
+        # and are not file paths — skip them.
+        for cached_path in cached_state.input_state:
+            if cached_path.startswith("_"):
+                continue
+            if cached_path not in current_input_set:
+                file_path_obj = self.recipe.project_root / task.working_dir / cached_path
+                if not file_path_obj.exists():
+                    self.logger.trace(f"Previously-tracked input file '{cached_path}' has been deleted")
+                    changed_files.append(cached_path)
 
         return changed_files
 
@@ -1814,15 +1827,22 @@ class Executor:
                 paths.extend(output.values())
         return paths
 
-    def _check_outputs_missing(self, task: Task) -> list[str]:
+    def _check_outputs_missing(
+        self, task: Task, cached_state: "TaskState | None" = None
+    ) -> list[str]:
         """
         Check if any declared outputs are missing.
 
+        Also checks whether any individual file that was part of a glob-matched
+        output set on the previous run has since been deleted, even if other
+        files in the set still exist.
+
         Args:
         task: Task to check
+        cached_state: Previously saved state (used to detect deleted glob members)
 
         Returns:
-        List of output patterns that have no matching files
+        List of output patterns or file paths that are missing
         """
         if not task.outputs:
             return []
@@ -1842,6 +1862,17 @@ class Executor:
                 missing_patterns.append(pattern)
             else:
                 self.logger.trace(f"Output pattern '{pattern}' has {len(matches)} match(es): {[str(m.relative_to(base_path)) for m in matches]}")
+
+        # Also detect individual files that were previously output but are now deleted.
+        # This catches the case where a glob like "build/bin/*" previously matched
+        # [exe1, exe2] but now only matches [exe2] — exe1 is missing even though
+        # the pattern still has matches.
+        if cached_state and cached_state.output_state:
+            for file_path in cached_state.output_state:
+                file_path_obj = self.recipe.project_root / task.working_dir / file_path
+                if not file_path_obj.exists():
+                    self.logger.trace(f"Previously-tracked output file '{file_path}' is now missing")
+                    missing_patterns.append(file_path)
 
         return missing_patterns
 
@@ -1885,7 +1916,8 @@ class Executor:
                 if env.dockerfile:
                     input_state |= self._docker_inputs_to_modified_times(env_name, env)
 
-        new_state = TaskState(last_run=time.time(), input_state=input_state)
+        output_state = self._output_files_to_modified_times(task)
+        new_state = TaskState(last_run=time.time(), input_state=input_state, output_state=output_state)
         self.state.set(cache_key, new_state)
         self.state.save()
 
@@ -1916,6 +1948,24 @@ class Executor:
                 input_state[file_path] = file_path_obj.stat().st_mtime
 
         return input_state
+
+    def _output_files_to_modified_times(self, task: Task) -> dict[str, float]:
+        """
+        Expand output patterns to actual files and record their mtimes.
+
+        Used to detect when individual files within a glob-matched output set
+        are later deleted, even if other files in the set still exist.
+        """
+        output_paths = self._expand_output_paths(task)
+        output_files = self._expand_globs(output_paths, task.working_dir)
+
+        output_state = {}
+        for file_path in output_files:
+            file_path_obj = self.recipe.project_root / task.working_dir / file_path
+            if file_path_obj.exists():
+                output_state[file_path] = file_path_obj.stat().st_mtime
+
+        return output_state
 
     def _docker_inputs_to_modified_times(
         self, env_name: str, env: Runner
