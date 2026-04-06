@@ -172,6 +172,8 @@ A task runs if:
 
 ### Docker Integration
 
+> **⚠️ Not ready for release**: Docker runner support is under active development and is not yet ready for end users. Do not document or expose this feature in user-facing documentation.
+
 - Builds images from Dockerfiles
 - Mounts state file at `/tasktree-internal/.tasktree-state`
 - User mapping (run as host UID:GID by default)

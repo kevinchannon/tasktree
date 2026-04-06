@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from . import is_docker_available, run_tasktree_cli
+from . import run_tasktree_cli
 
 EXAMPLE_DIR = Path(__file__).parent.parent.parent / "example"
 
@@ -158,7 +158,7 @@ class TestExampleRecipe(unittest.TestCase):
             archive = project_root / "archive.tar.gz"
             self.assertTrue(archive.exists(), "archive.tar.gz not created by package task")
 
-    @unittest.skipUnless(is_docker_available(), "Docker not available")
+    @unittest.skip("Docker runner tasks removed from example recipe; Docker runner not yet ready for release (see issue #193)")
     def test_docker_logs_task_creates_timestamped_log_directory(self):
         """docker-logs task shows {{ var.* }} substitution in Docker volume mount path.
 
@@ -187,7 +187,7 @@ class TestExampleRecipe(unittest.TestCase):
             )
             self.assertIn("Logging from Docker", log_files[0].read_text())
 
-    @unittest.skipUnless(is_docker_available(), "Docker not available")
+    @unittest.skip("Docker runner tasks removed from example recipe; Docker runner not yet ready for release (see issue #193)")
     def test_docker_echo_task_creates_output(self):
         """docker-echo task creates an output file via a Docker container."""
         with TemporaryDirectory() as tmpdir:
