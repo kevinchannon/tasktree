@@ -73,7 +73,7 @@ The schema validates:
 - **Named inputs/outputs**: Supports both anonymous (strings) and named (objects) format
 - **Self-references**: Named inputs/outputs can be referenced with `{{ self.inputs.name }}` and `{{ self.outputs.name }}`
 - **Dependency outputs**: Named outputs can be referenced with `{{ dep.task.outputs.name }}`
-- **Runner requirements**: Runners must specify a `shell` (or `dockerfile` for Docker runners)
+- **Runner requirements**: Runners must specify a `shell`
 
 ## Example
 

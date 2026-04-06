@@ -12,24 +12,6 @@ runners:
     shell:
       cmd: ["cmd.exe"]
 
-  # Docker runner: uses an Alpine image for containerised tasks
-  alpine:
-    dockerfile: ./Dockerfile
-    context: .
-    volumes:
-      - ./output:/workspace/output
-
-  # Runner that mounts a timestamped log directory into the container.
-  # {{ var.log_dir }} is substituted before Docker starts, so each invocation
-  # writes to a unique directory on the host — variable substitution works in
-  # any runner field, including volume mount paths.
-  alpine-with-logs:
-    dockerfile: ./Dockerfile
-    context: .
-    volumes:
-      - ./output:/workspace/output
-      - ./logs/{{ var.log_dir }}:/workspace/logs
-
 variables:
   # Value from environment variable with fallback default
   log_level: { env: LOG_LEVEL, default: "info" }
@@ -37,10 +19,6 @@ variables:
   build_number: { eval: "echo -n $(( $(cat build_num.txt) + 1 ))" }
   # Value read directly from a file
   project_name: { read: project-name.txt }
-  # Timestamp evaluated at runtime; used as the host-side log directory name.
-  # Demonstrates that {{ var.* }} substitution works in runner fields such as
-  # Docker volume mount paths.
-  log_dir: { eval: "date +%Y%m%d_%H%M%S" }
 
 imports:
   - file: tasks/utils.yaml
@@ -101,39 +79,6 @@ tasks:
         echo "Result file: {{ dep.transform.outputs.result }}"
         echo "Characters: $(wc -c < {{ dep.transform.outputs.result }})"
       } > processed/summary.txt
-
-  prepare-output:
-    desc: Create the output directory on the host (required before Docker volume mounts)
-    outputs:
-      - dir_marker: output/.ready
-    cmd: |
-      mkdir -p output
-      touch output/.ready
-
-  docker-echo:
-    desc: Run a command inside an Alpine Docker container
-    deps: [prepare-output]
-    run_in: alpine
-    outputs: [output/docker-result.txt]
-    cmd: |
-      echo "Hello from Docker! Project={{ var.project_name }} Build={{ var.build_number }}" \
-        > /workspace/output/docker-result.txt
-
-  prepare-logs:
-    desc: Create the timestamped log directory on the host before Docker mounts it
-    outputs:
-      - dir_marker: logs/{{ var.log_dir }}/.ready
-    cmd: |
-      mkdir -p logs/{{ var.log_dir }}
-      touch logs/{{ var.log_dir }}/.ready
-
-  docker-logs:
-    desc: Write a log file from inside Docker, demonstrating var.* substitution in runner volume mount path
-    deps: [prepare-logs]
-    run_in: alpine-with-logs
-    cmd: |
-      mkdir -p /workspace/logs
-      echo "Logging from Docker, log_dir={{ var.log_dir }}" > /workspace/logs/run.log
 
   clean:
     desc: Remove all generated files
