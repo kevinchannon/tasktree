@@ -133,6 +133,66 @@ class TestGetImplicitInputs(unittest.TestCase):
         implicit = get_implicit_inputs(recipe, tasks["build"])
         self.assertEqual(implicit, ["src/**/*.rs"])
 
+    def test_inherit_templated_outputs_from_parametrised_dependency(self):
+        """
+        Outputs that contain {{ arg.* }} templates must be rendered with the
+        dependency's resolved args, not returned as raw template strings.
+
+        This is the regression case: unit-test / integration-test depend on
+        build which declares outputs like "out/build/{{ arg.config }}/binary".
+        Without rendering, get_implicit_inputs returns the literal template
+        string, which never matches any file, so the test tasks appear
+        up-to-date even after a rebuild.
+        """
+        tasks = {
+            "build": Task(
+                name="build",
+                cmd="cmake --build out/build/{{ arg.config }}",
+                args=[{"config": {"choices": ["debug", "release"], "default": "debug"}}],
+                outputs=["out/build/{{ arg.config }}/warpspeed-tests"],
+            ),
+            "unit-test": Task(
+                name="unit-test",
+                cmd="ctest --test-dir out/build/{{ arg.config }}",
+                args=[{"config": {"choices": ["debug", "release"], "default": "debug"}}],
+                deps=[{"build": ["{{ arg.config }}"]}],
+                outputs=["out/evidence/unit_test_result.xml"],
+            ),
+        }
+        recipe = Recipe(
+            tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml")
+        )
+
+        implicit = get_implicit_inputs(recipe, tasks["unit-test"], {"config": "debug"})
+        self.assertEqual(implicit, ["out/build/debug/warpspeed-tests"])
+
+    def test_inherit_templated_outputs_uses_release_config(self):
+        """
+        The rendered path must reflect the actual arg value passed, not the
+        default.  Running with config=release should yield the release path.
+        """
+        tasks = {
+            "build": Task(
+                name="build",
+                cmd="cmake --build out/build/{{ arg.config }}",
+                args=[{"config": {"choices": ["debug", "release"], "default": "debug"}}],
+                outputs=["out/build/{{ arg.config }}/warpspeed-tests"],
+            ),
+            "unit-test": Task(
+                name="unit-test",
+                cmd="ctest --test-dir out/build/{{ arg.config }}",
+                args=[{"config": {"choices": ["debug", "release"], "default": "debug"}}],
+                deps=[{"build": ["{{ arg.config }}"]}],
+                outputs=["out/evidence/unit_test_result.xml"],
+            ),
+        }
+        recipe = Recipe(
+            tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml")
+        )
+
+        implicit = get_implicit_inputs(recipe, tasks["unit-test"], {"config": "release"})
+        self.assertEqual(implicit, ["out/build/release/warpspeed-tests"])
+
     def test_docker_runner_task_inherits_dependency_outputs(self):
         """
         Test that a Docker-runner task inherits dependency outputs as implicit inputs.

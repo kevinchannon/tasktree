@@ -10,9 +10,10 @@ from tasktree.parser import (
     Recipe,
     Task,
     DependencyInvocation,
+    parse_arg_spec,
     parse_dependency_spec,
 )
-from tasktree.substitution import substitute_dependency_args
+from tasktree.substitution import substitute_dependency_args, substitute_arguments
 
 
 def _get_exported_arg_names(task: Task) -> set[str]:
@@ -506,7 +507,9 @@ def resolve_self_references(
                                 )
 
 
-def get_implicit_inputs(recipe: Recipe, task: Task) -> list[str]:
+def get_implicit_inputs(
+    recipe: Recipe, task: Task, task_args: dict[str, Any] | None = None
+) -> list[str]:
     """
     Get implicit inputs for a task based on its dependencies.
 
@@ -518,33 +521,63 @@ def get_implicit_inputs(recipe: Recipe, task: Task) -> list[str]:
     - .dockerignore (if present)
     - Special markers for context directory and base image digests
 
+    Output paths that contain {{ arg.* }} templates are rendered using the
+    resolved arguments of the dependency invocation, so that parameterised
+    tasks (e.g. build with config=debug) produce the correct concrete paths.
+
     Args:
     recipe: Parsed recipe containing all tasks
     task: Task to get implicit inputs for
+    task_args: Argument values for the current task execution (used to
+               resolve {{ arg.* }} templates in dependency arg specs)
 
     Returns:
     List of glob patterns for implicit inputs, including Docker-specific markers
     """
     implicit_inputs = []
+    parent_args = task_args or {}
+    parent_exported_args = _get_exported_arg_names(task)
 
     # Inherit from dependencies
     for dep_spec in task.deps:
-        # Parse dependency to get task name (ignore args for input inheritance)
-        dep_inv = parse_dependency_spec(dep_spec, recipe)
+        # Resolve the dependency invocation, substituting any {{ arg.* }}
+        # templates in the dep's argument values from the parent task's args.
+        dep_inv = resolve_dependency_invocation(
+            dep_spec,
+            parent_task_name=task.name,
+            parent_args=parent_args,
+            parent_exported_args=parent_exported_args,
+            recipe=recipe,
+        )
         dep_task = recipe.tasks.get(dep_inv.task_name)
         if dep_task is None:
             continue
 
-        # If dependency has outputs, inherit them
+        # Build the args dict used to render output path templates.
+        # dep_inv.args holds the explicitly passed args; fill in defaults
+        # for any arg the dep task declares but the caller didn't override.
+        dep_args: dict[str, Any] = {}
+        if dep_task.args:
+            for arg_spec in dep_task.args:
+                parsed = parse_arg_spec(arg_spec)
+                if parsed.default is not None:
+                    dep_args[parsed.name] = parsed.default
+        if dep_inv.args:
+            dep_args.update(dep_inv.args)
+
+        def _render(path: str) -> str:
+            try:
+                return substitute_arguments(path, dep_args)
+            except (ValueError, KeyError):
+                return path
+
+        # If dependency has outputs, inherit them (with templates rendered)
         if dep_task.outputs:
-            # Extract paths from both named and anonymous outputs
             for output in dep_task.outputs:
                 if isinstance(output, str):
-                    # Anonymous output: just the path
-                    implicit_inputs.append(output)
+                    implicit_inputs.append(_render(output))
                 elif isinstance(output, dict):
-                    # Named output: extract path values
-                    implicit_inputs.extend(output.values())
+                    implicit_inputs.extend(_render(v) for v in output.values())
         # If dependency has no outputs, inherit its inputs
         elif dep_task.inputs:
             implicit_inputs.extend(dep_task.inputs)

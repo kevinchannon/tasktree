@@ -579,7 +579,7 @@ class Executor:
 
         # Check if task has no inputs (always runs)
         # This check happens early to match original behavior
-        all_inputs = self._get_all_inputs(task)
+        all_inputs = self._get_all_inputs(task, args_dict)
         if not all_inputs:
             cached_state = self.state.get(cache_key)
             self.logger.debug(f"Task '{task.name}' will run: task has no inputs (always runs)")
@@ -1462,12 +1462,14 @@ class Executor:
 
         return substitute_environment(text)
 
-    def _get_all_inputs(self, task: Task) -> list[str]:
+    def _get_all_inputs(self, task: Task, args_dict: dict[str, Any] | None = None) -> list[str]:
         """
         Get all inputs for a task (explicit + implicit from dependencies).
 
         Args:
         task: Task to get inputs for
+        args_dict: Argument values for this task execution, used to render
+                   {{ arg.* }} templates in dependency output paths
 
         Returns:
         List of input glob patterns
@@ -1481,7 +1483,7 @@ class Executor:
                 # Named input - extract the path value(s)
                 all_inputs.extend(inp.values())
 
-        implicit_inputs = get_implicit_inputs(self.recipe, task)
+        implicit_inputs = get_implicit_inputs(self.recipe, task, args_dict)
         all_inputs.extend(implicit_inputs)
         return all_inputs
 
@@ -1906,7 +1908,7 @@ class Executor:
         Update state after task execution.
         """
         cache_key = self._cache_key(task, args_dict)
-        input_state = self._input_files_to_modified_times(task)
+        input_state = self._input_files_to_modified_times(task, args_dict)
 
         env_name = self._get_effective_runner_name(task)
         if env_name:
@@ -1936,10 +1938,10 @@ class Executor:
         args_hash = hash_args(args_dict) if args_dict else None
         return make_cache_key(task_hash, args_hash)
 
-    def _input_files_to_modified_times(self, task: Task) -> dict[str, float]:
+    def _input_files_to_modified_times(self, task: Task, args_dict: dict[str, Any] | None = None) -> dict[str, float]:
         """
         """
-        input_files = self._expand_globs(self._get_all_inputs(task), task.working_dir)
+        input_files = self._expand_globs(self._get_all_inputs(task, args_dict), task.working_dir)
 
         input_state = {}
         for file_path in input_files:
