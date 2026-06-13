@@ -336,6 +336,123 @@ tasks:
       -L lib -lm
 ```
 
+### Template Substitution
+
+Recipes are rendered with the [Jinja2](https://jinja.palletsprojects.com/) templating engine before commands run. The `{{ ... }}` placeholders you have already seen are Jinja2 expressions, and Task Tree exposes its values through a set of namespaces:
+
+| Namespace | Refers to | Documented in |
+|-----------|-----------|---------------|
+| `{{ var.* }}` | Recipe variables | [Environment Variables](#environment-variables) / variables section |
+| `{{ arg.* }}` | Task arguments | [Parameterised Tasks](#parameterised-tasks) |
+| `{{ env.* }}` | Environment variables | [Environment Variables](#environment-variables) |
+| `{{ tt.* }}` | Built-in variables | [Built-in Variables](#built-in-variables) |
+| `{{ dep.<task>.outputs.<name> }}` | A dependency's named outputs | [Dependency Output References](#dependency-output-references) |
+| `{{ self.inputs.* }}` / `{{ self.outputs.* }}` | The task's own inputs/outputs | [Self-References](#self-references) |
+
+Because the full Jinja2 engine is used, the usual Jinja2 features (filters, conditionals, loops, etc.) are also available inside any templated field. If a placeholder cannot be resolved (an undefined variable, a missing dependency output, and so on), Task Tree reports an actionable error naming the task and the missing value — you will not see a raw Jinja2 traceback.
+
+#### Gotcha: literal `{{ ... }}` in commands
+
+Since the whole command is treated as a Jinja2 template, **any** `{{ ... }}` is interpreted by Jinja2 — even when you did not intend it as a Task Tree placeholder. This bites a few common cases:
+
+- **`awk` / `sed` programs**: `awk '{{print $1}}'`
+- **GitHub Actions expressions**: `echo ${{ secrets.TOKEN }}`
+- **Other templating systems** (Go templates, Helm, Mustache, etc.): `{{ .Values.image }}`
+
+Left as-is, Jinja2 will try to evaluate these and fail with an "undefined variable" error (or a "malformed template" error).
+
+**Workarounds:**
+
+1. Wrap the literal text in a `{% raw %}` … `{% endraw %}` block (best for larger snippets):
+
+   ```yaml
+   tasks:
+     top-process:
+       cmd: ps aux | awk '{% raw %}{print $1}{% endraw %}'
+
+     deploy:
+       cmd: |
+         echo "Deploying {{ arg.environment }}"
+         gh secret set TOKEN --body {% raw %}"${{ secrets.TOKEN }}"{% endraw %}
+   ```
+
+2. Emit the braces as Jinja2 string literals (handy for a single occurrence):
+
+   ```yaml
+   tasks:
+     show:
+       # renders to: echo {{ literal }}
+       cmd: echo {{ '{{' }} literal {{ '}}' }}
+   ```
+
+Note that `{% raw %}` only protects the text *between* the tags — Task Tree placeholders outside the block are still substituted normally, so you can mix both freely within one command.
+
+#### Putting Jinja2 to work
+
+Having the full engine available means recipes can adapt values and shape commands without dropping into shell gymnastics. A few patterns that come up often:
+
+**Normalising argument case.** Many tools are picky about the case of their inputs — an environment name needs to be lowercase in a URL but uppercase as an environment-variable prefix. Filter the argument instead of forcing the caller to get it exactly right:
+
+```yaml
+tasks:
+  deploy:
+    args:
+      - name: environment
+        choices: [dev, staging, prod]
+    cmd: |
+      # caller can pass --environment Prod, PROD, prod, ...
+      aws s3 sync ./dist s3://{{ arg.environment | lower }}-assets/
+      export {{ arg.environment | upper }}_DEPLOYED_AT={{ tt.timestamp }}
+      ./notify.sh "Deployed to {{ arg.environment | capitalize }}"
+```
+
+**Sensible fallbacks.** Use the `default` filter to supply a value when an argument or variable is empty, instead of branching in the shell:
+
+```yaml
+tasks:
+  build-image:
+    args: [tag]
+    # an empty tag falls back to "latest" (the `true` treats "" as missing)
+    cmd: docker build -t myapp:{{ arg.tag | default("latest", true) }} .
+```
+
+**Reshaping values.** Chain filters to massage a value into the form a tool expects:
+
+```yaml
+tasks:
+  k8s-namespace:
+    args: [feature_branch]
+    # "Feature/New_Login" -> "feature-new-login" (a valid k8s namespace)
+    cmd: kubectl create namespace {{ arg.feature_branch | lower | replace("/", "-") | replace("_", "-") }}
+```
+
+**Conditional commands.** Branch on an argument with `{% if %}` to keep one task instead of several near-duplicates:
+
+```yaml
+tasks:
+  test:
+    args:
+      - name: coverage
+        type: bool
+        default: false
+    cmd: |
+      pytest tests/ {% if arg.coverage %}--cov=src --cov-report=html{% endif %}
+```
+
+**Generating repetitive command sequences.** A `{% for %}` loop expands a list into many commands:
+
+```yaml
+variables:
+  services: "auth,billing,gateway"
+
+tasks:
+  restart-all:
+    cmd: |
+      {% for svc in var.services.split(",") %}
+      systemctl restart {{ svc }}.service
+      {% endfor %}
+```
+
 ### Execution Runners
 
 Configure custom shell runners for task execution. Use the `preamble` field inside `shell` to add initialization code to all commands:

@@ -54,6 +54,18 @@ class _DepNamespace(dict):
         )
 
 
+class _EnvNamespace(dict):
+    """
+    The ``env`` namespace.
+
+    Raises an actionable error when a template references an environment variable
+    that is not set, matching the wording users rely on.
+    """
+
+    def __missing__(self, key: str) -> Any:
+        raise ValueError(f"Environment variable '{key}' is not set")
+
+
 class _FieldNamespace:
     """
     The ``self.inputs`` or ``self.outputs`` namespace for the current task.
@@ -172,7 +184,7 @@ def build_task_config(
     A context dict with ``var``, ``arg``, ``env``, ``tt``, ``dep`` and ``self``
     keys suitable for passing to ``rendering.render``.
     """
-    env_snapshot = dict(env) if env is not None else dict(os.environ)
+    env_snapshot = _EnvNamespace(env if env is not None else os.environ)
 
     dep_namespace = _DepNamespace(
         {

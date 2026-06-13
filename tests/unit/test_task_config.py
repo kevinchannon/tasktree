@@ -32,6 +32,14 @@ class TestBuildTaskConfigNamespaces(unittest.TestCase):
         # PATH is reliably present in the test environment
         self.assertIn("PATH", config["env"])
 
+    def test_unset_env_var_raises_actionable_error(self):
+        config = build_task_config(env={})
+        with self.assertRaises(ValueError) as ctx:
+            render("{{ env.NOPE_XYZ }}", config)
+        message = str(ctx.exception)
+        self.assertIn("NOPE_XYZ", message)
+        self.assertIn("not set", message)
+
     def test_all_namespaces_present_even_when_empty(self):
         config = build_task_config()
         for key in ("var", "arg", "env", "tt"):

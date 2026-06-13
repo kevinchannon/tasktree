@@ -1003,11 +1003,9 @@ class Executor:
         # Resolve working directory
         # Validate that working_dir doesn't contain {{ tt.working_dir }} (circular dependency)
         self._validate_no_working_dir_circular_ref(task.working_dir)
-        working_dir_str = self._substitute_builtin(task.working_dir, early_builtin_vars)
-        working_dir_str = self._substitute_args(
-            working_dir_str, regular_args, exported_args
+        working_dir_str = self._render_field(
+            task.working_dir, early_builtin_vars, regular_args, exported_args, task.name
         )
-        working_dir_str = self._substitute_env(working_dir_str)
         working_dir = self.recipe.project_root / working_dir_str
 
         # Collect all built-in variables (including tt.working_dir now that it's resolved)
@@ -1015,10 +1013,12 @@ class Executor:
             task, working_dir, task_start_time
         )
 
-        # Substitute built-in variables, arguments, and environment variables in command
-        cmd = self._substitute_builtin(task.cmd, builtin_vars)
-        cmd = self._substitute_args(cmd, regular_args, exported_args)
-        cmd = self._substitute_env(cmd)
+        # Render built-in variables, arguments, and environment variables in command.
+        # Variables (var.*), dependency outputs (dep.*) and self-references (self.*)
+        # were already resolved in earlier phases, so only tt/arg/env remain here.
+        cmd = self._render_field(
+            task.cmd, builtin_vars, regular_args, exported_args, task.name
+        )
 
         # Check if task uses Docker environment
         env_name = self._get_effective_runner_name(task)
@@ -1395,6 +1395,44 @@ class Executor:
                 "This creates a circular dependency (working_dir cannot reference itself).\n"
                 "Other built-in variables like {{ tt.task_name }} or {{ tt.timestamp }} are allowed."
             )
+
+    @staticmethod
+    def _render_field(
+        text: str,
+        builtin_vars: dict[str, str],
+        regular_args: dict[str, Any],
+        exported_args: set[str] | None,
+        task_name: str,
+    ) -> str:
+        """
+        Render execution-time placeholders (tt.*, arg.*, env.*) in a field.
+
+        Variables (var.*), dependency outputs (dep.*) and self-references (self.*)
+        are resolved in earlier phases, so the only namespaces that remain at
+        execution time are built-ins, arguments and the environment.
+
+        Args:
+        text: Field text containing remaining {{ ... }} placeholders
+        builtin_vars: Built-in variable values (the tt namespace)
+        regular_args: Non-exported argument values (the arg namespace)
+        exported_args: Exported argument names (referencing one is an error)
+        task_name: Current task name, used in error messages
+
+        Returns:
+        The rendered field text
+
+        Raises:
+        ValueError: If a placeholder cannot be resolved or the template is malformed
+        """
+        from tasktree.rendering import render
+        from tasktree.task_config import build_task_config
+
+        config = build_task_config(
+            args=regular_args,
+            exported_args=exported_args,
+            builtins=builtin_vars,
+        )
+        return render(text, config, task_name=task_name)
 
     @staticmethod
     def _substitute_builtin(text: str, builtin_vars: dict[str, str]) -> str:
