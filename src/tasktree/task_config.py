@@ -12,7 +12,7 @@ tested independently of resolution and rendering.
 """
 
 import os
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 
@@ -54,6 +54,62 @@ class _DepNamespace(dict):
         )
 
 
+class _FieldNamespace:
+    """
+    The ``self.inputs`` or ``self.outputs`` namespace for the current task.
+
+    Supports both named access (``{{ self.inputs.src }}``) via the named map and
+    positional access (``{{ self.inputs.0 }}``) via the indexed list, which
+    includes anonymous entries in YAML declaration order.
+    """
+
+    def __init__(
+        self,
+        task_name: str,
+        field: str,
+        named: Mapping[str, str],
+        indexed: Sequence[str],
+    ):
+        self._task_name = task_name
+        self._field = field  # "inputs" or "outputs"
+        self._named = dict(named)
+        self._indexed = list(indexed)
+
+    @property
+    def _singular(self) -> str:
+        return "input" if self._field == "inputs" else "output"
+
+    def __getitem__(self, key: Any) -> str:
+        if isinstance(key, int):
+            return self._positional(key)
+        return self._by_name(str(key))
+
+    def _positional(self, index: int) -> str:
+        if not self._indexed:
+            raise ValueError(
+                f"Task '{self._task_name}' references {self._singular} index "
+                f"'{index}' but has no {self._field} defined"
+            )
+        if index >= len(self._indexed):
+            max_index = len(self._indexed) - 1
+            raise ValueError(
+                f"Task '{self._task_name}' references {self._singular} index "
+                f"'{index}' but only has {len(self._indexed)} {self._field} "
+                f"(indices 0-{max_index})"
+            )
+        return self._indexed[index]
+
+    def _by_name(self, name: str) -> str:
+        if name not in self._named:
+            available = ", ".join(self._named) if self._named else "(none)"
+            raise ValueError(
+                f"Task '{self._task_name}' references {self._singular} '{name}' "
+                f"but has no {self._singular} named '{name}'.\n"
+                f"Available named {self._field}: {available}"
+            )
+        return self._named[name]
+
+
 class _ArgNamespace(dict):
     """
     The ``arg`` namespace.
@@ -87,6 +143,11 @@ def build_task_config(
     builtins: Mapping[str, str] | None = None,
     env: Mapping[str, str] | None = None,
     dep_outputs: Mapping[str, Mapping[str, str]] | None = None,
+    task_name: str = "",
+    inputs_named: Mapping[str, str] | None = None,
+    inputs_indexed: Sequence[str] | None = None,
+    outputs_named: Mapping[str, str] | None = None,
+    outputs_indexed: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     """
     Assemble the rendering context for a single task.
@@ -101,10 +162,15 @@ def build_task_config(
     of ``os.environ``
     dep_outputs: Named outputs of dependency tasks, keyed by task name then
     output name (the ``dep`` namespace)
+    task_name: Name of the current task, used in ``self.*`` error messages
+    inputs_named: Named inputs of the current task (``self.inputs.<name>``)
+    inputs_indexed: All inputs in YAML order (``self.inputs.<index>``)
+    outputs_named: Named outputs of the current task (``self.outputs.<name>``)
+    outputs_indexed: All outputs in YAML order (``self.outputs.<index>``)
 
     Returns:
-    A context dict with ``var``, ``arg``, ``env``, ``tt`` and ``dep`` keys
-    suitable for passing to ``rendering.render``.
+    A context dict with ``var``, ``arg``, ``env``, ``tt``, ``dep`` and ``self``
+    keys suitable for passing to ``rendering.render``.
     """
     env_snapshot = dict(env) if env is not None else dict(os.environ)
 
@@ -115,10 +181,20 @@ def build_task_config(
         }
     )
 
+    self_namespace = {
+        "inputs": _FieldNamespace(
+            task_name, "inputs", inputs_named or {}, inputs_indexed or []
+        ),
+        "outputs": _FieldNamespace(
+            task_name, "outputs", outputs_named or {}, outputs_indexed or []
+        ),
+    }
+
     return {
         "var": dict(variables or {}),
         "arg": _ArgNamespace(args or {}, exported_args or set()),
         "env": env_snapshot,
         "tt": dict(builtins or {}),
         "dep": dep_namespace,
+        "self": self_namespace,
     }

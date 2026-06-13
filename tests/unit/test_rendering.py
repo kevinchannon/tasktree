@@ -61,6 +61,22 @@ class TestRenderValueCoercion(unittest.TestCase):
         self.assertIsNone(render(None, {}))
 
 
+class TestSelfReservedWordTranslation(unittest.TestCase):
+    """`self` is reserved in Jinja2 and is transparently aliased."""
+
+    def test_self_namespace_renders_despite_reserved_word(self):
+        context = {"self": {"inputs": {"src": "main.c"}}}
+        self.assertEqual(render("{{ self.inputs.src }}", context), "main.c")
+
+    def test_self_positional_renders(self):
+        context = {"self": {"inputs": ["a", "b"]}}
+        self.assertEqual(render("{{ self.inputs.1 }}", context), "b")
+
+    def test_literal_word_self_outside_template_is_untouched(self):
+        # "self." appearing in plain command text must not be rewritten
+        self.assertEqual(render("echo self.test", {}), "echo self.test")
+
+
 class TestRenderErrorTranslation(unittest.TestCase):
     """Jinja2 errors are translated into actionable Tasktree messages."""
 

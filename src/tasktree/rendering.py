@@ -9,6 +9,7 @@ Jinja2 errors are intercepted and translated into actionable, Tasktree-flavoured
 messages. Users should never see a raw Jinja2 traceback.
 """
 
+import re
 from typing import Any
 
 from jinja2 import (
@@ -44,6 +45,34 @@ def _build_environment() -> Environment:
 
 _ENVIRONMENT = _build_environment()
 
+# Jinja2 reserves ``self`` (it refers to the template's own block namespace), so
+# the recipe-facing ``{{ self.inputs.x }}`` syntax must be rewritten to a
+# non-reserved name before rendering. This rewrite is confined to this module;
+# the rest of Tasktree (and the config object) keeps the logical name ``self``.
+_RESERVED_ALIAS = "this"
+_TEMPLATE_BLOCK = re.compile(r"\{\{.*?}}", re.DOTALL)
+_SELF_NAMESPACE = re.compile(r"\bself\.")
+
+
+def _translate_reserved(text: str) -> str:
+    """
+    Rewrite ``self.`` to the non-reserved alias for Jinja2.
+
+    Only ``{{ ... }}`` expression blocks are rewritten, so a literal ``self.``
+    elsewhere in command text is left untouched.
+    """
+    return _TEMPLATE_BLOCK.sub(
+        lambda block: _SELF_NAMESPACE.sub(f"{_RESERVED_ALIAS}.", block.group(0)),
+        text,
+    )
+
+
+def _alias_reserved(context: dict[str, Any]) -> dict[str, Any]:
+    """Expose the ``self`` namespace under the non-reserved alias."""
+    if "self" not in context:
+        return context
+    return {**context, _RESERVED_ALIAS: context["self"]}
+
 
 def render(text: str, context: dict[str, Any], task_name: str | None = None) -> str:
     """
@@ -65,6 +94,9 @@ def render(text: str, context: dict[str, Any], task_name: str | None = None) -> 
         return text
 
     where = f" in task '{task_name}'" if task_name else ""
+
+    text = _translate_reserved(text)
+    context = _alias_reserved(context)
 
     try:
         template = _ENVIRONMENT.from_string(text)
