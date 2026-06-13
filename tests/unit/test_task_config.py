@@ -84,6 +84,13 @@ class TestDepNamespace(unittest.TestCase):
         self.assertIn("nope", message)
         self.assertIn("bundle", message)  # lists available outputs
 
+    def test_namespaced_dependency_renders(self):
+        config = build_task_config(
+            dep_outputs={"build.compile": {"bundle": "dist/app.js"}}
+        )
+        result = render("{{ dep.build.compile.outputs.bundle }}", config)
+        self.assertEqual(result, "dist/app.js")
+
     def test_multiple_dependencies(self):
         config = build_task_config(
             dep_outputs={

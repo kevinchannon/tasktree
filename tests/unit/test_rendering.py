@@ -77,6 +77,29 @@ class TestSelfReservedWordTranslation(unittest.TestCase):
         self.assertEqual(render("echo self.test", {}), "echo self.test")
 
 
+class TestNamespacedDepTranslation(unittest.TestCase):
+    """Dotted (namespaced) dependency names render via subscript rewrite."""
+
+    def test_simple_dep_name_still_renders(self):
+        context = {"dep": {"build": {"outputs": {"x": "1"}}}}
+        self.assertEqual(render("{{ dep.build.outputs.x }}", context), "1")
+
+    def test_namespaced_dep_name_renders(self):
+        context = {"dep": {"build.compile": {"outputs": {"bundle": "app.js"}}}}
+        self.assertEqual(
+            render("{{ dep.build.compile.outputs.bundle }}", context), "app.js"
+        )
+
+    def test_deeply_namespaced_dep_name_renders(self):
+        context = {"dep": {"a.b.c": {"outputs": {"out": "/p"}}}}
+        self.assertEqual(render("{{ dep.a.b.c.outputs.out }}", context), "/p")
+
+    def test_literal_dep_text_outside_template_untouched(self):
+        self.assertEqual(
+            render("echo dep.build.outputs.x", {}), "echo dep.build.outputs.x"
+        )
+
+
 class TestRenderErrorTranslation(unittest.TestCase):
     """Jinja2 errors are translated into actionable Tasktree messages."""
 

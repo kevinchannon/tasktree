@@ -53,18 +53,30 @@ _RESERVED_ALIAS = "this"
 _TEMPLATE_BLOCK = re.compile(r"\{\{.*?}}", re.DOTALL)
 _SELF_NAMESPACE = re.compile(r"\bself\.")
 
+# Dependency task names may be namespaced with dots (e.g. ``build.compile``),
+# which Jinja2 cannot dot-access. Rewrite ``dep.<name>.outputs.<output>`` to
+# subscript form ``dep["<name>"].outputs.<output>`` so the full dotted name is
+# treated as a single key. This also covers simple (un-namespaced) names.
+_DEP_OUTPUT = re.compile(
+    r"\bdep\.([a-zA-Z_][a-zA-Z0-9_.-]*)\.outputs\.([a-zA-Z_][a-zA-Z0-9_]*)"
+)
+
+
+def _translate_block(block: str) -> str:
+    """Apply all reserved-syntax rewrites within a single ``{{ ... }}`` block."""
+    block = _SELF_NAMESPACE.sub(f"{_RESERVED_ALIAS}.", block)
+    block = _DEP_OUTPUT.sub(r'dep["\1"].outputs.\2', block)
+    return block
+
 
 def _translate_reserved(text: str) -> str:
     """
-    Rewrite ``self.`` to the non-reserved alias for Jinja2.
+    Rewrite recipe-facing syntax into valid Jinja2.
 
-    Only ``{{ ... }}`` expression blocks are rewritten, so a literal ``self.``
-    elsewhere in command text is left untouched.
+    Only ``{{ ... }}`` expression blocks are rewritten, so literal text elsewhere
+    in a command is left untouched.
     """
-    return _TEMPLATE_BLOCK.sub(
-        lambda block: _SELF_NAMESPACE.sub(f"{_RESERVED_ALIAS}.", block.group(0)),
-        text,
-    )
+    return _TEMPLATE_BLOCK.sub(lambda m: _translate_block(m.group(0)), text)
 
 
 def _alias_reserved(context: dict[str, Any]) -> dict[str, Any]:
