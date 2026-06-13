@@ -1,0 +1,90 @@
+"""
+Jinja2-based template rendering for task definitions.
+
+This module renders a task definition field (a string template) against a
+single context object that holds all variable namespaces (var, arg, env, tt,
+dep, self). It replaces the hand-rolled regex substitution in substitution.py.
+
+Jinja2 errors are intercepted and translated into actionable, Tasktree-flavoured
+messages. Users should never see a raw Jinja2 traceback.
+"""
+
+from typing import Any
+
+from jinja2 import (
+    Environment,
+    StrictUndefined,
+    TemplateError,
+    TemplateSyntaxError,
+    UndefinedError,
+)
+
+
+def _finalize(value: Any) -> Any:
+    """
+    Coerce rendered values to Tasktree's string conventions.
+
+    Booleans render as lowercase ``true``/``false`` to match YAML/shell
+    conventions (Jinja2's default would be ``True``/``False``).
+    """
+    if isinstance(value, bool):
+        return str(value).lower()
+    return value
+
+
+def _build_environment() -> Environment:
+    """Create the Jinja2 environment used for all task rendering."""
+    return Environment(
+        undefined=StrictUndefined,
+        finalize=_finalize,
+        autoescape=False,
+        keep_trailing_newline=True,
+    )
+
+
+_ENVIRONMENT = _build_environment()
+
+
+def render(text: str, context: dict[str, Any], task_name: str | None = None) -> str:
+    """
+    Render a template string against a context of variable namespaces.
+
+    Args:
+    text: Template string (may contain {{ ... }} placeholders)
+    context: Mapping of namespace name (var, arg, env, tt, dep, self) to values
+    task_name: Optional task name, used to make error messages actionable
+
+    Returns:
+    The rendered string
+
+    Raises:
+    ValueError: If the template references an undefined value or is malformed.
+    The message is Tasktree-flavoured and never exposes Jinja2 internals.
+    """
+    if not isinstance(text, str):
+        return text
+
+    where = f" in task '{task_name}'" if task_name else ""
+
+    try:
+        template = _ENVIRONMENT.from_string(text)
+        return template.render(context)
+    except UndefinedError as e:
+        raise ValueError(
+            f"Undefined variable{where}: {_clean_message(str(e))}"
+        ) from e
+    except TemplateSyntaxError as e:
+        raise ValueError(
+            f"Malformed template{where} (line {e.lineno}): {_clean_message(e.message or str(e))}"
+        ) from e
+    except TemplateError as e:
+        raise ValueError(
+            f"Template error{where}: {_clean_message(str(e))}"
+        ) from e
+
+
+def _clean_message(message: str) -> str:
+    """Strip Jinja2 implementation details from an error message."""
+    # StrictUndefined messages look like: "'foo' is undefined" or
+    # "'dict object' has no attribute 'bar'". Keep them, they are readable.
+    return message.replace("jinja2.exceptions.", "").strip()

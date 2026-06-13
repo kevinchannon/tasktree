@@ -84,16 +84,22 @@ Your sponsor is not made of money! Try to minimise token useage, so that we can 
 
 ### Testing
 ```bash
-python3 -m pytest tests/
+uv run --extra dev python -m pytest tests/
 ```
+`pytest` lives in the `dev` optional-dependency group, and the runtime deps live
+in the project's `uv`-managed virtualenv, so tests must be run through
+`uv run --extra dev` (bare `python3 -m pytest` will not see the project's deps).
+
 The project has tests across three categories:
 - **Unit tests** (`tests/unit/`): Should always be updated for any change. Makes up the bulk of code coverage
 - **Integration tests** (`tests/integration/`): Test changes using the Typer CliRunner to cover end-to-end workflows across multiple modules
 - **E2E tests** (`tests/e2e/`): Heavyweight tests that cover running the tool in a subprocess and/or containerized environment 
 
 ### Running the Application
+The application is exposed as the `tt` console script (entry point
+`tasktree.cli:cli`). Run it through `uv`:
 ```bash
-python3 main.py [task-names] [--options]
+uv run tt [task-names] [--options]
 ```
 
 ### Package Management
