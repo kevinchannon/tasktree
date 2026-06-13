@@ -54,6 +54,49 @@ class TestBuildTaskConfigRendersEndToEnd(unittest.TestCase):
         self.assertEqual(result, "build:app:1.0:alice")
 
 
+class TestDepNamespace(unittest.TestCase):
+    """The dep namespace exposes dependency outputs and errors helpfully."""
+
+    def test_dep_namespace_present_when_empty(self):
+        config = build_task_config()
+        self.assertIn("dep", config)
+
+    def test_renders_dependency_output(self):
+        config = build_task_config(
+            dep_outputs={"build": {"bundle": "dist/app.js"}}
+        )
+        result = render("deploy {{ dep.build.outputs.bundle }}", config)
+        self.assertEqual(result, "deploy dist/app.js")
+
+    def test_unknown_dependency_raises_actionable_error(self):
+        config = build_task_config(dep_outputs={"build": {"bundle": "x"}})
+        with self.assertRaises(ValueError) as ctx:
+            render("{{ dep.missing.outputs.bundle }}", config)
+        message = str(ctx.exception)
+        self.assertIn("missing", message)
+        self.assertIn("not a dependency", message)
+
+    def test_unknown_output_raises_actionable_error(self):
+        config = build_task_config(dep_outputs={"build": {"bundle": "x"}})
+        with self.assertRaises(ValueError) as ctx:
+            render("{{ dep.build.outputs.nope }}", config)
+        message = str(ctx.exception)
+        self.assertIn("nope", message)
+        self.assertIn("bundle", message)  # lists available outputs
+
+    def test_multiple_dependencies(self):
+        config = build_task_config(
+            dep_outputs={
+                "build": {"bundle": "dist/app.js"},
+                "assets": {"css": "dist/app.css"},
+            }
+        )
+        result = render(
+            "{{ dep.build.outputs.bundle }} {{ dep.assets.outputs.css }}", config
+        )
+        self.assertEqual(result, "dist/app.js dist/app.css")
+
+
 class TestExportedArgs(unittest.TestCase):
     """Exported arguments are not available for template substitution."""
 
