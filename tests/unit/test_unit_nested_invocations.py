@@ -550,26 +550,11 @@ class TestStateHashOptimization(unittest.TestCase):
 class TestDockerEnvironmentSupport(unittest.TestCase):
     """Tests for Phase 2: Docker environment support for nested invocations."""
 
-    def test_state_manager_uses_env_var_when_set(self):
+    def test_state_manager_path_is_colocated_with_project_root(self):
         """
-        Test that TT_STATE_FILE_PATH overrides default state file location.
-        """
-        with TemporaryDirectory() as tmpdir:
-            project_root = Path(tmpdir)
-            custom_state_path = "/tasktree-internal/.tasktree-state"
-
-            with patch.dict("os.environ", {
-                "TT_STATE_FILE_PATH": custom_state_path,
-                "TT_CONTAINERIZED_RUNNER": "test-runner"
-            }):
-                state_manager = StateManager(project_root)
-                # Compare as Path objects to handle platform-specific path separators
-                self.assertEqual(state_manager.state_path, Path(custom_state_path))
-                self.assertEqual(state_manager.project_root, Path("/tasktree-internal"))
-
-    def test_state_manager_default_path_when_no_env(self):
-        """
-        Test that default state file path is used when TT_STATE_FILE_PATH not set.
+        The state file is always co-located with the recipe in the project root.
+        Inside a container the project root is bind-mounted, so nested `tt` calls
+        find the same file there with no special container path handling.
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -579,19 +564,6 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
                 expected_path = project_root / ".tasktree-state"
                 self.assertEqual(state_manager.state_path, expected_path)
                 self.assertEqual(state_manager.project_root, project_root)
-
-    def test_state_manager_error_on_state_path_without_runner(self):
-        """
-        Test that error is raised when TT_STATE_FILE_PATH is set but TT_CONTAINERIZED_RUNNER is not.
-        This indicates a configuration error.
-        """
-        with TemporaryDirectory() as tmpdir:
-            project_root = Path(tmpdir)
-
-            with patch.dict("os.environ", {"TT_STATE_FILE_PATH": "/tasktree-internal/.tasktree-state"}):
-                with self.assertRaises(ValueError) as context:
-                    StateManager(project_root)
-                self.assertIn("TT_STATE_FILE_PATH is set but TT_CONTAINERIZED_RUNNER is not", str(context.exception))
 
     def test_same_docker_runner_uses_shell_execution(self):
         """
@@ -864,7 +836,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
 
     def test_docker_env_vars_include_tt_vars(self):
         """
-        Test that TT_CONTAINERIZED_RUNNER and TT_STATE_FILE_PATH are added to docker_env_vars.
+        Test that TT_CONTAINERIZED_RUNNER is added to docker_env_vars.
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -911,9 +883,8 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
                 process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
                 executor._run_task(recipe.tasks["test"], {}, process_runner)
 
-            # Verify TT_* env vars were added
+            # Verify TT_CONTAINERIZED_RUNNER was added
             self.assertEqual(captured_env.get("TT_CONTAINERIZED_RUNNER"), "build")
-            self.assertEqual(captured_env.get("TT_STATE_FILE_PATH"), "/tasktree-internal/.tasktree-state")
 
     def test_state_file_created_before_mounting(self):
         """
@@ -971,9 +942,11 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
             # Verify state file was created
             self.assertTrue(state_file.exists())
 
-    def test_state_file_mounted_as_volume(self):
+    def test_state_file_not_mounted_separately(self):
         """
-        Test that state file is mounted as a volume in Docker containers.
+        The state file is no longer mounted via a separate synthetic volume; it
+        travels with the project-root bind mount. Verify the executor adds no
+        /tasktree-internal state mount.
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -1022,9 +995,9 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
                 process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
                 executor._run_task(recipe.tasks["test"], {}, process_runner)
 
-            # Verify state file was mounted
-            state_mount = f"{state_file.absolute()}:/tasktree-internal/.tasktree-state"
-            self.assertIn(state_mount, captured_volumes)
+            # No synthetic state-file mount should be present.
+            for volume in captured_volumes:
+                self.assertNotIn("/tasktree-internal", volume)
 
     def test_nested_call_uses_runner_shell_preamble(self):
         """
@@ -1081,61 +1054,6 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
                 # Verify runner's shell and preamble were used
                 self.assertEqual(captured_args["shell_cmd"], ["/bin/zsh"])
                 self.assertEqual(captured_args["preamble"], "set -euo pipefail")
-
-    def test_volume_mount_conflict_detection(self):
-        """
-        Test that conflicting user-defined volumes are detected and reported.
-        """
-        with TemporaryDirectory() as tmpdir:
-            project_root = Path(tmpdir)
-            state_file = project_root / ".tasktree-state"
-            state_file.touch()
-
-            # Create runner with conflicting volume mount
-            docker_runner = Runner(
-                name="build",
-                shell=ShellConfig(cmd=["/bin/bash", "-c"]),
-                dockerfile="Dockerfile",
-                context=".",
-                volumes=["/host/data:/tasktree-internal/.tasktree-state"],  # Conflicts!
-            )
-
-            recipe = Recipe(
-                project_root=project_root,
-                recipe_path=project_root / "tasktree.yaml",
-                tasks={
-                    "test": Task(
-                        name="test",
-                        desc="Test",
-                        cmd="echo 'test'",
-                        deps=[],
-                        inputs=[],
-                        outputs=[],
-                        working_dir=".",
-                        run_in="build",
-                        args=[],
-                        private=False,
-                    )
-                },
-                runners={"build": docker_runner},
-                variables={},
-            )
-
-            state_manager = StateManager(project_root)
-            state_manager.load()
-
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
-
-            # Attempt to run task should raise ExecutionError
-            from tasktree.executor import ExecutionError
-            with self.assertRaises(ExecutionError) as context:
-                process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
-                executor._run_task(recipe.tasks["test"], {}, process_runner)
-
-            # Verify error message mentions the conflict
-            error_msg = str(context.exception)
-            self.assertIn("Volume mount conflict", error_msg)
-            self.assertIn("/tasktree-internal/.tasktree-state", error_msg)
 
     def test_runner_names_with_special_characters(self):
         """

@@ -66,9 +66,6 @@ class Executor:
     Executes tasks with incremental execution logic.
     """
 
-    # Container state file path (mounted inside Docker containers)
-    CONTAINER_STATE_FILE_PATH = "/tasktree-internal/.tasktree-state"
-
     # Environment variable for tracking task call chain (recursion detection)
     TT_CALL_CHAIN_ENV_VAR = "TT_CALL_CHAIN"
 
@@ -1316,7 +1313,6 @@ class Executor:
 
         # Add nested invocation support environment variables
         docker_env_vars["TT_CONTAINERIZED_RUNNER"] = env.name
-        docker_env_vars["TT_STATE_FILE_PATH"] = self.CONTAINER_STATE_FILE_PATH
 
         # Resolve container path for project root from volume mounts
         container_project_root = self._resolve_container_path(
@@ -1338,34 +1334,17 @@ class Executor:
                     )
             docker_env_vars.update(exported_env_vars)
 
-        # Mount state file into container
-        # Ensure state file exists before mounting (Docker requires the file to exist)
+        # The state file lives in the project root, which is bind-mounted into the
+        # container, so nested `tt` calls read/write the same .tasktree-state with no
+        # special mount. Ensure it exists so the bind mount (the repo) already
+        # contains it before the container starts.
         if not self.state.state_path.exists():
             self.state.state_path.touch()
 
-        volumes_to_mount = env.volumes.copy() if env.volumes else []
-        state_file_host_path = str(self.state.state_path.absolute())
-
-        # Check for volume mount conflicts with state file path
-        for volume in volumes_to_mount:
-            # Parse volume mount (format: "host:container" or "host:container:ro")
-            parts = volume.split(":")
-            if len(parts) >= 2:
-                container_path = parts[1]
-                if container_path == self.CONTAINER_STATE_FILE_PATH:
-                    raise ExecutionError(
-                        f"Volume mount conflict: User-defined volume '{volume}' conflicts with "
-                        f"automatic state file mount at '{self.CONTAINER_STATE_FILE_PATH}'. "
-                        f"The state file must be mounted at this location for nested task invocations to work. "
-                        f"Please use a different container path for your volume mount."
-                    )
-
-        volumes_to_mount.append(f"{state_file_host_path}:{self.CONTAINER_STATE_FILE_PATH}")
-
-        # Create modified environment with merged env vars and volumes using dataclass replace
+        # Create modified environment with merged env vars using dataclass replace
         from dataclasses import replace
 
-        modified_env = replace(env, env_vars=docker_env_vars, volumes=volumes_to_mount)
+        modified_env = replace(env, env_vars=docker_env_vars)
 
         # Execute in container
         try:

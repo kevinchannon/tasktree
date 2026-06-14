@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional, Set
@@ -61,26 +60,12 @@ class StateManager:
         """
         self.logger = logger
 
-        # Check for containerized state file path first
-        state_file_path_env = os.environ.get("TT_STATE_FILE_PATH")
-        # Note: Only consider containerized runner if it's set AND non-empty
-        containerized_runner = os.environ.get("TT_CONTAINERIZED_RUNNER", "").strip()
-
-        # Validation: TT_STATE_FILE_PATH requires TT_CONTAINERIZED_RUNNER
-        if state_file_path_env and not containerized_runner:
-            raise ValueError(
-                "TT_STATE_FILE_PATH is set but TT_CONTAINERIZED_RUNNER is not. "
-                "This indicates a configuration error in the Docker container setup."
-            )
-
-        if state_file_path_env:
-            # Use explicit state file path from environment
-            self.state_path = Path(state_file_path_env)
-            self.project_root = self.state_path.parent
-        else:
-            # Use default: co-located with recipe in project_root
-            self.project_root = project_root
-            self.state_path = project_root / self.STATE_FILE
+        # The state file is always co-located with the recipe in the project root.
+        # Inside a containerised runner the project root is bind-mounted (at its own
+        # path by default), so nested `tt` calls find the very same state file here
+        # without any special container-specific path handling.
+        self.project_root = project_root
+        self.state_path = project_root / self.STATE_FILE
 
         self._state: dict[str, TaskState] = {}
         self._loaded = False

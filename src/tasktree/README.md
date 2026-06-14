@@ -1659,8 +1659,7 @@ tasks:
 
 - **Sequential execution**: Nested calls must run sequentially. Parallel invocations (e.g., using `&`) are not supported.
 - **Docker-in-Docker**: Switching between different containerized runners is not supported.
-- **Volume conflicts**: User-defined volume mounts cannot use the path `/tasktree-internal/.tasktree-state` as it is reserved for the state file mount.
-- **File permissions**: In Docker containers, the state file is mounted from the host. If the container runs as a different user (via Docker USER directive), ensure the user has read/write permissions on the state file. Consider using user mapping (`docker run --user`) to maintain consistent UIDs.
+- **File permissions**: In Docker containers, the state file lives in the project root, which is bind-mounted from the host. If the container runs as a different user (via Docker USER directive), ensure the user has read/write permissions on the state file. Consider using user mapping (`docker run --user`) to maintain consistent UIDs.
 
 **⚠️ Warning**: Do not use shell backgrounding (`&`) with nested calls. Running nested tasks in parallel (e.g., `tt task1 & tt task2`) will cause state file corruption.
 
@@ -1670,7 +1669,7 @@ tasks:
 - For Docker tasks, `tt` must be installed inside the container image.
 - Nested invocations work with all task features: arguments, dependencies, inputs/outputs, etc.
 - State file access is sequential - no locking or concurrency handling is needed.
-- The state file is automatically mounted at `/tasktree-internal/.tasktree-state` inside Docker containers. This path was chosen to minimize conflicts with common user directories like `/workspace` or `/app`.
+- The state file (`.tasktree-state`) lives in the project root. Because the project root is bind-mounted into the container, nested `tt` calls read and write the very same state file with no special container-specific mount.
 
 ### Environment Variables (Internal)
 
@@ -1678,7 +1677,6 @@ Task Tree sets these environment variables internally for nested invocation supp
 
 - **`TT_CALL_CHAIN`**: Comma-separated list of task names in the current call stack (e.g., `"parent,child,grandchild"`). Used for recursion detection. Empty for top-level invocations.
 - **`TT_CONTAINERIZED_RUNNER`**: Name of the current Docker runner (only set when running inside a container). Used to prevent Docker-in-Docker across different runners within the same project. Value is empty string for non-containerized execution.
-- **`TT_STATE_FILE_PATH`**: Path to the state file inside Docker containers (e.g., `"/tasktree-internal/.tasktree-state"`). Used by nested `tt` calls to locate state.
 - **`TT_PROJECT_ROOT`**: Container path to the project root directory (only set when running inside a container). Used to detect cross-project invocations. Contains the *container path* (not host path) resolved from volume mount specifications.
 
 These variables are managed automatically and generally don't require user interaction. They may be useful for debugging nested invocation issues.
@@ -1694,7 +1692,6 @@ tasks:
     cmd: |
       echo "Call chain: $TT_CALL_CHAIN"
       echo "Container runner: $TT_CONTAINERIZED_RUNNER"
-      echo "State file: $TT_STATE_FILE_PATH"
       echo "Project root: $TT_PROJECT_ROOT"
 ```
 
