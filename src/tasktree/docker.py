@@ -259,10 +259,14 @@ class DockerManager:
                 # if the user already maps the project root themselves (possibly to a
                 # different container path), we leave their mapping alone and don't add
                 # a duplicate.
+                #
+                # Use the resolved (symlink-free) path so the mount point matches the
+                # working directory, which is derived via Path.resolve() elsewhere
+                # (e.g. on macOS /var -> /private/var); a mismatch would leave the
+                # task running in an empty auto-created dir instead of the repo.
                 if not self._project_root_is_mounted(env.volumes):
-                    docker_cmd.extend(
-                        ["-v", f"{self._project_root}:{self._project_root}"]
-                    )
+                    root = self._project_root.resolve()
+                    docker_cmd.extend(["-v", f"{root}:{root}"])
 
                 # Mount temp script into container at unique path (read-only for security)
                 docker_cmd.extend(["-v", f"{script_path}:{container_script_path}:ro"])

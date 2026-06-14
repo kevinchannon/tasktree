@@ -1295,13 +1295,21 @@ class Executor:
         # Substitute builtin variables in environment fields (volumes, env_vars, etc.)
         env = self._substitute_builtin_in_runner(env, builtin_vars)
 
-        # Resolve container working directory
-        # Treat "." as empty for Docker - it's the default but we want None
-        # when neither env nor task explicitly sets working_dir, so Docker uses Dockerfile WORKDIR
+        # Resolve container working directory.
+        # A runner-level working_dir is an explicit override (combined with any
+        # task working_dir). Otherwise we default to the host working directory
+        # translated to its container path: the identity mapping in the common
+        # same-path mount case, or the user's chosen container path when they have
+        # remapped the project root (e.g. ".:/workspace" -> "/workspace").
         task_wd = "" if task.working_dir == "." else task.working_dir
-        container_working_dir = docker_module.resolve_container_working_dir(
-            env.working_dir, task_wd
-        )
+        if env.working_dir:
+            container_working_dir = docker_module.resolve_container_working_dir(
+                env.working_dir, task_wd
+            )
+        else:
+            container_working_dir = str(
+                self._resolve_container_path(working_dir, env.volumes or [])
+            )
 
         # Validate and merge exported args with env vars (exported args take precedence)
         docker_env_vars = env.env_vars.copy() if env.env_vars else {}

@@ -181,14 +181,16 @@ tasks:
             )
             self.assertIn("container ran with limits", success_file.read_text())
 
-    def test_dockerfile_workdir_default(self):
+    def test_default_working_dir_is_host_project_root(self):
         """
-        Test that container uses Dockerfile WORKDIR when no working_dir specified.
+        Test that, with no working_dir specified, the container runs in the host
+        project root (auto-mounted at its own path), overriding the Dockerfile
+        WORKDIR. This is the "run the repo in this container" default.
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            # Create Dockerfile with non-root WORKDIR
+            # Dockerfile sets a WORKDIR that we expect to be overridden.
             (project_root / "Dockerfile").write_text(
                 "FROM alpine:latest\nWORKDIR /app\n"
             )
@@ -196,7 +198,8 @@ tasks:
             # Create output directory
             (project_root / "output").mkdir()
 
-            # Create recipe WITHOUT working_dir in runner or task
+            # Create recipe WITHOUT working_dir in runner or task. Note the runner
+            # does NOT map the project root, so it is auto-mounted at its own path.
             (project_root / "tasktree.yaml").write_text("""
 runners:
   alpine:
@@ -221,16 +224,17 @@ tasks:
                 f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
             )
 
-            # Verify working directory matches Dockerfile WORKDIR
             pwd_file = project_root / "output" / "pwd.txt"
             self.assertTrue(
                 pwd_file.exists(), "Working directory check file not created"
             )
 
-            # Should be /app (from Dockerfile WORKDIR)
+            # Should be the host project root (resolved), not the Dockerfile WORKDIR.
             pwd = pwd_file.read_text().strip()
             self.assertEqual(
-                pwd, "/app", f"Expected /app from Dockerfile WORKDIR, got: {pwd}"
+                pwd,
+                str(project_root.resolve()),
+                f"Expected host project root, got: {pwd}",
             )
 
     def test_config_file_with_relative_dockerfile_path(self):
