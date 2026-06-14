@@ -181,6 +181,52 @@ tasks:
             )
             self.assertIn("container ran with limits", success_file.read_text())
 
+    def test_default_working_dir_follows_remapped_repo_mount(self):
+        """
+        When the user mounts the project root to a custom container path and sets
+        no working_dir, the working dir defaults to that container path, so
+        repo-relative writes still land in the repo on the host.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            (project_root / "Dockerfile").write_text("FROM alpine:latest\n")
+
+            # User remaps the project root to /workspace; no working_dir set.
+            (project_root / "tasktree.yaml").write_text("""
+runners:
+  alpine:
+    dockerfile: ./Dockerfile
+    context: .
+    volumes: ["{{ tt.project_root }}:/workspace"]
+
+tasks:
+  gen:
+    run_in: alpine
+    outputs: [made.txt, pwd.txt]
+    cmd: |
+      pwd > pwd.txt
+      echo "in remapped repo" > made.txt
+""")
+
+            result = run_tasktree_cli(["gen"], cwd=project_root)
+
+            self.assertEqual(
+                result.returncode,
+                0,
+                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
+            )
+
+            # The working dir should be the remapped container path...
+            pwd_file = project_root / "pwd.txt"
+            self.assertTrue(pwd_file.exists(), "pwd.txt not created on host")
+            self.assertEqual(pwd_file.read_text().strip(), "/workspace")
+
+            # ...and repo-relative writes still appear on the host.
+            self.assertEqual(
+                (project_root / "made.txt").read_text().strip(), "in remapped repo"
+            )
+
     def test_default_working_dir_is_host_project_root(self):
         """
         Test that, with no working_dir specified, the container runs in the host

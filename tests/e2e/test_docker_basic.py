@@ -119,6 +119,46 @@ tasks:
             self.assertIn("line 1", content)
             self.assertIn("line 2", content)
 
+    def test_no_volumes_outputs_persist_via_auto_mount(self):
+        """
+        With NO volumes declared, the project root is auto-mounted at its own
+        path and used as the working dir, so a task writing a repo-relative path
+        has its output appear on the host with zero boilerplate.
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            (project_root / "Dockerfile").write_text("FROM alpine:latest\n")
+
+            # No volumes, no working_dir - the auto-mount and auto working-dir
+            # should make a repo-relative write land on the host.
+            (project_root / "tasktree.yaml").write_text("""
+runners:
+  alpine:
+    dockerfile: ./Dockerfile
+    context: .
+
+tasks:
+  gen:
+    run_in: alpine
+    outputs: [out.txt]
+    cmd: echo "auto-mounted" > out.txt
+""")
+
+            result = run_tasktree_cli(["gen"], cwd=project_root)
+
+            self.assertEqual(
+                result.returncode,
+                0,
+                f"CLI failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
+            )
+
+            out = project_root / "out.txt"
+            self.assertTrue(
+                out.exists(), "Repo-relative output did not appear on host via auto-mount"
+            )
+            self.assertEqual(out.read_text().strip(), "auto-mounted")
+
     def test_multiline_command_execution(self):
         """
         Test that multi-line commands execute correctly in Docker container.
