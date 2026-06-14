@@ -253,6 +253,14 @@ class DockerManager:
 
                 docker_cmd.extend(env.args.run)
 
+                # Always bind-mount the project root at its own host path (read-write)
+                # so the task runs against the real repo and any outputs land where the
+                # host expects them. Mounting at the identical path keeps container paths
+                # equal to host paths, which is what makes incremental state tracking sound.
+                docker_cmd.extend(
+                    ["-v", f"{self._project_root}:{self._project_root}"]
+                )
+
                 # Mount temp script into container at unique path (read-only for security)
                 docker_cmd.extend(["-v", f"{script_path}:{container_script_path}:ro"])
 

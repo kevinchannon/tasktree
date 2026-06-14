@@ -273,9 +273,10 @@ class TestCheckRunnerChanged(unittest.TestCase):
         self.assertTrue(result)
 
 
-class TestCheckDockerImageChanged(unittest.TestCase):
+class TestCheckRunnerChangedDocker(unittest.TestCase):
     """
-    Test Docker image ID change detection in executor.
+    Test Docker runner change detection in executor (YAML hash, context files,
+    and base-image digests; the built image ID is intentionally not used).
     """
 
     def setUp(self):
@@ -302,106 +303,26 @@ class TestCheckDockerImageChanged(unittest.TestCase):
             self.recipe, self.state_manager, logger_stub, make_process_runner
         )
 
-    def test_check_docker_image_changed_no_cached_id(self):
+    def test_check_runner_changed_docker_all_unchanged(self):
         """
-        Test that missing cached image ID returns True (first run).
-        """
-
-        # Cached state has runner hash but no image ID (old state file)
-        runner_hash = hash_runner_definition(self.runner)
-        cached_state = TaskState(
-            last_run=123.0, input_state={"_runner_hash_builder": runner_hash}
-        )
-
-        # Mock docker manager to return image ID
-        self.executor.docker_manager.ensure_image_built = Mock(
-            return_value=("tt-runner-builder", "sha256:abc123")
-        )
-
-        result = self.executor._check_docker_image_changed(
-            self.runner,
-            cached_state,
-            "builder",
-            make_process_runner(TaskOutputTypes.ALL, logger_stub),
-        )
-
-        self.assertTrue(result)
-
-    def test_check_docker_image_changed_same_id(self):
-        """
-        Test that matching image ID returns False.
-        """
-
-        # Cached state with image ID
-        image_id = "sha256:abc123"
-        cached_state = TaskState(
-            last_run=123.0, input_state={"_docker_image_id_builder": image_id}
-        )
-
-        # Mock docker manager to return same image ID
-        self.executor.docker_manager.ensure_image_built = Mock(
-            return_value=("tt-runner-builder", image_id)
-        )
-
-        result = self.executor._check_docker_image_changed(
-            self.runner,
-            cached_state,
-            "builder",
-            make_process_runner(TaskOutputTypes.ALL, logger_stub),
-        )
-
-        self.assertFalse(result)
-
-    def test_check_docker_image_changed_different_id(self):
-        """
-        Test that different image ID returns True (unpinned base updated).
-        """
-
-        # Cached state with old image ID
-        old_image_id = "sha256:abc123"
-        cached_state = TaskState(
-            last_run=123.0, input_state={"_docker_image_id_builder": old_image_id}
-        )
-
-        # Mock docker manager to return new image ID (base image updated)
-        new_image_id = "sha256:def456"
-        self.executor.docker_manager.ensure_image_built = Mock(
-            return_value=("tt-runner-builder", new_image_id)
-        )
-
-        result = self.executor._check_docker_image_changed(
-            self.runner,
-            cached_state,
-            "builder",
-            make_process_runner(TaskOutputTypes.ALL, logger_stub),
-        )
-
-        self.assertTrue(result)
-
-    def test_check_runner_changed_docker_yaml_and_image(self):
-        """
-        Test that Docker runner checks both YAML hash and image ID.
+        Test that a Docker runner is unchanged when YAML hash, context, and
+        base-image digests all match (the built image ID is deliberately ignored
+        because it is non-deterministic under BuildKit).
         """
 
         task = Task(name="test", cmd="echo test", run_in="builder")
 
-        # Cached state with matching runner hash AND matching image ID
+        # Cached state with matching runner hash; no context/base-image entries,
+        # so context and digest checks both report "unchanged".
         runner_hash = hash_runner_definition(self.runner)
-        image_id = "sha256:abc123"
         cached_state = TaskState(
             last_run=123.0,
-            input_state={
-                "_runner_hash_builder": runner_hash,
-                "_docker_image_id_builder": image_id,
-            },
+            input_state={"_runner_hash_builder": runner_hash},
         )
 
-        # Mock docker manager to return same image ID
-        self.executor.docker_manager.ensure_image_built = Mock(
-            return_value=("tt-runner-builder", image_id)
-        )
+        # ensure_image_built must NOT be consulted for change detection any more.
+        self.executor.docker_manager.ensure_image_built = Mock()
 
-        # Should return False (both YAML and image ID unchanged)
         result = self.executor._check_runner_changed(
             task,
             cached_state,
@@ -409,10 +330,11 @@ class TestCheckDockerImageChanged(unittest.TestCase):
             make_process_runner(TaskOutputTypes.ALL, logger_stub),
         )
         self.assertFalse(result)
+        self.executor.docker_manager.ensure_image_built.assert_not_called()
 
     def test_check_runner_changed_docker_yaml_changed(self):
         """
-        Test that YAML change detected without checking image ID.
+        Test that a YAML change is detected from the runner hash alone.
         """
 
         task = Task(name="test", cmd="echo test", run_in="builder")
@@ -423,10 +345,7 @@ class TestCheckDockerImageChanged(unittest.TestCase):
 
         cached_state = TaskState(
             last_run=123.0,
-            input_state={
-                "_runner_hash_builder": old_runner_hash,
-                "_docker_image_id_builder": "sha256:abc123",
-            },
+            input_state={"_runner_hash_builder": old_runner_hash},
         )
 
         # Mock should NOT be called (YAML change detected early)
@@ -443,35 +362,6 @@ class TestCheckDockerImageChanged(unittest.TestCase):
 
         # Verify docker manager was NOT called (early exit on YAML change)
         self.executor.docker_manager.ensure_image_built.assert_not_called()
-
-    def test_check_runner_changed_returns_true_when_base_image_updated(self):
-        """YAML and context unchanged but built image ID differs (base image updated)."""
-        task = Task(name="test", cmd="echo test", run_in="builder")
-
-        runner_hash = hash_runner_definition(self.runner)
-        old_image_id = "sha256:abc123"
-        cached_state = TaskState(
-            last_run=123.0,
-            input_state={
-                "_runner_hash_builder": runner_hash,
-                "_docker_image_id_builder": old_image_id,
-            },
-        )
-
-        # Simulate base image being pulled: same Dockerfile, different resulting image ID
-        new_image_id = "sha256:def456"
-        self.executor.docker_manager.ensure_image_built = Mock(
-            return_value=("tt-runner-builder", new_image_id)
-        )
-
-        result = self.executor._check_runner_changed(
-            task,
-            cached_state,
-            "builder",
-            make_process_runner(TaskOutputTypes.ALL, logger_stub),
-        )
-
-        self.assertTrue(result)
 
     def test_check_runner_changed_returns_true_when_context_file_modified(self):
         """

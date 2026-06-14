@@ -21,23 +21,34 @@ tasks:
     desc: "Run a specific test suite"
     args:
       - suite: { choices: [ "unit", "integration", "e2e"] }
+      - sync: { type: bool, default: False }
     inputs: [ "src/**/*.py", "tests/{{ arg.suite }}/*.py" ]
-    cmd: "PYTHONPATH=tests uv run pytest tests/{{ arg.suite }}"
+    cmd: |
+      if [[ "{{ arg.sync | lower }}" != "false" ]]; then
+        uv sync --extra dev
+      fi
+      PYTHONPATH=tests uv run pytest tests/{{ arg.suite }}
 
   unit-test:
     desc: "Run unit tests"
+    args:
+      - sync: { type: bool, default: False }
     deps:
       - run-tests: [ "unit" ]
     cmd: "echo unit tests pass"
 
   integration-test:
     desc: "Run integration tests"
+    args:
+      - sync: { type: bool, default: False }
     deps:
       - run-tests: [ "integration" ]
     cmd: "echo Integration tests pass"
 
   e2e-test:
     desc: "Run end-to-end tests"
+    args:
+      - sync: { type: bool, default: False }
     deps:
       - run-tests: [ "e2e" ]
     cmd: "echo End-to-end tests pass"
@@ -45,12 +56,19 @@ tasks:
   test:
     desc: "Run all test suites"
     deps: [ "unit-test", "integration-test", "e2e-test"]
-    cmd: "echo All tests passed"
+    cmd: |
+      uv sync --extra dev
+      
+      tt unit-test sync=FALSE
+      tt integration-test sync=FALSE
+      tt e2e-test sync=FALSE
+      
+      echo "All tests passed"
 
   coverage:
     desc: Run tests with coverage check
     inputs: [src/**/*.py, tests/**/*.py]
-    cmd: PYTHONPATH=tests uv run pytest --cov=src/tasktree --cov-report=term-missing
+    cmd: uv sync --extra dev && PYTHONPATH=tests uv run pytest --cov=src/tasktree --cov-report=term-missing
 
   check-format:
     inputs: [src/**/*.py, tests/**/*.py]

@@ -1537,7 +1537,9 @@ class Executor:
         Check if environment definition has changed since last run.
 
         For shell environments: checks YAML definition hash
-        For Docker environments: checks YAML hash AND Docker image ID
+        For Docker environments: checks YAML hash, build-context file mtimes,
+        and base-image local digests (NOT the built image ID, which is
+        non-deterministic under BuildKit).
 
         Args:
         task: Task to check
@@ -1580,68 +1582,17 @@ class Executor:
             self.logger.trace(f"Runner '{env_name}' hash changed (cached: {cached_env_hash}, current: {current_env_hash})")
             return True  # YAML changed, no need to check image
 
-        # For Docker environments, also check context files, base image digests, and image ID
+        # For Docker environments, also check context files and base image digests.
+        # We deliberately do NOT compare the built image ID: modern Docker (BuildKit)
+        # produces a different image ID on every rebuild of an identical Dockerfile,
+        # which would make every containerised task re-run unconditionally. Base-image
+        # updates are already captured deterministically by the base-image digest check.
         if env.dockerfile:
             if self._check_docker_context_changed(env_name, env, cached_state):
                 return True
-            if self._check_base_image_digests_changed(env_name, env, cached_state):
-                return True
-            return self._check_docker_image_changed(
-                env, cached_state, env_name, process_runner
-            )
+            return self._check_base_image_digests_changed(env_name, env, cached_state)
 
         # Shell environment with unchanged hash
-        return False
-
-    def _check_docker_image_changed(
-        self,
-        env: Runner,
-        cached_state: TaskState,
-        env_name: str,
-        process_runner: ProcessRunner,
-    ) -> bool:
-        """
-        Check if Docker image ID has changed.
-
-        Builds the image and compares the resulting image ID with the cached ID.
-        This detects changes from unpinned base images, network-dependent builds, etc.
-
-        Args:
-        env: Docker runner definition
-        cached_state: Cached state from previous run
-        env_name: Runner name
-        process_runner: ProcessRunner instance for subprocess execution
-
-        Returns:
-        True if image ID changed, False otherwise
-        """
-        # Build/ensure image is built and get its ID
-        try:
-            image_tag, current_image_id = self.docker_manager.ensure_image_built(
-                env, process_runner
-            )
-            self.logger.trace(f"Docker image ID for '{env_name}': {current_image_id}")
-        except Exception:
-            # If we can't build, treat as changed (will fail later with better error)
-            self.logger.trace(f"Failed to build Docker image for '{env_name}', treating as changed")
-            return True
-
-        # Get cached image ID
-        image_id_key = f"_docker_image_id_{env_name}"
-        cached_image_id = cached_state.input_state.get(image_id_key)
-
-        # If no cached ID (first run or old state), treat as changed
-        if cached_image_id is None:
-            self.logger.trace(f"No cached Docker image ID found for '{env_name}'")
-            return True
-
-        self.logger.trace(f"Cached Docker image ID for '{env_name}': {cached_image_id}")
-
-        # Compare image IDs
-        if current_image_id != cached_image_id:
-            self.logger.trace(f"Docker image ID changed for '{env_name}' (cached: {cached_image_id}, current: {current_image_id})")
-            return True
-
         return False
 
     def _check_docker_context_changed(
@@ -2044,11 +1995,5 @@ class Executor:
                     input_state[f"_base_img_{env_name}_{image_name}"] = digest
         except OSError:
             pass
-
-        # For Docker environments, also store the image ID
-        # Image was already built during check phase or task execution
-        if env_name in self.docker_manager._built_images:
-            image_tag, image_id = self.docker_manager._built_images[env_name]
-            input_state[f"_docker_image_id_{env_name}"] = image_id
 
         return input_state

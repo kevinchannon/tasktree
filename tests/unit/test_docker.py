@@ -542,6 +542,50 @@ class TestDockerManager(unittest.TestCase):
 
     @patch("tasktree.docker.subprocess.run")
     @patch("tasktree.docker.platform.system")
+    def test_run_in_container_mounts_project_root_at_its_own_path(
+        self, mock_platform, mock_run
+    ):
+        """
+        Test that the project root is bind-mounted read-write at its own host path,
+        so the task runs against the real repo without any user-declared volumes.
+        """
+        mock_platform.return_value = "Windows"  # Skip user flag for simplicity
+
+        env = Runner(
+            name="builder",
+            dockerfile="./Dockerfile",
+            context=".",
+            shell=ShellConfig(cmd=["sh", "-c"]),
+        )
+
+        def mock_run_side_effect(*args, **_kwargs):
+            cmd = args[0]
+            if "inspect" in cmd:
+                result = Mock()
+                result.stdout = "sha256:abc123def456\n"
+                return result
+            return Mock()
+
+        mock_run.side_effect = mock_run_side_effect
+
+        process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
+        self.manager.run_in_container(
+            env=env,
+            cmd="echo hello",
+            working_dir=Path("/fake/project"),
+            container_working_dir="/workspace",
+            process_runner=process_runner,
+        )
+
+        run_call_args = mock_run.call_args_list[3][0][0]
+
+        # The project root must be mounted at the identical path, read-write
+        # (no :ro suffix).
+        expected_mount = f"{self.project_root}:{self.project_root}"
+        self.assertIn(expected_mount, run_call_args)
+
+    @patch("tasktree.docker.subprocess.run")
+    @patch("tasktree.docker.platform.system")
     def test_run_in_container_mounts_temp_script(self, mock_platform, mock_run):
         """
         Test that temp script is mounted into container.
@@ -876,16 +920,17 @@ class TestDockerManager(unittest.TestCase):
         # Find the docker run call (should be the 4th call)
         run_call_args = mock_run.call_args_list[3][0][0]
 
-        # Find all -v flags and their arguments
-        # The first -v is for the temp script mount, the second is the user-defined volume
+        # Three -v flags now: the auto project-root mount, the temp script mount,
+        # and the user-defined volume.
         volume_indices = [i for i, arg in enumerate(run_call_args) if arg == "-v"]
-        self.assertEqual(2, len(volume_indices), "Expected 2 volume mounts: script and user-defined")
+        self.assertEqual(
+            3,
+            len(volume_indices),
+            "Expected 3 volume mounts: project root, script, and user-defined",
+        )
 
-        # Get the user-defined volume mount (second -v flag)
-        user_volume_mount = run_call_args[volume_indices[1] + 1]
-
-        # Verify the volume mount uses the absolute path correctly
-        self.assertEqual("/fake/project:/workspace", user_volume_mount)
+        # Verify the user-defined volume mount uses the absolute path correctly
+        self.assertIn("/fake/project:/workspace", run_call_args)
 
     @patch("tasktree.docker.subprocess.run")
     @patch("tasktree.docker.platform.system")
