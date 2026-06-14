@@ -1676,8 +1676,7 @@ tasks:
 Task Tree sets these environment variables internally for nested invocation support:
 
 - **`TT_CALL_CHAIN`**: Comma-separated list of task names in the current call stack (e.g., `"parent,child,grandchild"`). Used for recursion detection. Empty for top-level invocations.
-- **`TT_CONTAINERIZED_RUNNER`**: Name of the current Docker runner (only set when running inside a container). Used to prevent Docker-in-Docker across different runners within the same project. Value is empty string for non-containerized execution.
-- **`TT_PROJECT_ROOT`**: Container path to the project root directory (only set when running inside a container). Used to detect cross-project invocations. Contains the *container path* (not host path) resolved from volume mount specifications.
+- **`TT_CONTAINERIZED_RUNNER`**: Name of the current Docker runner (only set when running inside a container). Lets a nested `tt` call run a matching or shell-only task in-place rather than launching another container; a nested task that requires a *different* Docker runner is an error. Value is empty string for non-containerized execution.
 
 These variables are managed automatically and generally don't require user interaction. They may be useful for debugging nested invocation issues.
 
@@ -1692,7 +1691,6 @@ tasks:
     cmd: |
       echo "Call chain: $TT_CALL_CHAIN"
       echo "Container runner: $TT_CONTAINERIZED_RUNNER"
-      echo "Project root: $TT_PROJECT_ROOT"
 ```
 
 Empty values indicate the variable is not set (e.g., `TT_CONTAINERIZED_RUNNER` is empty for local execution).
