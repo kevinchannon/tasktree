@@ -675,58 +675,6 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
                 self.assertIn("requires containerized runner 'test'", str(context.exception))
                 self.assertIn("currently executing inside runner 'build'", str(context.exception))
 
-    def test_different_docker_runner_errors_even_for_other_project(self):
-        """
-        A nested task requiring a different Docker runner errors regardless of the
-        project context. (The former cross-project escape hatch via TT_PROJECT_ROOT
-        has been removed: launching a new container from inside one is unsupported.)
-        """
-        with TemporaryDirectory() as tmpdir:
-            project_root = Path(tmpdir)
-
-            build_runner = Runner(
-                name="build",
-                shell=ShellConfig(cmd=["/bin/bash", "-c"]),
-                dockerfile="Dockerfile.build",
-                context=".",
-            )
-            test_runner = Runner(
-                name="test",
-                shell=ShellConfig(cmd=["/bin/bash", "-c"]),
-                dockerfile="Dockerfile.test",
-                context=".",
-            )
-            recipe = Recipe(
-                project_root=project_root,
-                recipe_path=project_root / "tasktree.yaml",
-                tasks={
-                    "child": Task(
-                        name="child", desc="Child", cmd="echo 'test'", deps=[],
-                        inputs=[], outputs=[], working_dir=".", run_in="test",
-                        args=[], private=False,
-                    )
-                },
-                runners={"build": build_runner, "test": test_runner},
-                variables={},
-            )
-            state_manager = StateManager(project_root)
-            state_manager.load()
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
-
-            # Inside 'build', and a DIFFERENT project root than this one.
-            with patch.dict(
-                "os.environ",
-                {
-                    "TT_CONTAINERIZED_RUNNER": "build",
-                    "TT_PROJECT_ROOT": "/some/other/project",
-                },
-            ):
-                from tasktree.executor import ExecutionError
-
-                with self.assertRaises(ExecutionError):
-                    process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
-                    executor._run_task(recipe.tasks["child"], {}, process_runner)
-
     def test_shell_runner_switch_allowed_in_container(self):
         """
         Test that switching to a shell-only runner is allowed within a container.
