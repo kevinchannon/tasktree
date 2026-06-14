@@ -7,20 +7,12 @@ from __future__ import annotations
 
 import os
 import platform
-import re
 import subprocess
 import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from pathspec import PathSpec
-
 from tasktree.temp_script import TempScript
-
-try:
-    import pathspec
-except ImportError:
-    pathspec = None  # type: ignore
 
 if TYPE_CHECKING:
     from tasktree.logging import Logger
@@ -532,123 +524,6 @@ def resolve_container_working_dir(
         return f"/{task_working_dir.lstrip('/')}"
 
 
-def parse_dockerignore(dockerignore_path: Path) -> PathSpec | None:
-    """
-    Parse .dockerignore file into pathspec matcher.
-
-    Args:
-    dockerignore_path: Path to .dockerignore file
-
-    Returns:
-    PathSpec object for matching, or None if file doesn't exist or pathspec not available
-    """
-    if pathspec is None:
-        # pathspec library not available - can't parse .dockerignore
-        return None
-
-    if not dockerignore_path.exists():
-        return pathspec.PathSpec([])  # Empty matcher
-
-    try:
-        with open(dockerignore_path, "r") as f:
-            spec = pathspec.PathSpec.from_lines("gitwildmatch", f)
-        return spec
-    except Exception:
-        # Invalid patterns - return empty matcher rather than failing
-        return pathspec.PathSpec([])
-
-
-def context_changed_since(
-    context_path: Path,
-    dockerignore_path: Path | None,
-    last_run_time: float,
-) -> bool:
-    """
-    Check if any file in Docker build context has changed since last run.
-
-    Uses early-exit optimization: stops on first changed file found.
-
-    Args:
-    context_path: Path to Docker build context directory
-    dockerignore_path: Optional path to .dockerignore file
-    last_run_time: Unix timestamp of last task run
-
-    Returns:
-    True if any file changed, False otherwise
-    """
-    # Parse .dockerignore
-    dockerignore_spec = None
-    if dockerignore_path:
-        dockerignore_spec = parse_dockerignore(dockerignore_path)
-
-    # Walk context directory
-    for file_path in context_path.rglob("*"):
-        if not file_path.is_file():
-            continue
-
-        # Check if file matches .dockerignore patterns
-        if dockerignore_spec:
-            try:
-                relative_path = file_path.relative_to(context_path)
-                if dockerignore_spec.match_file(str(relative_path)):
-                    continue  # Skip ignored files
-            except ValueError:
-                # File not relative to context (shouldn't happen with rglob)
-                continue
-
-        # Check if file changed (early exit)
-        try:
-            if file_path.stat().st_mtime > last_run_time:
-                return True  # Found a changed file
-        except (OSError, FileNotFoundError):
-            # File might have been deleted - consider it changed
-            return True
-
-    return False  # No changes found
-
-
-def extract_from_images(dockerfile_content: str) -> list[tuple[str, str | None]]:
-    """
-    Extract image references from FROM lines in Dockerfile.
-
-    Args:
-    dockerfile_content: Content of Dockerfile
-
-    Returns:
-    List of (image_reference, digest) tuples where digest may be None for unpinned images
-    Example: [("rust:1.75", None), ("rust", "sha256:abc123...")]
-    """
-    # Regex pattern to match FROM lines
-    # Handles: FROM [--platform=...] image[:tag][@digest] [AS alias]
-    from_pattern = re.compile(
-        r"^\s*FROM\s+"  # FROM keyword
-        r"(?:--platform=\S+\s+)?"  # Optional platform flag
-        r"([^\s@]+)"  # Image name (possibly with :tag)
-        r"(?:@(sha256:[a-f0-9]+))?"  # Optional @digest
-        r"(?:\s+AS\s+\w+)?"  # Optional AS alias
-        r"\s*$",
-        re.MULTILINE | re.IGNORECASE,
-    )
-
-    matches = from_pattern.findall(dockerfile_content)
-    return [(image, digest if digest else None) for image, digest in matches]
-
-
-def check_unpinned_images(dockerfile_content: str) -> list[str]:
-    """
-    Check for unpinned base images in Dockerfile.
-
-    Args:
-    dockerfile_content: Content of Dockerfile
-
-    Returns:
-    List of unpinned image references (images without @sha256:... digests)
-    """
-    images = extract_from_images(dockerfile_content)
-    return [image for image, digest in images if digest is None]
-
-
-
 def _run_docker_inspect(image_name: str) -> str:
     """
     Run 'docker inspect --format={{.Id}}' and return the stripped image ID.
@@ -671,22 +546,3 @@ def _run_docker_inspect(image_name: str) -> str:
         text=True,
     )
     return result.stdout.strip()
-
-
-def get_local_base_image_digest(image_name: str) -> str | None:
-    """
-    Get the local image ID for a given base image name.
-
-    Queries the locally cached Docker image (does not contact remote registry).
-    Returns None if the image is not present locally.
-
-    Args:
-    image_name: Docker image reference (e.g., "python:3.11", "ubuntu:latest")
-
-    Returns:
-    Local image ID string (e.g., "sha256:abc123..."), or None if not found locally
-    """
-    try:
-        return _run_docker_inspect(image_name) or None
-    except (subprocess.CalledProcessError, FileNotFoundError, PermissionError):
-        return None
