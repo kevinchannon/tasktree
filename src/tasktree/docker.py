@@ -242,48 +242,12 @@ class DockerManager:
                 script_extension=script_ext,
                 use_shebang=use_shebang,
             ) as script_path:
-                # Build docker run command
-                docker_cmd = ["docker", "run", "--rm"]
-
-                # Add user mapping (run as current host user) unless explicitly disabled or on Windows
-                if not env.run_as_root and self._should_add_user_flag():
-                    uid = os.getuid()
-                    gid = os.getgid()
-                    docker_cmd.extend(["--user", f"{uid}:{gid}"])
-
-                docker_cmd.extend(env.args.run)
-
-                # Ensure the project root is available in the container. By default
-                # we bind-mount it read-write at its own host path so the task runs
-                # against the real repo with zero boilerplate. This is only a default:
-                # if the user already maps the project root themselves (possibly to a
-                # different container path), we leave their mapping alone and don't add
-                # a duplicate.
-                #
-                # Use the resolved (symlink-free) path so the mount point matches the
-                # working directory, which is derived via Path.resolve() elsewhere
-                # (e.g. on macOS /var -> /private/var); a mismatch would leave the
-                # task running in an empty auto-created dir instead of the repo.
-                if not self._project_root_is_mounted(env.volumes):
-                    root = self._project_root.resolve()
-                    docker_cmd.extend(["-v", f"{root}:{root}"])
+                # Build docker run command from the shared flags (user mapping,
+                # run args, volume mounts incl. the auto repo-mount, ports, env).
+                docker_cmd = ["docker", "run", "--rm"] + self._base_run_flags(env)
 
                 # Mount temp script into container at unique path (read-only for security)
                 docker_cmd.extend(["-v", f"{script_path}:{container_script_path}:ro"])
-
-                # Add volume mounts
-                for volume in env.volumes:
-                    # Resolve volume paths
-                    resolved_volume = self._resolve_volume_mount(volume)
-                    docker_cmd.extend(["-v", resolved_volume])
-
-                # Add port mappings
-                for port in env.ports:
-                    docker_cmd.extend(["-p", port])
-
-                # Add environment variables
-                for var_name, var_value in env.env_vars.items():
-                    docker_cmd.extend(["-e", f"{var_name}={var_value}"])
 
                 # Add working directory
                 if container_working_dir:
@@ -312,6 +276,81 @@ class DockerManager:
         except OSError as e:
             raise DockerError(
                 f"Failed to create temporary script for Docker execution: {e}"
+            ) from e
+
+    def _base_run_flags(self, env: Runner) -> list[str]:
+        """
+        Build the docker run flags shared by task execution and freshness probing.
+
+        Covers user mapping, run args, the auto project-root mount, user-defined
+        volumes, port mappings and environment variables -- everything that makes
+        the container see the same filesystem the task runs against. Does NOT
+        include the working directory, image tag, or the command to run.
+        """
+        flags: list[str] = []
+
+        # Run as the current host user unless disabled or on Windows, so files
+        # created in mounted volumes are owned by the host user (numeric mapping;
+        # the user need not exist in the container).
+        if not env.run_as_root and self._should_add_user_flag():
+            flags.extend(["--user", f"{os.getuid()}:{os.getgid()}"])
+
+        flags.extend(env.args.run)
+
+        # Auto-mount the project root at its own (resolved) path unless the user
+        # already maps it. See run_in_container for the rationale on resolve().
+        if not self._project_root_is_mounted(env.volumes):
+            root = self._project_root.resolve()
+            flags.extend(["-v", f"{root}:{root}"])
+
+        for volume in env.volumes:
+            flags.extend(["-v", self._resolve_volume_mount(volume)])
+
+        for port in env.ports:
+            flags.extend(["-p", port])
+
+        for var_name, var_value in env.env_vars.items():
+            flags.extend(["-e", f"{var_name}={var_value}"])
+
+        return flags
+
+    def capture_in_container(
+        self, env: Runner, argv: list[str], process_runner: ProcessRunner
+    ) -> str:
+        """
+        Run a command inside the container and capture its stdout.
+
+        Uses the same image and mounts as task execution (via _base_run_flags) so
+        that filesystem queries (e.g. freshness probing) resolve paths exactly as
+        the task itself would. Intended for short internal commands, not task
+        execution, so output is captured rather than streamed.
+
+        Args:
+            env: Runner definition
+            argv: Command (and args) to run in the container
+            process_runner: ProcessRunner used to build the image if needed
+
+        Returns:
+            The command's stdout as a string.
+
+        Raises:
+            DockerError: If the docker command fails.
+        """
+        image_tag, _ = self.ensure_image_built(env, process_runner)
+        docker_cmd = (
+            ["docker", "run", "--rm"]
+            + self._base_run_flags(env)
+            + [image_tag]
+            + list(argv)
+        )
+        try:
+            result = subprocess.run(
+                docker_cmd, check=True, capture_output=True, text=True
+            )
+            return result.stdout
+        except subprocess.CalledProcessError as e:
+            raise DockerError(
+                f"Docker freshness probe failed with exit code {e.returncode}: {e.stderr}"
             ) from e
 
     def _project_root_is_mounted(self, volumes: list[str]) -> bool:

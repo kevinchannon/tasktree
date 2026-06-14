@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from tasktree.freshness import HostProbe
+from tasktree.freshness import HostProbe, RunnerProbe
 
 
 class TestHostProbe(unittest.TestCase):
@@ -75,6 +75,72 @@ class TestHostProbe(unittest.TestCase):
             base = Path(tmpdir) / "does-not-exist"
             result = HostProbe(base).stat_patterns(["*.txt"])
             self.assertEqual(result, {"*.txt": {}})
+
+
+class TestRunnerProbe(unittest.TestCase):
+    """
+    Test the container freshness probe (parsing + invocation), with a stub runner
+    standing in for the actual container execution.
+    """
+
+    def test_passes_base_dir_and_patterns_to_runner(self):
+        """The probe invokes the runner with the base dir and each pattern as args."""
+        captured = {}
+
+        def fake_run(argv):
+            captured["argv"] = argv
+            return ""
+
+        RunnerProbe("/work", fake_run).stat_patterns(["a.txt", "build/*.bin"])
+
+        argv = captured["argv"]
+        self.assertEqual(argv[0], "sh")
+        self.assertEqual(argv[1], "-c")
+        # After the script and the "sh" argv[0] sentinel come the base dir + patterns.
+        self.assertEqual(argv[3:], ["sh", "/work", "a.txt", "build/*.bin"])
+
+    def test_parses_output_into_per_pattern_mtimes(self):
+        """Tab-separated 'pattern\\trelpath\\tmtime' lines parse into the result map."""
+        def fake_run(argv):
+            return (
+                "build/*.bin\tbuild/a.bin\t1000\n"
+                "build/*.bin\tbuild/b.bin\t1001\n"
+                "a.txt\ta.txt\t1002\n"
+            )
+
+        result = RunnerProbe("/work", fake_run).stat_patterns(
+            ["a.txt", "build/*.bin", "absent/*"]
+        )
+
+        self.assertEqual(result["a.txt"], {"a.txt": 1002.0})
+        self.assertEqual(
+            result["build/*.bin"], {"build/a.bin": 1000.0, "build/b.bin": 1001.0}
+        )
+        # A pattern with no output line maps to an empty dict (not missing).
+        self.assertEqual(result["absent/*"], {})
+
+    def test_empty_patterns_short_circuits(self):
+        """No patterns means no container call and an empty result."""
+        called = False
+
+        def fake_run(argv):
+            nonlocal called
+            called = True
+            return ""
+
+        result = RunnerProbe("/work", fake_run).stat_patterns([])
+
+        self.assertEqual(result, {})
+        self.assertFalse(called, "runner should not be invoked for empty patterns")
+
+    def test_ignores_malformed_lines(self):
+        """Lines that are not 3 tab-separated fields are skipped."""
+        def fake_run(argv):
+            return "garbage line\na.txt\ta.txt\t1002\n\n"
+
+        result = RunnerProbe("/work", fake_run).stat_patterns(["a.txt"])
+
+        self.assertEqual(result["a.txt"], {"a.txt": 1002.0})
 
 
 if __name__ == "__main__":

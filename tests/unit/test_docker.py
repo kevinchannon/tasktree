@@ -586,6 +586,47 @@ class TestDockerManager(unittest.TestCase):
 
     @patch("tasktree.docker.subprocess.run")
     @patch("tasktree.docker.platform.system")
+    def test_capture_in_container_returns_stdout_and_runs_argv(
+        self, mock_platform, mock_run
+    ):
+        """
+        capture_in_container runs the given argv in the container (with the shared
+        run flags + image) and returns its captured stdout.
+        """
+        mock_platform.return_value = "Windows"  # skip user flag for simplicity
+
+        env = Runner(
+            name="builder",
+            dockerfile="./Dockerfile",
+            context=".",
+            shell=ShellConfig(cmd=["sh", "-c"]),
+        )
+
+        # Isolate the capture command from the build path.
+        self.manager.ensure_image_built = Mock(
+            return_value=("tt-env-builder", "sha256:abc")
+        )
+        mock_run.return_value = Mock(stdout="pat\tfile.txt\t123\n")
+
+        process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
+        out = self.manager.capture_in_container(
+            env, ["sh", "-c", "the-script", "sh", "/base", "*.txt"], process_runner
+        )
+
+        self.assertEqual(out, "pat\tfile.txt\t123\n")
+
+        docker_cmd = mock_run.call_args[0][0]
+        self.assertEqual(docker_cmd[:3], ["docker", "run", "--rm"])
+        self.assertIn("tt-env-builder", docker_cmd)
+        # The argv is appended after the image tag.
+        image_index = docker_cmd.index("tt-env-builder")
+        self.assertEqual(
+            docker_cmd[image_index + 1:],
+            ["sh", "-c", "the-script", "sh", "/base", "*.txt"],
+        )
+
+    @patch("tasktree.docker.subprocess.run")
+    @patch("tasktree.docker.platform.system")
     def test_run_in_container_does_not_duplicate_project_root_mount(
         self, mock_platform, mock_run
     ):
