@@ -585,6 +585,24 @@ class TestDockerManager(unittest.TestCase):
         self.assertIn(expected_mount, run_call_args)
 
     @patch("tasktree.docker.subprocess.run")
+    def test_image_content_fingerprint_uses_rootfs_layers(self, mock_run):
+        """
+        image_content_fingerprint returns the image's RootFS layer digests
+        (content-addressed), inspected via the RootFS.Layers format.
+        """
+        mock_run.return_value = Mock(
+            stdout='["sha256:aaa","sha256:bbb"]\n'
+        )
+
+        fp = self.manager.image_content_fingerprint("tt-env-builder")
+
+        self.assertEqual(fp, '["sha256:aaa","sha256:bbb"]')
+        inspect_cmd = mock_run.call_args[0][0]
+        self.assertEqual(inspect_cmd[:2], ["docker", "inspect"])
+        self.assertIn("{{json .RootFS.Layers}}", inspect_cmd)
+        self.assertIn("tt-env-builder", inspect_cmd)
+
+    @patch("tasktree.docker.subprocess.run")
     @patch("tasktree.docker.platform.system")
     def test_capture_in_container_returns_stdout_and_runs_argv(
         self, mock_platform, mock_run

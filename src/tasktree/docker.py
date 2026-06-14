@@ -452,6 +452,40 @@ class DockerManager:
         except subprocess.CalledProcessError as e:
             raise DockerError(f"Failed to inspect image {image_tag}: {e.stderr}")
 
+    @staticmethod
+    def image_content_fingerprint(image_tag: str) -> str:
+        """
+        Return a content fingerprint for a built image.
+
+        The fingerprint is the image's RootFS layer digests, which are
+        content-addressed: it is stable across identical rebuilds but changes
+        whenever the image content does (e.g. a Dockerfile edit or a new base
+        image). This is used to detect environment changes that should force a
+        task re-run. We deliberately do NOT use the image Id, which BuildKit
+        regenerates on every rebuild even when nothing changed.
+
+        Args:
+            image_tag: Docker image tag (e.g. "tt-env-builder")
+
+        Returns:
+            A stable fingerprint string for the image's content.
+
+        Raises:
+            DockerError: If the image cannot be inspected.
+        """
+        try:
+            result = subprocess.run(
+                ["docker", "inspect", "--format", "{{json .RootFS.Layers}}", image_tag],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            return result.stdout.strip()
+        except subprocess.CalledProcessError as e:
+            raise DockerError(
+                f"Failed to fingerprint image {image_tag}: {e.stderr}"
+            )
+
 
 def is_docker_runner(env: Runner) -> bool:
     """
