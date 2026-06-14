@@ -55,15 +55,12 @@ tasks:
 
   test:
     desc: "Run all test suites"
-    deps: [ "unit-test", "integration-test", "e2e-test"]
     cmd: |
       uv sync --extra dev
       
       tt unit-test sync=FALSE
       tt integration-test sync=FALSE
       tt e2e-test sync=FALSE
-      
-      echo "All tests passed"
 
   coverage:
     desc: Run tests with coverage check

@@ -586,6 +586,55 @@ class TestDockerManager(unittest.TestCase):
 
     @patch("tasktree.docker.subprocess.run")
     @patch("tasktree.docker.platform.system")
+    def test_run_in_container_does_not_duplicate_project_root_mount(
+        self, mock_platform, mock_run
+    ):
+        """
+        When the user already maps the project root themselves, the auto same-path
+        mount is suppressed so the project root is not bind-mounted twice.
+        """
+        mock_platform.return_value = "Windows"  # Skip user flag for simplicity
+
+        env = Runner(
+            name="builder",
+            dockerfile="./Dockerfile",
+            context=".",
+            shell=ShellConfig(cmd=["sh", "-c"]),
+            # User maps the project root at its own path explicitly.
+            volumes=[f"{self.project_root}:{self.project_root}"],
+        )
+
+        def mock_run_side_effect(*args, **_kwargs):
+            cmd = args[0]
+            if "inspect" in cmd:
+                result = Mock()
+                result.stdout = "sha256:abc123def456\n"
+                return result
+            return Mock()
+
+        mock_run.side_effect = mock_run_side_effect
+
+        process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
+        self.manager.run_in_container(
+            env=env,
+            cmd="echo hello",
+            working_dir=Path("/fake/project"),
+            container_working_dir="/workspace",
+            process_runner=process_runner,
+        )
+
+        run_call_args = mock_run.call_args_list[3][0][0]
+
+        # The project-root mount appears exactly once (from the user's volume).
+        root_mount = f"{self.project_root}:{self.project_root}"
+        self.assertEqual(
+            run_call_args.count(root_mount),
+            1,
+            "Project root must not be mounted twice",
+        )
+
+    @patch("tasktree.docker.subprocess.run")
+    @patch("tasktree.docker.platform.system")
     def test_run_in_container_mounts_temp_script(self, mock_platform, mock_run):
         """
         Test that temp script is mounted into container.
@@ -920,17 +969,20 @@ class TestDockerManager(unittest.TestCase):
         # Find the docker run call (should be the 4th call)
         run_call_args = mock_run.call_args_list[3][0][0]
 
-        # Three -v flags now: the auto project-root mount, the temp script mount,
-        # and the user-defined volume.
+        # The user's volume already maps the project root (/fake/project), so the
+        # auto same-path mount is suppressed (dedup). Two -v flags remain: the
+        # temp script mount and the user-defined volume.
         volume_indices = [i for i, arg in enumerate(run_call_args) if arg == "-v"]
         self.assertEqual(
-            3,
+            2,
             len(volume_indices),
-            "Expected 3 volume mounts: project root, script, and user-defined",
+            "Expected 2 volume mounts: script and user-defined (no duplicate root mount)",
         )
 
         # Verify the user-defined volume mount uses the absolute path correctly
         self.assertIn("/fake/project:/workspace", run_call_args)
+        # And the auto same-path mount must NOT have been added.
+        self.assertNotIn("/fake/project:/fake/project", run_call_args)
 
     @patch("tasktree.docker.subprocess.run")
     @patch("tasktree.docker.platform.system")

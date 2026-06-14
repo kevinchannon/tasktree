@@ -253,13 +253,16 @@ class DockerManager:
 
                 docker_cmd.extend(env.args.run)
 
-                # Always bind-mount the project root at its own host path (read-write)
-                # so the task runs against the real repo and any outputs land where the
-                # host expects them. Mounting at the identical path keeps container paths
-                # equal to host paths, which is what makes incremental state tracking sound.
-                docker_cmd.extend(
-                    ["-v", f"{self._project_root}:{self._project_root}"]
-                )
+                # Ensure the project root is available in the container. By default
+                # we bind-mount it read-write at its own host path so the task runs
+                # against the real repo with zero boilerplate. This is only a default:
+                # if the user already maps the project root themselves (possibly to a
+                # different container path), we leave their mapping alone and don't add
+                # a duplicate.
+                if not self._project_root_is_mounted(env.volumes):
+                    docker_cmd.extend(
+                        ["-v", f"{self._project_root}:{self._project_root}"]
+                    )
 
                 # Mount temp script into container at unique path (read-only for security)
                 docker_cmd.extend(["-v", f"{script_path}:{container_script_path}:ro"])
@@ -306,6 +309,30 @@ class DockerManager:
             raise DockerError(
                 f"Failed to create temporary script for Docker execution: {e}"
             ) from e
+
+    def _project_root_is_mounted(self, volumes: list[str]) -> bool:
+        """
+        Check whether any volume already bind-mounts the project root.
+
+        Compares the resolved host side of each volume against the project root
+        so we don't add a duplicate same-path mount when the user has already
+        mapped the project root (at its own path or a different container path).
+
+        Args:
+            volumes: Volume specifications from the runner definition
+
+        Returns:
+            True if some volume's host path is the project root, False otherwise
+        """
+        root = self._project_root.resolve()
+        for volume in volumes:
+            host_path = self._resolve_volume_mount(volume).split(":", 1)[0]
+            try:
+                if Path(host_path).resolve() == root:
+                    return True
+            except OSError:
+                continue
+        return False
 
     def _resolve_volume_mount(self, volume: str) -> str:
         """
