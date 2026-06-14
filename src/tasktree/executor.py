@@ -15,6 +15,7 @@ from typing import Any, Callable
 
 from tasktree import docker as docker_module
 from tasktree.config import ConfigError
+from tasktree.freshness import FreshnessProbe, HostProbe
 from tasktree.graph import (
     get_implicit_inputs,
     resolve_execution_order,
@@ -1745,21 +1746,21 @@ class Executor:
         """
         changed_files = []
 
-        # Expand glob patterns
-        input_files = self._expand_globs(all_inputs, task.working_dir)
-        self.logger.trace(f"Checking {len(input_files)} input file(s) for task '{task.name}'")
-        current_input_set = set(input_files)
+        # Keys starting with '_' are special entries (runner hashes, docker image
+        # ids, etc.) and are not file paths — skip them.
+        cached_files = [p for p in cached_state.input_state if not p.startswith("_")]
 
-        for file_path in input_files:
-            # Regular file check
-            file_path_obj = self.recipe.project_root / task.working_dir / file_path
-            if not file_path_obj.exists():
-                self.logger.trace(f"Input file '{file_path}' does not exist, skipping")
-                continue
+        # Resolve current matches plus the existence of previously-tracked files
+        # in a single probe (so the container variant needs only one round-trip).
+        probe = self._freshness_probe(task)
+        stat = probe.stat_patterns(all_inputs + cached_files)
 
-            current_mtime = file_path_obj.stat().st_mtime
+        current: dict[str, float] = {}
+        for pattern in all_inputs:
+            current.update(stat.get(pattern, {}))
+        self.logger.trace(f"Checking {len(current)} input file(s) for task '{task.name}'")
 
-            # Check if file is in cached state
+        for file_path, current_mtime in current.items():
             cached_mtime = cached_state.input_state.get(file_path)
             if cached_mtime is None:
                 self.logger.trace(f"Input file '{file_path}' has no cached mtime, treating as changed (current mtime: {current_mtime})")
@@ -1770,17 +1771,12 @@ class Executor:
             else:
                 self.logger.trace(f"Input file '{file_path}' is unchanged (mtime: {current_mtime})")
 
-        # Also detect files that were previously tracked as inputs but are now deleted.
-        # Keys starting with '_' are special entries (runner hashes, docker image ids, etc.)
-        # and are not file paths — skip them.
-        for cached_path in cached_state.input_state:
-            if cached_path.startswith("_"):
-                continue
-            if cached_path not in current_input_set:
-                file_path_obj = self.recipe.project_root / task.working_dir / cached_path
-                if not file_path_obj.exists():
-                    self.logger.trace(f"Previously-tracked input file '{cached_path}' has been deleted")
-                    changed_files.append(cached_path)
+        # Also detect files that were previously tracked as inputs but are now
+        # deleted (no longer matched and no longer present on disk).
+        for cached_path in cached_files:
+            if cached_path not in current and not stat.get(cached_path):
+                self.logger.trace(f"Previously-tracked input file '{cached_path}' has been deleted")
+                changed_files.append(cached_path)
 
         return changed_files
 
@@ -1826,58 +1822,50 @@ class Executor:
             return []
 
         missing_patterns = []
-        base_path = self.recipe.project_root / task.working_dir
 
         # Expand outputs to paths (handles both named and anonymous)
         output_paths = self._expand_output_paths(task)
+        cached_files = (
+            list(cached_state.output_state)
+            if cached_state and cached_state.output_state
+            else []
+        )
         self.logger.trace(f"Checking {len(output_paths)} output pattern(s) for task '{task.name}'")
 
+        # One probe resolves both pattern matches and the existence of
+        # previously-tracked output files.
+        probe = self._freshness_probe(task)
+        stat = probe.stat_patterns(output_paths + cached_files)
+
         for pattern in output_paths:
-            # Check if pattern has any matches
-            matches = list(base_path.glob(pattern))
+            matches = stat.get(pattern, {})
             if not matches:
                 self.logger.trace(f"Output pattern '{pattern}' has no matches (missing)")
                 missing_patterns.append(pattern)
             else:
-                self.logger.trace(f"Output pattern '{pattern}' has {len(matches)} match(es): {[str(m.relative_to(base_path)) for m in matches]}")
+                self.logger.trace(f"Output pattern '{pattern}' has {len(matches)} match(es): {list(matches)}")
 
-        # Also detect individual files that were previously output but are now deleted.
-        # This catches the case where a glob like "build/bin/*" previously matched
-        # [exe1, exe2] but now only matches [exe2] — exe1 is missing even though
-        # the pattern still has matches.
-        if cached_state and cached_state.output_state:
-            for file_path in cached_state.output_state:
-                file_path_obj = self.recipe.project_root / task.working_dir / file_path
-                if not file_path_obj.exists():
-                    self.logger.trace(f"Previously-tracked output file '{file_path}' is now missing")
-                    missing_patterns.append(file_path)
+        # Also detect individual files that were previously output but are now
+        # deleted. This catches the case where a glob like "build/bin/*" previously
+        # matched [exe1, exe2] but now only matches [exe2] — exe1 is missing even
+        # though the pattern still has matches.
+        for file_path in cached_files:
+            if not stat.get(file_path):
+                self.logger.trace(f"Previously-tracked output file '{file_path}' is now missing")
+                missing_patterns.append(file_path)
 
         return missing_patterns
 
-    def _expand_globs(self, patterns: list[str], working_dir: str) -> list[str]:
+    def _freshness_probe(self, task: Task) -> FreshnessProbe:
         """
-        Expand glob patterns to actual file paths.
+        Build the freshness probe used to resolve a task's input/output patterns.
 
-        Args:
-        patterns: List of glob patterns
-        working_dir: Working directory to resolve patterns from
-
-        Returns:
-        List of file paths (relative to working_dir)
+        Returns a host-filesystem probe rooted at the task's working directory.
+        Containerised tasks will return a runner-backed probe so that patterns are
+        resolved in the same filesystem namespace the task executes in.
         """
-        files = []
-        base_path = self.recipe.project_root / working_dir
-
-        for pattern in patterns:
-            # Use pathlib's glob
-            matches = base_path.glob(pattern)
-            for match in matches:
-                if match.is_file():
-                    # Make relative to working_dir
-                    rel_path = match.relative_to(base_path)
-                    files.append(str(rel_path))
-
-        return files
+        base_dir = self.recipe.project_root / task.working_dir
+        return HostProbe(base_dir)
 
     def _update_state(self, task: Task, args_dict: dict[str, Any]) -> None:
         """
@@ -1916,15 +1904,14 @@ class Executor:
 
     def _input_files_to_modified_times(self, task: Task, args_dict: dict[str, Any] | None = None) -> dict[str, float]:
         """
+        Record current mtimes of all files matched by the task's input patterns.
         """
-        input_files = self._expand_globs(self._get_all_inputs(task, args_dict), task.working_dir)
-
-        input_state = {}
-        for file_path in input_files:
-            file_path_obj = self.recipe.project_root / task.working_dir / file_path
-            if file_path_obj.exists():
-                input_state[file_path] = file_path_obj.stat().st_mtime
-
+        stat = self._freshness_probe(task).stat_patterns(
+            self._get_all_inputs(task, args_dict)
+        )
+        input_state: dict[str, float] = {}
+        for matches in stat.values():
+            input_state.update(matches)
         return input_state
 
     def _output_files_to_modified_times(self, task: Task) -> dict[str, float]:
@@ -1934,15 +1921,12 @@ class Executor:
         Used to detect when individual files within a glob-matched output set
         are later deleted, even if other files in the set still exist.
         """
-        output_paths = self._expand_output_paths(task)
-        output_files = self._expand_globs(output_paths, task.working_dir)
-
-        output_state = {}
-        for file_path in output_files:
-            file_path_obj = self.recipe.project_root / task.working_dir / file_path
-            if file_path_obj.exists():
-                output_state[file_path] = file_path_obj.stat().st_mtime
-
+        stat = self._freshness_probe(task).stat_patterns(
+            self._expand_output_paths(task)
+        )
+        output_state: dict[str, float] = {}
+        for matches in stat.values():
+            output_state.update(matches)
         return output_state
 
     def _docker_inputs_to_modified_times(

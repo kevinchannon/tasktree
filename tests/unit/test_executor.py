@@ -1167,34 +1167,6 @@ class TestExecutorPrivateMethods(unittest.TestCase):
 
             self.assertIn("bin/exe1", changed)
 
-    def test_expand_globs_multiple_patterns(self):
-        """
-        Test expanding multiple glob patterns.
-        """
-
-        with TemporaryDirectory() as tmpdir:
-            project_root = Path(tmpdir)
-
-            # Create test files
-            (project_root / "file1.txt").write_text("test1")
-            (project_root / "file2.txt").write_text("test2")
-            (project_root / "script.py").write_text("print('test')")
-
-            state_manager = StateManager(project_root)
-            tasks = {"test": Task(name="test", cmd="echo test")}
-            recipe = Recipe(
-                tasks=tasks,
-                project_root=project_root,
-                recipe_path=project_root / "tasktree.yaml",
-            )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
-
-            # Expand multiple patterns
-            result = executor._expand_globs(["*.txt", "*.py"], ".")
-
-            # Should find all matching files
-            self.assertEqual(set(result), {"file1.txt", "file2.txt", "script.py"})
-
 
 class TestOnlyMode(unittest.TestCase):
     """
