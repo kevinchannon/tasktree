@@ -15,7 +15,7 @@ from typing import Any, Callable
 
 from tasktree import docker as docker_module
 from tasktree.config import ConfigError
-from tasktree.freshness import FreshnessProbe, HostProbe
+from tasktree.freshness import FreshnessProbe, HostProbe, RunnerProbe
 from tasktree.graph import (
     get_implicit_inputs,
     resolve_execution_order,
@@ -614,7 +614,9 @@ class Executor:
             )
 
         # Check if inputs have changed
-        changed_files = self._check_inputs_changed(task, cached_state, all_inputs)
+        changed_files = self._check_inputs_changed(
+            task, cached_state, all_inputs, process_runner
+        )
         if changed_files:
             files_list = ", ".join(changed_files)
             self.logger.debug(f"Task '{task.name}' will run: inputs changed: {files_list}")
@@ -627,7 +629,9 @@ class Executor:
             )
 
         # Check if declared outputs are missing
-        missing_outputs = self._check_outputs_missing(task, cached_state)
+        missing_outputs = self._check_outputs_missing(
+            task, cached_state, process_runner
+        )
         if missing_outputs:
             outputs_list = ", ".join(missing_outputs)
             self.logger.debug(f"Task '{task.name}' will run: outputs missing: {outputs_list}")
@@ -636,6 +640,18 @@ class Executor:
                 will_run=True,
                 reason="outputs_missing",
                 changed_files=missing_outputs,
+                last_run=datetime.fromtimestamp(cached_state.last_run),
+            )
+
+        # Inputs/outputs are fresh. For a containerised task, the probe above will
+        # have (cache-aware) built the image; if its content fingerprint differs
+        # from the stored one, the environment changed and the task must re-run.
+        if self._image_fingerprint_changed(task, cached_state, process_runner):
+            self.logger.debug(f"Task '{task.name}' will run: container image changed")
+            return TaskStatus(
+                task_name=task.name,
+                will_run=True,
+                reason="environment_changed",
                 last_run=datetime.fromtimestamp(cached_state.last_run),
             )
 
@@ -1068,7 +1084,7 @@ class Executor:
             self.state.load()
 
         # Update state
-        self._update_state(task, args_dict)
+        self._update_state(task, args_dict, process_runner)
 
     def _run_command_as_script(
         self,
@@ -1293,21 +1309,8 @@ class Executor:
         # Substitute builtin variables in environment fields (volumes, env_vars, etc.)
         env = self._substitute_builtin_in_runner(env, builtin_vars)
 
-        # Resolve container working directory.
-        # A runner-level working_dir is an explicit override (combined with any
-        # task working_dir). Otherwise we default to the host working directory
-        # translated to its container path: the identity mapping in the common
-        # same-path mount case, or the user's chosen container path when they have
-        # remapped the project root (e.g. ".:/workspace" -> "/workspace").
-        task_wd = "" if task.working_dir == "." else task.working_dir
-        if env.working_dir:
-            container_working_dir = docker_module.resolve_container_working_dir(
-                env.working_dir, task_wd
-            )
-        else:
-            container_working_dir = str(
-                self._resolve_container_path(working_dir, env.volumes or [])
-            )
+        # Resolve container working directory (see _container_working_dir).
+        container_working_dir = self._container_working_dir(task, env, working_dir)
 
         # Validate and merge exported args with env vars (exported args take precedence)
         docker_env_vars = env.env_vars.copy() if env.env_vars else {}
@@ -1565,173 +1568,23 @@ class Executor:
 
         self.logger.trace(f"Cached runner hash for '{env_name}': {cached_env_hash}")
 
-        # Check if YAML definition changed
+        # Check if the runner's recipe-level definition changed.
         if current_env_hash != cached_env_hash:
             self.logger.trace(f"Runner '{env_name}' hash changed (cached: {cached_env_hash}, current: {current_env_hash})")
-            return True  # YAML changed, no need to check image
-
-        # For Docker environments, also check context files and base image digests.
-        # We deliberately do NOT compare the built image ID: modern Docker (BuildKit)
-        # produces a different image ID on every rebuild of an identical Dockerfile,
-        # which would make every containerised task re-run unconditionally. Base-image
-        # updates are already captured deterministically by the base-image digest check.
-        if env.dockerfile:
-            if self._check_docker_context_changed(env_name, env, cached_state):
-                return True
-            return self._check_base_image_digests_changed(env_name, env, cached_state)
-
-        # Shell environment with unchanged hash
-        return False
-
-    def _check_docker_context_changed(
-        self,
-        env_name: str,
-        env: Runner,
-        cached_state: TaskState,
-    ) -> bool:
-        """Check if any file in the Docker build context has changed.
-
-        Compares current context file mtimes against values cached under
-        ``_ctx_{env_name}_{relpath}`` keys.  Returns True if any file is
-        new, modified, or deleted since the last run.
-
-        Args:
-            env_name: Runner name (used as part of cache-key prefix)
-            env: Docker runner definition (provides ``context`` path)
-            cached_state: Cached state from previous run
-
-        Returns:
-            True if the context directory contents have changed, False otherwise
-        """
-        if not env.context:
-            return False
-
-        prefix = f"_ctx_{env_name}_"
-        cached_ctx: dict[str, float] = {
-            k[len(prefix):]: v
-            for k, v in cached_state.input_state.items()
-            if k.startswith(prefix)
-        }
-
-        context_path = self.recipe.project_root / env.context
-        dockerignore_path = context_path / ".dockerignore"
-        dockerignore_spec = (
-            docker_module.parse_dockerignore(dockerignore_path)
-            if dockerignore_path.exists()
-            else None
-        )
-
-        current_ctx = self._current_context_mtimes(context_path, dockerignore_path, dockerignore_spec)
-
-        # New or modified files
-        for rel_path, mtime in current_ctx.items():
-            if rel_path not in cached_ctx:
-                self.logger.trace(f"New context file detected for runner '{env_name}': {rel_path}")
-                return True
-            if mtime != cached_ctx[rel_path]:
-                self.logger.trace(f"Modified context file detected for runner '{env_name}': {rel_path}")
-                return True
-
-        # Deleted files
-        for rel_path in cached_ctx:
-            if rel_path not in current_ctx:
-                self.logger.trace(f"Deleted context file detected for runner '{env_name}': {rel_path}")
-                return True
-
-        if self._check_dockerignore_changed(env_name, dockerignore_path, cached_state):
             return True
 
+        # Docker image *content* changes (Dockerfile edits, new base image) are
+        # detected separately, after the input/output probe builds the image -- see
+        # _image_fingerprint_changed. Tasktree no longer tracks Docker build inputs
+        # host-side; Docker's own layer cache decides whether the image rebuilds.
         return False
-
-    def _check_base_image_digests_changed(
-        self,
-        env_name: str,
-        env: Runner,
-        cached_state: TaskState,
-    ) -> bool:
-        """Check if any base image's local digest has changed since last run.
-
-        Reads the Dockerfile, extracts FROM directives, and compares each
-        image's current local digest (via ``docker inspect``) against the
-        value stored in cached state.  Returns True if any digest differs or
-        is newly present.
-
-        Args:
-            env_name: Runner name (used as part of cache-key prefix)
-            env: Docker runner definition
-            cached_state: Cached state from previous run
-
-        Returns:
-            True if any base image digest has changed, False otherwise
-        """
-        if not env.dockerfile:
-            return False
-
-        dockerfile_path = self.recipe.project_root / env.dockerfile
-        try:
-            dockerfile_content = dockerfile_path.read_text()
-        except OSError:
-            return False
-
-        images = docker_module.extract_from_images(dockerfile_content)
-        for image_name, _ in images:
-            current_digest = docker_module.get_local_base_image_digest(image_name)
-            cached_digest = cached_state.input_state.get(f"_base_img_{env_name}_{image_name}")
-            if current_digest != cached_digest:
-                self.logger.trace(
-                    f"Base image digest changed for '{image_name}' in runner '{env_name}'"
-                )
-                return True
-
-        return False
-
-    def _check_dockerignore_changed(
-        self,
-        env_name: str,
-        dockerignore_path: Path,
-        cached_state: TaskState,
-    ) -> bool:
-        """Check if the .dockerignore file has been added, modified, or deleted."""
-        dockerignore_key = dockerignore_path.relative_to(self.recipe.project_root).as_posix()
-        cached_mtime = cached_state.input_state.get(dockerignore_key)
-        if dockerignore_path.exists():
-            current_mtime = dockerignore_path.stat().st_mtime
-            if cached_mtime is None or current_mtime != cached_mtime:
-                self.logger.trace(f".dockerignore changed for runner '{env_name}'")
-                return True
-        elif cached_mtime is not None:
-            self.logger.trace(f".dockerignore deleted for runner '{env_name}'")
-            return True
-        return False
-
-    def _current_context_mtimes(
-        self,
-        context_path: Path,
-        dockerignore_path: Path,
-        dockerignore_spec,
-    ) -> dict[str, float]:
-        """Return relative-path → mtime for every tracked file in the context directory."""
-        current_ctx: dict[str, float] = {}
-        if not context_path.is_dir():
-            return current_ctx
-        for file_path in context_path.rglob("*"):
-            if not file_path.is_file():
-                continue
-            if file_path == dockerignore_path:
-                continue
-            if dockerignore_spec is not None:
-                try:
-                    relative_to_context = file_path.relative_to(context_path)
-                    if dockerignore_spec.match_file(str(relative_to_context)):
-                        continue
-                except ValueError:
-                    pass
-            relative_path = file_path.relative_to(self.recipe.project_root).as_posix()
-            current_ctx[relative_path] = file_path.stat().st_mtime
-        return current_ctx
 
     def _check_inputs_changed(
-        self, task: Task, cached_state: TaskState, all_inputs: list[str]
+        self,
+        task: Task,
+        cached_state: TaskState,
+        all_inputs: list[str],
+        process_runner: ProcessRunner | None = None,
     ) -> list[str]:
         """
         Check if any input files have changed since last run.
@@ -1740,19 +1593,20 @@ class Executor:
         task: Task to check
         cached_state: Cached state from previous run
         all_inputs: All input glob patterns
+        process_runner: Used to build/run the container for in-container probing
 
         Returns:
         List of changed file paths
         """
         changed_files = []
 
-        # Keys starting with '_' are special entries (runner hashes, docker image
-        # ids, etc.) and are not file paths — skip them.
+        # Keys starting with '_' are special entries (runner hashes, image
+        # fingerprints, etc.) and are not file paths — skip them.
         cached_files = [p for p in cached_state.input_state if not p.startswith("_")]
 
         # Resolve current matches plus the existence of previously-tracked files
         # in a single probe (so the container variant needs only one round-trip).
-        probe = self._freshness_probe(task)
+        probe = self._freshness_probe(task, process_runner)
         stat = probe.stat_patterns(all_inputs + cached_files)
 
         current: dict[str, float] = {}
@@ -1802,7 +1656,10 @@ class Executor:
         return paths
 
     def _check_outputs_missing(
-        self, task: Task, cached_state: "TaskState | None" = None
+        self,
+        task: Task,
+        cached_state: "TaskState | None" = None,
+        process_runner: ProcessRunner | None = None,
     ) -> list[str]:
         """
         Check if any declared outputs are missing.
@@ -1814,6 +1671,7 @@ class Executor:
         Args:
         task: Task to check
         cached_state: Previously saved state (used to detect deleted glob members)
+        process_runner: Used to build/run the container for in-container probing
 
         Returns:
         List of output patterns or file paths that are missing
@@ -1834,7 +1692,7 @@ class Executor:
 
         # One probe resolves both pattern matches and the existence of
         # previously-tracked output files.
-        probe = self._freshness_probe(task)
+        probe = self._freshness_probe(task, process_runner)
         stat = probe.stat_patterns(output_paths + cached_files)
 
         for pattern in output_paths:
@@ -1856,36 +1714,153 @@ class Executor:
 
         return missing_patterns
 
-    def _freshness_probe(self, task: Task) -> FreshnessProbe:
+    def _container_working_dir(
+        self, task: Task, env: Runner, host_working_dir: Path
+    ) -> str | None:
+        """
+        Resolve the working directory inside the container.
+
+        A runner-level working_dir is an explicit override (combined with any task
+        working_dir). Otherwise we default to the host working directory translated
+        to its container path: the identity mapping in the common same-path mount
+        case, or the user's chosen container path when they have remapped the
+        project root (e.g. ".:/workspace" -> "/workspace").
+        """
+        task_wd = "" if task.working_dir == "." else task.working_dir
+        if env.working_dir:
+            return docker_module.resolve_container_working_dir(env.working_dir, task_wd)
+        return str(self._resolve_container_path(host_working_dir, env.volumes or []))
+
+    def _freshness_probe(
+        self, task: Task, process_runner: ProcessRunner | None
+    ) -> FreshnessProbe:
         """
         Build the freshness probe used to resolve a task's input/output patterns.
 
-        Returns a host-filesystem probe rooted at the task's working directory.
-        Containerised tasks will return a runner-backed probe so that patterns are
-        resolved in the same filesystem namespace the task executes in.
+        For a task that will launch its own container (a Docker runner, and we are
+        not already executing inside a container), returns a RunnerProbe so the
+        patterns are resolved in the container's filesystem view. Otherwise -- a
+        shell runner, or a nested call already running inside the container where
+        the local filesystem *is* the container -- returns a HostProbe rooted at
+        the task's working directory.
         """
-        base_dir = self.recipe.project_root / task.working_dir
-        return HostProbe(base_dir)
+        env = self._docker_env_for_top_level_task(task)
+        if env is not None:
+            host_working_dir = self.recipe.project_root / task.working_dir
+            container_dir = self._container_working_dir(task, env, host_working_dir)
 
-    def _update_state(self, task: Task, args_dict: dict[str, Any]) -> None:
+            def run(argv: list[str]) -> str:
+                return self.docker_manager.capture_in_container(
+                    env, argv, process_runner
+                )
+
+            return RunnerProbe(container_dir or str(host_working_dir), run)
+
+        return HostProbe(self.recipe.project_root / task.working_dir)
+
+    def _docker_env_for_top_level_task(self, task: Task) -> Runner | None:
+        """
+        Return the Docker runner for a task that will launch its own container,
+        or None.
+
+        This is the case where freshness must be assessed (and the image
+        fingerprinted) inside a fresh container: the task uses a Docker runner and
+        we are not already running inside a container (a nested call in a matching
+        container runs as a shell against the local filesystem instead).
+
+        The returned runner has built-in variables substituted in its fields (e.g.
+        ``{{ tt.project_root }}`` in volumes/working_dir), exactly as the execution
+        path does, so the probe resolves the same mounts and paths the task uses.
+        """
+        already_in_container = bool(
+            os.environ.get("TT_CONTAINERIZED_RUNNER", "").strip()
+        )
+        if already_in_container:
+            return None
+        env_name = self._get_effective_runner_name(task)
+        env = self.recipe.get_runner(env_name) if env_name else None
+        if env and env.dockerfile:
+            working_dir = self.recipe.project_root / task.working_dir
+            builtin_vars = self._collect_builtin_variables(
+                task, working_dir, datetime.now(timezone.utc)
+            )
+            return self._substitute_builtin_in_runner(env, builtin_vars)
+        return None
+
+    def _image_fingerprint_changed(
+        self,
+        task: Task,
+        cached_state: TaskState,
+        process_runner: ProcessRunner,
+    ) -> bool:
+        """
+        Return True if a top-level containerised task's built image content differs
+        from the fingerprint stored at the last run (i.e. the environment changed).
+
+        This is the final staleness gate: by the time it runs, inputs/outputs are
+        otherwise fresh and the input/output probe has already (cache-aware) built
+        the image, so re-inspecting it here is cheap.
+        """
+        env = self._docker_env_for_top_level_task(task)
+        if env is None:
+            return False
+
+        env_name = self._get_effective_runner_name(task)
+        cached_fp = cached_state.input_state.get(f"_runner_image_fp_{env_name}")
+        if cached_fp is None:
+            # No stored fingerprint (e.g. pre-existing state) — re-run to baseline.
+            self.logger.trace(f"No cached image fingerprint for '{env_name}'")
+            return True
+
+        image_tag, _ = self.docker_manager.ensure_image_built(env, process_runner)
+        current_fp = self.docker_manager.image_content_fingerprint(image_tag)
+        if current_fp != cached_fp:
+            self.logger.trace(f"Image content fingerprint changed for '{env_name}'")
+            return True
+        return False
+
+    def _update_state(
+        self,
+        task: Task,
+        args_dict: dict[str, Any],
+        process_runner: ProcessRunner | None = None,
+    ) -> None:
         """
         Update state after task execution.
         """
         cache_key = self._cache_key(task, args_dict)
-        input_state = self._input_files_to_modified_times(task, args_dict)
+        input_state = self._input_files_to_modified_times(task, args_dict, process_runner)
 
         env_name = self._get_effective_runner_name(task)
         if env_name:
             env = self.recipe.get_runner(env_name)
             if env:
                 input_state[f"_runner_hash_{env_name}"] = hash_runner_definition(env)
-                if env.dockerfile:
-                    input_state |= self._docker_inputs_to_modified_times(env_name, env)
 
-        output_state = self._output_files_to_modified_times(task)
+        # For a top-level containerised task, record the built image's content
+        # fingerprint so that a later environment change (Dockerfile edit, new
+        # base image, etc.) forces a re-run even when inputs/outputs are unchanged.
+        fingerprint = self._current_image_fingerprint(task, process_runner)
+        if fingerprint is not None:
+            input_state[f"_runner_image_fp_{env_name}"] = fingerprint
+
+        output_state = self._output_files_to_modified_times(task, process_runner)
         new_state = TaskState(last_run=time.time(), input_state=input_state, output_state=output_state)
         self.state.set(cache_key, new_state)
         self.state.save()
+
+    def _current_image_fingerprint(
+        self, task: Task, process_runner: ProcessRunner | None
+    ) -> str | None:
+        """
+        Build (cache-aware) and fingerprint the image for a top-level containerised
+        task, or return None if the task does not launch its own container.
+        """
+        env = self._docker_env_for_top_level_task(task)
+        if env is None:
+            return None
+        image_tag, _ = self.docker_manager.ensure_image_built(env, process_runner)
+        return self.docker_manager.image_content_fingerprint(image_tag)
 
     def _cache_key(self, task: Task, args_dict: dict[str, Any]) -> str:
         """
@@ -1902,11 +1877,16 @@ class Executor:
         args_hash = hash_args(args_dict) if args_dict else None
         return make_cache_key(task_hash, args_hash)
 
-    def _input_files_to_modified_times(self, task: Task, args_dict: dict[str, Any] | None = None) -> dict[str, float]:
+    def _input_files_to_modified_times(
+        self,
+        task: Task,
+        args_dict: dict[str, Any] | None = None,
+        process_runner: ProcessRunner | None = None,
+    ) -> dict[str, float]:
         """
         Record current mtimes of all files matched by the task's input patterns.
         """
-        stat = self._freshness_probe(task).stat_patterns(
+        stat = self._freshness_probe(task, process_runner).stat_patterns(
             self._get_all_inputs(task, args_dict)
         )
         input_state: dict[str, float] = {}
@@ -1914,14 +1894,16 @@ class Executor:
             input_state.update(matches)
         return input_state
 
-    def _output_files_to_modified_times(self, task: Task) -> dict[str, float]:
+    def _output_files_to_modified_times(
+        self, task: Task, process_runner: ProcessRunner | None = None
+    ) -> dict[str, float]:
         """
         Expand output patterns to actual files and record their mtimes.
 
         Used to detect when individual files within a glob-matched output set
         are later deleted, even if other files in the set still exist.
         """
-        stat = self._freshness_probe(task).stat_patterns(
+        stat = self._freshness_probe(task, process_runner).stat_patterns(
             self._expand_output_paths(task)
         )
         output_state: dict[str, float] = {}
@@ -1929,42 +1911,3 @@ class Executor:
             output_state.update(matches)
         return output_state
 
-    def _docker_inputs_to_modified_times(
-        self, env_name: str, env: Runner
-    ) -> dict[str, float]:
-        """Record mtimes for all inputs that affect a Docker runner's build context.
-
-        Tracks: Dockerfile mtime, .dockerignore mtime (explicit key), per-file
-        mtimes for every non-ignored file in the context directory, and base
-        image digests parsed from the Dockerfile.
-        """
-        input_state = dict()
-        # Record Dockerfile mtime
-        dockerfile_path = self.recipe.project_root / env.dockerfile
-        if dockerfile_path.exists():
-            input_state[env.dockerfile] = dockerfile_path.stat().st_mtime
-
-        # Record .dockerignore mtime if exists
-        context_path = self.recipe.project_root / env.context
-        dockerignore_path = context_path / ".dockerignore"
-        if dockerignore_path.exists():
-            relative_dockerignore = dockerignore_path.relative_to(self.recipe.project_root).as_posix()
-            input_state[relative_dockerignore] = dockerignore_path.stat().st_mtime
-
-        # Record per-file mtimes for context directory (respecting .dockerignore)
-        dockerignore_spec = docker_module.parse_dockerignore(dockerignore_path) if dockerignore_path.exists() else None
-        for rel_path, mtime in self._current_context_mtimes(context_path, dockerignore_path, dockerignore_spec).items():
-            input_state[f"_ctx_{env_name}_{rel_path}"] = mtime
-
-        # Record local digests of base images from Dockerfile
-        try:
-            dockerfile_content = dockerfile_path.read_text()
-            images = docker_module.extract_from_images(dockerfile_content)
-            for image_name, _ in images:
-                digest = docker_module.get_local_base_image_digest(image_name)
-                if digest is not None:
-                    input_state[f"_base_img_{env_name}_{image_name}"] = digest
-        except OSError:
-            pass
-
-        return input_state

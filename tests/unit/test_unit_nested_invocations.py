@@ -4,7 +4,7 @@ import time
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 from helpers.logging import logger_stub
 from tasktree.executor import Executor
@@ -820,6 +820,8 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
             state_manager.load()
 
             executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor.docker_manager.ensure_image_built = Mock(return_value=("img", "id"))
+            executor.docker_manager.image_content_fingerprint = Mock(return_value="fp")
 
             # No TT_CONTAINERIZED_RUNNER env var (local execution)
             # Mock Path.home() to avoid RuntimeError when HOME is not set
@@ -873,6 +875,8 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
             state_manager.load()
 
             executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor.docker_manager.ensure_image_built = Mock(return_value=("img", "id"))
+            executor.docker_manager.image_content_fingerprint = Mock(return_value="fp")
 
             # Mock docker_manager.run_in_container to capture env vars
             captured_env = {}
@@ -927,6 +931,8 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
             state_manager.load()
 
             executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor.docker_manager.ensure_image_built = Mock(return_value=("img", "id"))
+            executor.docker_manager.image_content_fingerprint = Mock(return_value="fp")
 
             # Verify state file does not exist yet
             self.assertFalse(state_file.exists())
@@ -985,6 +991,8 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
             state_manager.load()
 
             executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            executor.docker_manager.ensure_image_built = Mock(return_value=("img", "id"))
+            executor.docker_manager.image_content_fingerprint = Mock(return_value="fp")
 
             # Mock docker_manager.run_in_container to capture volumes
             captured_volumes = []
@@ -1106,6 +1114,8 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
                     state_manager.load()
 
                     executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+                    executor.docker_manager.ensure_image_built = Mock(return_value=("img", "id"))
+                    executor.docker_manager.image_content_fingerprint = Mock(return_value="fp")
 
                     # Mock docker_manager.run_in_container to capture env vars
                     captured_env = {}

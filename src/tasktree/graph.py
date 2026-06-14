@@ -582,22 +582,12 @@ def get_implicit_inputs(
         elif dep_task.inputs:
             implicit_inputs.extend(dep_task.inputs)
 
-    # Add Docker-specific implicit inputs if task uses Docker runner
-    env_name = task.run_in or recipe.default_runner
-    if env_name:
-        env = recipe.get_runner(env_name)
-        if env and env.dockerfile:
-            # Add Dockerfile as input
-            implicit_inputs.append(env.dockerfile)
-
-            # Add .dockerignore if it exists in context directory
-            context_path = recipe.project_root / env.context
-            dockerignore_path = context_path / ".dockerignore"
-            if dockerignore_path.exists():
-                relative_dockerignore = str(
-                    dockerignore_path.relative_to(recipe.project_root)
-                )
-                implicit_inputs.append(relative_dockerignore)
+    # Note: Docker build artifacts (Dockerfile, .dockerignore, context files,
+    # base image) are deliberately NOT implicit inputs. Environment changes are
+    # detected by comparing the built image's content fingerprint (see the
+    # executor), which is what Docker's own layer cache assesses -- more accurate
+    # than tracking host-side file mtimes, and it avoids resolving host build
+    # artifacts inside the container's filesystem view.
 
     return implicit_inputs
 

@@ -214,7 +214,9 @@ class TestGetImplicitInputs(unittest.TestCase):
 
         implicit = get_implicit_inputs(recipe, tasks["package"])
         self.assertIn("build/output.txt", implicit)
-        self.assertIn("Dockerfile", implicit)
+        # Docker build artifacts are no longer implicit inputs; environment changes
+        # are detected via the built image's content fingerprint instead.
+        self.assertNotIn("Dockerfile", implicit)
 
 
 class TestGraphErrors(unittest.TestCase):
