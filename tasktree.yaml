@@ -9,6 +9,12 @@ runners:
     dockerfile: Dockerfile
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp:/host_tmp
+    args:
+      run: ["--group-add", "0"]
+    env_vars:
+      HOME: /host_tmp
+      TMPDIR: /host_tmp
 
 tasks:
   dev-setup:
@@ -59,12 +65,13 @@ tasks:
 
   test:
     desc: "Run all test suites"
+    run_in: tt-test
     cmd: |
       uv sync --extra dev
-      
-      tt unit-test sync=FALSE
-      tt integration-test sync=FALSE
-      tt e2e-test sync=FALSE
+
+      uv run tt unit-test sync=FALSE
+      uv run tt integration-test sync=FALSE
+      uv run tt e2e-test sync=FALSE
 
   coverage:
     desc: Run tests with coverage check
