@@ -5,6 +5,10 @@ runners:
     shell:
       cmd: bash
       preamble: set -euo pipefail
+  tt-test:
+    dockerfile: Dockerfile
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
 
 tasks:
   dev-setup:
