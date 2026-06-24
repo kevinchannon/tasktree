@@ -475,8 +475,10 @@ class TestDockerManager(unittest.TestCase):
         run_call_args = mock_run.call_args_list[3][0][0]
 
         # The project root must be mounted at the identical path, read-write
-        # (no :ro suffix).
-        expected_mount = f"{self.project_root}:{self.project_root}"
+        # (no :ro suffix). Use resolve() to match the implementation which
+        # resolves the path (adds drive letter on Windows).
+        resolved = self.project_root.resolve()
+        expected_mount = f"{resolved}:{resolved}"
         self.assertIn(expected_mount, run_call_args)
 
     @patch("tasktree.docker.subprocess.run")

@@ -62,7 +62,7 @@ class HostProbe(FreshnessProbe):
             matches: dict[str, float] = {}
             for match in self._base_dir.glob(pattern):
                 if match.is_file():
-                    rel_path = str(match.relative_to(self._base_dir))
+                    rel_path = match.relative_to(self._base_dir).as_posix()
                     matches[rel_path] = match.stat().st_mtime
             result[pattern] = matches
         return result
