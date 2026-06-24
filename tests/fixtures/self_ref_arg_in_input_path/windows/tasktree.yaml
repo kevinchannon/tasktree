@@ -5,4 +5,4 @@ tasks:
       - config: configs/{{ arg.environment }}/app.yaml
     outputs:
       - deployed: deployed-{{ arg.environment }}.yaml
-    cmd: copy /Y {{ self.inputs.config }} {{ self.outputs.deployed }}
+    cmd: python -c "import shutil; shutil.copy('{{ self.inputs.config }}', '{{ self.outputs.deployed }}')"
