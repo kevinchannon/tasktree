@@ -25,7 +25,7 @@ from tasktree.graph import (
 )
 from tasktree.hasher import hash_args, hash_task, make_cache_key
 from tasktree.logging import Logger, LogLevel
-from tasktree.parser import DockerArgs, Recipe, Task, Runner, ShellConfig, SHELL_LOOKUP, _get_windows_script_extension
+from tasktree.parser import DockerArgs, Recipe, Task, Runner, ShellConfig, SHELL_LOOKUP
 from tasktree.interpreter import Interpreter
 from tasktree.process_runner import ProcessRunner, TaskOutputTypes
 from tasktree.state import StateManager, TaskState

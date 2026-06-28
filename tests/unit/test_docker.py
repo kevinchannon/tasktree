@@ -9,8 +9,6 @@ from helpers.logging import logger_stub
 from tasktree.docker import (
     DockerManager,
     _container_interpreter,
-    _get_container_script_extension,
-    _is_windows_shell,
     is_docker_runner,
     resolve_container_working_dir,
 )
@@ -72,58 +70,6 @@ class TestIsDockerRunner(unittest.TestCase):
         # Verify it's recognized as a Docker runner
         self.assertTrue(is_docker_runner(runner))
         self.assertEqual(runner.args.build, ["--build-arg", "BUILD_VERSION=1.0.0"])
-
-
-class TestWindowsShellDetection(unittest.TestCase):
-    """
-    Test Windows shell detection helper function.
-    """
-
-    def test_is_windows_shell_cmd(self):
-        """Test that cmd.exe is recognized as Windows shell."""
-        self.assertTrue(_is_windows_shell("cmd.exe"))
-        self.assertTrue(_is_windows_shell("CMD.EXE"))
-        self.assertTrue(_is_windows_shell("cmd"))
-
-    def test_is_windows_shell_powershell(self):
-        """Test that PowerShell variants are recognized as Windows shells."""
-        self.assertTrue(_is_windows_shell("powershell"))
-        self.assertTrue(_is_windows_shell("powershell.exe"))
-        self.assertTrue(_is_windows_shell("pwsh"))
-        self.assertTrue(_is_windows_shell("POWERSHELL"))
-
-    def test_is_windows_shell_unix_shells(self):
-        """Test that Unix shells are not recognized as Windows shells."""
-        self.assertFalse(_is_windows_shell("bash"))
-        self.assertFalse(_is_windows_shell("sh"))
-        self.assertFalse(_is_windows_shell("zsh"))
-        self.assertFalse(_is_windows_shell("/bin/bash"))
-        self.assertFalse(_is_windows_shell("/bin/sh"))
-
-
-class TestContainerScriptExtension(unittest.TestCase):
-    """
-    Test container script extension determination.
-    """
-
-    def test_get_container_script_extension_sh(self):
-        """Test that Unix shells get .sh extension."""
-        self.assertEqual(_get_container_script_extension("bash"), ".sh")
-        self.assertEqual(_get_container_script_extension("sh"), ".sh")
-        self.assertEqual(_get_container_script_extension("zsh"), ".sh")
-        self.assertEqual(_get_container_script_extension("/bin/bash"), ".sh")
-
-    def test_get_container_script_extension_bat(self):
-        """Test that cmd.exe gets .bat extension."""
-        self.assertEqual(_get_container_script_extension("cmd.exe"), ".bat")
-        self.assertEqual(_get_container_script_extension("cmd"), ".bat")
-        self.assertEqual(_get_container_script_extension("CMD"), ".bat")
-
-    def test_get_container_script_extension_ps1(self):
-        """Test that PowerShell gets .ps1 extension."""
-        self.assertEqual(_get_container_script_extension("powershell"), ".ps1")
-        self.assertEqual(_get_container_script_extension("powershell.exe"), ".ps1")
-        self.assertEqual(_get_container_script_extension("pwsh"), ".ps1")
 
 
 class TestContainerInterpreter(unittest.TestCase):

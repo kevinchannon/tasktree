@@ -29,43 +29,6 @@ class DockerError(Exception):
     pass
 
 
-def _is_windows_shell(shell: str) -> bool:
-    """
-    Determine if the specified shell is a Windows shell.
-
-    Args:
-        shell: Shell name or path (e.g., "bash", "sh", "cmd.exe", "powershell")
-
-    Returns:
-        True if shell is Windows-based (cmd.exe or powershell), False otherwise
-    """
-    shell_lower = shell.lower()
-    # Check for Windows shells (cmd.exe, cmd, powershell.exe, powershell, pwsh)
-    return any(
-        win_shell in shell_lower
-        for win_shell in ["cmd.exe", "cmd", "powershell", "pwsh"]
-    )
-
-
-def _get_container_script_extension(shell: str) -> str:
-    """
-    Get the appropriate script file extension for the container shell.
-
-    Args:
-        shell: Shell to use in container (e.g., "bash", "sh", "cmd.exe", "powershell")
-
-    Returns:
-        File extension including the dot (e.g., ".sh", ".bat", ".ps1")
-    """
-    if _is_windows_shell(shell):
-        shell_lower = shell.lower()
-        if "powershell" in shell_lower or "pwsh" in shell_lower:
-            return ".ps1"
-        else:
-            return ".bat"
-    return ".sh"
-
-
 def _container_interpreter(env: "Runner") -> Interpreter:
     """Resolve the Interpreter used to run a script inside a container.
 

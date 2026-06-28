@@ -20,7 +20,7 @@ import yaml
 from tasktree.logging import Logger
 from tasktree.types import get_click_type
 from tasktree.process_runner import TaskOutputTypes
-from tasktree.interpreter import INTERPRETER_LOOKUP
+from tasktree.interpreter import INTERPRETER_LOOKUP, Interpreter
 
 
 # Regex patterns for variable references
@@ -66,22 +66,6 @@ def _validate_interpreter_name(name: str, context: str) -> None:
             f"{context}: unknown interpreter '{name}'. "
             f"Known interpreters: {sorted(INTERPRETER_LOOKUP)}"
         )
-
-
-def _get_windows_script_extension(shell_cmd: list[str]) -> str:
-    """Return the appropriate Windows script file extension for the given shell.
-
-    cmd.exe needs .bat, PowerShell needs .ps1, and Unix shells (bash, sh,
-    python, etc.) work without an extension even on Windows.
-    """
-    if not shell_cmd:
-        return ".bat"
-    shell = shell_cmd[0].lower()
-    if "powershell" in shell:
-        return ".ps1"
-    if "cmd" in shell:
-        return ".bat"
-    return ""
 
 
 @dataclass
@@ -1370,7 +1354,7 @@ def _resolve_eval_variable(
         shell_cmd = _get_default_shell_cmd()
 
     # Write command to a temp script file (same mechanism as task execution)
-    script_ext = _get_windows_script_extension(shell_cmd) if platform.system() == "Windows" else ""
+    script_ext = Interpreter.from_shell_cmd(shell_cmd).host_script_extension()
     script_path = None
     try:
         with tempfile.NamedTemporaryFile(
