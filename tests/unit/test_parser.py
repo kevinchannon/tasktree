@@ -555,6 +555,50 @@ tasks:
             self.assertEqual(test_task.deps, ["build.compile"])
 
 
+class TestParseTaskInterpreter(unittest.TestCase):
+    """Tests for the task-level 'interpreter' field (issue #201, step 2)."""
+
+    def test_task_interpreter_defaults_to_empty(self):
+        """A task without an interpreter key has interpreter == ''."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+tasks:
+  build:
+    cmd: echo hi
+""")
+            recipe = parse_recipe(recipe_path)
+            self.assertEqual(recipe.tasks["build"].interpreter, "")
+
+    def test_task_interpreter_is_parsed(self):
+        """A task with an interpreter key exposes it on the Task."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+tasks:
+  build:
+    interpreter: python3
+    cmd: print('hi')
+""")
+            recipe = parse_recipe(recipe_path)
+            self.assertEqual(recipe.tasks["build"].interpreter, "python3")
+
+    def test_unknown_task_interpreter_raises(self):
+        """An unknown interpreter name is rejected at parse time."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+tasks:
+  build:
+    interpreter: nonsuch
+    cmd: echo hi
+""")
+            with self.assertRaises(ValueError) as ctx:
+                parse_recipe(recipe_path)
+            self.assertIn("nonsuch", str(ctx.exception))
+            self.assertIn("build", str(ctx.exception))
+
+
 class TestParseImports(unittest.TestCase):
     """
     Test parsing of recipe imports with various edge cases.

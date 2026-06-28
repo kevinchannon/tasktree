@@ -20,6 +20,7 @@ import yaml
 from tasktree.logging import Logger
 from tasktree.types import get_click_type
 from tasktree.process_runner import TaskOutputTypes
+from tasktree.interpreter import INTERPRETER_LOOKUP
 
 
 # Regex patterns for variable references
@@ -48,6 +49,23 @@ SHELL_LOOKUP: dict[str, list[str]] = {
     "cmd.exe": ["cmd.exe", "/c"],
     "powershell": ["powershell", "-ExecutionPolicy", "Bypass", "-File"],
 }
+
+
+def _validate_interpreter_name(name: str, context: str) -> None:
+    """Validate that an interpreter name is empty or a known interpreter.
+
+    Args:
+        name: The interpreter name to validate (empty string is allowed).
+        context: Human-readable context for error messages (e.g. "Task 'build'").
+
+    Raises:
+        ValueError: If name is non-empty and not a known interpreter.
+    """
+    if name and name not in INTERPRETER_LOOKUP:
+        raise ValueError(
+            f"{context}: unknown interpreter '{name}'. "
+            f"Known interpreters: {sorted(INTERPRETER_LOOKUP)}"
+        )
 
 
 def _get_windows_script_extension(shell_cmd: list[str]) -> str:
@@ -152,6 +170,7 @@ class Task:
     )  # Can be strings or dicts (each dict has single key: arg name)
     source_file: str = ""  # Track which file defined this task
     run_in: str = ""  # Runner name to use for execution
+    interpreter: str = ""  # Interpreter name override (e.g. "python3", "bash")
     private: bool = False  # If True, task is hidden from --list output
     pin_runner: bool = False  # If True, task's runner cannot be overridden
     task_output: TaskOutputTypes | None = None
@@ -2547,6 +2566,10 @@ def _parse_file(
         if namespace and run_in:
             run_in = f"{namespace}.{run_in}"
 
+        # Validate the optional interpreter name against known interpreters
+        interpreter = task_data.get("interpreter", "")
+        _validate_interpreter_name(interpreter, f"Task '{full_name}'")
+
         task = Task(
             name=full_name,
             cmd=task_data["cmd"],
@@ -2558,6 +2581,7 @@ def _parse_file(
             args=task_data.get("args", []),
             source_file=str(file_path),
             run_in=run_in,
+            interpreter=interpreter,
             private=task_data.get("private", False),
             pin_runner=task_data.get("pin_runner", False),
             task_output=task_data.get("task_output", None),

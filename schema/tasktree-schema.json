@@ -393,6 +393,11 @@
               "type": "string",
               "description": "Runner to use for this task (overrides default)"
             },
+            "interpreter": {
+              "type": "string",
+              "enum": ["bash", "sh", "zsh", "fish", "cmd.exe", "powershell", "pwsh", "python", "python3"],
+              "description": "Interpreter used to run this task's command (overrides the runner default and shell-derived interpreter)"
+            },
             "pin_runner": {
               "type": "boolean",
               "description": "If true, this task's runner is locked and immune to import-level blanket overrides. Pinned tasks must have run_in specified. Pinned runners are imported and namespaced.",
