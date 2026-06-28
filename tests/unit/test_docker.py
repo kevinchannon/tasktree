@@ -8,11 +8,13 @@ from unittest.mock import Mock, patch
 from helpers.logging import logger_stub
 from tasktree.docker import (
     DockerManager,
+    _container_interpreter,
     _get_container_script_extension,
     _is_windows_shell,
     is_docker_runner,
     resolve_container_working_dir,
 )
+from tasktree.interpreter import Interpreter
 from tasktree.parser import DockerArgs, Runner, ShellConfig
 from tasktree.process_runner import TaskOutputTypes, make_process_runner
 
@@ -122,6 +124,37 @@ class TestContainerScriptExtension(unittest.TestCase):
         self.assertEqual(_get_container_script_extension("powershell"), ".ps1")
         self.assertEqual(_get_container_script_extension("powershell.exe"), ".ps1")
         self.assertEqual(_get_container_script_extension("pwsh"), ".ps1")
+
+
+class TestContainerInterpreter(unittest.TestCase):
+    """Tests for _container_interpreter resolution (issue #201, step 6)."""
+
+    def test_runner_explicit_interpreter_wins(self):
+        env = Runner(
+            name="r",
+            dockerfile="./Dockerfile",
+            shell=ShellConfig(cmd=["bash"]),
+            default_interpreter="python3",
+        )
+        self.assertEqual(_container_interpreter(env).name, "python3")
+
+    def test_shell_name_used_dropping_inline_flags(self):
+        env = Runner(name="r", dockerfile="./Dockerfile",
+                     shell=ShellConfig(cmd=["sh", "-c"]))
+        interp = _container_interpreter(env)
+        self.assertEqual(interp.invocation_cmd, ("sh",))
+        self.assertEqual(interp.script_extension, ".sh")
+
+    def test_unknown_shell_executable(self):
+        env = Runner(name="r", dockerfile="./Dockerfile",
+                     shell=ShellConfig(cmd=["/bin/bash", "-c"]))
+        interp = _container_interpreter(env)
+        self.assertEqual(interp.invocation_cmd, ("/bin/bash",))
+        self.assertEqual(interp.script_extension, ".sh")
+
+    def test_no_shell_falls_back_to_container_default(self):
+        env = Runner(name="r", dockerfile="./Dockerfile")
+        self.assertEqual(_container_interpreter(env), Interpreter.container_default())
 
 
 class TestResolveContainerWorkingDir(unittest.TestCase):

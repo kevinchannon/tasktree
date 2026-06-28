@@ -12,6 +12,7 @@ import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from tasktree.interpreter import INTERPRETER_LOOKUP, Interpreter
 from tasktree.temp_script import TempScript
 
 if TYPE_CHECKING:
@@ -63,6 +64,23 @@ def _get_container_script_extension(shell: str) -> str:
         else:
             return ".bat"
     return ".sh"
+
+
+def _container_interpreter(env: "Runner") -> Interpreter:
+    """Resolve the Interpreter used to run a script inside a container.
+
+    Precedence: the runner's explicit ``interpreter``, then the interpreter
+    named by ``shell.cmd[0]`` (inline flags like ``-c`` are not part of
+    script-file execution), then the container default (sh).
+    """
+    if env.default_interpreter:
+        return Interpreter.from_name(env.default_interpreter)
+    if env.shell is not None and env.shell.cmd:
+        name = env.shell.cmd[0]
+        if name in INTERPRETER_LOOKUP:
+            return Interpreter.from_name(name)
+        return Interpreter.from_shell_cmd([name])
+    return Interpreter.container_default()
 
 
 class DockerManager:
@@ -203,19 +221,14 @@ class DockerManager:
         # Ensure image is built (returns tag and ID)
         image_tag, image_id = self.ensure_image_built(env, process_runner)
 
-        # Determine shell and shell args from ShellConfig (default to sh if not set)
-        if env.shell is not None:
-            shell = env.shell.cmd[0]
-            shell_args = env.shell.cmd[1:]
-            preamble = env.shell.preamble
-        else:
-            shell = "sh"
-            shell_args = ["-c"]
-            preamble = ""
+        # Resolve the interpreter for this container and the preamble to prepend.
+        interpreter = _container_interpreter(env)
+        preamble = env.shell.preamble if env.shell is not None else ""
 
-        # Determine script extension and shebang behavior based on container shell
-        script_ext = _get_container_script_extension(shell)
-        use_shebang = not _is_windows_shell(shell)
+        # Script extension and shebang behaviour come from the interpreter:
+        # .sh for Unix shells (shebang-friendly), .bat/.ps1 for Windows shells.
+        script_ext = interpreter.script_extension
+        use_shebang = script_ext not in (".bat", ".ps1")
 
         # Generate unique container script path to avoid collisions between concurrent executions
         script_id = uuid.uuid4()
@@ -230,7 +243,7 @@ class DockerManager:
                 logger=self._logger,
                 cmd=cmd,
                 preamble=preamble,
-                shell=shell,
+                shell=interpreter.invocation_cmd[0],
                 script_extension=script_ext,
                 use_shebang=use_shebang,
             ) as script_path:
@@ -248,9 +261,12 @@ class DockerManager:
                 # Add image tag
                 docker_cmd.append(image_tag)
 
-                # Execute script directly with shell (no shell flags like -c;
-                # those are for inline commands, not script file execution)
-                docker_cmd.extend([shell, container_script_path])
+                # Execute the script directly with the interpreter's invocation
+                # (no inline flags like -c; those are for inline commands, not
+                # script-file execution).
+                docker_cmd.extend(
+                    list(interpreter.invocation_cmd) + [container_script_path]
+                )
 
                 # Execute
                 try:
