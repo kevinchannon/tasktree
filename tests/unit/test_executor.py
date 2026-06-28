@@ -11,6 +11,7 @@ from unittest.mock import MagicMock, patch, call
 
 from helpers.logging import logger_stub
 from tasktree.executor import Executor
+from tasktree.interpreter import Interpreter
 from tasktree.parser import Recipe, Task, parse_recipe
 from tasktree.process_runner import ProcessRunner, TaskOutputTypes, make_process_runner
 from tasktree.state import StateManager, TaskState
@@ -253,7 +254,7 @@ class TestExecutor(unittest.TestCase):
                 cmd="echo hello",
                 working_dir=project_root,
                 task_name="test",
-                shell_cmd=["bash"],
+                interpreter=Interpreter.from_shell_cmd(["bash"]),
                 preamble="",
                 process_runner=process_runner_spy,
             )
@@ -295,7 +296,7 @@ class TestExecutor(unittest.TestCase):
                 cmd="echo hello",
                 working_dir=project_root,
                 task_name="test",
-                shell_cmd=["bash"],
+                interpreter=Interpreter.from_shell_cmd(["bash"]),
                 preamble="set -e\n",
                 process_runner=process_runner_spy,
             )
@@ -326,7 +327,7 @@ class TestExecutor(unittest.TestCase):
                 cmd="echo hello\necho world",
                 working_dir=project_root,
                 task_name="test",
-                shell_cmd=["bash"],
+                interpreter=Interpreter.from_shell_cmd(["bash"]),
                 preamble="",
                 process_runner=process_runner_spy,
             )
@@ -384,7 +385,7 @@ class TestExecutor(unittest.TestCase):
                     cmd="echo hello\necho world",
                     working_dir=project_root,
                     task_name="test",
-                    shell_cmd=["bash"],
+                    interpreter=Interpreter.from_shell_cmd(["bash"]),
                     preamble="set -e\n",
                     process_runner=process_runner,
                 )
@@ -439,7 +440,7 @@ class TestExecutor(unittest.TestCase):
                 cmd="Write-Output hello",
                 working_dir=project_root,
                 task_name="test",
-                shell_cmd=["powershell", "-ExecutionPolicy", "Bypass", "-File"],
+                interpreter=Interpreter.from_shell_cmd(["powershell", "-ExecutionPolicy", "Bypass", "-File"]),
                 preamble="",
                 process_runner=process_runner_spy,
             )
@@ -449,6 +450,70 @@ class TestExecutor(unittest.TestCase):
             self.assertEqual(run_cmd[0], "powershell")
             self.assertIn("-File", run_cmd)
             self.assertTrue(run_cmd[-1].endswith(".ps1"))
+
+
+class TestResolveInterpreter(unittest.TestCase):
+    """Tests for Executor._resolve_interpreter precedence (issue #201, step 4)."""
+
+    def _make_executor(self):
+        from tasktree.parser import ShellConfig
+
+        tmp = TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        project_root = Path(tmp.name)
+        recipe = Recipe(
+            tasks={},
+            project_root=project_root,
+            recipe_path=project_root / "tasktree.yaml",
+        )
+        return Executor(
+            recipe, StateManager(project_root), logger_stub, make_process_runner
+        )
+
+    def test_task_interpreter_takes_precedence(self):
+        from tasktree.parser import Runner, ShellConfig
+
+        ex = self._make_executor()
+        task = Task(name="t", cmd="echo", interpreter="python3")
+        runner = Runner(name="r", shell=ShellConfig(cmd=["bash"]),
+                        default_interpreter="zsh")
+        interp = ex._resolve_interpreter(task, runner, runner.shell)
+        self.assertEqual(interp.name, "python3")
+
+    def test_runner_default_interpreter_used(self):
+        from tasktree.parser import Runner, ShellConfig
+
+        ex = self._make_executor()
+        task = Task(name="t", cmd="echo")
+        runner = Runner(name="r", shell=ShellConfig(cmd=["bash"]),
+                        default_interpreter="zsh")
+        interp = ex._resolve_interpreter(task, runner, runner.shell)
+        self.assertEqual(interp.name, "zsh")
+
+    def test_bridge_from_shell_cmd(self):
+        from tasktree.parser import Runner, ShellConfig
+
+        ex = self._make_executor()
+        task = Task(name="t", cmd="echo")
+        runner = Runner(name="r", shell=ShellConfig(cmd=["bash", "-x"]))
+        interp = ex._resolve_interpreter(task, runner, runner.shell)
+        self.assertEqual(interp.name, "bash")
+        self.assertEqual(interp.invocation_cmd, ("bash", "-x"))
+
+    def test_host_default_when_no_runner_or_shell(self):
+        ex = self._make_executor()
+        task = Task(name="t", cmd="echo")
+        interp = ex._resolve_interpreter(task, None, None)
+        self.assertEqual(interp, Interpreter.host_default())
+
+    def test_container_default_for_docker_runner_without_shell(self):
+        from tasktree.parser import Runner
+
+        ex = self._make_executor()
+        task = Task(name="t", cmd="echo")
+        runner = Runner(name="r", dockerfile="Dockerfile")
+        interp = ex._resolve_interpreter(task, runner, None)
+        self.assertEqual(interp, Interpreter.container_default())
 
 
 class TestMissingOutputs(unittest.TestCase):
@@ -1755,7 +1820,7 @@ class TestTaskOutputParameter(unittest.TestCase):
                 cmd="echo test",
                 working_dir=project_root,
                 task_name="test",
-                shell_cmd=["bash"],
+                interpreter=Interpreter.from_shell_cmd(["bash"]),
                 preamble="",
                 process_runner=process_runner_spy,
             )

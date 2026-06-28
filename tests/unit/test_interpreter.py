@@ -164,5 +164,60 @@ class TestInterpreterDefaults(unittest.TestCase):
         self.assertIsInstance(interp, Interpreter)
 
 
+class TestInterpreterFromShellCmd(unittest.TestCase):
+    """Tests for the Interpreter.from_shell_cmd bridge factory."""
+
+    def test_known_shell_name(self):
+        interp = Interpreter.from_shell_cmd(["bash"])
+        self.assertEqual(interp.name, "bash")
+        self.assertEqual(interp.invocation_cmd, ("bash",))
+        self.assertEqual(interp.script_extension, ".sh")
+
+    def test_custom_flags_are_preserved(self):
+        interp = Interpreter.from_shell_cmd(["bash", "-x"])
+        self.assertEqual(interp.invocation_cmd, ("bash", "-x"))
+        self.assertEqual(interp.script_extension, ".sh")
+
+    def test_powershell_invocation(self):
+        interp = Interpreter.from_shell_cmd(
+            ["powershell", "-ExecutionPolicy", "Bypass", "-File"]
+        )
+        self.assertEqual(interp.invocation_cmd[0], "powershell")
+        self.assertEqual(interp.script_extension, ".ps1")
+
+    def test_unknown_executable_derives_extension(self):
+        interp = Interpreter.from_shell_cmd(["/usr/local/bin/cmd.exe", "/c"])
+        self.assertEqual(interp.script_extension, ".bat")
+
+    def test_empty_cmd_falls_back_to_host_default(self):
+        interp = Interpreter.from_shell_cmd([])
+        self.assertEqual(interp, Interpreter.host_default())
+
+
+class TestInterpreterHostScriptExtension(unittest.TestCase):
+    """Tests for Interpreter.host_script_extension (host-path policy)."""
+
+    @unittest.skipIf(platform.system() == "Windows", "Unix-only behaviour")
+    def test_unix_uses_no_extension(self):
+        for name in ("bash", "sh", "python3", "cmd.exe", "powershell"):
+            with self.subTest(interpreter=name):
+                self.assertEqual(
+                    Interpreter.from_name(name).host_script_extension(), ""
+                )
+
+    @unittest.skipUnless(platform.system() == "Windows", "Windows-only behaviour")
+    def test_windows_uses_dispatch_extensions_only(self):
+        self.assertEqual(
+            Interpreter.from_name("cmd.exe").host_script_extension(), ".bat"
+        )
+        self.assertEqual(
+            Interpreter.from_name("powershell").host_script_extension(), ".ps1"
+        )
+        self.assertEqual(Interpreter.from_name("bash").host_script_extension(), "")
+        self.assertEqual(
+            Interpreter.from_name("python3").host_script_extension(), ""
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

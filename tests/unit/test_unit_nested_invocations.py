@@ -1051,16 +1051,19 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
             with patch.dict("os.environ", {"TT_CONTAINERIZED_RUNNER": "build"}):
                 # Mock _run_command_as_script to capture shell/preamble
                 captured_args = {}
-                def mock_run_script(cmd, working_dir, task_name, shell_cmd, preamble, *args, **kwargs):
-                    captured_args["shell_cmd"] = shell_cmd
+                def mock_run_script(cmd, working_dir, task_name, interpreter, preamble, *args, **kwargs):
+                    captured_args["interpreter"] = interpreter
                     captured_args["preamble"] = preamble
 
                 with patch.object(executor, "_run_command_as_script", side_effect=mock_run_script):
                     process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
                     executor._run_task(recipe.tasks["test"], {}, process_runner)
 
-                # Verify runner's shell and preamble were used
-                self.assertEqual(captured_args["shell_cmd"], ["/bin/zsh"])
+                # Verify the interpreter derived from the runner's shell and the
+                # runner's preamble were used.
+                self.assertEqual(
+                    captured_args["interpreter"].invocation_cmd, ("/bin/zsh",)
+                )
                 self.assertEqual(captured_args["preamble"], "set -euo pipefail")
 
     def test_runner_names_with_special_characters(self):

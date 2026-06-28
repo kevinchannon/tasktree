@@ -25,6 +25,7 @@ from tasktree.graph import (
 from tasktree.hasher import hash_args, hash_task, make_cache_key
 from tasktree.logging import Logger, LogLevel
 from tasktree.parser import DockerArgs, Recipe, Task, Runner, ShellConfig, SHELL_LOOKUP, _get_windows_script_extension
+from tasktree.interpreter import Interpreter
 from tasktree.process_runner import ProcessRunner, TaskOutputTypes
 from tasktree.state import StateManager, TaskState
 from tasktree.hasher import hash_runner_definition
@@ -519,6 +520,43 @@ class Executor:
         # Use platform default
         default_runner = self.get_session_default_runner()
         return default_runner.shell
+
+    def _resolve_interpreter(
+        self,
+        task: Task,
+        runner: Runner | None,
+        shell_config: ShellConfig | None,
+    ) -> Interpreter:
+        """
+        Resolve the Interpreter used to run a task's command.
+
+        Resolution order (highest to lowest precedence):
+        1. CLI --interpreter override (wired in a later step)
+        2. Task's explicit ``interpreter`` field
+        3. Runner's ``default_interpreter``
+        4. Bridge: derive from the runner's ``shell.cmd`` (backward compat)
+        5. Container default for Docker runners, host default otherwise
+
+        Args:
+        task: Task being executed
+        runner: Resolved Runner for this task (None for the platform default)
+        shell_config: ShellConfig used for execution (source of the bridge cmd)
+
+        Returns:
+        The Interpreter to invoke the task's temp script with
+        """
+        if task.interpreter:
+            return Interpreter.from_name(task.interpreter)
+
+        if runner is not None and runner.default_interpreter:
+            return Interpreter.from_name(runner.default_interpreter)
+
+        if shell_config is not None and shell_config.cmd:
+            return Interpreter.from_shell_cmd(shell_config.cmd)
+
+        if runner is not None and runner.dockerfile:
+            return Interpreter.container_default()
+        return Interpreter.host_default()
 
     def check_task_status(
         self,
@@ -1062,15 +1100,19 @@ class Executor:
                 # env_name was already validated at lines 715-733 above
                 assert env is not None, "Runner should exist after validation"
                 shell_config = env.shell or ShellConfig(cmd=SHELL_LOOKUP["sh"])
+                runner = env
             else:
                 # Normal shell resolution
                 shell_config = self._resolve_runner(task)
+                runner = self.recipe.get_runner(self._get_effective_runner_name(task))
+
+            interpreter = self._resolve_interpreter(task, runner, shell_config)
 
             self._run_command_as_script(
                 cmd,
                 working_dir,
                 task.name,
-                shell_config.cmd,
+                interpreter,
                 shell_config.preamble,
                 process_runner,
                 exported_env_vars,
@@ -1091,7 +1133,7 @@ class Executor:
         cmd: str,
         working_dir: Path,
         task_name: str,
-        shell_cmd: list[str],
+        interpreter: Interpreter,
         preamble: str,
         process_runner: ProcessRunner,
         exported_env_vars: dict[str, str] | None = None,
@@ -1104,15 +1146,16 @@ class Executor:
         them to a temporary script file and executing the script. This provides
         consistent behavior and allows preamble to work with all commands.
 
-        The shell_cmd list is prepended to the script path when invoking the
-        subprocess, e.g. ["python"] + ["/tmp/script"] → ["python", "/tmp/script"].
-        This is shell-agnostic and works for any interpreter on any platform.
+        The interpreter's invocation list is prepended to the script path when
+        invoking the subprocess, e.g. ["python"] + ["/tmp/script"] →
+        ["python", "/tmp/script"]. This is interpreter-agnostic and works on
+        any platform.
 
         Args:
         cmd: Command string (single-line or multi-line)
         working_dir: Working directory
         task_name: Task name (for error messages)
-        shell_cmd: Full shell invocation list (e.g. ["bash"] or ["python"])
+        interpreter: Interpreter used to invoke the temp script
         preamble: Preamble text to prepend to script
         process_runner: ProcessRunner instance to use for subprocess execution
         exported_env_vars: Exported arguments to set as environment variables
@@ -1124,14 +1167,14 @@ class Executor:
         # Prepare environment with exported args and call chain
         env = self._prepare_env_with_exports(exported_env_vars, call_chain)
 
-        # Determine script extension: shell-aware on Windows (cmd.exe needs .bat,
-        # PowerShell needs .ps1, bash/sh/python need no extension), empty elsewhere.
-        script_ext = _get_windows_script_extension(shell_cmd) if platform.system() == "Windows" else ""
+        # Determine script extension: load-bearing on Windows (cmd.exe needs .bat,
+        # PowerShell needs .ps1), empty for interpreters invoked explicitly.
+        script_ext = interpreter.host_script_extension()
 
         # Create temporary script using context manager — no shebang needed since
-        # the interpreter is passed explicitly as shell_cmd in the subprocess call.
+        # the interpreter is passed explicitly in the subprocess call.
         with TempScript(logger=self.logger, cmd=cmd, preamble=preamble, use_shebang=False, script_extension=script_ext) as script_path:
-            run_cmd = shell_cmd + [str(script_path)]
+            run_cmd = list(interpreter.invocation_cmd) + [str(script_path)]
 
             # Execute script file
             try:
