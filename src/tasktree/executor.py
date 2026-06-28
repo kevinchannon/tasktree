@@ -531,7 +531,7 @@ class Executor:
         Resolve the Interpreter used to run a task's command.
 
         Resolution order (highest to lowest precedence):
-        1. CLI --interpreter override (wired in a later step)
+        1. CLI --interpreter override (recipe.global_interpreter_override)
         2. Task's explicit ``interpreter`` field
         3. Runner's ``default_interpreter``
         4. Bridge: derive from the runner's ``shell.cmd`` (backward compat)
@@ -545,6 +545,9 @@ class Executor:
         Returns:
         The Interpreter to invoke the task's temp script with
         """
+        if self.recipe.global_interpreter_override:
+            return Interpreter.from_name(self.recipe.global_interpreter_override)
+
         if task.interpreter:
             return Interpreter.from_name(task.interpreter)
 

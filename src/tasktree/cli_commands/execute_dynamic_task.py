@@ -14,6 +14,7 @@ from tasktree.graph import (
     resolve_self_references,
 )
 from tasktree.hasher import hash_task
+from tasktree.interpreter import INTERPRETER_LOOKUP
 from tasktree.logging import Logger
 from tasktree.parser import get_recipe, parse_task_args
 from tasktree.process_runner import TaskOutputTypes, make_process_runner
@@ -26,6 +27,7 @@ def execute_dynamic_task(
     force: bool = False,
     only: bool = False,
     runner: Optional[str] = None,
+    interpreter: Optional[str] = None,
     tasks_file: Optional[str] = None,
     task_output: str | None = None,
 ) -> None:
@@ -38,6 +40,7 @@ def execute_dynamic_task(
     force: Force re-execution even if task is up-to-date
     only: Execute only the specified task, skip dependencies
     runner: Override runner for task execution
+    interpreter: Override interpreter for all tasks
     tasks_file: Path to recipe file (optional)
     task_output: Control task subprocess output (all, out, err, on-err, none)
 
@@ -66,6 +69,16 @@ def execute_dynamic_task(
                 logger.info(f"  - {env_name}")
             raise typer.Exit(1)
         recipe.global_runner_override = runner
+
+    # Apply global interpreter override if provided
+    if interpreter:
+        if interpreter not in INTERPRETER_LOOKUP:
+            logger.error(f"[red]Unknown interpreter: {interpreter}[/red]")
+            logger.info("\nKnown interpreters:")
+            for name in sorted(INTERPRETER_LOOKUP):
+                logger.info(f"  - {name}")
+            raise typer.Exit(1)
+        recipe.global_interpreter_override = interpreter
 
     task = recipe.get_task(task_name)
     if task is None:

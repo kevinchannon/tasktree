@@ -399,6 +399,7 @@ class Recipe:
     runners: dict[str, Runner] = field(default_factory=dict)
     default_runner: str = ""  # Name of default runner
     global_runner_override: str = ""  # Global runner override (set via CLI --run-in)
+    global_interpreter_override: str = ""  # Global interpreter override (CLI --interpreter)
     variables: dict[str, str] = field(
         default_factory=dict
     )  # Global variables (resolved at parse time) - DEPRECATED, use evaluated_variables

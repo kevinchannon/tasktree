@@ -472,6 +472,17 @@ class TestResolveInterpreter(unittest.TestCase):
             recipe, StateManager(project_root), logger_stub, make_process_runner
         )
 
+    def test_cli_override_takes_highest_precedence(self):
+        from tasktree.parser import Runner, ShellConfig
+
+        ex = self._make_executor()
+        ex.recipe.global_interpreter_override = "sh"
+        task = Task(name="t", cmd="echo", interpreter="python3")
+        runner = Runner(name="r", shell=ShellConfig(cmd=["bash"]),
+                        default_interpreter="zsh")
+        interp = ex._resolve_interpreter(task, runner, runner.shell)
+        self.assertEqual(interp.name, "sh")
+
     def test_task_interpreter_takes_precedence(self):
         from tasktree.parser import Runner, ShellConfig
 
