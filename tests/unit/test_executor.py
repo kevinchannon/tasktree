@@ -99,7 +99,9 @@ class TestTaskStatus(unittest.TestCase):
                 outputs=["output.txt"],
             )
             task_hash = hash_task(
-                task.cmd, task.outputs, task.working_dir, task.args, "__platform_default__", task.deps
+                task.cmd, task.outputs, task.working_dir, task.args,
+                "__platform_default__", task.deps,
+                Interpreter.host_default().name,
             )
             cache_key = make_cache_key(task_hash)
 

@@ -48,6 +48,18 @@ class TestHasher(unittest.TestCase):
         hash_val = hash_task("echo hello", ["output.txt"], ".", [])
         self.assertEqual(len(hash_val), 8)
 
+    def test_hash_task_changes_with_interpreter(self):
+        """Hash changes when the resolved interpreter changes."""
+        hash1 = hash_task("echo hello", ["output.txt"], ".", [], interpreter="bash")
+        hash2 = hash_task("echo hello", ["output.txt"], ".", [], interpreter="python3")
+        self.assertNotEqual(hash1, hash2)
+
+    def test_hash_task_stable_with_same_interpreter(self):
+        """Hash is stable for the same interpreter."""
+        hash1 = hash_task("echo hello", ["output.txt"], ".", [], interpreter="bash")
+        hash2 = hash_task("echo hello", ["output.txt"], ".", [], interpreter="bash")
+        self.assertEqual(hash1, hash2)
+
     def test_hash_args_stability(self):
         """
         Test that args hashing is stable for same inputs.

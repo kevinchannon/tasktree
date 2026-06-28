@@ -113,6 +113,7 @@ def execute_dynamic_task(
             task.args,
             executor._get_effective_runner_name(task),
             task.deps,
+            executor._resolve_interpreter_for_task(task).name,
         )
 
         valid_hashes.add(task_hash)

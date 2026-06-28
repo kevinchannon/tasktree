@@ -13,6 +13,7 @@ import yaml
 
 from tasktree.parser import (
     CircularImportError,
+    Recipe,
     Task,
     _resolve_eval_variable,
     find_recipe_file,
@@ -553,6 +554,16 @@ tasks:
 
             test_task = recipe.tasks["test"]
             self.assertEqual(test_task.deps, ["build.compile"])
+
+
+class TestGetRunner(unittest.TestCase):
+    """Tests for Recipe.get_runner robustness."""
+
+    def test_get_runner_returns_none_for_non_string_name(self):
+        """A non-string name (e.g. a malformed default_runner dict) yields None
+        rather than raising 'unhashable type'."""
+        recipe = Recipe(tasks={}, project_root=Path("."), recipe_path=Path("tt.yaml"))
+        self.assertIsNone(recipe.get_runner({"shell": {"cmd": "bash"}}))
 
 
 class TestParseTaskInterpreter(unittest.TestCase):

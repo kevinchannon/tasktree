@@ -444,6 +444,8 @@ class Recipe:
         Returns:
         Runner if found, None otherwise
         """
+        if not isinstance(name, str):
+            return None
         return self.runners.get(name)
 
     def evaluate_variables(self, root_task: str | None = None) -> None:

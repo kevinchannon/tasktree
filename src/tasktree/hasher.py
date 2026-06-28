@@ -97,6 +97,7 @@ def hash_task(
     args: list[str | dict[str, Any]],
     env: str = "",
     deps: list[str | dict[str, Any]] | None = None,
+    interpreter: str = "",
 ) -> str:
     """
     Hash task definition including dependencies.
@@ -108,6 +109,7 @@ def hash_task(
     args: Task argument specifications
     env: Runner name
     deps: Dependency specifications (optional, for dependency hash)
+    interpreter: Resolved interpreter name (captures task/runner/shell choice)
 
     Returns:
     8-character hash of task definition
@@ -118,6 +120,7 @@ def hash_task(
         "working_dir": working_dir,
         "args": sorted(_normalize_choices_lists(args), key=_arg_sort_key),
         "env": env,
+        "interpreter": interpreter,
     }
 
     # Include dependency invocation signatures if provided

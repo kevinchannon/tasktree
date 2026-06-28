@@ -558,6 +558,17 @@ class Executor:
             return Interpreter.container_default()
         return Interpreter.host_default()
 
+    def _resolve_interpreter_for_task(self, task: Task) -> Interpreter:
+        """
+        Resolve the Interpreter for a task using its effective runner.
+
+        Mirrors the host execution path's resolution so the hashed interpreter
+        name matches what will actually run the task.
+        """
+        runner = self.recipe.get_runner(self._get_effective_runner_name(task))
+        shell_config = self._resolve_runner(task)
+        return self._resolve_interpreter(task, runner, shell_config)
+
     def check_task_status(
         self,
         task: Task,
@@ -605,6 +616,7 @@ class Executor:
             task.args,
             effective_env,
             task.deps,
+            self._resolve_interpreter_for_task(task).name,
         )
         self.logger.trace(f"Task hash for '{task.name}': {task_hash}")
         args_hash = hash_args(args_dict) if args_dict else None
@@ -1916,6 +1928,7 @@ class Executor:
             task.args,
             effective_env,
             task.deps,
+            self._resolve_interpreter_for_task(task).name,
         )
         args_hash = hash_args(args_dict) if args_dict else None
         return make_cache_key(task_hash, args_hash)
