@@ -8,6 +8,7 @@ import platform
 import subprocess
 import sys
 import time
+import warnings
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -1087,6 +1088,10 @@ class Executor:
             task.cmd, builtin_vars, regular_args, exported_args, task.name
         )
 
+        # A leading shebang has no effect: the interpreter is chosen explicitly,
+        # not by executing the script directly. Point the user at 'interpreter:'.
+        self._warn_if_cmd_has_shebang(cmd)
+
         # Check if task uses Docker environment
         env_name = self._get_effective_runner_name(task)
         env = None
@@ -1142,6 +1147,21 @@ class Executor:
 
         # Update state
         self._update_state(task, args_dict, process_runner)
+
+    @staticmethod
+    def _warn_if_cmd_has_shebang(cmd: str) -> None:
+        """Warn that a leading shebang in a task command is ignored.
+
+        Commands run via an explicitly chosen interpreter, so a ``#!`` line is
+        treated as an ordinary first line rather than selecting an interpreter.
+        """
+        if cmd.lstrip().startswith("#!"):
+            warnings.warn(
+                "Shebang on line 1 of cmd is ignored. "
+                "Set 'interpreter:' to choose a non-default interpreter.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
 
     def _run_command_as_script(
         self,

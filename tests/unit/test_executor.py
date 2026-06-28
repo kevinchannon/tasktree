@@ -529,6 +529,25 @@ class TestResolveInterpreter(unittest.TestCase):
         self.assertEqual(interp, Interpreter.container_default())
 
 
+class TestShebangWarning(unittest.TestCase):
+    """Tests for the shebang-in-cmd warning (issue #201, step 9)."""
+
+    def test_shebang_cmd_emits_warning(self):
+        with self.assertWarns(RuntimeWarning):
+            Executor._warn_if_cmd_has_shebang("#!/usr/bin/env python3\nprint('hi')")
+
+    def test_leading_whitespace_shebang_emits_warning(self):
+        with self.assertWarns(RuntimeWarning):
+            Executor._warn_if_cmd_has_shebang("\n  #!/bin/bash\necho hi")
+
+    def test_cmd_without_shebang_does_not_warn(self):
+        import warnings as _warnings
+
+        with _warnings.catch_warnings():
+            _warnings.simplefilter("error")
+            Executor._warn_if_cmd_has_shebang("echo '#! not a shebang'")
+
+
 class TestMissingOutputs(unittest.TestCase):
     """
     """
