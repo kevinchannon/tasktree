@@ -599,6 +599,62 @@ tasks:
             self.assertIn("build", str(ctx.exception))
 
 
+class TestParseRunnerInterpreter(unittest.TestCase):
+    """Tests for the runner-level 'interpreter' default (issue #201, step 3)."""
+
+    def test_runner_default_interpreter_defaults_to_empty(self):
+        """A runner without an interpreter key has default_interpreter == ''."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+runners:
+  sh:
+    shell:
+      cmd: bash
+tasks:
+  build:
+    cmd: echo hi
+""")
+            recipe = parse_recipe(recipe_path)
+            self.assertEqual(recipe.get_runner("sh").default_interpreter, "")
+
+    def test_runner_default_interpreter_is_parsed(self):
+        """A runner with an interpreter key exposes it as default_interpreter."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+runners:
+  py:
+    shell:
+      cmd: bash
+    interpreter: python3
+tasks:
+  build:
+    cmd: echo hi
+""")
+            recipe = parse_recipe(recipe_path)
+            self.assertEqual(recipe.get_runner("py").default_interpreter, "python3")
+
+    def test_unknown_runner_interpreter_raises(self):
+        """An unknown interpreter name on a runner is rejected at parse time."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+runners:
+  py:
+    shell:
+      cmd: bash
+    interpreter: nonsuch
+tasks:
+  build:
+    cmd: echo hi
+""")
+            with self.assertRaises(ValueError) as ctx:
+                parse_recipe(recipe_path)
+            self.assertIn("nonsuch", str(ctx.exception))
+            self.assertIn("py", str(ctx.exception))
+
+
 class TestParseImports(unittest.TestCase):
     """
     Test parsing of recipe imports with various edge cases.

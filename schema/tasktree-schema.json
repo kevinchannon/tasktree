@@ -77,6 +77,11 @@
                 }
               ]
             },
+            "interpreter": {
+              "type": "string",
+              "enum": ["bash", "sh", "zsh", "fish", "cmd.exe", "powershell", "pwsh", "python", "python3"],
+              "description": "Default interpreter used to run tasks in this runner, unless a task overrides it"
+            },
             "args": {
               "description": "Docker build and run arguments",
               "type": "object",

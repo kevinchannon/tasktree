@@ -135,6 +135,7 @@ class Runner:
 
     name: str
     shell: ShellConfig | None = None  # Shell configuration (cmd and preamble)
+    default_interpreter: str = ""  # Default interpreter name for tasks in this runner
     args: DockerArgs = field(default_factory=DockerArgs)  # Docker build/run arguments
     # Docker-specific fields (presence of dockerfile indicates Docker environment)
     dockerfile: str = ""  # Path to Dockerfile
@@ -1891,6 +1892,10 @@ def _parse_runners_from_data(
         shell_value = env_config.get("shell")
         shell_config = parse_shell_config(shell_value, env_name) if shell_value is not None else None
 
+        # Parse optional default interpreter for this runner
+        default_interpreter = env_config.get("interpreter", "")
+        _validate_interpreter_name(default_interpreter, f"Runner '{env_name}'")
+
         # Parse docker args
         args_config = parse_docker_args(env_config.get("args"), env_name)
 
@@ -1950,6 +1955,7 @@ def _parse_runners_from_data(
         runners[env_name] = Runner(
             name=env_name,
             shell=shell_config,
+            default_interpreter=default_interpreter,
             args=args_config,
             dockerfile=dockerfile,
             context=context,
