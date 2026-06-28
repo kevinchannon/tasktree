@@ -14,6 +14,7 @@ import tempfile
 import types
 from pathlib import Path
 
+from tasktree.interpreter import Interpreter
 from tasktree.logging import Logger
 
 # Module-level constant for platform detection to avoid repeated system calls
@@ -49,6 +50,7 @@ class TempScript:
         shell: str = "bash",
         script_extension: str | None = None,
         use_shebang: bool | None = None,
+        interpreter: Interpreter | None = None,
     ):
         """
         Initialize temp script manager.
@@ -57,20 +59,25 @@ class TempScript:
             logger: Logger for debug/trace logging
             cmd: Command string to execute (can be multi-line)
             preamble: Optional preamble to prepend to command
-            shell: Shell to use for shebang (default: bash)
+            shell: Shell to use for shebang (default: bash). Superseded by
+                   ``interpreter`` when that is provided.
             script_extension: Optional override for script file extension (e.g., ".sh", ".bat", ".ps1").
-                            If None, determined from platform.
+                            If None, derived from ``interpreter`` when provided, otherwise the platform.
             use_shebang: Optional override for whether to add shebang.
                         If None, determined from platform (True on Unix/macOS, False on Windows).
+            interpreter: Optional Interpreter describing how the script is run.
+                        When provided, supplies the shebang command and the
+                        default script extension.
 
         """
         self.cmd = cmd
         self.preamble = preamble
-        self.shell = shell
+        self.shell = interpreter.invocation_cmd[0] if interpreter is not None else shell
         self.logger = logger
         self.script_path: Path | None = None
         self.script_extension = script_extension
         self.use_shebang = use_shebang
+        self.interpreter = interpreter
 
     def __enter__(self) -> Path:
         """
@@ -90,9 +97,12 @@ class TempScript:
             Path object pointing to the temporary script file
 
         """
-        # Determine file extension (use override if provided, otherwise platform default)
+        # Determine file extension: explicit override first, then the
+        # interpreter's canonical extension, then the platform default.
         if self.script_extension is not None:
             script_ext = self.script_extension
+        elif self.interpreter is not None:
+            script_ext = self.interpreter.script_extension
         else:
             script_ext = ".bat" if _IS_WINDOWS else ".sh"
 

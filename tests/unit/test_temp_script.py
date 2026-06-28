@@ -279,5 +279,46 @@ class TestTempScript(unittest.TestCase):
         self.assertFalse(script_path.exists())
 
 
+class TestTempScriptInterpreter(unittest.TestCase):
+    """Tests for the TempScript interpreter parameter (issue #201, step 7)."""
+
+    def test_interpreter_supplies_default_extension(self):
+        """When script_extension is omitted, the interpreter's extension is used."""
+        from tasktree.interpreter import Interpreter
+
+        cmd = "echo hello"
+        with TempScript(
+            logger=logger_stub, cmd=cmd, interpreter=Interpreter.from_name("powershell")
+        ) as script_path:
+            self.assertTrue(str(script_path).endswith(".ps1"))
+
+    def test_explicit_extension_overrides_interpreter(self):
+        """An explicit script_extension wins over the interpreter's extension."""
+        from tasktree.interpreter import Interpreter
+
+        cmd = "echo hello"
+        with TempScript(
+            logger=logger_stub,
+            cmd=cmd,
+            interpreter=Interpreter.from_name("bash"),
+            script_extension=".custom",
+        ) as script_path:
+            self.assertTrue(str(script_path).endswith(".custom"))
+
+    @unittest.skipIf(platform.system() == "Windows", "Shebang is Unix-only")
+    def test_interpreter_supplies_shebang_command(self):
+        """The interpreter's executable is used in the shebang line."""
+        from tasktree.interpreter import Interpreter
+
+        cmd = "echo hello"
+        with TempScript(
+            logger=logger_stub,
+            cmd=cmd,
+            interpreter=Interpreter.from_name("zsh"),
+            use_shebang=True,
+        ) as script_path:
+            self.assertTrue(script_path.read_text().startswith("#!/usr/bin/env zsh\n"))
+
+
 if __name__ == "__main__":
     unittest.main()

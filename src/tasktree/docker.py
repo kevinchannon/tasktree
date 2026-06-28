@@ -243,7 +243,7 @@ class DockerManager:
                 logger=self._logger,
                 cmd=cmd,
                 preamble=preamble,
-                shell=interpreter.invocation_cmd[0],
+                interpreter=interpreter,
                 script_extension=script_ext,
                 use_shebang=use_shebang,
             ) as script_path:
