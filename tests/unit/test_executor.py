@@ -532,20 +532,34 @@ class TestResolveInterpreter(unittest.TestCase):
 class TestShebangWarning(unittest.TestCase):
     """Tests for the shebang-in-cmd warning (issue #201, step 9)."""
 
-    def test_shebang_cmd_emits_warning(self):
-        with self.assertWarns(RuntimeWarning):
-            Executor._warn_if_cmd_has_shebang("#!/usr/bin/env python3\nprint('hi')")
+    def _make_executor_with_logger(self):
+        tmp = TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        project_root = Path(tmp.name)
+        recipe = Recipe(
+            tasks={},
+            project_root=project_root,
+            recipe_path=project_root / "tasktree.yaml",
+        )
+        logger = MagicMock()
+        ex = Executor(recipe, StateManager(project_root), logger, make_process_runner)
+        return ex, logger
 
-    def test_leading_whitespace_shebang_emits_warning(self):
-        with self.assertWarns(RuntimeWarning):
-            Executor._warn_if_cmd_has_shebang("\n  #!/bin/bash\necho hi")
+    def test_shebang_cmd_warns_via_logger(self):
+        ex, logger = self._make_executor_with_logger()
+        ex._warn_if_cmd_has_shebang("#!/usr/bin/env python3\nprint('hi')")
+        logger.warn.assert_called_once()
+        self.assertIn("Shebang", logger.warn.call_args[0][0])
+
+    def test_leading_whitespace_shebang_warns(self):
+        ex, logger = self._make_executor_with_logger()
+        ex._warn_if_cmd_has_shebang("\n  #!/bin/bash\necho hi")
+        logger.warn.assert_called_once()
 
     def test_cmd_without_shebang_does_not_warn(self):
-        import warnings as _warnings
-
-        with _warnings.catch_warnings():
-            _warnings.simplefilter("error")
-            Executor._warn_if_cmd_has_shebang("echo '#! not a shebang'")
+        ex, logger = self._make_executor_with_logger()
+        ex._warn_if_cmd_has_shebang("echo '#! not a shebang'")
+        logger.warn.assert_not_called()
 
 
 class TestMissingOutputs(unittest.TestCase):

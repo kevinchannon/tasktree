@@ -20,7 +20,7 @@ import yaml
 from tasktree.logging import Logger
 from tasktree.types import get_click_type
 from tasktree.process_runner import TaskOutputTypes
-from tasktree.interpreter import INTERPRETER_LOOKUP, Interpreter
+from tasktree.interpreter import Interpreter, UnknownInterpreterError
 
 
 # Regex patterns for variable references
@@ -61,11 +61,12 @@ def _validate_interpreter_name(name: str, context: str) -> None:
     Raises:
         ValueError: If name is non-empty and not a known interpreter.
     """
-    if name and name not in INTERPRETER_LOOKUP:
-        raise ValueError(
-            f"{context}: unknown interpreter '{name}'. "
-            f"Known interpreters: {sorted(INTERPRETER_LOOKUP)}"
-        )
+    if not name:
+        return
+    try:
+        Interpreter.from_name(name)
+    except UnknownInterpreterError as e:
+        raise ValueError(f"{context}: {e}") from e
 
 
 @dataclass

@@ -19,11 +19,16 @@ def _derive_script_extension(name: str) -> str:
     PowerShell needs ``.ps1`` and cmd.exe needs ``.bat`` because those
     interpreters dispatch on file extension; everything else uses ``.sh``.
     Used for custom shell invocations not present in INTERPRETER_LOOKUP.
+
+    Matching is on the executable's basename (minus any ``.exe``) so that
+    unrelated paths like ``/opt/cmd_tools/bash`` are not misclassified.
     """
-    lowered = name.lower()
-    if "powershell" in lowered or "pwsh" in lowered:
+    base = name.replace("\\", "/").rsplit("/", 1)[-1].lower()
+    if base.endswith(".exe"):
+        base = base[: -len(".exe")]
+    if base in ("powershell", "pwsh"):
         return ".ps1"
-    if "cmd" in lowered:
+    if base == "cmd":
         return ".bat"
     return ".sh"
 

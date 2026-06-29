@@ -189,6 +189,15 @@ class TestInterpreterFromShellCmd(unittest.TestCase):
         interp = Interpreter.from_shell_cmd(["/usr/local/bin/cmd.exe", "/c"])
         self.assertEqual(interp.script_extension, ".bat")
 
+    def test_path_containing_cmd_substring_is_not_bat(self):
+        """A path like /opt/cmd_tools/bash must not be classified as .bat."""
+        interp = Interpreter.from_shell_cmd(["/opt/cmd_tools/bash"])
+        self.assertEqual(interp.script_extension, ".sh")
+
+    def test_path_containing_pwsh_substring_is_not_ps1(self):
+        interp = Interpreter.from_shell_cmd(["/opt/pwsh_helpers/sh"])
+        self.assertEqual(interp.script_extension, ".sh")
+
     def test_empty_cmd_falls_back_to_host_default(self):
         interp = Interpreter.from_shell_cmd([])
         self.assertEqual(interp, Interpreter.host_default())

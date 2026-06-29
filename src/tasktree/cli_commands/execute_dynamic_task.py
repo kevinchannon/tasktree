@@ -14,7 +14,7 @@ from tasktree.graph import (
     resolve_self_references,
 )
 from tasktree.hasher import hash_task
-from tasktree.interpreter import INTERPRETER_LOOKUP
+from tasktree.interpreter import Interpreter, UnknownInterpreterError
 from tasktree.logging import Logger
 from tasktree.parser import get_recipe, parse_task_args
 from tasktree.process_runner import TaskOutputTypes, make_process_runner
@@ -72,11 +72,10 @@ def execute_dynamic_task(
 
     # Apply global interpreter override if provided
     if interpreter:
-        if interpreter not in INTERPRETER_LOOKUP:
-            logger.error(f"[red]Unknown interpreter: {interpreter}[/red]")
-            logger.info("\nKnown interpreters:")
-            for name in sorted(INTERPRETER_LOOKUP):
-                logger.info(f"  - {name}")
+        try:
+            Interpreter.from_name(interpreter)
+        except UnknownInterpreterError as e:
+            logger.error(f"[red]{e}[/red]")
             raise typer.Exit(1)
         recipe.global_interpreter_override = interpreter
 
