@@ -1916,6 +1916,13 @@ def _parse_runners_from_data(
                 f"(for shell runners) or 'dockerfile' (for Docker runners)"
             )
 
+        # Docker runners choose their interpreter with 'interpreter:', not 'shell:'.
+        if dockerfile and shell_config is not None:
+            raise ValueError(
+                f"Runner '{env_name}': Docker runners (with 'dockerfile') use "
+                f"'interpreter' to choose the interpreter, not 'shell'"
+            )
+
         # Default context to the Dockerfile's directory if not specified
         if dockerfile and not context:
             context = str(Path(dockerfile).parent)

@@ -151,6 +151,9 @@
               { "not": { "required": ["args"] } }
             ]
           },
+          "else": {
+            "not": { "required": ["shell"] }
+          },
           "additionalProperties": false
         }
       },

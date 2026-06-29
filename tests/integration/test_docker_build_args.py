@@ -56,8 +56,7 @@ runners:
   builder:
     dockerfile: ./Dockerfile
     context: .
-    shell:
-      cmd: sh
+    interpreter: sh
     volumes: ["./output:/workspace/output"]
     args:
       build:

@@ -565,11 +565,15 @@ class Executor:
         """
         Resolve the Interpreter for a task using its effective runner.
 
-        Mirrors the host execution path's resolution so the hashed interpreter
-        name matches what will actually run the task.
+        Mirrors the execution paths' resolution so the hashed interpreter name
+        matches what will actually run the task. Docker runners have no shell,
+        so they pass no shell config and fall back to the container default.
         """
         runner = self.recipe.get_runner(self._get_effective_runner_name(task))
-        shell_config = self._resolve_runner(task)
+        if runner is not None and runner.dockerfile:
+            shell_config = None
+        else:
+            shell_config = self._resolve_runner(task)
         return self._resolve_interpreter(task, runner, shell_config)
 
     def check_task_status(
@@ -1432,6 +1436,7 @@ class Executor:
                 working_dir=working_dir,
                 container_working_dir=container_working_dir,
                 process_runner=process_runner,
+                interpreter=self._resolve_interpreter_for_task(task),
             )
         except docker_module.DockerError as e:
             raise ExecutionError(str(e)) from e

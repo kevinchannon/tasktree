@@ -665,6 +665,47 @@ tasks:
             self.assertIn("nonsuch", str(ctx.exception))
             self.assertIn("py", str(ctx.exception))
 
+    def test_docker_runner_with_shell_raises(self):
+        """A Docker runner must use 'interpreter', not 'shell'."""
+        with TemporaryDirectory() as tmpdir:
+            (Path(tmpdir) / "Dockerfile").write_text("FROM alpine\n")
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+runners:
+  builder:
+    dockerfile: Dockerfile
+    shell:
+      cmd: bash
+tasks:
+  build:
+    run_in: builder
+    cmd: echo hi
+""")
+            with self.assertRaises(ValueError) as ctx:
+                parse_recipe(recipe_path)
+            self.assertIn("interpreter", str(ctx.exception))
+            self.assertIn("builder", str(ctx.exception))
+
+    def test_docker_runner_with_interpreter_ok(self):
+        """A Docker runner with 'interpreter' parses successfully."""
+        with TemporaryDirectory() as tmpdir:
+            (Path(tmpdir) / "Dockerfile").write_text("FROM alpine\n")
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+runners:
+  builder:
+    dockerfile: Dockerfile
+    interpreter: bash
+tasks:
+  build:
+    run_in: builder
+    cmd: echo hi
+""")
+            recipe = parse_recipe(recipe_path)
+            self.assertEqual(
+                recipe.get_runner("builder").default_interpreter, "bash"
+            )
+
 
 class TestParseImports(unittest.TestCase):
     """

@@ -1007,16 +1007,17 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
             for volume in captured_volumes:
                 self.assertNotIn("/tasktree-internal", volume)
 
-    def test_nested_call_uses_runner_shell_preamble(self):
+    def test_nested_call_uses_runner_interpreter(self):
         """
-        Test that nested call in matching container uses runner's shell/preamble.
+        Test that a nested call in a matching container uses the runner's
+        default interpreter (Docker runners have no shell/preamble).
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
             docker_runner = Runner(
                 name="build",
-                shell=ShellConfig(cmd=["/bin/zsh"], preamble="set -euo pipefail"),
+                default_interpreter="zsh",
                 dockerfile="Dockerfile",
                 context=".",
             )
@@ -1049,7 +1050,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
 
             # Mock environment to simulate being inside container
             with patch.dict("os.environ", {"TT_CONTAINERIZED_RUNNER": "build"}):
-                # Mock _run_command_as_script to capture shell/preamble
+                # Mock _run_command_as_script to capture interpreter/preamble
                 captured_args = {}
                 def mock_run_script(cmd, working_dir, task_name, interpreter, preamble, *args, **kwargs):
                     captured_args["interpreter"] = interpreter
@@ -1059,12 +1060,12 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
                     process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
                     executor._run_task(recipe.tasks["test"], {}, process_runner)
 
-                # Verify the interpreter derived from the runner's shell and the
-                # runner's preamble were used.
+                # The runner's default interpreter is used, and there is no
+                # preamble (Docker runners no longer carry a shell preamble).
                 self.assertEqual(
-                    captured_args["interpreter"].invocation_cmd, ("/bin/zsh",)
+                    captured_args["interpreter"].invocation_cmd, ("zsh",)
                 )
-                self.assertEqual(captured_args["preamble"], "set -euo pipefail")
+                self.assertEqual(captured_args["preamble"], "")
 
     def test_runner_names_with_special_characters(self):
         """

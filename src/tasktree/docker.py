@@ -12,7 +12,7 @@ import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from tasktree.interpreter import INTERPRETER_LOOKUP, Interpreter
+from tasktree.interpreter import Interpreter
 from tasktree.temp_script import TempScript
 
 if TYPE_CHECKING:
@@ -27,23 +27,6 @@ class DockerError(Exception):
     """
 
     pass
-
-
-def _container_interpreter(env: "Runner") -> Interpreter:
-    """Resolve the Interpreter used to run a script inside a container.
-
-    Precedence: the runner's explicit ``interpreter``, then the interpreter
-    named by ``shell.cmd[0]`` (inline flags like ``-c`` are not part of
-    script-file execution), then the container default (sh).
-    """
-    if env.default_interpreter:
-        return Interpreter.from_name(env.default_interpreter)
-    if env.shell is not None and env.shell.cmd:
-        name = env.shell.cmd[0]
-        if name in INTERPRETER_LOOKUP:
-            return Interpreter.from_name(name)
-        return Interpreter.from_shell_cmd([name])
-    return Interpreter.container_default()
 
 
 class DockerManager:
@@ -164,6 +147,7 @@ class DockerManager:
         working_dir: Path,
         container_working_dir: str | None,
         process_runner: ProcessRunner,
+        interpreter: Interpreter,
     ) -> subprocess.CompletedProcess:
         """
         Execute command inside Docker container.
@@ -174,6 +158,7 @@ class DockerManager:
         working_dir: Host working directory (for resolving relative volume paths)
         container_working_dir: Working directory inside container, or None to use Dockerfile's WORKDIR
         process_runner: ProcessRunner instance to use for subprocess execution
+        interpreter: Interpreter used to run the script inside the container
 
         Returns:
         CompletedProcess from subprocess.run
@@ -184,31 +169,26 @@ class DockerManager:
         # Ensure image is built (returns tag and ID)
         image_tag, image_id = self.ensure_image_built(env, process_runner)
 
-        # Resolve the interpreter for this container and the preamble to prepend.
-        interpreter = _container_interpreter(env)
-        preamble = env.shell.preamble if env.shell is not None else ""
-
-        # Script extension and shebang behaviour come from the interpreter:
-        # .sh for Unix shells (shebang-friendly), .bat/.ps1 for Windows shells.
+        # Script extension comes from the interpreter: .sh for Unix shells,
+        # .bat/.ps1 for Windows shells (which dispatch by extension).
         script_ext = interpreter.script_extension
-        use_shebang = script_ext not in (".bat", ".ps1")
 
         # Generate unique container script path to avoid collisions between concurrent executions
         script_id = uuid.uuid4()
         script_filename = f"tt-script-{script_id}{script_ext}"
         container_script_path = f"/tmp/{script_filename}"
 
-        # Create temp script on host with preamble and command, then mount into container.
-        # The script extension and shebang behavior are determined by the container shell type,
-        # not the host platform (e.g., Windows containers use .bat even on Linux hosts).
+        # Create temp script on host with the command, then mount into container.
+        # The script extension is determined by the container interpreter, not the
+        # host platform (e.g., Windows containers use .bat even on Linux hosts).
+        # No shebang: the interpreter is invoked explicitly below.
         try:
             with TempScript(
                 logger=self._logger,
                 cmd=cmd,
-                preamble=preamble,
                 interpreter=interpreter,
                 script_extension=script_ext,
-                use_shebang=use_shebang,
+                use_shebang=False,
             ) as script_path:
                 # Build docker run command from the shared flags (user mapping,
                 # run args, volume mounts incl. the auto repo-mount, ports, env).

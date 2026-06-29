@@ -114,9 +114,7 @@ runners:
   docker-env:
     dockerfile: Dockerfile
     context: .
-    shell:
-      cmd: [bash, -c]
-      preamble: "set -e"
+    interpreter: bash
     volumes:
       - ".:/workspace"
       - "{src_dir}:/app/src:ro"
@@ -125,6 +123,7 @@ tasks:
   docker-recursive:
     run_in: docker-env
     cmd: |
+      set -e
       echo "In Docker, before recursive call"
       python3 -m tasktree.cli docker-recursive
       echo "After recursive call (should never reach here)"
