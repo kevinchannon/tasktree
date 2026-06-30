@@ -4,6 +4,8 @@ variables:
 
 runners:
   test-runner:
+    type: containerised
+    engine: docker
     dockerfile: docker/Dockerfile
     context: .
     volumes:

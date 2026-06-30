@@ -42,6 +42,8 @@ class TestDockerVolumes(unittest.TestCase):
             (project_root / "tasktree.yaml").write_text("""
 runners:
   alpine:
+    type: containerised
+    engine: docker
     dockerfile: ./Dockerfile
     context: .
     volumes: ["./src:/workspace/src"]
@@ -86,6 +88,8 @@ tasks:
             (project_root / "tasktree.yaml").write_text(f"""
 runners:
   alpine:
+    type: containerised
+    engine: docker
     dockerfile: ./Dockerfile
     context: .
     volumes: ["{absolute_data_dir}:/app/data"]
@@ -137,6 +141,8 @@ tasks:
             (project_root / "tasktree.yaml").write_text("""
 runners:
   alpine:
+    type: containerised
+    engine: docker
     dockerfile: ./Dockerfile
     context: .
     volumes:
@@ -194,6 +200,8 @@ tasks:
             (project_root / "tasktree.yaml").write_text("""
 runners:
   alpine:
+    type: containerised
+    engine: docker
     dockerfile: ./Dockerfile
     context: .
     volumes: ["./data:/workspace/data"]

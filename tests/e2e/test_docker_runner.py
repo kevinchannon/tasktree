@@ -42,6 +42,8 @@ class TestDockerRunner(unittest.TestCase):
             (project_root / "tasktree.yaml").write_text("""
 runners:
   alpine:
+    type: containerised
+    engine: docker
     dockerfile: ./Dockerfile
     context: .
     volumes: ["./output:/workspace/output"]
@@ -98,6 +100,8 @@ tasks:
             (project_root / "tasktree.yaml").write_text("""
 runners:
   alpine:
+    type: containerised
+    engine: docker
     dockerfile: ./Dockerfile
     context: .
     volumes: ["./output:/workspace/output"]
@@ -149,6 +153,8 @@ tasks:
             (project_root / "tasktree.yaml").write_text("""
 runners:
   alpine:
+    type: containerised
+    engine: docker
     dockerfile: ./Dockerfile
     context: .
     volumes: ["./output:/workspace/output"]
@@ -196,6 +202,8 @@ tasks:
             (project_root / "tasktree.yaml").write_text("""
 runners:
   alpine:
+    type: containerised
+    engine: docker
     dockerfile: ./Dockerfile
     context: .
     volumes: ["{{ tt.project_root }}:/workspace"]
@@ -249,6 +257,8 @@ tasks:
             (project_root / "tasktree.yaml").write_text("""
 runners:
   alpine:
+    type: containerised
+    engine: docker
     dockerfile: ./Dockerfile
     context: .
     volumes: ["./output:/output"]
@@ -310,6 +320,8 @@ tasks:
             # file can be parsed without errors when it contains relative paths
             (project_root / ".tasktree-config.yml").write_text("""runners:
   default:
+    type: containerised
+    engine: docker
     dockerfile: docker/Dockerfile
     context: .
 """)
@@ -318,6 +330,8 @@ tasks:
             # This is what actually gets executed and tests path resolution
             (project_root / "tasktree.yaml").write_text("""runners:
   docker-test:
+    type: containerised
+    engine: docker
     dockerfile: docker/Dockerfile
     context: .
     volumes: ["./output:/workspace/output"]

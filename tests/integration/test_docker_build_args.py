@@ -54,6 +54,8 @@ RUN echo "Build version: $BUILD_VERSION" > /build-info.txt && \\
 runners:
   default: builder
   builder:
+    type: containerised
+    engine: docker
     dockerfile: ./Dockerfile
     context: .
     interpreter:

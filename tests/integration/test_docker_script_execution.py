@@ -40,6 +40,8 @@ WORKDIR /workspace
 runners:
   default: builder
   builder:
+    type: containerised
+    engine: docker
     dockerfile: ./Dockerfile
     context: .
     interpreter:

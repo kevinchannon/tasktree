@@ -55,6 +55,8 @@ variables:
 
 runners:
   docker:
+    type: containerised
+    engine: docker
     dockerfile: Dockerfile
     volumes:
       - "{{{{ var.mount_dir }}}}:/a"
