@@ -205,6 +205,8 @@ class TestParseConfigFile(unittest.TestCase):
             config_path.write_text(
                 """runners:
   default:
+    type: containerised
+    engine: docker
     dockerfile: docker/Dockerfile
     context: docker
 """
@@ -233,6 +235,8 @@ class TestParseConfigFile(unittest.TestCase):
       build: ["--no-cache"]
       run: ["--network=host"]
     working_dir: /workspace
+    type: containerised
+    engine: docker
     dockerfile: Dockerfile
     context: .
     volumes:
@@ -383,6 +387,8 @@ class TestParseConfigFile(unittest.TestCase):
             config_path.write_text(
                 """runners:
   default:
+    type: containerised
+    engine: docker
     dockerfile: Dockerfile
     context: .
 """
@@ -404,6 +410,8 @@ class TestParseConfigFile(unittest.TestCase):
             config_path.write_text(
                 """runners:
   default:
+    type: containerised
+    engine: docker
     dockerfile: ../nonexistent/Dockerfile
     context: ./build
     working_dir: relative/path
@@ -427,6 +435,8 @@ class TestParseConfigFile(unittest.TestCase):
             config_path.write_text(
                 """runners:
   default:
+    type: containerised
+    engine: docker
     dockerfile: docker/Dockerfile
     context: build
 """
@@ -448,6 +458,8 @@ class TestParseConfigFile(unittest.TestCase):
             config_path.write_text(
                 """runners:
   default:
+    type: containerised
+    engine: docker
     dockerfile: docker/Dockerfile
     context: .
 """
@@ -629,6 +641,71 @@ class TestConfigFieldValidation(unittest.TestCase):
                 parse_config_file(config_path)
             self.assertIn("'run_as_root' must be a boolean", str(ctx.exception))
             self.assertIn(str(config_path), str(ctx.exception))
+
+
+class TestConfigRunnerTypeAndEngine(unittest.TestCase):
+    """
+    Tests for the 'type'/'engine' classification fields in config files.
+    """
+
+    def test_dockerfile_without_type_and_engine_rejected(self):
+        with TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.yml"
+            config_path.write_text(
+                """runners:
+  default:
+    dockerfile: Dockerfile
+    context: .
+"""
+            )
+            with self.assertRaises(ConfigError) as ctx:
+                parse_config_file(config_path)
+            self.assertIn("type", str(ctx.exception))
+            self.assertIn("engine", str(ctx.exception))
+
+    def test_type_and_engine_without_dockerfile_rejected(self):
+        with TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.yml"
+            config_path.write_text(
+                """runners:
+  default:
+    type: containerised
+    engine: docker
+"""
+            )
+            with self.assertRaises(ConfigError) as ctx:
+                parse_config_file(config_path)
+            self.assertIn("dockerfile", str(ctx.exception))
+
+    def test_invalid_runner_type_rejected(self):
+        with TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.yml"
+            config_path.write_text(
+                """runners:
+  default:
+    type: virtualised
+    engine: docker
+    dockerfile: Dockerfile
+"""
+            )
+            with self.assertRaises(ConfigError) as ctx:
+                parse_config_file(config_path)
+            self.assertIn("'type'", str(ctx.exception))
+
+    def test_invalid_runner_engine_rejected(self):
+        with TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.yml"
+            config_path.write_text(
+                """runners:
+  default:
+    type: containerised
+    engine: podman
+    dockerfile: Dockerfile
+"""
+            )
+            with self.assertRaises(ConfigError) as ctx:
+                parse_config_file(config_path)
+            self.assertIn("'engine'", str(ctx.exception))
 
 
 class TestErrorMessageContext(unittest.TestCase):
