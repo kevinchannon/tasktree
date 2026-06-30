@@ -15,6 +15,7 @@ from unittest.mock import MagicMock, patch
 
 from helpers.logging import logger_stub
 from tasktree.temp_script import TempScript
+from tasktree.interpreter import Interpreter
 
 
 class TestTempScript(unittest.TestCase):
@@ -46,7 +47,7 @@ class TestTempScript(unittest.TestCase):
 
             # On Unix/macOS, verify shebang is present
             if not is_windows:
-                self.assertTrue(content.startswith("#!/usr/bin/env bash\n"))
+                self.assertTrue(content.startswith("#!/usr/bin/env sh\n"))
 
         # Verify cleanup - script should be deleted after context exit
         self.assertFalse(script_path.exists())
@@ -120,7 +121,7 @@ class TestTempScript(unittest.TestCase):
         cmd = "echo hello"
         shell = "zsh"
 
-        with TempScript(logger=logger_stub, cmd=cmd, shell=shell) as script_path:
+        with TempScript(logger=logger_stub, cmd=cmd, interpreter=Interpreter(cmd=shell)) as script_path:
             content = script_path.read_text()
 
             # Verify custom shell in shebang
@@ -194,7 +195,7 @@ class TestTempScript(unittest.TestCase):
 
         cmd = "#!/bin/sh\necho hello"
 
-        with TempScript(logger=logger_stub, cmd=cmd, shell="bash") as script_path:
+        with TempScript(logger=logger_stub, cmd=cmd, interpreter=Interpreter(cmd="bash")) as script_path:
             content = script_path.read_text()
 
             # Verify original shebang is preserved
@@ -218,7 +219,7 @@ class TestTempScript(unittest.TestCase):
             # On Unix/macOS, should have shebang even with empty command
             is_windows = platform.system() == "Windows"
             if not is_windows:
-                self.assertTrue(content.startswith("#!/usr/bin/env bash\n"))
+                self.assertTrue(content.startswith("#!/usr/bin/env sh\n"))
 
             self.assertTrue(script_path.exists())
 
@@ -277,6 +278,47 @@ class TestTempScript(unittest.TestCase):
             self.assertIn("café", content)
 
         self.assertFalse(script_path.exists())
+
+
+class TestTempScriptInterpreter(unittest.TestCase):
+    """Tests for the TempScript interpreter parameter (issue #201, step 7)."""
+
+    def test_interpreter_supplies_default_extension(self):
+        """When script_extension is omitted, the interpreter's extension is used."""
+        from tasktree.interpreter import Interpreter
+
+        cmd = "echo hello"
+        with TempScript(
+            logger=logger_stub, cmd=cmd, interpreter=Interpreter(cmd="powershell", ext=".ps1")
+        ) as script_path:
+            self.assertTrue(str(script_path).endswith(".ps1"))
+
+    def test_explicit_extension_overrides_interpreter(self):
+        """An explicit script_extension wins over the interpreter's extension."""
+        from tasktree.interpreter import Interpreter
+
+        cmd = "echo hello"
+        with TempScript(
+            logger=logger_stub,
+            cmd=cmd,
+            interpreter=Interpreter(cmd="bash"),
+            script_extension=".custom",
+        ) as script_path:
+            self.assertTrue(str(script_path).endswith(".custom"))
+
+    @unittest.skipIf(platform.system() == "Windows", "Shebang is Unix-only")
+    def test_interpreter_supplies_shebang_command(self):
+        """The interpreter's executable is used in the shebang line."""
+        from tasktree.interpreter import Interpreter
+
+        cmd = "echo hello"
+        with TempScript(
+            logger=logger_stub,
+            cmd=cmd,
+            interpreter=Interpreter(cmd="zsh"),
+            use_shebang=True,
+        ) as script_path:
+            self.assertTrue(script_path.read_text().startswith("#!/usr/bin/env zsh\n"))
 
 
 if __name__ == "__main__":

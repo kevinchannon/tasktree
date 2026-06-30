@@ -1,6 +1,6 @@
 runners:
   my_runner:
-    shell:
+    interpreter:
       cmd: sh
 tasks:
   compile:

@@ -1,10 +1,12 @@
 runners:
   runner_a:
-    shell:
-      cmd: [cmd.exe, /c]
+    interpreter:
+      cmd: cmd.exe /c
+      ext: .bat
   runner_b:
-    shell:
-      cmd: [cmd.exe, /c]
+    interpreter:
+      cmd: cmd.exe /c
+      ext: .bat
 imports:
   - file: shared.yaml
     as: set_a

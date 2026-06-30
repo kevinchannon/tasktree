@@ -84,6 +84,9 @@ def main(
     runner: Optional[str] = typer.Option(
         None, "--runner", "-r", help="Override runner for all tasks"
     ),
+    interpreter: Optional[str] = typer.Option(
+        None, "--interpreter", help="Override interpreter for all tasks"
+    ),
     log_level: str = typer.Option(
         "info",
         "--log-level",
@@ -176,6 +179,7 @@ def main(
             force=force_execution,
             only=only or False,
             runner=runner,
+            interpreter=interpreter,
             tasks_file=tasks_file,
             task_output=task_output,
         )

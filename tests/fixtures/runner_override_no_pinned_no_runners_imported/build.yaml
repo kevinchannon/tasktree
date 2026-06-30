@@ -1,9 +1,9 @@
 runners:
   runner_a:
-    shell:
+    interpreter:
       cmd: sh
   runner_b:
-    shell:
+    interpreter:
       cmd: bash
 tasks:
   task1:

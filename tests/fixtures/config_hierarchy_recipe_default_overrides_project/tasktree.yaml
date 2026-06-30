@@ -1,8 +1,8 @@
 runners:
   default: custom
   custom:
-    shell:
-      cmd: [bash]
+    interpreter:
+      cmd: bash
       preamble: echo "RECIPE DEFAULT"
 
 tasks:

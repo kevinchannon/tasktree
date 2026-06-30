@@ -97,6 +97,7 @@ def hash_task(
     args: list[str | dict[str, Any]],
     env: str = "",
     deps: list[str | dict[str, Any]] | None = None,
+    interpreter: str = "",
 ) -> str:
     """
     Hash task definition including dependencies.
@@ -108,6 +109,7 @@ def hash_task(
     args: Task argument specifications
     env: Runner name
     deps: Dependency specifications (optional, for dependency hash)
+    interpreter: Resolved interpreter identity (cmd/ext/preamble) as a string
 
     Returns:
     8-character hash of task definition
@@ -118,6 +120,7 @@ def hash_task(
         "working_dir": working_dir,
         "args": sorted(_normalize_choices_lists(args), key=_arg_sort_key),
         "env": env,
+        "interpreter": interpreter,
     }
 
     # Include dependency invocation signatures if provided
@@ -169,15 +172,16 @@ def hash_runner_definition(env) -> str:
     Returns:
     16-character hash of runner definition
     """
-    shell_data = None
-    if env.shell is not None:
-        shell_data = {
-            "cmd": env.shell.cmd,
-            "preamble": env.shell.preamble,
+    interpreter_data = None
+    if env.interpreter is not None:
+        interpreter_data = {
+            "cmd": env.interpreter.cmd,
+            "ext": env.interpreter.ext,
+            "preamble": env.interpreter.preamble,
         }
 
     data = {
-        "shell": shell_data,
+        "interpreter": interpreter_data,
         "args_build": sorted(env.args.build),
         "args_run": sorted(env.args.run),
         "dockerfile": env.dockerfile,

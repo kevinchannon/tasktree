@@ -1,8 +1,9 @@
 runners:
   default: custom
   custom:
-    shell:
-      cmd: [cmd.exe, /c]
+    interpreter:
+      cmd: cmd.exe /c
+      ext: .bat
       preamble: echo RECIPE DEFAULT
 
 tasks:

@@ -1,0 +1,11 @@
+interpreters:
+  python3:
+    cmd: python3
+
+tasks:
+  test-python:
+    interpreter: python3
+    cmd: |
+      import os
+      with open("output.txt", "w") as f:
+          f.write("Hello from task interpreter\n")

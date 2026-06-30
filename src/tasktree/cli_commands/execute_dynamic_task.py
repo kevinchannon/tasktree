@@ -26,6 +26,7 @@ def execute_dynamic_task(
     force: bool = False,
     only: bool = False,
     runner: Optional[str] = None,
+    interpreter: Optional[str] = None,
     tasks_file: Optional[str] = None,
     task_output: str | None = None,
 ) -> None:
@@ -38,6 +39,7 @@ def execute_dynamic_task(
     force: Force re-execution even if task is up-to-date
     only: Execute only the specified task, skip dependencies
     runner: Override runner for task execution
+    interpreter: Override interpreter for all tasks
     tasks_file: Path to recipe file (optional)
     task_output: Control task subprocess output (all, out, err, on-err, none)
 
@@ -66,6 +68,18 @@ def execute_dynamic_task(
                 logger.info(f"  - {env_name}")
             raise typer.Exit(1)
         recipe.global_runner_override = runner
+
+    # Apply global interpreter override if provided (names an interpreter from
+    # the recipe's 'interpreters' section).
+    if interpreter:
+        if interpreter not in recipe.interpreters:
+            known = ", ".join(sorted(recipe.interpreters)) or "(none defined)"
+            logger.error(
+                f"[red]Unknown interpreter: {interpreter}. "
+                f"Defined interpreters: {known}[/red]"
+            )
+            raise typer.Exit(1)
+        recipe.global_interpreter_override = interpreter
 
     task = recipe.get_task(task_name)
     if task is None:
@@ -113,6 +127,7 @@ def execute_dynamic_task(
             task.args,
             executor._get_effective_runner_name(task),
             task.deps,
+            executor._interpreter_identity(executor._resolve_interpreter(task)),
         )
 
         valid_hashes.add(task_hash)

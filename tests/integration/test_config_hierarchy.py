@@ -27,8 +27,8 @@ from fixture_utils import copy_fixture_files
 def _make_runner_config(preamble: str) -> str:
     """Return a minimal runner config YAML for the current platform."""
     if sys.platform == "win32":
-        return f"runners:\n  default:\n    shell:\n      cmd: [cmd.exe, /c]\n      preamble: echo {preamble}\n"
-    return f'runners:\n  default:\n    shell:\n      cmd: [bash]\n      preamble: echo "{preamble}"\n'
+        return f"runners:\n  default:\n    interpreter:\n      cmd: cmd.exe /c\n      ext: .bat\n      preamble: echo {preamble}\n"
+    return f'runners:\n  default:\n    interpreter:\n      cmd: bash\n      preamble: echo "{preamble}"\n'
 
 
 def strip_ansi_codes(text: str) -> str:
@@ -303,11 +303,11 @@ class TestConfigHierarchy(unittest.TestCase):
             config_file.write_text("""
 runners:
   default:
-    shell:
+    interpreter:
       cmd: bash
 
   another:
-    shell:
+    interpreter:
       cmd: bash
 """)
 

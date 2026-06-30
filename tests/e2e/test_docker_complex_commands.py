@@ -178,9 +178,8 @@ runners:
   alpine:
     dockerfile: ./Dockerfile
     context: .
-    shell:
-      cmd: [sh, -c]
-      preamble: set -e  # Exit on error
+    interpreter:
+      cmd: sh
     volumes: ["./output:/workspace/output"]
 
 tasks:

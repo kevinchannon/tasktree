@@ -13,12 +13,14 @@ import yaml
 
 from tasktree.parser import (
     CircularImportError,
+    Recipe,
     Task,
     _resolve_eval_variable,
     find_recipe_file,
     parse_arg_spec,
     parse_recipe,
 )
+from tasktree.interpreter import Interpreter
 
 
 class TestParseArgSpec(unittest.TestCase):
@@ -553,6 +555,155 @@ tasks:
 
             test_task = recipe.tasks["test"]
             self.assertEqual(test_task.deps, ["build.compile"])
+
+
+class TestParseInterpretersSectionRecipe(unittest.TestCase):
+    """Tests for the top-level 'interpreters' section in a full recipe."""
+
+    def test_interpreters_section_is_parsed(self):
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+interpreters:
+  py:
+    cmd: python3
+    ext: .py
+tasks:
+  build:
+    cmd: echo hi
+""")
+            recipe = parse_recipe(recipe_path)
+            self.assertEqual(recipe.interpreters["py"], Interpreter(cmd="python3", ext=".py"))
+
+
+class TestParseTaskInterpreter(unittest.TestCase):
+    """Tests for the task-level 'interpreter' name reference."""
+
+    def test_task_interpreter_defaults_to_empty(self):
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+tasks:
+  build:
+    cmd: echo hi
+""")
+            recipe = parse_recipe(recipe_path)
+            self.assertEqual(recipe.tasks["build"].interpreter, "")
+
+    def test_task_interpreter_names_a_defined_interpreter(self):
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+interpreters:
+  py:
+    cmd: python3
+tasks:
+  build:
+    interpreter: py
+    cmd: print('hi')
+""")
+            recipe = parse_recipe(recipe_path)
+            self.assertEqual(recipe.tasks["build"].interpreter, "py")
+
+    def test_unknown_task_interpreter_raises(self):
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+tasks:
+  build:
+    interpreter: nonsuch
+    cmd: echo hi
+""")
+            with self.assertRaises(ValueError) as ctx:
+                parse_recipe(recipe_path)
+            self.assertIn("nonsuch", str(ctx.exception))
+            self.assertIn("build", str(ctx.exception))
+
+
+class TestParseRunnerInterpreter(unittest.TestCase):
+    """Tests for the runner-level 'interpreter' field (inline or use:)."""
+
+    def test_runner_without_interpreter_is_none(self):
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+runners:
+  host:
+    working_dir: sub
+tasks:
+  build:
+    cmd: echo hi
+""")
+            recipe = parse_recipe(recipe_path)
+            self.assertIsNone(recipe.get_runner("host").interpreter)
+
+    def test_runner_inline_interpreter(self):
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+runners:
+  py:
+    interpreter: { cmd: python3 }
+tasks:
+  build:
+    cmd: echo hi
+""")
+            recipe = parse_recipe(recipe_path)
+            self.assertEqual(recipe.get_runner("py").interpreter, Interpreter(cmd="python3"))
+
+    def test_runner_use_reference(self):
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+interpreters:
+  py:
+    cmd: python3
+    ext: .py
+runners:
+  pyrun:
+    interpreter: { use: py }
+tasks:
+  build:
+    cmd: echo hi
+""")
+            recipe = parse_recipe(recipe_path)
+            self.assertEqual(
+                recipe.get_runner("pyrun").interpreter, Interpreter(cmd="python3", ext=".py")
+            )
+
+    def test_runner_use_unknown_raises(self):
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+runners:
+  pyrun:
+    interpreter: { use: nope }
+tasks:
+  build:
+    cmd: echo hi
+""")
+            with self.assertRaises(ValueError) as ctx:
+                parse_recipe(recipe_path)
+            self.assertIn("nope", str(ctx.exception))
+
+    def test_docker_runner_with_interpreter_ok(self):
+        with TemporaryDirectory() as tmpdir:
+            (Path(tmpdir) / "Dockerfile").write_text("FROM alpine\n")
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+runners:
+  builder:
+    dockerfile: Dockerfile
+    interpreter: { cmd: bash }
+tasks:
+  build:
+    run_in: builder
+    cmd: echo hi
+""")
+            recipe = parse_recipe(recipe_path)
+            self.assertEqual(
+                recipe.get_runner("builder").interpreter, Interpreter(cmd="bash")
+            )
 
 
 class TestParseImports(unittest.TestCase):
@@ -1207,7 +1358,7 @@ imports:
             (Path(tmpdir) / "build.yaml").write_text(
                 "runners:\n"
                 "  shell:\n"
-                "    shell:\n      cmd: bash\n"
+                "    interpreter:\n      cmd: bash\n"
                 "tasks:\n"
                 "  compile:\n"
                 "    cmd: gcc main.c\n"
@@ -1232,7 +1383,7 @@ imports:
             # Runner should be namespaced as build.shell
             self.assertIn("build.shell", recipe.runners)
             self.assertEqual(recipe.runners["build.shell"].name, "build.shell")
-            self.assertEqual(recipe.runners["build.shell"].shell.cmd, ["bash"])
+            self.assertEqual(recipe.runners["build.shell"].interpreter.cmd, "bash")
 
     def test_import_rewrites_run_in_with_namespace(self):
         """Test that run_in in imported tasks is rewritten with namespace prefix."""
@@ -1241,7 +1392,7 @@ imports:
             (Path(tmpdir) / "build.yaml").write_text(
                 "runners:\n"
                 "  shell:\n"
-                "    shell:\n      cmd: bash\n"
+                "    interpreter:\n      cmd: bash\n"
                 "tasks:\n"
                 "  compile:\n"
                 "    run_in: shell\n"
@@ -1376,8 +1527,8 @@ imports:
                 "  setup_cmd: set -e\n"
                 "runners:\n"
                 "  shell:\n"
-                "    shell:\n"
-                "      cmd: [bash, -c]\n"
+                "    interpreter:\n"
+                "      cmd: bash\n"
                 "      preamble: '{{ var.setup_cmd }}'\n"
                 "tasks:\n"
                 "  compile:\n"
@@ -1401,7 +1552,7 @@ imports:
 
             # The variable reference was rewritten to build.setup_cmd and resolved
             runner = recipe.runners["build.shell"]
-            self.assertEqual(runner.shell.preamble, "set -e")
+            self.assertEqual(runner.interpreter.preamble, "set -e")
 
     def test_only_pinned_runner_imported(self):
         """Test that only runners from pinned tasks are imported."""
@@ -1411,9 +1562,9 @@ imports:
             (Path(tmpdir) / "build.yaml").write_text(
                 "runners:\n"
                 "  runner_a:\n"
-                "    shell:\n      cmd: sh\n"
+                "    interpreter:\n      cmd: sh\n"
                 "  runner_b:\n"
-                "    shell:\n      cmd: bash\n"
+                "    interpreter:\n      cmd: bash\n"
                 "tasks:\n"
                 "  task1:\n"
                 "    run_in: runner_a\n"
@@ -1449,7 +1600,7 @@ imports:
             (Path(tmpdir) / "common.yaml").write_text(
                 "runners:\n"
                 "  shell:\n"
-                "    shell:\n      cmd: sh\n"
+                "    interpreter:\n      cmd: sh\n"
                 "tasks:\n"
                 "  util:\n"
                 "    cmd: echo common\n"
@@ -1497,7 +1648,7 @@ imports:
             (Path(tmpdir) / "build.yaml").write_text(
                 "runners:\n"
                 "  shell:\n"
-                "    shell:\n      cmd: bash\n"
+                "    interpreter:\n      cmd: bash\n"
                 "tasks:\n"
                 "  task1:\n"
                 "    cmd: echo test\n"
@@ -1942,13 +2093,13 @@ class TestEnvironmentParsing(unittest.TestCase):
 runners:
   default: bash-strict
   bash-strict:
-    shell:
-      cmd: [bash, -c]
+    interpreter:
+      cmd: bash
       preamble: set -euo pipefail
 
   python:
-    shell:
-      cmd: [python, -c]
+    interpreter:
+      cmd: python3
 
 tasks:
   test:
@@ -1968,13 +2119,13 @@ tasks:
             # Check bash-strict environment
             bash_env = recipe.runners["bash-strict"]
             self.assertEqual(bash_env.name, "bash-strict")
-            self.assertEqual(bash_env.shell.cmd, ["bash", "-c"])
-            self.assertIn("set -euo pipefail", bash_env.shell.preamble)
+            self.assertEqual(bash_env.interpreter.cmd, "bash")
+            self.assertIn("set -euo pipefail", bash_env.interpreter.preamble)
 
             # Check python environment
             py_env = recipe.runners["python"]
             self.assertEqual(py_env.name, "python")
-            self.assertEqual(py_env.shell.cmd, ["python", "-c"])
+            self.assertEqual(py_env.interpreter.cmd, "python3")
 
     def test_parse_recipe_without_environments(self):
         """
@@ -1996,9 +2147,10 @@ tasks:
             self.assertEqual(len(recipe.runners), 0)
             self.assertEqual(recipe.default_runner, "")
 
-    def test_environment_missing_shell(self):
+    def test_environment_without_interpreter_is_allowed(self):
         """
-        Test error when environment doesn't specify shell.
+        A runner with neither interpreter nor dockerfile is valid; it uses the
+        session default interpreter at execution time.
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -2006,18 +2158,15 @@ tasks:
 
             recipe_path.write_text("""
 runners:
-  bad-env: {}
+  bare-env: {}
 
 tasks:
   test:
     cmd: echo test
 """)
 
-            with self.assertRaises(ValueError) as cm:
-                parse_recipe(recipe_path)
-
-            # Updated error message accounts for Docker environments
-            self.assertIn("must specify either 'shell'", str(cm.exception))
+            recipe = parse_recipe(recipe_path)
+            self.assertIsNone(recipe.get_runner("bare-env").interpreter)
 
 
 class TestTasksFieldValidation(unittest.TestCase):
@@ -2124,7 +2273,7 @@ imports:
             recipe_path.write_text("""
 runners:
   bash-strict:
-    shell:
+    interpreter:
       cmd: bash
 """)
 
@@ -2552,13 +2701,13 @@ class TestRunnerNameValidation(unittest.TestCase):
             recipe_path.write_text("""
 runners:
   my-env:
-    shell:
+    interpreter:
       cmd: bash
   docker_python:
-    shell:
+    interpreter:
       cmd: sh
   ENV123:
-    shell:
+    interpreter:
       cmd: zsh
 
 tasks:
@@ -2580,10 +2729,10 @@ tasks:
             recipe_path.write_text("""
 runners:
   🚀:
-    shell:
+    interpreter:
       cmd: bash
   環境:
-    shell:
+    interpreter:
       cmd: sh
 
 tasks:
@@ -2605,10 +2754,10 @@ tasks:
             recipe_path.write_text("""
 runners:
   bad.runner:
-    shell:
+    interpreter:
       cmd: bash
   good_runner:
-    shell:
+    interpreter:
       cmd: sh
 
 tasks:
@@ -2666,7 +2815,7 @@ tasks:
             recipe_path.write_text("""
 runners:
   bad.runner:
-    shell:
+    interpreter:
       cmd: bash
 
 tasks:
@@ -2707,7 +2856,7 @@ tasks:
             recipe_path.write_text("""
 runners:
   my-runner:
-    shell:
+    interpreter:
       cmd: bash
 
 tasks:
@@ -2729,7 +2878,7 @@ tasks:
             recipe_path.write_text("""
 runners:
   my-runner:
-    shell:
+    interpreter:
       cmd: bash
 
 tasks:
@@ -3404,19 +3553,19 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            # Use a platform-appropriate shell to test that default_runner is respected
+            # Use a platform-appropriate interpreter to test default_runner is respected
             if platform.system() == "Windows":
                 runner_name = "cmd-env"
-                shell_cmd = "cmd.exe"
+                interp_yaml = "      cmd: cmd.exe /c\n      ext: .bat"
             else:
                 runner_name = "bash-env"
-                shell_cmd = "bash"
+                interp_yaml = "      cmd: bash"
             recipe_path.write_text(f"""
 runners:
   default: {runner_name}
   {runner_name}:
-    shell:
-      cmd: {shell_cmd}
+    interpreter:
+{interp_yaml}
 
 variables:
   result: {{ eval: "echo test" }}
@@ -4615,7 +4764,7 @@ tasks:
             recipe_path.write_text("""
 runners:
   docker:
-    shell:
+    interpreter:
       cmd: bash
 
 imports:
@@ -4661,7 +4810,7 @@ tasks:
             level1_path.write_text("""
 runners:
   level1_runner:
-    shell:
+    interpreter:
       cmd: bash
 
 imports:
@@ -4678,10 +4827,10 @@ tasks:
             recipe_path.write_text("""
 runners:
   root_runner:
-    shell:
+    interpreter:
       cmd: bash
   level1_runner:
-    shell:
+    interpreter:
       cmd: bash
 
 imports:

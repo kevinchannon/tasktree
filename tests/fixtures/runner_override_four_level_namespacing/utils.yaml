@@ -1,6 +1,6 @@
 runners:
   base:
-    shell:
+    interpreter:
       cmd: sh
 tasks:
   base_task:

@@ -1,6 +1,6 @@
 runners:
   docker:
-    shell:
+    interpreter:
       cmd: sh
 tasks:
   task1:

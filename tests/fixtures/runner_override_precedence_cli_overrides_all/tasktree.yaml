@@ -1,10 +1,10 @@
 runners:
   default: default_runner
   default_runner:
-    shell:
+    interpreter:
       cmd: bash
   cli_runner:
-    shell:
+    interpreter:
       cmd: zsh
 imports:
   - file: build.yaml

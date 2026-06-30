@@ -1,0 +1,9 @@
+interpreters:
+  python3:
+    cmd: python3
+
+tasks:
+  greet:
+    cmd: |
+      import pathlib
+      pathlib.Path("out.txt").write_text("from python\n")

@@ -10,7 +10,7 @@ from typing import Optional
 import platformdirs
 import yaml
 
-from tasktree.parser import DockerArgs, Runner, parse_docker_args, parse_shell_config
+from tasktree.parser import DockerArgs, Runner, parse_docker_args, parse_interpreter_spec
 
 __all__ = [
     "get_user_config_path",
@@ -125,7 +125,7 @@ class ConfigError(Exception):
 
     Examples:
         - "Error in config file '/home/user/.config/tasktree/config.yml': 'runners' must be a dictionary"
-        - "Error in config file '.tasktree-config.yml': Field 'shell' must be a string"
+        - "Error in config file '.tasktree-config.yml': Field 'dockerfile' must be a string"
         - "Error parsing YAML in config file '/etc/tasktree/config.yml': mapping values are not allowed here"
 
     This consistent format allows users to:
@@ -158,8 +158,8 @@ def parse_config_file(path: Path) -> Optional[Runner]:
 
     Example:
         >>> runner = parse_config_file(Path(".tasktree-config.yml"))
-        >>> if runner and runner.shell:
-        ...     print(f"Using {runner.shell.cmd[0]} shell")
+        >>> if runner and runner.interpreter:
+        ...     print(f"Using {runner.interpreter.cmd}")
 
     Config File Examples:
 
@@ -182,11 +182,11 @@ def parse_config_file(path: Path) -> Optional[Runner]:
                 context: .
             ```
 
-        Shell runner config:
+        Host runner config:
             ```yaml
             runners:
               default:
-                shell:
+                interpreter:
                   cmd: bash
                   preamble: |
                     set -euo pipefail
@@ -271,12 +271,12 @@ def parse_config_file(path: Path) -> Optional[Runner]:
             f"Error in config file '{path}': Runner 'default' must be a dictionary"
         )
 
-    # Parse shell configuration
-    shell_value = runner_config.get("shell")
-    shell_config = None
-    if shell_value is not None:
+    # Parse the optional interpreter (inline definition only in config files)
+    interpreter_value = runner_config.get("interpreter")
+    interpreter = None
+    if interpreter_value is not None:
         try:
-            shell_config = parse_shell_config(shell_value, "default")
+            interpreter = parse_interpreter_spec(interpreter_value, "Runner 'default'", {})
         except ValueError as e:
             raise ConfigError(f"Error in config file '{path}': {e}") from e
 
@@ -329,13 +329,6 @@ def parse_config_file(path: Path) -> Optional[Runner]:
             f"Error in config file '{path}': Field 'run_as_root' must be a boolean"
         )
 
-    # Validate runner type (must have either shell or dockerfile)
-    if shell_config is None and not dockerfile:
-        raise ConfigError(
-            f"Error in config file '{path}': Runner 'default' must specify either "
-            f"'shell' (for shell runners) or 'dockerfile' (for Docker runners)"
-        )
-
     # Note: Path validation (checking if dockerfile/context exist) is deferred to
     # execution time, as per the spec: "Validation occurs at task execution time"
     # This allows configs to reference files that may not exist on all machines
@@ -343,7 +336,7 @@ def parse_config_file(path: Path) -> Optional[Runner]:
     # Create and return the Runner object
     return Runner(
         name="default",
-        shell=shell_config,
+        interpreter=interpreter,
         args=args_config,
         dockerfile=dockerfile,
         context=context,

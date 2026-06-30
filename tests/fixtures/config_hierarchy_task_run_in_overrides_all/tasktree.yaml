@@ -1,13 +1,13 @@
 runners:
   default: custom
   custom:
-    shell:
-      cmd: [bash]
+    interpreter:
+      cmd: bash
       preamble: echo "RECIPE DEFAULT"
 
   task-specific:
-    shell:
-      cmd: [bash]
+    interpreter:
+      cmd: bash
       preamble: echo "TASK SPECIFIC"
 
 tasks:

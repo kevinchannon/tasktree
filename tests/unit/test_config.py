@@ -165,7 +165,7 @@ class TestParseConfigFile(unittest.TestCase):
             config_path.write_text(
                 """runners:
   default:
-    shell:
+    interpreter:
       cmd: bash
       preamble: set -euo pipefail
 """
@@ -174,9 +174,9 @@ class TestParseConfigFile(unittest.TestCase):
             self.assertIsNotNone(result)
             self.assertIsInstance(result, Runner)
             self.assertEqual(result.name, "default")
-            self.assertIsNotNone(result.shell)
-            self.assertEqual(result.shell.cmd, ["bash"])
-            self.assertEqual(result.shell.preamble, "set -euo pipefail")
+            self.assertIsNotNone(result.interpreter)
+            self.assertEqual(result.interpreter.cmd, "bash")
+            self.assertEqual(result.interpreter.preamble, "set -euo pipefail")
             self.assertEqual(result.dockerfile, "")
 
     def test_bare_string_shell_raises_error(self):
@@ -188,7 +188,7 @@ class TestParseConfigFile(unittest.TestCase):
             config_path.write_text(
                 """runners:
   default:
-    shell: bash
+    interpreter: bash
 """
             )
             with self.assertRaises(Exception):
@@ -213,7 +213,7 @@ class TestParseConfigFile(unittest.TestCase):
             self.assertEqual(result.name, "default")
             self.assertEqual(result.dockerfile, "docker/Dockerfile")
             self.assertEqual(result.context, "docker")
-            self.assertIsNone(result.shell)
+            self.assertIsNone(result.interpreter)
 
     def test_runner_with_all_fields(self):
         """
@@ -224,8 +224,8 @@ class TestParseConfigFile(unittest.TestCase):
             config_path.write_text(
                 """runners:
   default:
-    shell:
-      cmd: ["/bin/zsh", "-c"]
+    interpreter:
+      cmd: /bin/zsh
       preamble: export FOO=bar
     args:
       build: ["--no-cache"]
@@ -244,9 +244,9 @@ class TestParseConfigFile(unittest.TestCase):
             )
             result = parse_config_file(config_path)
             self.assertIsNotNone(result)
-            self.assertIsNotNone(result.shell)
-            self.assertEqual(result.shell.cmd, ["/bin/zsh", "-c"])
-            self.assertEqual(result.shell.preamble, "export FOO=bar")
+            self.assertIsNotNone(result.interpreter)
+            self.assertEqual(result.interpreter.cmd, "/bin/zsh")
+            self.assertEqual(result.interpreter.preamble, "export FOO=bar")
             self.assertEqual(result.args.build, ["--no-cache"])
             self.assertEqual(result.args.run, ["--network=host"])
             self.assertEqual(result.working_dir, "/workspace")
@@ -290,7 +290,7 @@ class TestParseConfigFile(unittest.TestCase):
             config_path.write_text(
                 """runners:
   some-other-runner:
-    shell:
+    interpreter:
       cmd: bash
 """
             )
@@ -308,10 +308,10 @@ class TestParseConfigFile(unittest.TestCase):
             config_path.write_text(
                 """runners:
   default:
-    shell:
+    interpreter:
       cmd: bash
   extra-runner:
-    shell:
+    interpreter:
       cmd: zsh
 """
             )
@@ -333,9 +333,10 @@ class TestParseConfigFile(unittest.TestCase):
             self.assertIn("Runner 'default' must be a dictionary", str(ctx.exception))
             self.assertIn(str(config_path), str(ctx.exception))
 
-    def test_missing_shell_and_dockerfile_raises_error(self):
+    def test_runner_without_interpreter_or_dockerfile_is_allowed(self):
         """
-        Test that parse_config_file raises ConfigError when neither shell nor dockerfile is specified.
+        A config runner with neither interpreter nor dockerfile is valid; it
+        falls back to the session default interpreter at execution time.
         """
         with TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.yml"
@@ -345,11 +346,10 @@ class TestParseConfigFile(unittest.TestCase):
     working_dir: /workspace
 """
             )
-            with self.assertRaises(ConfigError) as ctx:
-                parse_config_file(config_path)
-            self.assertIn("must specify either 'shell'", str(ctx.exception))
-            self.assertIn("or 'dockerfile'", str(ctx.exception))
-            self.assertIn(str(config_path), str(ctx.exception))
+            result = parse_config_file(config_path)
+            self.assertIsNotNone(result)
+            self.assertIsNone(result.interpreter)
+            self.assertEqual(result.working_dir, "/workspace")
 
     def test_shell_runner_with_minimal_config(self):
         """
@@ -360,15 +360,15 @@ class TestParseConfigFile(unittest.TestCase):
             config_path.write_text(
                 """runners:
   default:
-    shell:
+    interpreter:
       cmd: bash
 """
             )
             result = parse_config_file(config_path)
             self.assertIsNotNone(result)
-            self.assertIsNotNone(result.shell)
-            self.assertEqual(result.shell.cmd, ["bash"])
-            self.assertEqual(result.shell.preamble, "")
+            self.assertIsNotNone(result.interpreter)
+            self.assertEqual(result.interpreter.cmd, "bash")
+            self.assertEqual(result.interpreter.preamble, "")
             self.assertEqual(result.args.build, [])
             self.assertEqual(result.args.run, [])
 
@@ -462,24 +462,21 @@ class TestConfigFieldValidation(unittest.TestCase):
     Tests for field type validation in config files.
     """
 
-    def test_unknown_shell_name_raises_error(self):
+    def test_any_interpreter_cmd_is_accepted(self):
         """
-        Test that parse_config_file raises ConfigError when shell cmd is not in SHELL_LOOKUP.
+        Any interpreter cmd is accepted verbatim — there is no known-name lookup.
         """
         with TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.yml"
             config_path.write_text(
                 """runners:
   default:
-    shell:
+    interpreter:
       cmd: myshell
 """
             )
-            with self.assertRaises(ConfigError) as ctx:
-                parse_config_file(config_path)
-            self.assertIn("unknown shell", str(ctx.exception))
-            self.assertIn("myshell", str(ctx.exception))
-            self.assertIn(str(config_path), str(ctx.exception))
+            result = parse_config_file(config_path)
+            self.assertEqual(result.interpreter.cmd, "myshell")
 
     def test_args_must_be_dict(self):
         """
@@ -490,7 +487,7 @@ class TestConfigFieldValidation(unittest.TestCase):
             config_path.write_text(
                 """runners:
   default:
-    shell:
+    interpreter:
       cmd: bash
     args: ["--rm"]
 """
@@ -509,7 +506,7 @@ class TestConfigFieldValidation(unittest.TestCase):
             config_path.write_text(
                 """runners:
   default:
-    shell:
+    interpreter:
       cmd: bash
     working_dir: 123
 """
@@ -651,20 +648,19 @@ class TestErrorMessageContext(unittest.TestCase):
             # (yaml_content, expected_error_substring)
             ("runners: [not, a, dict]", "'runners' must be a dictionary"),
             (
-                "runners:\n  other:\n    shell:\n      cmd: bash",
+                "runners:\n  other:\n    interpreter:\n      cmd: bash",
                 "must contain exactly one runner named 'default'",
             ),
             (
-                "runners:\n  default:\n    shell:\n      cmd: bash\n  extra:\n    shell:\n      cmd: zsh",
+                "runners:\n  default:\n    interpreter:\n      cmd: bash\n  extra:\n    interpreter:\n      cmd: zsh",
                 "may only contain a runner named 'default'",
             ),
             ("runners:\n  default: not-a-dict", "Runner 'default' must be a dictionary"),
-            ("runners:\n  default:\n    preamble: test", "must specify either 'shell'"),
-            ("runners:\n  default:\n    shell: 123", "'shell' must be a dict"),
-            ("runners:\n  default:\n    shell:\n      cmd: bash\n    args: not-a-list", "'args' must be a dict"),
+            ("runners:\n  default:\n    interpreter: 123", "'interpreter' must be a mapping"),
+            ("runners:\n  default:\n    interpreter:\n      cmd: bash\n    args: not-a-list", "'args' must be a dict"),
             (
-                "runners:\n  default:\n    shell:\n      cmd: [bash, -c]\n      preamble: [list]",
-                "'preamble' must be a string",
+                "runners:\n  default:\n    interpreter:\n      cmd: bash\n      preamble: [list]",
+                "interpreter 'preamble' must be a string",
             ),
             (
                 "runners:\n  default:\n    dockerfile: Dockerfile\n    context: .\n    volumes: not-a-list",

@@ -11,7 +11,8 @@ from unittest.mock import MagicMock, patch, call
 
 from helpers.logging import logger_stub
 from tasktree.executor import Executor
-from tasktree.parser import Recipe, Task, parse_recipe
+from tasktree.interpreter import Interpreter
+from tasktree.parser import Recipe, Runner, Task, parse_recipe
 from tasktree.process_runner import ProcessRunner, TaskOutputTypes, make_process_runner
 from tasktree.state import StateManager, TaskState
 
@@ -97,8 +98,12 @@ class TestTaskStatus(unittest.TestCase):
                 inputs=["input.txt"],
                 outputs=["output.txt"],
             )
+            from tasktree.parser import platform_default_interpreter
+
             task_hash = hash_task(
-                task.cmd, task.outputs, task.working_dir, task.args, "__platform_default__", task.deps
+                task.cmd, task.outputs, task.working_dir, task.args,
+                "__platform_default__", task.deps,
+                Executor._interpreter_identity(platform_default_interpreter()),
             )
             cache_key = make_cache_key(task_hash)
 
@@ -253,8 +258,7 @@ class TestExecutor(unittest.TestCase):
                 cmd="echo hello",
                 working_dir=project_root,
                 task_name="test",
-                shell_cmd=["bash"],
-                preamble="",
+                interpreter=Interpreter(cmd="bash"),
                 process_runner=process_runner_spy,
             )
 
@@ -295,8 +299,7 @@ class TestExecutor(unittest.TestCase):
                 cmd="echo hello",
                 working_dir=project_root,
                 task_name="test",
-                shell_cmd=["bash"],
-                preamble="set -e\n",
+                interpreter=Interpreter(cmd="bash", preamble="set -e\n"),
                 process_runner=process_runner_spy,
             )
 
@@ -326,8 +329,7 @@ class TestExecutor(unittest.TestCase):
                 cmd="echo hello\necho world",
                 working_dir=project_root,
                 task_name="test",
-                shell_cmd=["bash"],
-                preamble="",
+                interpreter=Interpreter(cmd="bash"),
                 process_runner=process_runner_spy,
             )
 
@@ -384,8 +386,7 @@ class TestExecutor(unittest.TestCase):
                     cmd="echo hello\necho world",
                     working_dir=project_root,
                     task_name="test",
-                    shell_cmd=["bash"],
-                    preamble="set -e\n",
+                    interpreter=Interpreter(cmd="bash", preamble="set -e\n"),
                     process_runner=process_runner,
                 )
 
@@ -439,8 +440,7 @@ class TestExecutor(unittest.TestCase):
                 cmd="Write-Output hello",
                 working_dir=project_root,
                 task_name="test",
-                shell_cmd=["powershell", "-ExecutionPolicy", "Bypass", "-File"],
-                preamble="",
+                interpreter=Interpreter(cmd="powershell -ExecutionPolicy Bypass -File", ext=".ps1"),
                 process_runner=process_runner_spy,
             )
 
@@ -449,6 +449,107 @@ class TestExecutor(unittest.TestCase):
             self.assertEqual(run_cmd[0], "powershell")
             self.assertIn("-File", run_cmd)
             self.assertTrue(run_cmd[-1].endswith(".ps1"))
+
+
+class TestResolveInterpreter(unittest.TestCase):
+    """Tests for Executor._resolve_interpreter precedence."""
+
+    def _make_executor(self, *, runners=None, interpreters=None, default_runner=""):
+        tmp = TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        project_root = Path(tmp.name)
+        recipe = Recipe(
+            tasks={},
+            project_root=project_root,
+            recipe_path=project_root / "tasktree.yaml",
+            runners=runners or {},
+            interpreters=interpreters or {},
+            default_runner=default_runner,
+        )
+        return Executor(
+            recipe, StateManager(project_root), logger_stub, make_process_runner
+        )
+
+    def test_cli_override_takes_highest_precedence(self):
+        interpreters = {"sh-i": Interpreter(cmd="sh"), "py-i": Interpreter(cmd="python3")}
+        runner = Runner(name="r", interpreter=Interpreter(cmd="zsh"))
+        ex = self._make_executor(
+            runners={"r": runner}, interpreters=interpreters, default_runner="r"
+        )
+        ex.recipe.global_interpreter_override = "sh-i"
+        task = Task(name="t", cmd="echo", interpreter="py-i")
+        self.assertEqual(ex._resolve_interpreter(task).cmd, "sh")
+
+    def test_task_interpreter_takes_precedence(self):
+        interpreters = {"py-i": Interpreter(cmd="python3")}
+        runner = Runner(name="r", interpreter=Interpreter(cmd="zsh"))
+        ex = self._make_executor(
+            runners={"r": runner}, interpreters=interpreters, default_runner="r"
+        )
+        task = Task(name="t", cmd="echo", interpreter="py-i")
+        self.assertEqual(ex._resolve_interpreter(task).cmd, "python3")
+
+    def test_runner_interpreter_used(self):
+        runner = Runner(name="r", interpreter=Interpreter(cmd="zsh"))
+        ex = self._make_executor(runners={"r": runner}, default_runner="r")
+        task = Task(name="t", cmd="echo")
+        self.assertEqual(ex._resolve_interpreter(task).cmd, "zsh")
+
+    def test_session_default_when_no_runner(self):
+        from tasktree.parser import platform_default_interpreter
+
+        ex = self._make_executor()
+        task = Task(name="t", cmd="echo")
+        self.assertEqual(ex._resolve_interpreter(task), platform_default_interpreter())
+
+    def test_runner_without_interpreter_falls_back_to_default(self):
+        from tasktree.parser import platform_default_interpreter
+
+        runner = Runner(name="r")  # no interpreter
+        ex = self._make_executor(runners={"r": runner}, default_runner="r")
+        task = Task(name="t", cmd="echo")
+        self.assertEqual(ex._resolve_interpreter(task), platform_default_interpreter())
+
+    def test_docker_runner_without_interpreter_defaults_to_sh(self):
+        from tasktree.parser import container_default_interpreter
+
+        runner = Runner(name="r", dockerfile="Dockerfile")  # docker, no interpreter
+        ex = self._make_executor(runners={"r": runner}, default_runner="r")
+        task = Task(name="t", cmd="echo")
+        self.assertEqual(ex._resolve_interpreter(task), container_default_interpreter())
+
+
+class TestShebangWarning(unittest.TestCase):
+    """Tests for the shebang-in-cmd warning (issue #201, step 9)."""
+
+    def _make_executor_with_logger(self):
+        tmp = TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        project_root = Path(tmp.name)
+        recipe = Recipe(
+            tasks={},
+            project_root=project_root,
+            recipe_path=project_root / "tasktree.yaml",
+        )
+        logger = MagicMock()
+        ex = Executor(recipe, StateManager(project_root), logger, make_process_runner)
+        return ex, logger
+
+    def test_shebang_cmd_warns_via_logger(self):
+        ex, logger = self._make_executor_with_logger()
+        ex._warn_if_cmd_has_shebang("#!/usr/bin/env python3\nprint('hi')")
+        logger.warn.assert_called_once()
+        self.assertIn("Shebang", logger.warn.call_args[0][0])
+
+    def test_leading_whitespace_shebang_warns(self):
+        ex, logger = self._make_executor_with_logger()
+        ex._warn_if_cmd_has_shebang("\n  #!/bin/bash\necho hi")
+        logger.warn.assert_called_once()
+
+    def test_cmd_without_shebang_does_not_warn(self):
+        ex, logger = self._make_executor_with_logger()
+        ex._warn_if_cmd_has_shebang("echo '#! not a shebang'")
+        logger.warn.assert_not_called()
 
 
 class TestMissingOutputs(unittest.TestCase):
@@ -1032,7 +1133,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
         """
         Test that changes to dependency output files are detected for tasks using a named runner.
         """
-        from tasktree.parser import Runner, ShellConfig
+        from tasktree.parser import Runner
 
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
@@ -1042,7 +1143,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
             dep_output.write_text("initial content")
             original_mtime = dep_output.stat().st_mtime
 
-            runner = Runner(name="shell", shell=ShellConfig(cmd=["bash", "-c"]))
+            runner = Runner(name="shell", interpreter=Interpreter(cmd="bash"))
             task = Task(name="package", cmd="zip pkg.zip dep-output.txt", run_in="shell")
             tasks = {"package": task}
             recipe = Recipe(
@@ -1358,11 +1459,11 @@ class TestRunnerResolution(unittest.TestCase):
             state_manager = StateManager(project_root)
 
             # Create runners
-            from tasktree.parser import Runner, ShellConfig, SHELL_LOOKUP
+            from tasktree.parser import Runner
 
             runners = {
-                "prod": Runner(name="prod", shell=ShellConfig(cmd=SHELL_LOOKUP["sh"])),
-                "dev": Runner(name="dev", shell=ShellConfig(cmd=SHELL_LOOKUP["bash"])),
+                "prod": Runner(name="prod", interpreter=Interpreter(cmd="sh")),
+                "dev": Runner(name="dev", interpreter=Interpreter(cmd="bash")),
             }
 
             # Create task with explicit run_in and recipe with default_runner
@@ -1390,11 +1491,11 @@ class TestRunnerResolution(unittest.TestCase):
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
 
-            from tasktree.parser import Runner, ShellConfig, SHELL_LOOKUP
+            from tasktree.parser import Runner
 
             runners = {
-                "prod": Runner(name="prod", shell=ShellConfig(cmd=SHELL_LOOKUP["sh"])),
-                "dev": Runner(name="dev", shell=ShellConfig(cmd=SHELL_LOOKUP["bash"])),
+                "prod": Runner(name="prod", interpreter=Interpreter(cmd="sh")),
+                "dev": Runner(name="dev", interpreter=Interpreter(cmd="bash")),
             }
 
             tasks = {"build": Task(name="build", cmd="echo hello", run_in="dev")}
@@ -1420,9 +1521,9 @@ class TestRunnerResolution(unittest.TestCase):
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
 
-            from tasktree.parser import Runner, ShellConfig, SHELL_LOOKUP
+            from tasktree.parser import Runner
 
-            runners = {"prod": Runner(name="prod", shell=ShellConfig(cmd=SHELL_LOOKUP["sh"]))}
+            runners = {"prod": Runner(name="prod", interpreter=Interpreter(cmd="sh"))}
 
             tasks = {"build": Task(name="build", cmd="echo hello")}  # No run_in
             recipe = Recipe(
@@ -1468,12 +1569,12 @@ class TestRunnerResolution(unittest.TestCase):
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
 
-            from tasktree.parser import Runner, ShellConfig, SHELL_LOOKUP
+            from tasktree.parser import Runner
 
             runners = {
                 "zsh_runner": Runner(
                     name="zsh_runner",
-                    shell=ShellConfig(cmd=SHELL_LOOKUP["zsh"], preamble="set -e\n"),
+                    interpreter=Interpreter(cmd="zsh", preamble="set -e\n"),
                 )
             }
 
@@ -1486,14 +1587,15 @@ class TestRunnerResolution(unittest.TestCase):
             )
             executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
-            shell_config = executor._resolve_runner(tasks["build"])
-            self.assertEqual(shell_config.cmd, ["zsh"])
-            self.assertEqual(shell_config.preamble, "set -e\n")
+            interp = executor._resolve_interpreter(tasks["build"])
+            self.assertEqual(interp.cmd, "zsh")
+            self.assertEqual(interp.preamble, "set -e\n")
 
     @patch("platform.system")
-    def test_resolve_runner_falls_back_to_platform_default(self, mock_system):
+    def test_resolve_interpreter_falls_back_to_platform_default(self, mock_system):
         """
-        Test that _resolve_runner falls back to platform defaults when no runner is defined.
+        Test that _resolve_interpreter falls back to platform defaults when no
+        runner is defined.
         """
         # Test Unix/Linux platform
         mock_system.return_value = "Linux"
@@ -1512,9 +1614,9 @@ class TestRunnerResolution(unittest.TestCase):
             )
             executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
-            shell_config = executor._resolve_runner(tasks["build"])
-            self.assertEqual(shell_config.cmd, ["bash"])
-            self.assertEqual(shell_config.preamble, "")
+            interp = executor._resolve_interpreter(tasks["build"])
+            self.assertEqual(interp.cmd, "bash")
+            self.assertEqual(interp.ext, "")
 
         # Test Windows platform
         mock_system.return_value = "Windows"
@@ -1532,9 +1634,9 @@ class TestRunnerResolution(unittest.TestCase):
             )
             executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
-            shell_config = executor._resolve_runner(tasks["build"])
-            self.assertEqual(shell_config.cmd, ["cmd.exe", "/c"])
-            self.assertEqual(shell_config.preamble, "")
+            interp = executor._resolve_interpreter(tasks["build"])
+            self.assertEqual(interp.cmd, "cmd.exe /c")
+            self.assertEqual(interp.ext, ".bat")
 
     def test_task_execution_uses_custom_shell(self):
         """
@@ -1551,9 +1653,9 @@ class TestRunnerResolution(unittest.TestCase):
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
 
-            from tasktree.parser import Runner, ShellConfig, SHELL_LOOKUP
+            from tasktree.parser import Runner
 
-            runners = {"fish": Runner(name="fish", shell=ShellConfig(cmd=SHELL_LOOKUP["fish"]))}
+            runners = {"fish": Runner(name="fish", interpreter=Interpreter(cmd="fish"))}
 
             tasks = {"build": Task(name="build", cmd="echo hello", run_in="fish")}
             recipe = Recipe(
@@ -1755,8 +1857,7 @@ class TestTaskOutputParameter(unittest.TestCase):
                 cmd="echo test",
                 working_dir=project_root,
                 task_name="test",
-                shell_cmd=["bash"],
-                preamble="",
+                interpreter=Interpreter(cmd="bash"),
                 process_runner=process_runner_spy,
             )
 
@@ -1857,7 +1958,7 @@ class TestExecutorProcessRunner(unittest.TestCase):
         """
         Test that _substitute_builtin_in_runner substitutes variables in docker run args.
         """
-        from tasktree.parser import Runner, ShellConfig, SHELL_LOOKUP
+        from tasktree.parser import Runner
 
         os.environ["MEMORY_LIMIT"] = "1024m"
         os.environ["CPU_LIMIT"] = "2"
@@ -1912,7 +2013,7 @@ class TestExecutorProcessRunner(unittest.TestCase):
         """
         Test that _substitute_builtin_in_runner substitutes variables in shell config, dockerfile, and context.
         """
-        from tasktree.parser import Runner, ShellConfig
+        from tasktree.parser import Runner
 
         os.environ["BUILD_DIR"] = "docker"
         os.environ["CUSTOM_SHELL"] = "/bin/bash"
@@ -1931,11 +2032,11 @@ class TestExecutorProcessRunner(unittest.TestCase):
                     recipe, state_manager, logger_stub, make_process_runner
                 )
 
-                # Create runner with variables in shell preamble, cmd, dockerfile, context
+                # Create runner with variables in interpreter cmd/preamble, dockerfile, context
                 runner = Runner(
                     name="test",
-                    shell=ShellConfig(
-                        cmd=["{{ env.CUSTOM_SHELL }}", "-c"],
+                    interpreter=Interpreter(
+                        cmd="{{ env.CUSTOM_SHELL }}",
                         preamble="set -e\nexport BUILD_DIR={{ env.BUILD_DIR }}\n",
                     ),
                     dockerfile="{{ env.BUILD_DIR }}/Dockerfile",
@@ -1953,11 +2054,11 @@ class TestExecutorProcessRunner(unittest.TestCase):
                 )
 
                 # Verify substitution occurred
-                self.assertIsNotNone(substituted_runner.shell)
+                self.assertIsNotNone(substituted_runner.interpreter)
                 self.assertEqual(
-                    substituted_runner.shell.preamble, "set -e\nexport BUILD_DIR=docker\n"
+                    substituted_runner.interpreter.preamble, "set -e\nexport BUILD_DIR=docker\n"
                 )
-                self.assertEqual(substituted_runner.shell.cmd, ["/bin/bash", "-c"])
+                self.assertEqual(substituted_runner.interpreter.cmd, "/bin/bash")
                 self.assertEqual(substituted_runner.dockerfile, "docker/Dockerfile")
                 self.assertEqual(substituted_runner.context, f"{project_root}/docker")
         finally:
@@ -1989,8 +2090,8 @@ class TestGetSessionDefaultRunner(unittest.TestCase):
             runner = executor.get_session_default_runner()
 
             self.assertEqual(runner.name, "__platform_default__")
-            self.assertEqual(runner.shell.cmd, ["bash"])
-            self.assertEqual(runner.shell.preamble, "")
+            self.assertEqual(runner.interpreter.cmd, "bash")
+            self.assertEqual(runner.interpreter.preamble, "")
 
     @patch("platform.system")
     def test_returns_bash_on_macos(self, mock_system):
@@ -2011,8 +2112,8 @@ class TestGetSessionDefaultRunner(unittest.TestCase):
             runner = executor.get_session_default_runner()
 
             self.assertEqual(runner.name, "__platform_default__")
-            self.assertEqual(runner.shell.cmd, ["bash"])
-            self.assertEqual(runner.shell.preamble, "")
+            self.assertEqual(runner.interpreter.cmd, "bash")
+            self.assertEqual(runner.interpreter.preamble, "")
 
     @patch("platform.system")
     def test_returns_cmd_on_windows(self, mock_system):
@@ -2033,8 +2134,8 @@ class TestGetSessionDefaultRunner(unittest.TestCase):
             runner = executor.get_session_default_runner()
 
             self.assertEqual(runner.name, "__platform_default__")
-            self.assertEqual(runner.shell.cmd, ["cmd.exe", "/c"])
-            self.assertEqual(runner.shell.preamble, "")
+            self.assertEqual(runner.interpreter.cmd, "cmd.exe /c")
+            self.assertEqual(runner.interpreter.preamble, "")
 
     @patch("platform.system")
     def test_returns_project_config_runner_when_found(self, mock_system):
@@ -2051,8 +2152,8 @@ class TestGetSessionDefaultRunner(unittest.TestCase):
                 """
 runners:
   default:
-    shell:
-      cmd: [zsh]
+    interpreter:
+      cmd: zsh
       preamble: set -e
 """
             )
@@ -2067,8 +2168,8 @@ runners:
             runner = executor.get_session_default_runner(start_dir=project_root)
 
             self.assertEqual(runner.name, "default")
-            self.assertEqual(runner.shell.cmd, ["zsh"])
-            self.assertEqual(runner.shell.preamble, "set -e")
+            self.assertEqual(runner.interpreter.cmd, "zsh")
+            self.assertEqual(runner.interpreter.preamble, "set -e")
 
     @patch("platform.system")
     def test_falls_back_to_platform_default_when_no_config(self, mock_system):
@@ -2090,8 +2191,8 @@ runners:
             runner = executor.get_session_default_runner(start_dir=project_root)
 
             self.assertEqual(runner.name, "__platform_default__")
-            self.assertEqual(runner.shell.cmd, ["bash"])
-            self.assertEqual(runner.shell.preamble, "")
+            self.assertEqual(runner.interpreter.cmd, "bash")
+            self.assertEqual(runner.interpreter.preamble, "")
 
     @patch("platform.system")
     def test_handles_config_parse_errors_gracefully(self, mock_system):
@@ -2117,8 +2218,8 @@ runners:
 
             # Should fall back to platform default on parse error
             self.assertEqual(runner.name, "__platform_default__")
-            self.assertEqual(runner.shell.cmd, ["bash"])
-            self.assertEqual(runner.shell.preamble, "")
+            self.assertEqual(runner.interpreter.cmd, "bash")
+            self.assertEqual(runner.interpreter.preamble, "")
 
     @patch("platform.system")
     def test_searches_parent_directories_for_config(self, mock_system):
@@ -2135,7 +2236,7 @@ runners:
                 """
 runners:
   default:
-    shell:
+    interpreter:
       cmd: fish
 """
             )
@@ -2155,7 +2256,7 @@ runners:
 
             # Should find config from parent directory
             self.assertEqual(runner.name, "default")
-            self.assertEqual(runner.shell.cmd, ["fish"])
+            self.assertEqual(runner.interpreter.cmd, "fish")
 
     @patch("platform.system")
     @patch("tasktree.config.get_user_config_path")
@@ -2172,8 +2273,8 @@ runners:
                 """
 runners:
   default:
-    shell:
-      cmd: [zsh]
+    interpreter:
+      cmd: zsh
       preamble: set -euo pipefail
 """
             )
@@ -2191,8 +2292,8 @@ runners:
             runner = executor.get_session_default_runner(start_dir=project_root)
 
             self.assertEqual(runner.name, "default")
-            self.assertEqual(runner.shell.cmd, ["zsh"])
-            self.assertEqual(runner.shell.preamble, "set -euo pipefail")
+            self.assertEqual(runner.interpreter.cmd, "zsh")
+            self.assertEqual(runner.interpreter.preamble, "set -euo pipefail")
 
     @patch("platform.system")
     @patch("tasktree.config.get_user_config_path")
@@ -2209,7 +2310,7 @@ runners:
                 """
 runners:
   default:
-    shell:
+    interpreter:
       cmd: zsh
 """
             )
@@ -2223,7 +2324,7 @@ runners:
                 """
 runners:
   default:
-    shell:
+    interpreter:
       cmd: fish
 """
             )
@@ -2239,7 +2340,7 @@ runners:
 
             # Project config should win
             self.assertEqual(runner.name, "default")
-            self.assertEqual(runner.shell.cmd, ["fish"])
+            self.assertEqual(runner.interpreter.cmd, "fish")
 
     @patch("platform.system")
     @patch("tasktree.config.get_user_config_path")
@@ -2256,7 +2357,7 @@ runners:
                 """
 runners:
   default:
-    shell:
+    interpreter:
       cmd: zsh
 """
             )
@@ -2277,7 +2378,7 @@ runners:
 
             # User config should win over platform default
             self.assertEqual(runner.name, "default")
-            self.assertEqual(runner.shell.cmd, ["zsh"])
+            self.assertEqual(runner.interpreter.cmd, "zsh")
 
     @patch("platform.system")
     @patch("tasktree.config.get_user_config_path")
@@ -2309,7 +2410,7 @@ runners:
 
             # Should fall back to platform default
             self.assertEqual(runner.name, "__platform_default__")
-            self.assertEqual(runner.shell.cmd, ["bash"])
+            self.assertEqual(runner.interpreter.cmd, "bash")
 
     @patch("platform.system")
     @patch("tasktree.config.get_machine_config_path")
@@ -2328,8 +2429,8 @@ runners:
                 """
 runners:
   default:
-    shell:
-      cmd: [fish]
+    interpreter:
+      cmd: fish
       preamble: set -eu
 """
             )
@@ -2347,8 +2448,8 @@ runners:
             runner = executor.get_session_default_runner(start_dir=project_root)
 
             self.assertEqual(runner.name, "default")
-            self.assertEqual(runner.shell.cmd, ["fish"])
-            self.assertEqual(runner.shell.preamble, "set -eu")
+            self.assertEqual(runner.interpreter.cmd, "fish")
+            self.assertEqual(runner.interpreter.preamble, "set -eu")
 
     @patch("platform.system")
     @patch("tasktree.config.get_machine_config_path")
@@ -2367,7 +2468,7 @@ runners:
                 """
 runners:
   default:
-    shell:
+    interpreter:
       cmd: fish
 """
             )
@@ -2388,7 +2489,7 @@ runners:
 
             # Machine config should win over platform default
             self.assertEqual(runner.name, "default")
-            self.assertEqual(runner.shell.cmd, ["fish"])
+            self.assertEqual(runner.interpreter.cmd, "fish")
 
     @patch("platform.system")
     @patch("tasktree.config.get_user_config_path")
@@ -2408,7 +2509,7 @@ runners:
                 """
 runners:
   default:
-    shell:
+    interpreter:
       cmd: fish
 """
             )
@@ -2420,7 +2521,7 @@ runners:
                 """
 runners:
   default:
-    shell:
+    interpreter:
       cmd: zsh
 """
             )
@@ -2441,7 +2542,7 @@ runners:
 
             # User config should win
             self.assertEqual(runner.name, "default")
-            self.assertEqual(runner.shell.cmd, ["zsh"])
+            self.assertEqual(runner.interpreter.cmd, "zsh")
 
     @patch("platform.system")
     @patch("tasktree.config.get_machine_config_path")
@@ -2477,7 +2578,7 @@ runners:
 
                 # Should fall back to platform default
                 self.assertEqual(runner.name, "__platform_default__")
-                self.assertEqual(runner.shell.cmd, ["bash"])
+                self.assertEqual(runner.interpreter.cmd, "bash")
 
     @patch("platform.system")
     @patch("tasktree.config.get_machine_config_path")
@@ -2509,7 +2610,7 @@ runners:
 
             # Empty config should be treated as no config, fall back to platform default
             self.assertEqual(runner.name, "__platform_default__")
-            self.assertEqual(runner.shell.cmd, ["bash"])
+            self.assertEqual(runner.interpreter.cmd, "bash")
 
     @patch("platform.system")
     @patch("tasktree.config.get_machine_config_path")
@@ -2544,7 +2645,7 @@ runners:
 
             # Malformed YAML should log warning and fall back to platform default
             self.assertEqual(runner.name, "__platform_default__")
-            self.assertEqual(runner.shell.cmd, ["bash"])
+            self.assertEqual(runner.interpreter.cmd, "bash")
 
             # Verify warning was logged
             mock_logger.warn.assert_called()
@@ -2811,7 +2912,7 @@ class TestDockerOnlyFieldValidation(unittest.TestCase):
     """
 
     def _make_executor(self, project_root, runner):
-        from tasktree.parser import Runner, ShellConfig, SHELL_LOOKUP
+        from tasktree.parser import Runner
         tasks = {"build": Task(name="build", cmd="echo hello", run_in=runner.name)}
         recipe = Recipe(
             tasks=tasks,
@@ -2822,11 +2923,11 @@ class TestDockerOnlyFieldValidation(unittest.TestCase):
         return Executor(recipe, StateManager(project_root), logger_stub, make_process_runner)
 
     def test_volumes_on_shell_runner_raises(self):
-        from tasktree.parser import Runner, ShellConfig, SHELL_LOOKUP
+        from tasktree.parser import Runner
         with TemporaryDirectory() as tmpdir:
             runner = Runner(
                 name="myrunner",
-                shell=ShellConfig(cmd=SHELL_LOOKUP["bash"]),
+                interpreter=Interpreter(cmd="bash"),
                 volumes=["/host:/container"],
             )
             executor = self._make_executor(Path(tmpdir), runner)
@@ -2836,11 +2937,11 @@ class TestDockerOnlyFieldValidation(unittest.TestCase):
             self.assertIn("only valid for Docker runners", str(ctx.exception))
 
     def test_ports_on_shell_runner_raises(self):
-        from tasktree.parser import Runner, ShellConfig, SHELL_LOOKUP
+        from tasktree.parser import Runner
         with TemporaryDirectory() as tmpdir:
             runner = Runner(
                 name="myrunner",
-                shell=ShellConfig(cmd=SHELL_LOOKUP["bash"]),
+                interpreter=Interpreter(cmd="bash"),
                 ports=["8080:80"],
             )
             executor = self._make_executor(Path(tmpdir), runner)
@@ -2850,11 +2951,11 @@ class TestDockerOnlyFieldValidation(unittest.TestCase):
             self.assertIn("only valid for Docker runners", str(ctx.exception))
 
     def test_env_vars_on_shell_runner_raises(self):
-        from tasktree.parser import Runner, ShellConfig, SHELL_LOOKUP
+        from tasktree.parser import Runner
         with TemporaryDirectory() as tmpdir:
             runner = Runner(
                 name="myrunner",
-                shell=ShellConfig(cmd=SHELL_LOOKUP["bash"]),
+                interpreter=Interpreter(cmd="bash"),
                 env_vars={"MY_VAR": "value"},
             )
             executor = self._make_executor(Path(tmpdir), runner)
@@ -2864,11 +2965,11 @@ class TestDockerOnlyFieldValidation(unittest.TestCase):
             self.assertIn("only valid for Docker runners", str(ctx.exception))
 
     def test_run_as_root_on_shell_runner_raises(self):
-        from tasktree.parser import Runner, ShellConfig, SHELL_LOOKUP
+        from tasktree.parser import Runner
         with TemporaryDirectory() as tmpdir:
             runner = Runner(
                 name="myrunner",
-                shell=ShellConfig(cmd=SHELL_LOOKUP["bash"]),
+                interpreter=Interpreter(cmd="bash"),
                 run_as_root=True,
             )
             executor = self._make_executor(Path(tmpdir), runner)
@@ -2878,11 +2979,11 @@ class TestDockerOnlyFieldValidation(unittest.TestCase):
             self.assertIn("only valid for Docker runners", str(ctx.exception))
 
     def test_args_on_shell_runner_raises(self):
-        from tasktree.parser import Runner, ShellConfig, SHELL_LOOKUP, DockerArgs
+        from tasktree.parser import Runner, DockerArgs
         with TemporaryDirectory() as tmpdir:
             runner = Runner(
                 name="myrunner",
-                shell=ShellConfig(cmd=SHELL_LOOKUP["bash"]),
+                interpreter=Interpreter(cmd="bash"),
                 args=DockerArgs(build=["--no-cache"]),
             )
             executor = self._make_executor(Path(tmpdir), runner)
@@ -2892,7 +2993,7 @@ class TestDockerOnlyFieldValidation(unittest.TestCase):
             self.assertIn("only valid for Docker runners", str(ctx.exception))
 
     def test_docker_only_fields_on_docker_runner_allowed(self):
-        from tasktree.parser import Runner, ShellConfig, SHELL_LOOKUP
+        from tasktree.parser import Runner
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             dockerfile = project_root / "Dockerfile"

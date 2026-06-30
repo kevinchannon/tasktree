@@ -1,6 +1,6 @@
 runners:
   default_runner:
-    shell:
+    interpreter:
       cmd: bash
     default: true
 imports:

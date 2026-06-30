@@ -1,6 +1,6 @@
 runners:
   pinned_runner:
-    shell:
+    interpreter:
       cmd: sh
 tasks:
   pinned_task:

@@ -8,7 +8,8 @@ from unittest.mock import MagicMock, Mock, patch
 
 from helpers.logging import logger_stub
 from tasktree.executor import Executor
-from tasktree.parser import DockerArgs, Recipe, Runner, ShellConfig, Task
+from tasktree.parser import DockerArgs, Recipe, Runner, Task
+from tasktree.interpreter import Interpreter
 from tasktree.process_runner import TaskOutputTypes, make_process_runner
 from tasktree.state import StateManager, TaskState
 
@@ -575,7 +576,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
             # Create a Docker runner
             test_runner = Runner(
                 name="build",
-                shell=ShellConfig(cmd=["/bin/bash", "-c"], preamble="set -e"),
+                interpreter=Interpreter(cmd="/bin/bash", preamble="set -e"),
                 dockerfile="Dockerfile",
                 context=".",
             )
@@ -627,14 +628,14 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
 
             build_runner = Runner(
                 name="build",
-                shell=ShellConfig(cmd=["/bin/bash", "-c"]),
+                interpreter=Interpreter(cmd="/bin/bash"),
                 dockerfile="Dockerfile.build",
                 context=".",
             )
 
             test_runner = Runner(
                 name="test",
-                shell=ShellConfig(cmd=["/bin/bash", "-c"]),
+                interpreter=Interpreter(cmd="/bin/bash"),
                 dockerfile="Dockerfile.test",  # Different dockerfile
                 context=".",
             )
@@ -684,14 +685,14 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
 
             docker_runner = Runner(
                 name="build",
-                shell=ShellConfig(cmd=["/bin/bash", "-c"]),
+                interpreter=Interpreter(cmd="/bin/bash"),
                 dockerfile="Dockerfile",
                 context=".",
             )
 
             shell_runner = Runner(
                 name="lint",
-                shell=ShellConfig(cmd=["/bin/sh", "-c"], preamble="set -e"),
+                interpreter=Interpreter(cmd="/bin/sh", preamble="set -e"),
             )
 
             recipe = Recipe(
@@ -739,7 +740,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
 
             docker_runner = Runner(
                 name="build",
-                shell=ShellConfig(cmd=["/bin/bash", "-c"]),
+                interpreter=Interpreter(cmd="/bin/bash"),
                 dockerfile="Dockerfile",
                 context=".",
             )
@@ -790,7 +791,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
 
             docker_runner = Runner(
                 name="build",
-                shell=ShellConfig(cmd=["/bin/bash", "-c"]),
+                interpreter=Interpreter(cmd="/bin/bash"),
                 dockerfile="Dockerfile",
                 context=".",
             )
@@ -845,7 +846,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
 
             docker_runner = Runner(
                 name="build",
-                shell=ShellConfig(cmd=["/bin/bash", "-c"]),
+                interpreter=Interpreter(cmd="/bin/bash"),
                 dockerfile="Dockerfile",
                 context=".",
             )
@@ -901,7 +902,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
 
             docker_runner = Runner(
                 name="build",
-                shell=ShellConfig(cmd=["/bin/bash", "-c"]),
+                interpreter=Interpreter(cmd="/bin/bash"),
                 dockerfile="Dockerfile",
                 context=".",
             )
@@ -961,7 +962,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
 
             docker_runner = Runner(
                 name="build",
-                shell=ShellConfig(cmd=["/bin/bash", "-c"]),
+                interpreter=Interpreter(cmd="/bin/bash"),
                 dockerfile="Dockerfile",
                 context=".",
             )
@@ -1007,16 +1008,17 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
             for volume in captured_volumes:
                 self.assertNotIn("/tasktree-internal", volume)
 
-    def test_nested_call_uses_runner_shell_preamble(self):
+    def test_nested_call_uses_runner_interpreter(self):
         """
-        Test that nested call in matching container uses runner's shell/preamble.
+        Test that a nested call in a matching container uses the runner's
+        default interpreter (Docker runners have no shell/preamble).
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
             docker_runner = Runner(
                 name="build",
-                shell=ShellConfig(cmd=["/bin/zsh"], preamble="set -euo pipefail"),
+                interpreter=Interpreter(cmd="zsh"),
                 dockerfile="Dockerfile",
                 context=".",
             )
@@ -1049,19 +1051,18 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
 
             # Mock environment to simulate being inside container
             with patch.dict("os.environ", {"TT_CONTAINERIZED_RUNNER": "build"}):
-                # Mock _run_command_as_script to capture shell/preamble
+                # Mock _run_command_as_script to capture the resolved interpreter
                 captured_args = {}
-                def mock_run_script(cmd, working_dir, task_name, shell_cmd, preamble, *args, **kwargs):
-                    captured_args["shell_cmd"] = shell_cmd
-                    captured_args["preamble"] = preamble
+                def mock_run_script(cmd, working_dir, task_name, interpreter, *args, **kwargs):
+                    captured_args["interpreter"] = interpreter
 
                 with patch.object(executor, "_run_command_as_script", side_effect=mock_run_script):
                     process_runner = make_process_runner(TaskOutputTypes.ALL, logger_stub)
                     executor._run_task(recipe.tasks["test"], {}, process_runner)
 
-                # Verify runner's shell and preamble were used
-                self.assertEqual(captured_args["shell_cmd"], ["/bin/zsh"])
-                self.assertEqual(captured_args["preamble"], "set -euo pipefail")
+                # The runner's interpreter is used; it carries no preamble here.
+                self.assertEqual(captured_args["interpreter"].invocation, ["zsh"])
+                self.assertEqual(captured_args["interpreter"].preamble, "")
 
     def test_runner_names_with_special_characters(self):
         """
@@ -1084,7 +1085,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
 
                     docker_runner = Runner(
                         name=runner_name,
-                        shell=ShellConfig(cmd=["/bin/bash", "-c"]),
+                        interpreter=Interpreter(cmd="/bin/bash"),
                         dockerfile="Dockerfile",
                         context=".",
                     )
@@ -1138,7 +1139,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
 
             shell_runner = Runner(
                 name="shell",
-                shell=ShellConfig(cmd=["/bin/bash", "-c"]),
+                interpreter=Interpreter(cmd="/bin/bash"),
             )
 
             recipe = Recipe(

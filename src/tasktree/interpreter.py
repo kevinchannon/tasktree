@@ -1,72 +1,42 @@
-"""Interpreter strategy type for tasktree."""
+"""Interpreter value type for tasktree.
+
+An interpreter describes, literally, how to run a task's temporary script:
+- ``cmd``: the command used to invoke the interpreter, tokenised with
+  ``shlex`` and used verbatim (no lookups, no defaults, no fallbacks).
+- ``ext``: the temp-script file extension. Empty means the script has no
+  extension. When non-empty it must start with a dot.
+- ``preamble``: text prepended to every task body run by this interpreter.
+"""
 
 from __future__ import annotations
 
-import platform
-from dataclasses import dataclass, field
+import shlex
+from dataclasses import dataclass
 
 
-class UnknownInterpreterError(Exception):
-    """Raised when an unknown interpreter name is requested."""
+class InterpreterError(Exception):
+    """Raised when an interpreter definition is invalid or unresolved."""
 
     pass
 
 
 @dataclass(frozen=True)
 class Interpreter:
-    """Strategy object describing how to invoke a temp script."""
+    """A literal description of how to invoke a temp script."""
 
-    name: str
-    invocation_cmd: tuple[str, ...] = field(default_factory=tuple)
-    script_extension: str = ""
+    cmd: str
+    ext: str = ""
+    preamble: str = ""
 
-    @staticmethod
-    def from_name(name: str) -> "Interpreter":
-        """Create an Interpreter from a well-known name."""
-        if name not in INTERPRETER_LOOKUP:
-            raise UnknownInterpreterError(
-                f"Unknown interpreter '{name}'. "
-                f"Known interpreters: {sorted(INTERPRETER_LOOKUP)}"
+    def __post_init__(self):
+        if not self.cmd:
+            raise InterpreterError("Interpreter 'cmd' must be a non-empty string")
+        if self.ext and not self.ext.startswith("."):
+            raise InterpreterError(
+                f"Interpreter 'ext' must start with a dot (got {self.ext!r})"
             )
-        return INTERPRETER_LOOKUP[name]
 
-    @staticmethod
-    def host_default() -> "Interpreter":
-        """Return the default interpreter for the host runner."""
-        if platform.system() == "Windows":
-            return INTERPRETER_LOOKUP["cmd.exe"]
-        return INTERPRETER_LOOKUP["bash"]
-
-    @staticmethod
-    def container_default() -> "Interpreter":
-        """Return the default interpreter for container runners."""
-        return INTERPRETER_LOOKUP["sh"]
-
-
-# Canonical lookup table mapping interpreter names to Interpreter instances.
-# Script extensions: cosmetic on Unix (.sh), load-bearing on Windows (.bat/.ps1).
-INTERPRETER_LOOKUP: dict[str, Interpreter] = {
-    "bash": Interpreter(name="bash", invocation_cmd=("bash",), script_extension=".sh"),
-    "sh": Interpreter(name="sh", invocation_cmd=("sh",), script_extension=".sh"),
-    "zsh": Interpreter(name="zsh", invocation_cmd=("zsh",), script_extension=".sh"),
-    "fish": Interpreter(name="fish", invocation_cmd=("fish",), script_extension=".fish"),
-    "cmd.exe": Interpreter(
-        name="cmd.exe", invocation_cmd=("cmd.exe", "/c"), script_extension=".bat"
-    ),
-    "powershell": Interpreter(
-        name="powershell",
-        invocation_cmd=("powershell", "-ExecutionPolicy", "Bypass", "-File"),
-        script_extension=".ps1",
-    ),
-    "pwsh": Interpreter(
-        name="pwsh",
-        invocation_cmd=("pwsh", "-ExecutionPolicy", "Bypass", "-File"),
-        script_extension=".ps1",
-    ),
-    "python": Interpreter(
-        name="python", invocation_cmd=("python",), script_extension=".py"
-    ),
-    "python3": Interpreter(
-        name="python3", invocation_cmd=("python3",), script_extension=".py"
-    ),
-}
+    @property
+    def invocation(self) -> list[str]:
+        """The interpreter command tokens, used verbatim before the script path."""
+        return shlex.split(self.cmd)

@@ -1,13 +1,15 @@
 runners:
   default: custom
   custom:
-    shell:
-      cmd: [cmd.exe, /c]
+    interpreter:
+      cmd: cmd.exe /c
+      ext: .bat
       preamble: echo RECIPE DEFAULT
 
   task-specific:
-    shell:
-      cmd: [cmd.exe, /c]
+    interpreter:
+      cmd: cmd.exe /c
+      ext: .bat
       preamble: echo TASK SPECIFIC
 
 tasks:

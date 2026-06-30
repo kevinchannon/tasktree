@@ -1,9 +1,9 @@
 runners:
   runner_a:
-    shell:
+    interpreter:
       cmd: bash
   runner_b:
-    shell:
+    interpreter:
       cmd: sh
 imports:
   - file: shared.yaml

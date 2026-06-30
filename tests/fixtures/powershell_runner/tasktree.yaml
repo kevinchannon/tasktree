@@ -1,7 +1,8 @@
 runners:
   runner-1:
-    shell:
-      cmd: "powershell"
+    interpreter:
+      cmd: "powershell -ExecutionPolicy Bypass -File"
+      ext: .ps1
 
 tasks:
   one:

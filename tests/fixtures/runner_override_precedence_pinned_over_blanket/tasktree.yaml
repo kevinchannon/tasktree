@@ -1,6 +1,6 @@
 runners:
   blanket_runner:
-    shell:
+    interpreter:
       cmd: bash
 imports:
   - file: build.yaml

@@ -1,6 +1,6 @@
 runners:
   local:
-    shell:
+    interpreter:
       cmd: sh
 tasks:
   compile:
