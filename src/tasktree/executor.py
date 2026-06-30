@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 import os
 import platform
+import shlex
 import subprocess
 import sys
 import time
@@ -41,20 +42,30 @@ def _supports_fileno(stream) -> bool:
         return False
 
 
-def _extract_shebang_interpreter(shebang_line: str) -> str:
+def _extract_shebang_interpreter(shebang_line: str) -> str | None:
     """Extract the interpreter name from a shebang line.
 
+    Returns None when no interpreter can be deduced from the line.
+
     Examples:
-        '#!/usr/bin/env bash' -> 'bash'
-        '#!/bin/bash'         -> 'bash'
-        '#!/usr/bin/python3'  -> 'python3'
+        '#!/usr/bin/env bash'       -> 'bash'
+        '#!/usr/bin/env -S python3' -> 'python3'
+        '#!/usr/bin/env'            -> None
+        '#!/bin/bash'               -> 'bash'
+        '#!/usr/bin/python3'        -> 'python3'
     """
     path_part = shebang_line[2:].strip()
     parts = path_part.split()
     if not parts:
-        return ""
-    if os.path.basename(parts[0]) == "env" and len(parts) > 1:
-        return parts[1]
+        return None
+    if os.path.basename(parts[0]) == "env":
+        # Skip any env flags (e.g. '-S') to find the real interpreter; an env
+        # with no following interpreter (just flags, or nothing) has nothing
+        # to compare against.
+        for token in parts[1:]:
+            if not token.startswith("-"):
+                return token
+        return None
     return os.path.basename(parts[0])
 
 
@@ -1073,6 +1084,7 @@ class Executor:
                 env,
                 cmd,
                 working_dir,
+                interpreter,
                 process_runner,
                 exported_env_vars,
                 updated_chain,
@@ -1122,7 +1134,12 @@ class Executor:
             return
 
         shebang_interpreter = _extract_shebang_interpreter(shebang_line)
-        if shebang_interpreter and shebang_interpreter != interpreter.cmd:
+        # interpreter.cmd is stored verbatim from YAML and may be a full path
+        # and/or carry arguments (e.g. '/bin/bash', 'python3 -u'). Compare bare
+        # interpreter names so an agreeing shebang doesn't trip a false warning.
+        cmd_tokens = shlex.split(interpreter.cmd)
+        interpreter_name = os.path.basename(cmd_tokens[0]) if cmd_tokens else ""
+        if shebang_interpreter is not None and shebang_interpreter != interpreter_name:
             self.logger.warn(
                 f"[yellow]Shebang in cmd specifies '{shebang_interpreter}' but the task will "
                 f"run with '{interpreter.cmd}'. The shebang has no effect — set 'interpreter:' "
@@ -1325,6 +1342,7 @@ class Executor:
         env: Any,
         cmd: str,
         working_dir: Path,
+        interpreter: Interpreter,
         process_runner: ProcessRunner,
         exported_env_vars: dict[str, str] | None = None,
         call_chain: str | None = None,
@@ -1337,6 +1355,7 @@ class Executor:
         env: Docker environment configuration
         cmd: Command to execute
         working_dir: Host working directory
+        interpreter: Resolved interpreter for the task
         process_runner: ProcessRunner instance to use for subprocess execution
         exported_env_vars: Exported arguments to set as environment variables
         call_chain: TT_CALL_CHAIN value for recursion detection
@@ -1403,7 +1422,7 @@ class Executor:
                 working_dir=working_dir,
                 container_working_dir=container_working_dir,
                 process_runner=process_runner,
-                interpreter=self._resolve_interpreter(task),
+                interpreter=interpreter,
             )
         except docker_module.DockerError as e:
             raise ExecutionError(str(e)) from e

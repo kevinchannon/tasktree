@@ -539,7 +539,15 @@ class TestExtractShebangInterpreter(unittest.TestCase):
         self.assertEqual(self._extract("#!/usr/bin/python3"), "python3")
 
     def test_empty_shebang(self):
-        self.assertEqual(self._extract("#!"), "")
+        self.assertIsNone(self._extract("#!"))
+
+    def test_env_with_split_string_flag(self):
+        """env -S passes a multi-arg shebang; the interpreter follows the flag."""
+        self.assertEqual(self._extract("#!/usr/bin/env -S python3"), "python3")
+
+    def test_env_without_interpreter(self):
+        """A bare env shebang has no deducible interpreter."""
+        self.assertIsNone(self._extract("#!/usr/bin/env"))
 
 
 class TestShebangWarning(unittest.TestCase):
@@ -583,6 +591,24 @@ class TestShebangWarning(unittest.TestCase):
         ex, logger = self._make_executor_with_logger()
         ex._warn_if_cmd_has_shebang("\n  #!/bin/bash\necho hi", Interpreter(cmd="sh"))
         logger.warn.assert_called_once()
+
+    @unittest.skipIf(platform.system() == "Windows", "Unix-only: full-path match test")
+    def test_full_path_interpreter_matching_shebang_does_not_warn(self):
+        """A full-path interpreter cmd that agrees with the shebang must not warn."""
+        ex, logger = self._make_executor_with_logger()
+        ex._warn_if_cmd_has_shebang(
+            "#!/bin/bash\necho hi", Interpreter(cmd="/bin/bash")
+        )
+        logger.warn.assert_not_called()
+
+    @unittest.skipIf(platform.system() == "Windows", "Unix-only: multi-token match test")
+    def test_interpreter_with_args_matching_shebang_does_not_warn(self):
+        """An interpreter cmd carrying arguments still matches on the bare name."""
+        ex, logger = self._make_executor_with_logger()
+        ex._warn_if_cmd_has_shebang(
+            "#!/usr/bin/env python3\nprint('hi')", Interpreter(cmd="python3 -u")
+        )
+        logger.warn.assert_not_called()
 
     def test_cmd_without_shebang_does_not_warn(self):
         ex, logger = self._make_executor_with_logger()
