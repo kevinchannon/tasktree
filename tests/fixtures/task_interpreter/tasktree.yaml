@@ -1,3 +1,7 @@
+interpreters:
+  python3:
+    cmd: python3
+
 tasks:
   test-python:
     interpreter: python3

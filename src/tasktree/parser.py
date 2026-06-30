@@ -9,7 +9,7 @@ import platform
 import re
 import subprocess
 import tempfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from collections.abc import KeysView
 from typing import Any, Optional
@@ -20,7 +20,7 @@ import yaml
 from tasktree.logging import Logger
 from tasktree.types import get_click_type
 from tasktree.process_runner import TaskOutputTypes
-from tasktree.interpreter import Interpreter, UnknownInterpreterError
+from tasktree.interpreter import Interpreter, InterpreterError
 
 
 # Regex patterns for variable references
@@ -39,47 +39,25 @@ class CircularImportError(Exception):
     pass
 
 
-# Built-in lookup table mapping shell names to their conventional invocation arguments.
-# Used when 'shell' is specified as a bare string shorthand.
-SHELL_LOOKUP: dict[str, list[str]] = {
-    "bash": ["bash"],
-    "sh": ["sh"],
-    "zsh": ["zsh"],
-    "fish": ["fish"],
-    "cmd.exe": ["cmd.exe", "/c"],
-    "powershell": ["powershell", "-ExecutionPolicy", "Bypass", "-File"],
-}
+def platform_default_interpreter() -> Interpreter:
+    """The interpreter used when no runner or interpreter is configured.
 
-
-def _validate_interpreter_name(name: str, context: str) -> None:
-    """Validate that an interpreter name is empty or a known interpreter.
-
-    Args:
-        name: The interpreter name to validate (empty string is allowed).
-        context: Human-readable context for error messages (e.g. "Task 'build'").
-
-    Raises:
-        ValueError: If name is non-empty and not a known interpreter.
+    This is the single sanctioned host default: bash on Unix/macOS, cmd.exe
+    (with a ``.bat`` script extension) on Windows. It is not a lookup over user
+    input — it only backs bare tasks that declare no runner/interpreter.
     """
-    if not name:
-        return
-    try:
-        Interpreter.from_name(name)
-    except UnknownInterpreterError as e:
-        raise ValueError(f"{context}: {e}") from e
+    if platform.system() == "Windows":
+        return Interpreter(cmd="cmd.exe", ext=".bat")
+    return Interpreter(cmd="bash")
 
 
-@dataclass
-class ShellConfig:
+def container_default_interpreter() -> Interpreter:
+    """The interpreter used by a Docker runner that declares no interpreter.
+
+    Containers default to ``sh`` (universally present) rather than the host
+    default, which may not exist in a minimal image.
     """
-    Shell invocation configuration for a runner.
-
-    Describes the shell executable and its arguments, plus an optional preamble
-    prepended to every task command run in this shell.
-    """
-
-    cmd: list[str]  # Full invocation list, e.g. ["bash"]
-    preamble: str = ""  # Optional preamble prepended to every task body
+    return Interpreter(cmd="sh")
 
 
 @dataclass
@@ -112,15 +90,15 @@ class Runner:
     """
     Represents an execution runner configuration.
 
-    Can be either a shell runner or a Docker runner:
-    - Shell runner: has 'shell' field, executes directly on host
+    Can be either a host runner or a Docker runner:
+    - Host runner: no 'dockerfile', executes directly on host
     - Docker runner: has 'dockerfile' field, executes in container
-    Both runner types may define a 'shell' for the shell used to run tasks.
+    Both may declare an 'interpreter' used to run task scripts; when absent the
+    session default interpreter is used.
     """
 
     name: str
-    shell: ShellConfig | None = None  # Shell configuration (cmd and preamble)
-    default_interpreter: str = ""  # Default interpreter name for tasks in this runner
+    interpreter: Interpreter | None = None  # Interpreter used to run task scripts
     args: DockerArgs = field(default_factory=DockerArgs)  # Docker build/run arguments
     # Docker-specific fields (presence of dockerfile indicates Docker environment)
     dockerfile: str = ""  # Path to Dockerfile
@@ -382,6 +360,9 @@ class Recipe:
     project_root: Path
     recipe_path: Path  # Path to the recipe file
     runners: dict[str, Runner] = field(default_factory=dict)
+    interpreters: dict[str, Interpreter] = field(
+        default_factory=dict
+    )  # Named interpreter definitions (from the 'interpreters' section)
     default_runner: str = ""  # Name of default runner
     global_runner_override: str = ""  # Global runner override (set via CLI --run-in)
     global_interpreter_override: str = ""  # Global interpreter override (CLI --interpreter)
@@ -430,8 +411,6 @@ class Recipe:
         Returns:
         Runner if found, None otherwise
         """
-        if not isinstance(name, str):
-            return None
         return self.runners.get(name)
 
     def evaluate_variables(self, root_task: str | None = None) -> None:
@@ -603,9 +582,15 @@ class Recipe:
         for env_name, env in self.runners.items():
             if env_name not in reachable_runner_names:
                 continue
-            if env.shell is not None and env.shell.preamble:
-                env.shell.preamble = substitute_variables(
-                    env.shell.preamble, self.evaluated_variables
+            if env.interpreter is not None:
+                env.interpreter = replace(
+                    env.interpreter,
+                    cmd=substitute_variables(
+                        env.interpreter.cmd, self.evaluated_variables
+                    ),
+                    preamble=substitute_variables(
+                        env.interpreter.preamble, self.evaluated_variables
+                    ),
                 )
 
             # Substitute in volumes
@@ -962,8 +947,12 @@ def _rewrite_runner_variable_references(runner: "Runner", namespace: str) -> Non
     Modifies the runner in place.
     """
     assert namespace, "namespace must not be empty"
-    if runner.shell is not None:
-        runner.shell.preamble = _rewrite_variable_references(runner.shell.preamble, namespace)
+    if runner.interpreter is not None:
+        runner.interpreter = replace(
+            runner.interpreter,
+            cmd=_rewrite_variable_references(runner.interpreter.cmd, namespace),
+            preamble=_rewrite_variable_references(runner.interpreter.preamble, namespace),
+        )
     runner.dockerfile = _rewrite_variable_references(runner.dockerfile, namespace)
     runner.context = _rewrite_variable_references(runner.context, namespace)
     runner.working_dir = _rewrite_variable_references(runner.working_dir, namespace)
@@ -1296,18 +1285,26 @@ def _validate_eval_reference(var_name: str, value: dict) -> str:
     return command
 
 
-def _get_default_shell_cmd() -> list[str]:
-    """
-    Get default shell command list for current platform.
+def _eval_interpreter(recipe_data: dict) -> Interpreter:
+    """Pick the interpreter for an { eval: ... } variable command.
 
-    Returns:
-    Shell cmd list for script-file execution (e.g. ["bash"] or ["cmd.exe", "/c"])
+    Uses the default runner's interpreter when one is configured, otherwise the
+    platform default. Any malformed configuration falls back to the default.
     """
-    is_windows = platform.system() == "Windows"
-    if is_windows:
-        return list(SHELL_LOOKUP["cmd.exe"])
-    else:
-        return list(SHELL_LOOKUP["bash"])
+    if not recipe_data or not isinstance(recipe_data.get("runners"), dict):
+        return platform_default_interpreter()
+    env_data = recipe_data["runners"]
+    default_runner_name = env_data.get("default", "")
+    env_config = env_data.get(default_runner_name)
+    if not isinstance(env_config, dict) or env_config.get("interpreter") is None:
+        return platform_default_interpreter()
+    try:
+        interpreters = _parse_interpreters_section(recipe_data)
+        return parse_interpreter_spec(
+            env_config["interpreter"], f"Runner '{default_runner_name}'", interpreters
+        )
+    except (ValueError, InterpreterError):
+        return platform_default_interpreter()
 
 
 def _resolve_eval_variable(
@@ -1331,31 +1328,12 @@ def _resolve_eval_variable(
     Raises:
     ValueError: If command fails or cannot be executed
     """
-    # Determine shell command list to use
-    shell_cmd = None
-
-    # Check if recipe has default_runner specified
-    if recipe_data and "runners" in recipe_data:
-        env_data = recipe_data["runners"]
-        if isinstance(env_data, dict):
-            default_runner_name = env_data.get("default", "")
-            if default_runner_name and default_runner_name in env_data:
-                env_config = env_data[default_runner_name]
-                if isinstance(env_config, dict):
-                    shell_value = env_config.get("shell")
-                    if shell_value is not None:
-                        try:
-                            shell_config = parse_shell_config(shell_value, default_runner_name)
-                            shell_cmd = shell_config.cmd
-                        except ValueError:
-                            pass  # Fall through to platform default
-
-    # Use platform default if no runner specified or shell config invalid
-    if shell_cmd is None:
-        shell_cmd = _get_default_shell_cmd()
+    # Resolve the interpreter to use: the default runner's interpreter if one is
+    # configured, otherwise the platform default.
+    interpreter = _eval_interpreter(recipe_data)
 
     # Write command to a temp script file (same mechanism as task execution)
-    script_ext = Interpreter.from_shell_cmd(shell_cmd).host_script_extension()
+    script_ext = interpreter.ext
     script_path = None
     try:
         with tempfile.NamedTemporaryFile(
@@ -1366,7 +1344,7 @@ def _resolve_eval_variable(
                 script_file.write("@echo off\n")
             script_file.write(command)
 
-        cmd_list = shell_cmd + [script_path]
+        cmd_list = interpreter.invocation + [script_path]
         working_dir = recipe_file_path.parent
 
         try:
@@ -1380,9 +1358,9 @@ def _resolve_eval_variable(
         except FileNotFoundError:
             raise ValueError(
                 f"Failed to execute command for variable '{var_name}'.\n"
-                f"Shell not found: {shell_cmd[0]}\n\n"
+                f"Interpreter not found: {interpreter.cmd}\n\n"
                 f"Command: {command}\n\n"
-                f"Ensure the shell is installed and available in PATH."
+                f"Ensure the interpreter is installed and available in PATH."
             )
         except Exception as e:
             raise ValueError(
@@ -1753,48 +1731,76 @@ def _evaluate_variable_subset(
     return resolved
 
 
-def parse_shell_config(shell_value: Any, runner_name: str) -> ShellConfig:
+def _parse_inline_interpreter(value: dict[str, Any], context: str) -> Interpreter:
+    """Parse an inline interpreter definition: {cmd, ext?, preamble?}."""
+    allowed = {"cmd", "ext", "preamble"}
+    unknown = set(value) - allowed
+    if unknown:
+        raise ValueError(
+            f"{context}: unknown interpreter field(s): {', '.join(sorted(unknown))}. "
+            f"Allowed: cmd, ext, preamble"
+        )
+    cmd = value.get("cmd", "")
+    ext = value.get("ext", "")
+    preamble = value.get("preamble", "")
+    for field_name, field_value in (("cmd", cmd), ("ext", ext), ("preamble", preamble)):
+        if not isinstance(field_value, str):
+            raise ValueError(f"{context}: interpreter '{field_name}' must be a string")
+    try:
+        return Interpreter(cmd=cmd, ext=ext, preamble=preamble)
+    except InterpreterError as e:
+        raise ValueError(f"{context}: {e}") from e
+
+
+def parse_interpreter_spec(
+    value: Any, context: str, interpreters: dict[str, Interpreter]
+) -> Interpreter:
+    """Parse a runner's 'interpreter' field into an Interpreter.
+
+    Accepts either an inline definition ({cmd, ext?, preamble?}) or a reference
+    to a named interpreter from the 'interpreters' section ({use: name}).
     """
-    Parse a shell configuration value from YAML into a ShellConfig.
-
-    Accepts:
-    - A dict with 'cmd' (str shorthand or list) and optional 'preamble'
-
-    Args:
-    shell_value: The YAML value of the 'shell' key
-    runner_name: Runner name (for error messages)
-
-    Returns:
-    ShellConfig with resolved cmd list and preamble
-    """
-    if isinstance(shell_value, dict):
-        cmd_value = shell_value.get("cmd", "")
-        if isinstance(cmd_value, list):
-            cmd = cmd_value
-        elif isinstance(cmd_value, str):
-            if cmd_value not in SHELL_LOOKUP:
-                known = ", ".join(SHELL_LOOKUP)
-                raise ValueError(
-                    f"Runner '{runner_name}': unknown shell '{cmd_value}'. "
-                    f"Known shells: {known}. "
-                    f"Use cmd: [...] to specify a custom shell invocation."
-                )
-            cmd = list(SHELL_LOOKUP[cmd_value])
-        else:
+    if not isinstance(value, dict):
+        raise ValueError(
+            f"{context}: 'interpreter' must be a mapping with either 'cmd' "
+            f"(inline) or 'use' (reference to the interpreters section)"
+        )
+    if "use" in value:
+        if set(value) != {"use"}:
             raise ValueError(
-                f"Runner '{runner_name}': shell 'cmd' must be a string or list of strings"
+                f"{context}: an interpreter reference must contain only 'use'"
             )
-        preamble = shell_value.get("preamble", "")
-        if not isinstance(preamble, str):
+        name = value["use"]
+        if not isinstance(name, str):
+            raise ValueError(f"{context}: interpreter 'use' must be a string")
+        if name not in interpreters:
+            known = ", ".join(sorted(interpreters)) or "(none defined)"
             raise ValueError(
-                f"Runner '{runner_name}': 'preamble' must be a string"
+                f"{context}: unknown interpreter '{name}'. "
+                f"Defined interpreters: {known}"
             )
-        return ShellConfig(cmd=cmd, preamble=preamble)
+        return interpreters[name]
+    return _parse_inline_interpreter(value, context)
 
-    raise ValueError(
-        f"Runner '{runner_name}': 'shell' must be a dict "
-        f"with 'cmd' (string shorthand or list) and optional 'preamble'"
-    )
+
+def _parse_interpreters_section(data: dict[str, Any]) -> dict[str, Interpreter]:
+    """Parse the top-level 'interpreters' section into named Interpreters."""
+    interpreters: dict[str, Interpreter] = {}
+    section = data.get("interpreters") if data else None
+    if section is None:
+        return interpreters
+    if not isinstance(section, dict):
+        raise ValueError("'interpreters' must be a mapping of name to definition")
+    for name, spec in section.items():
+        if not isinstance(spec, dict):
+            raise ValueError(f"Interpreter '{name}' must be a mapping")
+        if "use" in spec:
+            raise ValueError(
+                f"Interpreter '{name}': 'use' is only valid inside a runner's "
+                f"'interpreter' field, not in the interpreters section"
+            )
+        interpreters[name] = _parse_inline_interpreter(spec, f"Interpreter '{name}'")
+    return interpreters
 
 
 def parse_docker_args(args_value: Any, runner_name: str) -> DockerArgs:
@@ -1844,26 +1850,28 @@ def parse_docker_args(args_value: Any, runner_name: str) -> DockerArgs:
 
 def _parse_runners_from_data(
     data: dict[str, Any], project_root: Path
-) -> tuple[dict[str, Runner], str]:
+) -> tuple[dict[str, Runner], str, dict[str, Interpreter]]:
     """
-    Parse runner definitions from YAML data.
+    Parse runner and interpreter definitions from YAML data.
 
     Args:
-    data: Parsed YAML data containing a 'runners' section
+    data: Parsed YAML data containing 'runners' and/or 'interpreters' sections
     project_root: Root directory of the project (for validating Dockerfile/context paths)
 
     Returns:
-    Tuple of (runners dict, default_runner_name)
+    Tuple of (runners dict, default_runner_name, interpreters dict)
     """
     runners: dict[str, Runner] = {}
     default_runner = ""
 
+    interpreters = _parse_interpreters_section(data) if data else {}
+
     if not data or "runners" not in data:
-        return runners, default_runner
+        return runners, default_runner, interpreters
 
     env_data = data["runners"]
     if not isinstance(env_data, dict):
-        return runners, default_runner
+        return runners, default_runner, interpreters
 
     # Extract default environment name
     default_runner = env_data.get("default", "")
@@ -1876,13 +1884,13 @@ def _parse_runners_from_data(
         if not isinstance(env_config, dict):
             raise ValueError(f"Runner '{env_name}' must be a dictionary")
 
-        # Parse shell configuration (required for shell runners, optional for Docker)
-        shell_value = env_config.get("shell")
-        shell_config = parse_shell_config(shell_value, env_name) if shell_value is not None else None
-
-        # Parse optional default interpreter for this runner
-        default_interpreter = env_config.get("interpreter", "")
-        _validate_interpreter_name(default_interpreter, f"Runner '{env_name}'")
+        # Parse the optional interpreter (inline definition or {use: name}).
+        interpreter_value = env_config.get("interpreter")
+        runner_interpreter = (
+            parse_interpreter_spec(interpreter_value, f"Runner '{env_name}'", interpreters)
+            if interpreter_value is not None
+            else None
+        )
 
         # Parse docker args
         args_config = parse_docker_args(env_config.get("args"), env_name)
@@ -1908,20 +1916,6 @@ def _parse_runners_from_data(
 
         # SKIP variable substitution in runner fields - defer to lazy evaluation
         # Runner fields may contain {{ var.* }} placeholders
-
-        # Validate runner type
-        if shell_config is None and not dockerfile:
-            raise ValueError(
-                f"Runner '{env_name}' must specify either 'shell' "
-                f"(for shell runners) or 'dockerfile' (for Docker runners)"
-            )
-
-        # Docker runners choose their interpreter with 'interpreter:', not 'shell:'.
-        if dockerfile and shell_config is not None:
-            raise ValueError(
-                f"Runner '{env_name}': Docker runners (with 'dockerfile') use "
-                f"'interpreter' to choose the interpreter, not 'shell'"
-            )
 
         # Default context to the Dockerfile's directory if not specified
         if dockerfile and not context:
@@ -1949,8 +1943,7 @@ def _parse_runners_from_data(
 
         runners[env_name] = Runner(
             name=env_name,
-            shell=shell_config,
-            default_interpreter=default_interpreter,
+            interpreter=runner_interpreter,
             args=args_config,
             dockerfile=dockerfile,
             context=context,
@@ -1961,7 +1954,7 @@ def _parse_runners_from_data(
             run_as_root=run_as_root,
         )
 
-    return runners, default_runner
+    return runners, default_runner, interpreters
 
 
 def _extract_and_validate_variables(
@@ -1991,26 +1984,31 @@ def _extract_and_validate_variables(
 
 def _extract_and_validate_runners(
     data: dict[str, Any] | None, project_root: Path
-) -> tuple[dict[str, Runner], str, dict[str, str]]:
+) -> tuple[dict[str, Runner], str, dict[str, Interpreter], dict[str, str]]:
     """
-    Extract runners from YAML data and validate their names.
+    Extract runners and interpreters from YAML data and validate their names.
 
     Args:
         data: Parsed YAML data
         project_root: Root directory of the project
 
     Returns:
-        Tuple of (runners, default_runner_name, name_errors)
+        Tuple of (runners, default_runner_name, interpreters, name_errors)
     """
     name_errors: dict[str, str] = {}
-    runners, default_runner = _parse_runners_from_data(data, project_root)
+    runners, default_runner, interpreters = _parse_runners_from_data(data, project_root)
 
     for runner_name in runners:
         error = _validate_local_item_name(runner_name, "Runner")
         if error:
             name_errors[runner_name] = error
 
-    return runners, default_runner, name_errors
+    for interpreter_name in interpreters:
+        error = _validate_local_item_name(interpreter_name, "Interpreter")
+        if error:
+            name_errors[interpreter_name] = error
+
+    return runners, default_runner, interpreters, name_errors
 
 
 def _parse_file_with_env(
@@ -2018,9 +2016,9 @@ def _parse_file_with_env(
     namespace: str | None,
     project_root: Path,
     import_stack: list[Path] | None = None,
-) -> tuple[dict[str, Task], dict[str, Runner], str, dict[str, Any], dict[str, Any], dict[str, str]]:
+) -> tuple[dict[str, Task], dict[str, Runner], dict[str, Interpreter], str, dict[str, Any], dict[str, Any], dict[str, str]]:
     """
-    Parse file and extract tasks, runners, and variables.
+    Parse file and extract tasks, runners, interpreters, and variables.
 
     Args:
     file_path: Path to YAML file
@@ -2029,7 +2027,7 @@ def _parse_file_with_env(
     import_stack: Stack of files being imported (for circular detection)
 
     Returns:
-    Tuple of (tasks, runners, default_runner_name, raw_variables, YAML_data, name_errors)
+    Tuple of (tasks, runners, interpreters, default_runner_name, raw_variables, YAML_data, name_errors)
     Note: Variables are NOT evaluated here - they're stored as raw specs for lazy evaluation
     """
     # Parse tasks normally
@@ -2039,6 +2037,7 @@ def _parse_file_with_env(
 
     # Load YAML again to extract runners and variables (only from root file)
     runners: dict[str, Runner] = {}
+    interpreters: dict[str, Interpreter] = {}
     default_runner = ""
     raw_variables: dict[str, Any] = {}
     yaml_data: dict[str, Any] = {}
@@ -2053,8 +2052,8 @@ def _parse_file_with_env(
         raw_variables, var_errors = _extract_and_validate_variables(data)
         name_errors.update(var_errors)
 
-        # Extract and validate runners
-        runners, default_runner, runner_errors = _extract_and_validate_runners(
+        # Extract and validate runners and interpreters
+        runners, default_runner, interpreters, runner_errors = _extract_and_validate_runners(
             data, project_root
         )
         name_errors.update(runner_errors)
@@ -2063,7 +2062,7 @@ def _parse_file_with_env(
     runners.update(parsed.runners)
     raw_variables.update(parsed.raw_variables)
 
-    return tasks, runners, default_runner, raw_variables, yaml_data, name_errors
+    return tasks, runners, interpreters, default_runner, raw_variables, yaml_data, name_errors
 
 
 def collect_reachable_tasks(tasks: dict[str, Task], root_task: str) -> set[str]:
@@ -2302,7 +2301,7 @@ def parse_recipe(
 
     # Parse main file - it will recursively handle all imports
     # Variables are NOT evaluated here (lazy evaluation)
-    tasks, runners, default_runner, raw_variables, yaml_data, name_errors = _parse_file_with_env(
+    tasks, runners, interpreters, default_runner, raw_variables, yaml_data, name_errors = _parse_file_with_env(
         recipe_path, namespace=None, project_root=project_root
     )
 
@@ -2312,6 +2311,7 @@ def parse_recipe(
         project_root=project_root,
         recipe_path=recipe_path,
         runners=runners,
+        interpreters=interpreters,
         default_runner=default_runner,
         variables={},  # Empty initially (deprecated field)
         raw_variables=raw_variables,
@@ -2321,12 +2321,26 @@ def parse_recipe(
         _name_errors=name_errors,
     )
 
+    # Validate that task-level interpreter names reference defined interpreters.
+    _validate_task_interpreter_refs(recipe)
+
     # Trigger lazy variable evaluation
     # If root_task is provided: evaluate only reachable variables
     # If root_task is None: evaluate all variables (for --list)
     recipe.evaluate_variables(root_task)
 
     return recipe
+
+
+def _validate_task_interpreter_refs(recipe: Recipe) -> None:
+    """Validate that each task's 'interpreter' names a defined interpreter."""
+    for task in recipe.tasks.values():
+        if task.interpreter and task.interpreter not in recipe.interpreters:
+            known = ", ".join(sorted(recipe.interpreters)) or "(none defined)"
+            raise ValueError(
+                f"Task '{task.name}': unknown interpreter '{task.interpreter}'. "
+                f"Defined interpreters: {known}"
+            )
 
 
 def _parse_file(
@@ -2455,8 +2469,8 @@ def _parse_file(
             raw_variables.update(nested_result.raw_variables)
             name_errors.update(nested_result.name_errors)
 
-    # Validate top-level keys (only imports, runners, tasks, and variables are allowed)
-    valid_top_level_keys = {"imports", "runners", "tasks", "variables"}
+    # Validate top-level keys (only these sections are allowed)
+    valid_top_level_keys = {"imports", "runners", "interpreters", "tasks", "variables"}
 
     # Check if tasks key is missing when there appear to be task definitions at root
     # Do this BEFORE checking for unknown keys, to provide better error message
@@ -2488,7 +2502,9 @@ def _parse_file(
             f"Unknown top-level keys: {', '.join(sorted(invalid_keys))}\n\n"
             f"Valid top-level keys are:\n"
             f"  - imports      (for importing task files)\n"
-            f"  - environments (for shell environment configuration)\n"
+            f"  - runners      (for runner configuration)\n"
+            f"  - interpreters (for interpreter definitions)\n"
+            f"  - variables    (for variable definitions)\n"
             f"  - tasks        (for task definitions)"
         )
 
@@ -2567,9 +2583,9 @@ def _parse_file(
         if namespace and run_in:
             run_in = f"{namespace}.{run_in}"
 
-        # Validate the optional interpreter name against known interpreters
+        # Task interpreter is the NAME of an interpreter from the 'interpreters'
+        # section; existence is validated post-parse (see _validate_interpreter_refs).
         interpreter = task_data.get("interpreter", "")
-        _validate_interpreter_name(interpreter, f"Task '{full_name}'")
 
         task = Task(
             name=full_name,
@@ -2605,7 +2621,7 @@ def _parse_file(
     # Parse runners and variables from imported files (namespace is set) and apply namespace prefix
     # Root file runners/variables are handled by _parse_file_with_env, not here
     if namespace:
-        local_runners, _ = _parse_runners_from_data(data, project_root)
+        local_runners, _, _ = _parse_runners_from_data(data, project_root)
         for runner_name, runner in local_runners.items():
             full_runner_name = f"{namespace}.{runner_name}"
             error = _validate_local_item_name(runner_name, "Runner")

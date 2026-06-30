@@ -178,7 +178,8 @@ runners:
   alpine:
     dockerfile: ./Dockerfile
     context: .
-    interpreter: sh
+    interpreter:
+      cmd: sh
     volumes: ["./output:/workspace/output"]
 
 tasks:

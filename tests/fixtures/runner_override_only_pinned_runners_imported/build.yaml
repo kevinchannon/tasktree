@@ -1,12 +1,12 @@
 runners:
   runner_a:
-    shell:
+    interpreter:
       cmd: sh
   runner_b:
-    shell:
+    interpreter:
       cmd: bash
   runner_c:
-    shell:
+    interpreter:
       cmd: zsh
 tasks:
   task1:

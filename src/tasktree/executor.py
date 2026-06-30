@@ -24,7 +24,7 @@ from tasktree.graph import (
 )
 from tasktree.hasher import hash_args, hash_task, make_cache_key
 from tasktree.logging import Logger, LogLevel
-from tasktree.parser import DockerArgs, Recipe, Task, Runner, ShellConfig, SHELL_LOOKUP
+from tasktree.parser import DockerArgs, Recipe, Task, Runner, platform_default_interpreter, container_default_interpreter
 from tasktree.interpreter import Interpreter
 from tasktree.process_runner import ProcessRunner, TaskOutputTypes
 from tasktree.state import StateManager, TaskState
@@ -356,17 +356,10 @@ class Executor:
         )
 
         # Start with platform default
-        is_windows = platform.system() == "Windows"
-        if is_windows:
-            platform_default = Runner(
-                name="__platform_default__",
-                shell=ShellConfig(cmd=list(SHELL_LOOKUP["cmd.exe"])),
-            )
-        else:
-            platform_default = Runner(
-                name="__platform_default__",
-                shell=ShellConfig(cmd=list(SHELL_LOOKUP["bash"])),
-            )
+        platform_default = Runner(
+            name="__platform_default__",
+            interpreter=platform_default_interpreter(),
+        )
 
         session_default = platform_default
 
@@ -483,98 +476,46 @@ class Executor:
             task = self.recipe.tasks[name]
             self._validate_runner_for_task(task)
 
-    def _resolve_runner(self, task: Task) -> ShellConfig:
-        """
-        Resolve which runner to use for a task.
-
-        Resolution order:
-        1. Recipe's global_env_override (from CLI --env)
-        2. Task's explicit env field
-        3. Recipe's default_env
-        4. Platform default (bash on Unix, cmd on Windows)
-
-        Args:
-        task: Task to resolve environment for
-
-        Returns:
-        ShellConfig for the resolved runner
-        """
-        # Check for global override first
-        env_name = self.recipe.global_runner_override
-
-        # If no global override, use task's runner
-        if not env_name:
-            env_name = task.run_in
-
-        # If no explicit runner, try recipe default
-        if not env_name and self.recipe.default_runner:
-            env_name = self.recipe.default_runner
-
-        # If we have a runner name, look it up
-        if env_name:
-            env = self.recipe.get_runner(env_name)
-            if env and env.shell is not None:
-                return env.shell
-            # If runner not found or has no shell, fall through to platform default
-
-        # Use platform default
-        default_runner = self.get_session_default_runner()
-        return default_runner.shell
-
-    def _resolve_interpreter(
-        self,
-        task: Task,
-        runner: Runner | None,
-        shell_config: ShellConfig | None,
-    ) -> Interpreter:
+    def _resolve_interpreter(self, task: Task) -> Interpreter:
         """
         Resolve the Interpreter used to run a task's command.
 
         Resolution order (highest to lowest precedence):
-        1. CLI --interpreter override (recipe.global_interpreter_override)
-        2. Task's explicit ``interpreter`` field
-        3. Runner's ``default_interpreter``
-        4. Bridge: derive from the runner's ``shell.cmd`` (backward compat)
-        5. Container default for Docker runners, host default otherwise
+        1. CLI --interpreter override (a name in the interpreters section)
+        2. Task's explicit ``interpreter`` (a name in the interpreters section)
+        3. The effective runner's ``interpreter``
+        4. The session/platform default interpreter
+
+        Both name-based overrides are validated to exist before execution (the
+        CLI value in execute_dynamic_task, the task value at parse time).
 
         Args:
         task: Task being executed
-        runner: Resolved Runner for this task (None for the platform default)
-        shell_config: ShellConfig used for execution (source of the bridge cmd)
 
         Returns:
         The Interpreter to invoke the task's temp script with
         """
         if self.recipe.global_interpreter_override:
-            return Interpreter.from_name(self.recipe.global_interpreter_override)
+            return self.recipe.interpreters[self.recipe.global_interpreter_override]
 
         if task.interpreter:
-            return Interpreter.from_name(task.interpreter)
+            return self.recipe.interpreters[task.interpreter]
 
-        if runner is not None and runner.default_interpreter:
-            return Interpreter.from_name(runner.default_interpreter)
-
-        if shell_config is not None and shell_config.cmd:
-            return Interpreter.from_shell_cmd(shell_config.cmd)
-
-        if runner is not None and runner.dockerfile:
-            return Interpreter.container_default()
-        return Interpreter.host_default()
-
-    def _resolve_interpreter_for_task(self, task: Task) -> Interpreter:
-        """
-        Resolve the Interpreter for a task using its effective runner.
-
-        Mirrors the execution paths' resolution so the hashed interpreter name
-        matches what will actually run the task. Docker runners have no shell,
-        so they pass no shell config and fall back to the container default.
-        """
         runner = self.recipe.get_runner(self._get_effective_runner_name(task))
+        if runner is not None and runner.interpreter is not None:
+            return runner.interpreter
+
+        # A Docker runner with no interpreter defaults to sh (always present in a
+        # container); host execution falls back to the session/platform default.
         if runner is not None and runner.dockerfile:
-            shell_config = None
-        else:
-            shell_config = self._resolve_runner(task)
-        return self._resolve_interpreter(task, runner, shell_config)
+            return container_default_interpreter()
+
+        return self.get_session_default_runner().interpreter or platform_default_interpreter()
+
+    @staticmethod
+    def _interpreter_identity(interpreter: Interpreter) -> str:
+        """A stable string identity for hashing (cmd + ext + preamble)."""
+        return f"{interpreter.cmd}\x00{interpreter.ext}\x00{interpreter.preamble}"
 
     def check_task_status(
         self,
@@ -623,7 +564,7 @@ class Executor:
             task.args,
             effective_env,
             task.deps,
-            self._resolve_interpreter_for_task(task).name,
+            self._interpreter_identity(self._resolve_interpreter(task)),
         )
         self.logger.trace(f"Task hash for '{task.name}': {task_hash}")
         args_hash = hash_args(args_dict) if args_dict else None
@@ -1117,26 +1058,16 @@ class Executor:
                 updated_chain,
             )
         else:
-            # Shell execution path - either local or inside existing container
-            if current_containerized_runner and env:
-                # Get shell config from task's runner definition
-                # env_name was already validated at lines 715-733 above
-                assert env is not None, "Runner should exist after validation"
-                shell_config = env.shell or ShellConfig(cmd=SHELL_LOOKUP["sh"])
-                runner = env
-            else:
-                # Normal shell resolution
-                shell_config = self._resolve_runner(task)
-                runner = self.recipe.get_runner(self._get_effective_runner_name(task))
-
-            interpreter = self._resolve_interpreter(task, runner, shell_config)
+            # Shell execution path - either local or inside an existing container.
+            # The interpreter (and its preamble) is resolved the same way in both
+            # cases; a nested-in-container task uses its runner's interpreter.
+            interpreter = self._resolve_interpreter(task)
 
             self._run_command_as_script(
                 cmd,
                 working_dir,
                 task.name,
                 interpreter,
-                shell_config.preamble,
                 process_runner,
                 exported_env_vars,
                 updated_chain,
@@ -1169,7 +1100,6 @@ class Executor:
         working_dir: Path,
         task_name: str,
         interpreter: Interpreter,
-        preamble: str,
         process_runner: ProcessRunner,
         exported_env_vars: dict[str, str] | None = None,
         call_chain: str | None = None,
@@ -1179,19 +1109,17 @@ class Executor:
 
         This method handles both single-line and multi-line commands by writing
         them to a temporary script file and executing the script. This provides
-        consistent behavior and allows preamble to work with all commands.
+        consistent behavior and applies the interpreter's preamble to all commands.
 
-        The interpreter's invocation list is prepended to the script path when
+        The interpreter's invocation is prepended to the script path when
         invoking the subprocess, e.g. ["python"] + ["/tmp/script"] →
-        ["python", "/tmp/script"]. This is interpreter-agnostic and works on
-        any platform.
+        ["python", "/tmp/script"], used verbatim on any platform.
 
         Args:
         cmd: Command string (single-line or multi-line)
         working_dir: Working directory
         task_name: Task name (for error messages)
         interpreter: Interpreter used to invoke the temp script
-        preamble: Preamble text to prepend to script
         process_runner: ProcessRunner instance to use for subprocess execution
         exported_env_vars: Exported arguments to set as environment variables
         call_chain: TT_CALL_CHAIN value for recursion detection
@@ -1202,14 +1130,17 @@ class Executor:
         # Prepare environment with exported args and call chain
         env = self._prepare_env_with_exports(exported_env_vars, call_chain)
 
-        # Determine script extension: load-bearing on Windows (cmd.exe needs .bat,
-        # PowerShell needs .ps1), empty for interpreters invoked explicitly.
-        script_ext = interpreter.host_script_extension()
-
         # Create temporary script using context manager — no shebang needed since
-        # the interpreter is passed explicitly in the subprocess call.
-        with TempScript(logger=self.logger, cmd=cmd, preamble=preamble, use_shebang=False, script_extension=script_ext) as script_path:
-            run_cmd = list(interpreter.invocation_cmd) + [str(script_path)]
+        # the interpreter is passed explicitly in the subprocess call. The script
+        # extension is the interpreter's literal ext (empty = no extension).
+        with TempScript(
+            logger=self.logger,
+            cmd=cmd,
+            preamble=interpreter.preamble,
+            interpreter=interpreter,
+            use_shebang=False,
+        ) as script_path:
+            run_cmd = interpreter.invocation + [str(script_path)]
 
             # Execute script file
             try:
@@ -1326,12 +1257,14 @@ class Executor:
         # Substitute in docker run args
         substituted_run_args = [subst(arg) for arg in env.args.run]
 
-        # Substitute in shell config (cmd items and preamble)
-        substituted_shell = None
-        if env.shell is not None:
-            substituted_cmd = [subst(item) for item in env.shell.cmd]
-            substituted_preamble = subst(env.shell.preamble) if env.shell.preamble else ""
-            substituted_shell = ShellConfig(cmd=substituted_cmd, preamble=substituted_preamble)
+        # Substitute in the interpreter (cmd and preamble)
+        substituted_interpreter = None
+        if env.interpreter is not None:
+            substituted_interpreter = replace(
+                env.interpreter,
+                cmd=subst(env.interpreter.cmd),
+                preamble=subst(env.interpreter.preamble) if env.interpreter.preamble else "",
+            )
 
         # Substitute in dockerfile (builtin vars first, then env vars)
         substituted_dockerfile = subst(env.dockerfile) if env.dockerfile else ""
@@ -1347,7 +1280,7 @@ class Executor:
             ports=substituted_ports,
             working_dir=substituted_working_dir,
             args=DockerArgs(build=substituted_build_args, run=substituted_run_args),
-            shell=substituted_shell,
+            interpreter=substituted_interpreter,
             dockerfile=substituted_dockerfile,
             context=substituted_context,
         )
@@ -1436,7 +1369,7 @@ class Executor:
                 working_dir=working_dir,
                 container_working_dir=container_working_dir,
                 process_runner=process_runner,
-                interpreter=self._resolve_interpreter_for_task(task),
+                interpreter=self._resolve_interpreter(task),
             )
         except docker_module.DockerError as e:
             raise ExecutionError(str(e)) from e
@@ -1952,7 +1885,7 @@ class Executor:
             task.args,
             effective_env,
             task.deps,
-            self._resolve_interpreter_for_task(task).name,
+            self._interpreter_identity(self._resolve_interpreter(task)),
         )
         args_hash = hash_args(args_dict) if args_dict else None
         return make_cache_key(task_hash, args_hash)

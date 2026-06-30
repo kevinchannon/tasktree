@@ -1,6 +1,6 @@
 runners:
   special:
-    shell:
+    interpreter:
       cmd: sh
 tasks:
   normal:

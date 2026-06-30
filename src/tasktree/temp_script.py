@@ -35,7 +35,7 @@ class TempScript:
     to execute. On Unix/macOS, the script is made executable.
 
     Usage:
-        with TempScript(logger=my_logger, cmd="echo hello", preamble="set -e", shell="bash") as script_path:
+        with TempScript(logger=my_logger, cmd="echo hello", preamble="set -e", interpreter=Interpreter(cmd="bash")) as script_path:
             # script_path is a Path object pointing to the temp script
             subprocess.run([str(script_path)], check=True)
         # Script is automatically cleaned up after the with block
@@ -47,7 +47,6 @@ class TempScript:
         logger: Logger,
         cmd: str,
         preamble: str = "",
-        shell: str = "bash",
         script_extension: str | None = None,
         use_shebang: bool | None = None,
         interpreter: Interpreter | None = None,
@@ -59,8 +58,6 @@ class TempScript:
             logger: Logger for debug/trace logging
             cmd: Command string to execute (can be multi-line)
             preamble: Optional preamble to prepend to command
-            shell: Shell to use for shebang (default: bash). Superseded by
-                   ``interpreter`` when that is provided.
             script_extension: Optional override for script file extension (e.g., ".sh", ".bat", ".ps1").
                             If None, derived from ``interpreter`` when provided, otherwise the platform.
             use_shebang: Optional override for whether to add shebang.
@@ -72,7 +69,6 @@ class TempScript:
         """
         self.cmd = cmd
         self.preamble = preamble
-        self.shell = interpreter.invocation_cmd[0] if interpreter is not None else shell
         self.logger = logger
         self.script_path: Path | None = None
         self.script_extension = script_extension
@@ -98,11 +94,11 @@ class TempScript:
 
         """
         # Determine file extension: explicit override first, then the
-        # interpreter's canonical extension, then the platform default.
+        # interpreter's extension, then the platform default.
         if self.script_extension is not None:
             script_ext = self.script_extension
         elif self.interpreter is not None:
-            script_ext = self.interpreter.script_extension
+            script_ext = self.interpreter.ext
         else:
             script_ext = ".bat" if _IS_WINDOWS else ".sh"
 
@@ -126,8 +122,13 @@ class TempScript:
             # Add shebang if enabled and not already present in command
             if should_use_shebang:
                 if not self.cmd.startswith("#!"):
-                    # Use the configured shell in shebang
-                    shebang = f"#!/usr/bin/env {self.shell}\n"
+                    # Derive the shebang interpreter from the configured interpreter.
+                    shebang_cmd = (
+                        self.interpreter.invocation[0]
+                        if self.interpreter is not None
+                        else "sh"
+                    )
+                    shebang = f"#!/usr/bin/env {shebang_cmd}\n"
                     script_file.write(shebang)
                     self.logger.debug(f"Added shebang: {shebang.strip()}")
 

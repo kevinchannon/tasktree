@@ -29,8 +29,16 @@
         "additionalProperties": false
       }
     },
+    "interpreters": {
+      "description": "Named interpreter definitions, referenced from runners via {use: name}",
+      "type": "object",
+      "patternProperties": {
+        "^[^.]+$": { "$ref": "#/$defs/interpreterDef" }
+      },
+      "additionalProperties": false
+    },
     "runners": {
-      "description": "Shell execution runner configurations",
+      "description": "Execution runner configurations",
       "type": "object",
       "properties": {
         "default": {
@@ -43,44 +51,20 @@
           "description": "Runner name (dots not allowed in local definitions but will be present in imported runners due to namespace prefixing)",
           "type": "object",
           "properties": {
-            "shell": {
-              "description": "Shell configuration. A bare string name (e.g. 'bash') is looked up in the built-in table; a dict accepts 'cmd' (string or list) and optional 'preamble'.",
+            "interpreter": {
+              "description": "Interpreter used to run tasks in this runner. Either an inline definition ({cmd, ext?, preamble?}) or a reference to a named interpreter ({use: name}).",
               "oneOf": [
                 {
-                  "type": "string",
-                  "description": "Known shell name (bash, sh, zsh, fish, cmd.exe, powershell)"
-                },
-                {
                   "type": "object",
+                  "description": "Reference to an interpreter from the top-level 'interpreters' section",
                   "properties": {
-                    "cmd": {
-                      "description": "Shell executable and invocation arguments",
-                      "oneOf": [
-                        {
-                          "type": "string",
-                          "description": "Known shell name looked up in built-in table"
-                        },
-                        {
-                          "type": "array",
-                          "items": { "type": "string" },
-                          "description": "Shell and arguments as a list, used verbatim"
-                        }
-                      ]
-                    },
-                    "preamble": {
-                      "type": "string",
-                      "description": "Code prepended to every task body run in this shell"
-                    }
+                    "use": { "type": "string" }
                   },
-                  "required": ["cmd"],
+                  "required": ["use"],
                   "additionalProperties": false
-                }
+                },
+                { "$ref": "#/$defs/interpreterDef" }
               ]
-            },
-            "interpreter": {
-              "type": "string",
-              "enum": ["bash", "sh", "zsh", "fish", "cmd.exe", "powershell", "pwsh", "python", "python3"],
-              "description": "Default interpreter used to run tasks in this runner, unless a task overrides it"
             },
             "args": {
               "description": "Docker build and run arguments",
@@ -150,9 +134,6 @@
               { "not": { "required": ["run_as_root"] } },
               { "not": { "required": ["args"] } }
             ]
-          },
-          "else": {
-            "not": { "required": ["shell"] }
           },
           "additionalProperties": false
         }
@@ -403,8 +384,7 @@
             },
             "interpreter": {
               "type": "string",
-              "enum": ["bash", "sh", "zsh", "fish", "cmd.exe", "powershell", "pwsh", "python", "python3"],
-              "description": "Interpreter used to run this task's command (overrides the runner default and shell-derived interpreter)"
+              "description": "Name of an interpreter from the top-level 'interpreters' section, used to run this task's command (overrides the runner's interpreter)"
             },
             "pin_runner": {
               "type": "boolean",
@@ -439,6 +419,30 @@
     { "required": ["tasks"] },
     { "required": ["imports"] },
     { "required": ["runners"] },
+    { "required": ["interpreters"] },
     { "required": ["variables"] }
-  ]
+  ],
+  "$defs": {
+    "interpreterDef": {
+      "type": "object",
+      "description": "Inline interpreter definition",
+      "properties": {
+        "cmd": {
+          "type": "string",
+          "description": "Command used to invoke the interpreter, tokenised (shlex) and used verbatim before the script path"
+        },
+        "ext": {
+          "type": "string",
+          "pattern": "^(\\.[^.].*|\\..)?$",
+          "description": "Temp-script file extension. Empty/absent means no extension; otherwise it must start with a dot (e.g. '.bat', '.ps1')"
+        },
+        "preamble": {
+          "type": "string",
+          "description": "Text prepended to every task body run by this interpreter"
+        }
+      },
+      "required": ["cmd"],
+      "additionalProperties": false
+    }
+  }
 }

@@ -3,7 +3,7 @@ variables:
 
 runners:
   shell:
-    shell:
+    interpreter:
       cmd: sh
 
 tasks:

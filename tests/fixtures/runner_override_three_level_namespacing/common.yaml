@@ -1,6 +1,6 @@
 runners:
   util_runner:
-    shell:
+    interpreter:
       cmd: sh
 tasks:
   helper:

@@ -11,7 +11,8 @@ from helpers.logging import logger_stub
 import tasktree.docker as docker_module
 from tasktree.executor import Executor
 from tasktree.hasher import hash_runner_definition
-from tasktree.parser import DockerArgs, Runner, Recipe, ShellConfig, Task
+from tasktree.parser import DockerArgs, Runner, Recipe, Task
+from tasktree.interpreter import Interpreter
 from tasktree.process_runner import TaskOutputTypes, make_process_runner
 from tasktree.state import StateManager, TaskState
 
@@ -28,7 +29,7 @@ class TestHashRunnerDefinition(unittest.TestCase):
 
         runner = Runner(
             name="test",
-            shell=ShellConfig(cmd=["bash", "-c"], preamble="set -e"),
+            interpreter=Interpreter(cmd="bash", preamble="set -e"),
         )
 
         hash1 = hash_runner_definition(runner)
@@ -44,11 +45,11 @@ class TestHashRunnerDefinition(unittest.TestCase):
 
         runner1 = Runner(
             name="test",
-            shell=ShellConfig(cmd=["bash", "-c"]),
+            interpreter=Interpreter(cmd="bash"),
         )
         runner2 = Runner(
             name="test",
-            shell=ShellConfig(cmd=["zsh", "-c"]),
+            interpreter=Interpreter(cmd="zsh"),
         )
 
         hash1 = hash_runner_definition(runner1)
@@ -86,11 +87,11 @@ class TestHashRunnerDefinition(unittest.TestCase):
 
         runner1 = Runner(
             name="test",
-            shell=ShellConfig(cmd=["bash", "-c"], preamble=""),
+            interpreter=Interpreter(cmd="bash", preamble=""),
         )
         runner2 = Runner(
             name="test",
-            shell=ShellConfig(cmd=["bash", "-c"], preamble="set -e"),
+            interpreter=Interpreter(cmd="bash", preamble="set -e"),
         )
 
         hash1 = hash_runner_definition(runner1)
@@ -156,7 +157,7 @@ class TestCheckRunnerChanged(unittest.TestCase):
         self.project_root = Path("/tmp/test")
         self.runner = Runner(
             name="test",
-            shell=ShellConfig(cmd=["bash", "-c"]),
+            interpreter=Interpreter(cmd="bash"),
         )
         self.recipe = Recipe(
             tasks={},
@@ -232,14 +233,14 @@ class TestCheckRunnerChanged(unittest.TestCase):
         task = Task(name="test", cmd="echo test", run_in="test")
 
         # Store old hash
-        old_runner = Runner(name="test", shell=ShellConfig(cmd=["bash", "-c"]))
+        old_runner = Runner(name="test", interpreter=Interpreter(cmd="bash"))
         old_hash = hash_runner_definition(old_runner)
         cached_state = TaskState(
             last_run=123.0, input_state={"_runner_hash_test": old_hash}
         )
 
         # Recipe now has modified runner
-        self.recipe.runners["test"] = Runner(name="test", shell=ShellConfig(cmd=["zsh", "-c"]))
+        self.recipe.runners["test"] = Runner(name="test", interpreter=Interpreter(cmd="zsh"))
 
         result = self.executor._check_runner_changed(
             task,

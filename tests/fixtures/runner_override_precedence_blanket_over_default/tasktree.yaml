@@ -1,10 +1,10 @@
 runners:
   default: default_runner
   default_runner:
-    shell:
+    interpreter:
       cmd: bash
   blanket_runner:
-    shell:
+    interpreter:
       cmd: sh
 imports:
   - file: build.yaml

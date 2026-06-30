@@ -1,6 +1,6 @@
 runners:
   docker:
-    shell:
+    interpreter:
       cmd: bash
 imports:
   - file: build.yaml

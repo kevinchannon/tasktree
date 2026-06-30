@@ -114,7 +114,8 @@ runners:
   docker-env:
     dockerfile: Dockerfile
     context: .
-    interpreter: bash
+    interpreter:
+      cmd: bash
     volumes:
       - ".:/workspace"
       - "{src_dir}:/app/src:ro"

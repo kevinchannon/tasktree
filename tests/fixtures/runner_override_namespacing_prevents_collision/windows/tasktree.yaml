@@ -1,7 +1,8 @@
 runners:
   docker:
-    shell:
-      cmd: [cmd.exe, /c]
+    interpreter:
+      cmd: cmd.exe
+      ext: .bat
 imports:
   - file: build.yaml
     as: build

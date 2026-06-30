@@ -12,7 +12,7 @@ from tasktree.docker import (
     resolve_container_working_dir,
 )
 from tasktree.interpreter import Interpreter
-from tasktree.parser import DockerArgs, Runner, ShellConfig
+from tasktree.parser import DockerArgs, Runner
 from tasktree.process_runner import TaskOutputTypes, make_process_runner
 
 
@@ -38,7 +38,7 @@ class TestIsDockerRunner(unittest.TestCase):
         """
         runner = Runner(
             name="bash",
-            shell=ShellConfig(cmd=["bash", "-c"]),
+            interpreter=Interpreter(cmd="bash -c"),
         )
         self.assertFalse(is_docker_runner(runner))
 
@@ -48,12 +48,12 @@ class TestIsDockerRunner(unittest.TestCase):
         """
         runner = Runner(
             name="bash",
-            shell=ShellConfig(cmd=["bash", "-c", "-e"]),
+            interpreter=Interpreter(cmd="bash -c -e"),
         )
 
         # Verify it's recognized as a shell runner (not Docker)
         self.assertFalse(is_docker_runner(runner))
-        self.assertEqual(runner.shell.cmd, ["bash", "-c", "-e"])
+        self.assertEqual(runner.interpreter.cmd, "bash -c -e")
 
     def test_docker_runner_with_build_args(self):
         """
@@ -351,7 +351,7 @@ class TestDockerManager(unittest.TestCase):
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
-            shell=ShellConfig(cmd=["sh", "-c"]),
+            interpreter=Interpreter(cmd="sh -c"),
         )
 
         # Mock docker --version, docker build, docker inspect, and docker run
@@ -372,7 +372,7 @@ class TestDockerManager(unittest.TestCase):
             working_dir=Path("/fake/project"),
             container_working_dir="/workspace",
             process_runner=process_runner,
-            interpreter=Interpreter.container_default(),
+            interpreter=Interpreter(cmd="sh"),
         )
 
         # Find the docker run call (should be the 4th call: docker --version, build, inspect, run)
@@ -398,7 +398,7 @@ class TestDockerManager(unittest.TestCase):
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
-            shell=ShellConfig(cmd=["sh", "-c"]),
+            interpreter=Interpreter(cmd="sh -c"),
         )
 
         def mock_run_side_effect(*args, **_kwargs):
@@ -418,7 +418,7 @@ class TestDockerManager(unittest.TestCase):
             working_dir=Path("/fake/project"),
             container_working_dir="/workspace",
             process_runner=process_runner,
-            interpreter=Interpreter.container_default(),
+            interpreter=Interpreter(cmd="sh"),
         )
 
         run_call_args = mock_run.call_args_list[3][0][0]
@@ -463,7 +463,7 @@ class TestDockerManager(unittest.TestCase):
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
-            shell=ShellConfig(cmd=["sh", "-c"]),
+            interpreter=Interpreter(cmd="sh -c"),
         )
 
         # Isolate the capture command from the build path.
@@ -504,7 +504,7 @@ class TestDockerManager(unittest.TestCase):
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
-            shell=ShellConfig(cmd=["sh", "-c"]),
+            interpreter=Interpreter(cmd="sh -c"),
             # User maps the project root at its own path explicitly.
             volumes=[f"{self.project_root}:{self.project_root}"],
         )
@@ -526,7 +526,7 @@ class TestDockerManager(unittest.TestCase):
             working_dir=Path("/fake/project"),
             container_working_dir="/workspace",
             process_runner=process_runner,
-            interpreter=Interpreter.container_default(),
+            interpreter=Interpreter(cmd="sh"),
         )
 
         run_call_args = mock_run.call_args_list[3][0][0]
@@ -551,7 +551,7 @@ class TestDockerManager(unittest.TestCase):
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
-            shell=ShellConfig(cmd=["sh", "-c"]),
+            interpreter=Interpreter(cmd="sh -c"),
         )
 
         # Mock docker --version, docker build, docker inspect, and docker run
@@ -572,7 +572,7 @@ class TestDockerManager(unittest.TestCase):
             working_dir=Path("/fake/project"),
             container_working_dir="/workspace",
             process_runner=process_runner,
-            interpreter=Interpreter.container_default(),
+            interpreter=Interpreter(cmd="sh"),
         )
 
         # Find the docker run call (should be the 4th call)
@@ -588,8 +588,8 @@ class TestDockerManager(unittest.TestCase):
         for i, arg in enumerate(run_call_args):
             if arg == "-v" and i + 1 < len(run_call_args):
                 mount = run_call_args[i + 1]
-                # Check for pattern: something:/tmp/tt-script-{uuid}.sh:ro
-                if ":/tmp/tt-script-" in mount and ".sh:ro" in mount:
+                # The 'sh' interpreter has no ext, so the script has no extension.
+                if ":/tmp/tt-script-" in mount and mount.endswith(":ro"):
                     found_script_mount = True
                     break
 
@@ -607,7 +607,7 @@ class TestDockerManager(unittest.TestCase):
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
-            shell=ShellConfig(cmd=["bash", "-c"]),
+            interpreter=Interpreter(cmd="bash -c"),
         )
 
         # Mock docker --version, docker build, docker inspect, and docker run
@@ -628,7 +628,7 @@ class TestDockerManager(unittest.TestCase):
             working_dir=Path("/fake/project"),
             container_working_dir="/workspace",
             process_runner=process_runner,
-            interpreter=Interpreter.container_default(),
+            interpreter=Interpreter(cmd="sh"),
         )
 
         # Find the docker run call (should be the 4th call)
@@ -637,10 +637,10 @@ class TestDockerManager(unittest.TestCase):
         # Verify -c flag is NOT present
         self.assertNotIn("-c", run_call_args)
 
-        # Verify script path is present as last argument with pattern /tmp/tt-script-{uuid}.sh
+        # Verify script path is present as the last argument. The 'sh' interpreter
+        # has no ext, so the script has no extension.
         last_arg = run_call_args[-1]
         self.assertTrue(last_arg.startswith("/tmp/tt-script-"), f"Expected script path to start with /tmp/tt-script-, got {last_arg}")
-        self.assertTrue(last_arg.endswith(".sh"), f"Expected script path to end with .sh, got {last_arg}")
 
     @patch("tasktree.docker.subprocess.run")
     @patch("tasktree.docker.platform.system")
@@ -654,7 +654,7 @@ class TestDockerManager(unittest.TestCase):
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
-            shell=ShellConfig(cmd=["sh", "-c"]),
+            interpreter=Interpreter(cmd="sh -c"),
         )
 
         # Mock docker --version, docker build, docker inspect, and docker run
@@ -675,7 +675,7 @@ class TestDockerManager(unittest.TestCase):
             working_dir=Path("/fake/project"),
             container_working_dir="/workspace",
             process_runner=process_runner,
-            interpreter=Interpreter.container_default(),
+            interpreter=Interpreter(cmd="sh"),
         )
 
         # Find the docker run call (should be the 4th call)
@@ -702,7 +702,7 @@ class TestDockerManager(unittest.TestCase):
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
-            shell=ShellConfig(cmd=["sh", "-c"]),
+            interpreter=Interpreter(cmd="sh -c"),
             run_as_root=True,  # Explicitly request root
         )
 
@@ -724,7 +724,7 @@ class TestDockerManager(unittest.TestCase):
             working_dir=Path("/fake/project"),
             container_working_dir="/workspace",
             process_runner=process_runner,
-            interpreter=Interpreter.container_default(),
+            interpreter=Interpreter(cmd="sh"),
         )
 
         # Find the docker run call (should be the 4th call)
@@ -745,7 +745,7 @@ class TestDockerManager(unittest.TestCase):
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
-            shell=ShellConfig(cmd=["sh", "-c"]),
+            interpreter=Interpreter(cmd="sh -c"),
             args=DockerArgs(run=["--memory=512m", "--cpus=1", "--network=host"]),
         )
 
@@ -767,7 +767,7 @@ class TestDockerManager(unittest.TestCase):
             working_dir=Path("/fake/project"),
             container_working_dir="/workspace",
             process_runner=process_runner,
-            interpreter=Interpreter.container_default(),
+            interpreter=Interpreter(cmd="sh"),
         )
 
         # Find the docker run call (should be the 4th call)
@@ -802,7 +802,7 @@ class TestDockerManager(unittest.TestCase):
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
-            shell=ShellConfig(cmd=["sh", "-c"]),
+            interpreter=Interpreter(cmd="sh -c"),
         )
 
         # Mock docker --version, docker build, docker inspect, and docker run
@@ -823,7 +823,7 @@ class TestDockerManager(unittest.TestCase):
             working_dir=Path("/fake/project"),
             container_working_dir="/workspace",
             process_runner=process_runner,
-            interpreter=Interpreter.container_default(),
+            interpreter=Interpreter(cmd="sh"),
         )
 
         # Should succeed without errors
@@ -854,7 +854,7 @@ class TestDockerManager(unittest.TestCase):
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
-            shell=ShellConfig(cmd=["sh", "-c"]),
+            interpreter=Interpreter(cmd="sh -c"),
             volumes=["/fake/project:/workspace"],  # Already substituted
         )
 
@@ -876,7 +876,7 @@ class TestDockerManager(unittest.TestCase):
             working_dir=Path("/fake/project"),
             container_working_dir="/workspace",
             process_runner=process_runner,
-            interpreter=Interpreter.container_default(),
+            interpreter=Interpreter(cmd="sh"),
         )
 
         # Find the docker run call (should be the 4th call)
@@ -911,7 +911,7 @@ class TestDockerManager(unittest.TestCase):
             name="builder",
             dockerfile="./Dockerfile.windows",
             context=".",
-            shell=ShellConfig(cmd=["cmd.exe", "/c"]),
+            interpreter=Interpreter(cmd="cmd.exe /c"),
         )
 
         # Mock docker --version, docker build, docker inspect, and docker run
@@ -932,7 +932,7 @@ class TestDockerManager(unittest.TestCase):
             working_dir=Path("/fake/project"),
             container_working_dir="C:\\workspace",
             process_runner=process_runner,
-            interpreter=Interpreter.from_name("cmd.exe"),
+            interpreter=Interpreter(cmd="cmd.exe", ext=".bat"),
         )
 
         # Find the docker run call
@@ -957,7 +957,7 @@ class TestDockerManager(unittest.TestCase):
             name="builder",
             dockerfile="./Dockerfile.windows",
             context=".",
-            shell=ShellConfig(cmd=["powershell", "-Command"]),
+            interpreter=Interpreter(cmd="powershell -Command"),
         )
 
         # Mock docker --version, docker build, docker inspect, and docker run
@@ -978,7 +978,7 @@ class TestDockerManager(unittest.TestCase):
             working_dir=Path("/fake/project"),
             container_working_dir="C:\\workspace",
             process_runner=process_runner,
-            interpreter=Interpreter.from_name("powershell"),
+            interpreter=Interpreter(cmd="powershell -ExecutionPolicy Bypass -File", ext=".ps1"),
         )
 
         # Find the docker run call
@@ -1088,7 +1088,7 @@ class TestDockerManager(unittest.TestCase):
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
-            shell=ShellConfig(cmd=["bash", "-c"]),
+            interpreter=Interpreter(cmd="bash -c"),
         )
 
         # Mock docker --version, docker build, docker inspect
@@ -1114,7 +1114,7 @@ class TestDockerManager(unittest.TestCase):
                 working_dir=Path("/fake/project"),
                 container_working_dir="/workspace",
                 process_runner=process_runner,
-                interpreter=Interpreter.container_default(),
+                interpreter=Interpreter(cmd="sh"),
             )
 
         # Verify error message mentions script creation
@@ -1134,7 +1134,7 @@ class TestDockerManager(unittest.TestCase):
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
-            shell=ShellConfig(cmd=["bash", "-c"]),
+            interpreter=Interpreter(cmd="bash -c"),
         )
 
         # Mock docker --version, docker build, docker inspect, and failing docker run
@@ -1164,7 +1164,7 @@ class TestDockerManager(unittest.TestCase):
                 working_dir=Path("/fake/project"),
                 container_working_dir="/workspace",
                 process_runner=process_runner,
-                interpreter=Interpreter.container_default(),
+                interpreter=Interpreter(cmd="sh"),
             )
 
         # Verify error message mentions container execution

@@ -169,25 +169,23 @@ class DockerManager:
         # Ensure image is built (returns tag and ID)
         image_tag, image_id = self.ensure_image_built(env, process_runner)
 
-        # Script extension comes from the interpreter: .sh for Unix shells,
-        # .bat/.ps1 for Windows shells (which dispatch by extension).
-        script_ext = interpreter.script_extension
+        # Script extension comes verbatim from the interpreter (empty = none).
+        script_ext = interpreter.ext
 
         # Generate unique container script path to avoid collisions between concurrent executions
         script_id = uuid.uuid4()
         script_filename = f"tt-script-{script_id}{script_ext}"
         container_script_path = f"/tmp/{script_filename}"
 
-        # Create temp script on host with the command, then mount into container.
-        # The script extension is determined by the container interpreter, not the
-        # host platform (e.g., Windows containers use .bat even on Linux hosts).
-        # No shebang: the interpreter is invoked explicitly below.
+        # Create temp script on host with the interpreter's preamble + command,
+        # then mount into container. The extension is the interpreter's literal ext,
+        # not the host platform. No shebang: the interpreter is invoked explicitly.
         try:
             with TempScript(
                 logger=self._logger,
                 cmd=cmd,
+                preamble=interpreter.preamble,
                 interpreter=interpreter,
-                script_extension=script_ext,
                 use_shebang=False,
             ) as script_path:
                 # Build docker run command from the shared flags (user mapping,
@@ -204,12 +202,8 @@ class DockerManager:
                 # Add image tag
                 docker_cmd.append(image_tag)
 
-                # Execute the script directly with the interpreter's invocation
-                # (no inline flags like -c; those are for inline commands, not
-                # script-file execution).
-                docker_cmd.extend(
-                    list(interpreter.invocation_cmd) + [container_script_path]
-                )
+                # Execute the script with the interpreter's invocation, used verbatim.
+                docker_cmd.extend(interpreter.invocation + [container_script_path])
 
                 # Execute
                 try:

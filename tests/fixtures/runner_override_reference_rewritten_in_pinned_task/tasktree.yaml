@@ -1,6 +1,7 @@
 runners:
-  default:
-    shell:
+  default: local
+  local:
+    interpreter:
       cmd: bash
 imports:
   - file: build.yaml

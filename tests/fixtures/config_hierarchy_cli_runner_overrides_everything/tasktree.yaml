@@ -1,18 +1,18 @@
 runners:
   default: recipe-default
   recipe-default:
-    shell:
-      cmd: [bash]
+    interpreter:
+      cmd: bash
       preamble: echo "RECIPE DEFAULT"
 
   task-specific:
-    shell:
-      cmd: [bash]
+    interpreter:
+      cmd: bash
       preamble: echo "TASK SPECIFIC"
 
   cli-override:
-    shell:
-      cmd: [bash]
+    interpreter:
+      cmd: bash
       preamble: echo "CLI OVERRIDE"
 
 tasks:
