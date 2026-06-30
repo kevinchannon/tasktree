@@ -47,7 +47,7 @@ def platform_default_interpreter() -> Interpreter:
     input — it only backs bare tasks that declare no runner/interpreter.
     """
     if platform.system() == "Windows":
-        return Interpreter(cmd="cmd.exe", ext=".bat")
+        return Interpreter(cmd="cmd.exe /c", ext=".bat")
     return Interpreter(cmd="bash")
 
 

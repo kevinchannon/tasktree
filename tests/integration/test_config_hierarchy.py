@@ -27,7 +27,7 @@ from fixture_utils import copy_fixture_files
 def _make_runner_config(preamble: str) -> str:
     """Return a minimal runner config YAML for the current platform."""
     if sys.platform == "win32":
-        return f"runners:\n  default:\n    interpreter:\n      cmd: cmd.exe\n      ext: .bat\n      preamble: echo {preamble}\n"
+        return f"runners:\n  default:\n    interpreter:\n      cmd: cmd.exe /c\n      ext: .bat\n      preamble: echo {preamble}\n"
     return f'runners:\n  default:\n    interpreter:\n      cmd: bash\n      preamble: echo "{preamble}"\n'
 
 

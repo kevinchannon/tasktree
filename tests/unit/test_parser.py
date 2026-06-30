@@ -1562,7 +1562,7 @@ imports:
             (Path(tmpdir) / "build.yaml").write_text(
                 "runners:\n"
                 "  runner_a:\n"
-                "    shell:\n      cmd: sh\n"
+                "    interpreter:\n      cmd: sh\n"
                 "  runner_b:\n"
                 "    interpreter:\n      cmd: bash\n"
                 "tasks:\n"
@@ -1600,7 +1600,7 @@ imports:
             (Path(tmpdir) / "common.yaml").write_text(
                 "runners:\n"
                 "  shell:\n"
-                "    shell:\n      cmd: sh\n"
+                "    interpreter:\n      cmd: sh\n"
                 "tasks:\n"
                 "  util:\n"
                 "    cmd: echo common\n"
@@ -2273,7 +2273,7 @@ imports:
             recipe_path.write_text("""
 runners:
   bash-strict:
-    shell:
+    interpreter:
       cmd: bash
 """)
 
@@ -2701,13 +2701,13 @@ class TestRunnerNameValidation(unittest.TestCase):
             recipe_path.write_text("""
 runners:
   my-env:
-    shell:
+    interpreter:
       cmd: bash
   docker_python:
-    shell:
+    interpreter:
       cmd: sh
   ENV123:
-    shell:
+    interpreter:
       cmd: zsh
 
 tasks:
@@ -2729,10 +2729,10 @@ tasks:
             recipe_path.write_text("""
 runners:
   🚀:
-    shell:
+    interpreter:
       cmd: bash
   環境:
-    shell:
+    interpreter:
       cmd: sh
 
 tasks:
@@ -2754,10 +2754,10 @@ tasks:
             recipe_path.write_text("""
 runners:
   bad.runner:
-    shell:
+    interpreter:
       cmd: bash
   good_runner:
-    shell:
+    interpreter:
       cmd: sh
 
 tasks:
@@ -2815,7 +2815,7 @@ tasks:
             recipe_path.write_text("""
 runners:
   bad.runner:
-    shell:
+    interpreter:
       cmd: bash
 
 tasks:
@@ -2856,7 +2856,7 @@ tasks:
             recipe_path.write_text("""
 runners:
   my-runner:
-    shell:
+    interpreter:
       cmd: bash
 
 tasks:
@@ -2878,7 +2878,7 @@ tasks:
             recipe_path.write_text("""
 runners:
   my-runner:
-    shell:
+    interpreter:
       cmd: bash
 
 tasks:
@@ -3553,19 +3553,19 @@ tasks:
         """
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
-            # Use a platform-appropriate shell to test that default_runner is respected
+            # Use a platform-appropriate interpreter to test default_runner is respected
             if platform.system() == "Windows":
                 runner_name = "cmd-env"
-                shell_cmd = "cmd.exe"
+                interp_yaml = "      cmd: cmd.exe /c\n      ext: .bat"
             else:
                 runner_name = "bash-env"
-                shell_cmd = "bash"
+                interp_yaml = "      cmd: bash"
             recipe_path.write_text(f"""
 runners:
   default: {runner_name}
   {runner_name}:
-    shell:
-      cmd: {shell_cmd}
+    interpreter:
+{interp_yaml}
 
 variables:
   result: {{ eval: "echo test" }}
@@ -4764,7 +4764,7 @@ tasks:
             recipe_path.write_text("""
 runners:
   docker:
-    shell:
+    interpreter:
       cmd: bash
 
 imports:
@@ -4810,7 +4810,7 @@ tasks:
             level1_path.write_text("""
 runners:
   level1_runner:
-    shell:
+    interpreter:
       cmd: bash
 
 imports:
@@ -4827,10 +4827,10 @@ tasks:
             recipe_path.write_text("""
 runners:
   root_runner:
-    shell:
+    interpreter:
       cmd: bash
   level1_runner:
-    shell:
+    interpreter:
       cmd: bash
 
 imports:

@@ -2,19 +2,19 @@ runners:
   default: recipe-default
   recipe-default:
     interpreter:
-      cmd: cmd.exe
+      cmd: cmd.exe /c
       ext: .bat
       preamble: echo RECIPE DEFAULT
 
   task-specific:
     interpreter:
-      cmd: cmd.exe
+      cmd: cmd.exe /c
       ext: .bat
       preamble: echo TASK SPECIFIC
 
   cli-override:
     interpreter:
-      cmd: cmd.exe
+      cmd: cmd.exe /c
       ext: .bat
       preamble: echo CLI OVERRIDE
 

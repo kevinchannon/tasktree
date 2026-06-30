@@ -1635,7 +1635,7 @@ class TestRunnerResolution(unittest.TestCase):
             executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
 
             interp = executor._resolve_interpreter(tasks["build"])
-            self.assertEqual(interp.cmd, "cmd.exe")
+            self.assertEqual(interp.cmd, "cmd.exe /c")
             self.assertEqual(interp.ext, ".bat")
 
     def test_task_execution_uses_custom_shell(self):
@@ -2134,7 +2134,7 @@ class TestGetSessionDefaultRunner(unittest.TestCase):
             runner = executor.get_session_default_runner()
 
             self.assertEqual(runner.name, "__platform_default__")
-            self.assertEqual(runner.interpreter.cmd, "cmd.exe")
+            self.assertEqual(runner.interpreter.cmd, "cmd.exe /c")
             self.assertEqual(runner.interpreter.preamble, "")
 
     @patch("platform.system")

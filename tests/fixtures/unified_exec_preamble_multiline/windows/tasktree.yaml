@@ -1,7 +1,7 @@
 runners:
   strict:
     interpreter:
-      cmd: cmd.exe
+      cmd: cmd.exe /c
       ext: .bat
       preamble: |
         set MY_VAR=preamble_value

@@ -2,7 +2,7 @@ runners:
   default: custom
   custom:
     interpreter:
-      cmd: cmd.exe
+      cmd: cmd.exe /c
       ext: .bat
       preamble: echo RECIPE DEFAULT
 
