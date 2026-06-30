@@ -1731,8 +1731,13 @@ def _evaluate_variable_subset(
     return resolved
 
 
-def _parse_inline_interpreter(value: dict[str, Any], context: str) -> Interpreter:
-    """Parse an inline interpreter definition: {cmd, ext?, preamble?}."""
+def _parse_inline_interpreter(value: str | dict[str, Any], context: str) -> Interpreter:
+    """Parse an inline interpreter definition: {cmd, ext?, preamble?}.
+
+    A bare string is shorthand for ``{cmd: <string>}``.
+    """
+    if isinstance(value, str):
+        value = {"cmd": value}
     allowed = {"cmd", "ext", "preamble"}
     unknown = set(value) - allowed
     if unknown:

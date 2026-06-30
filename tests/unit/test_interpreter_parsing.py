@@ -17,6 +17,14 @@ class TestParseInlineInterpreter(unittest.TestCase):
         interp = _parse_inline_interpreter({"cmd": "bash"}, "ctx")
         self.assertEqual(interp, Interpreter(cmd="bash"))
 
+    def test_string_shorthand(self):
+        interp = _parse_inline_interpreter("bash", "ctx")
+        self.assertEqual(interp, Interpreter(cmd="bash"))
+
+    def test_empty_string_shorthand_raises(self):
+        with self.assertRaises(ValueError):
+            _parse_inline_interpreter("", "ctx")
+
     def test_cmd_ext_preamble(self):
         interp = _parse_inline_interpreter(
             {"cmd": "cmd.exe", "ext": ".bat", "preamble": "@echo off"}, "ctx"
