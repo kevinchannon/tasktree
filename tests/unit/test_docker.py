@@ -903,7 +903,7 @@ class TestDockerManager(unittest.TestCase):
     @patch("tasktree.docker.os.getgid", create=True, return_value=1000)
     def test_run_in_container_with_windows_shell(self, mock_getgid, mock_getuid, mock_platform, mock_run):
         """
-        Test that Windows shells (cmd.exe) use appropriate script extension and no shebang.
+        Test that Windows shells (cmd.exe) use appropriate script extension (.bat).
         """
         mock_platform.return_value = "Linux"  # Host platform (doesn't matter for container)
 

@@ -519,8 +519,39 @@ class TestResolveInterpreter(unittest.TestCase):
         self.assertEqual(ex._resolve_interpreter(task), container_default_interpreter())
 
 
+class TestExtractShebangInterpreter(unittest.TestCase):
+    """Tests for the _extract_shebang_interpreter helper."""
+
+    def _extract(self, line: str) -> str:
+        from tasktree.executor import _extract_shebang_interpreter
+        return _extract_shebang_interpreter(line)
+
+    def test_env_form(self):
+        self.assertEqual(self._extract("#!/usr/bin/env bash"), "bash")
+
+    def test_env_form_python(self):
+        self.assertEqual(self._extract("#!/usr/bin/env python3"), "python3")
+
+    def test_direct_path_form(self):
+        self.assertEqual(self._extract("#!/bin/bash"), "bash")
+
+    def test_direct_path_usr(self):
+        self.assertEqual(self._extract("#!/usr/bin/python3"), "python3")
+
+    def test_empty_shebang(self):
+        self.assertIsNone(self._extract("#!"))
+
+    def test_env_with_split_string_flag(self):
+        """env -S passes a multi-arg shebang; the interpreter follows the flag."""
+        self.assertEqual(self._extract("#!/usr/bin/env -S python3"), "python3")
+
+    def test_env_without_interpreter(self):
+        """A bare env shebang has no deducible interpreter."""
+        self.assertIsNone(self._extract("#!/usr/bin/env"))
+
+
 class TestShebangWarning(unittest.TestCase):
-    """Tests for the shebang-in-cmd warning (issue #201, step 9)."""
+    """Tests for the shebang-in-cmd warning."""
 
     def _make_executor_with_logger(self):
         tmp = TemporaryDirectory()
@@ -535,21 +566,62 @@ class TestShebangWarning(unittest.TestCase):
         ex = Executor(recipe, StateManager(project_root), logger, make_process_runner)
         return ex, logger
 
-    def test_shebang_cmd_warns_via_logger(self):
+    @unittest.skipIf(platform.system() == "Windows", "Unix-only: mismatch warning test")
+    def test_shebang_mismatch_warns(self):
+        """Shebang specifying a different interpreter than the task runner triggers a warning."""
         ex, logger = self._make_executor_with_logger()
-        ex._warn_if_cmd_has_shebang("#!/usr/bin/env python3\nprint('hi')")
+        ex._warn_if_cmd_has_shebang(
+            "#!/usr/bin/env python3\nprint('hi')", Interpreter(cmd="sh")
+        )
         logger.warn.assert_called_once()
         self.assertIn("Shebang", logger.warn.call_args[0][0])
 
-    def test_leading_whitespace_shebang_warns(self):
+    @unittest.skipIf(platform.system() == "Windows", "Unix-only: match no-warning test")
+    def test_shebang_matches_interpreter_does_not_warn(self):
+        """Shebang that matches the actual interpreter should not produce a warning."""
         ex, logger = self._make_executor_with_logger()
-        ex._warn_if_cmd_has_shebang("\n  #!/bin/bash\necho hi")
+        ex._warn_if_cmd_has_shebang(
+            "#!/usr/bin/env bash\necho hi", Interpreter(cmd="bash")
+        )
+        logger.warn.assert_not_called()
+
+    @unittest.skipIf(platform.system() == "Windows", "Unix-only: leading whitespace test")
+    def test_leading_whitespace_shebang_mismatch_warns(self):
+        """Leading whitespace before the shebang still triggers a mismatch warning."""
+        ex, logger = self._make_executor_with_logger()
+        ex._warn_if_cmd_has_shebang("\n  #!/bin/bash\necho hi", Interpreter(cmd="sh"))
         logger.warn.assert_called_once()
+
+    @unittest.skipIf(platform.system() == "Windows", "Unix-only: full-path match test")
+    def test_full_path_interpreter_matching_shebang_does_not_warn(self):
+        """A full-path interpreter cmd that agrees with the shebang must not warn."""
+        ex, logger = self._make_executor_with_logger()
+        ex._warn_if_cmd_has_shebang(
+            "#!/bin/bash\necho hi", Interpreter(cmd="/bin/bash")
+        )
+        logger.warn.assert_not_called()
+
+    @unittest.skipIf(platform.system() == "Windows", "Unix-only: multi-token match test")
+    def test_interpreter_with_args_matching_shebang_does_not_warn(self):
+        """An interpreter cmd carrying arguments still matches on the bare name."""
+        ex, logger = self._make_executor_with_logger()
+        ex._warn_if_cmd_has_shebang(
+            "#!/usr/bin/env python3\nprint('hi')", Interpreter(cmd="python3 -u")
+        )
+        logger.warn.assert_not_called()
 
     def test_cmd_without_shebang_does_not_warn(self):
         ex, logger = self._make_executor_with_logger()
-        ex._warn_if_cmd_has_shebang("echo '#! not a shebang'")
+        ex._warn_if_cmd_has_shebang("echo '#! not a shebang'", Interpreter(cmd="sh"))
         logger.warn.assert_not_called()
+
+    @unittest.skipUnless(platform.system() == "Windows", "Windows-only warning test")
+    def test_windows_shebang_warns_ignored(self):
+        """On Windows, any shebang triggers a warning that shebangs are fully ignored."""
+        ex, logger = self._make_executor_with_logger()
+        ex._warn_if_cmd_has_shebang("#!/bin/bash\necho hi", Interpreter(cmd="cmd.exe"))
+        logger.warn.assert_called_once()
+        self.assertIn("Windows", logger.warn.call_args[0][0])
 
 
 class TestMissingOutputs(unittest.TestCase):
