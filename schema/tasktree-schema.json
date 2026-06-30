@@ -33,7 +33,13 @@
       "description": "Named interpreter definitions, referenced from runners via {use: name}",
       "type": "object",
       "patternProperties": {
-        "^[^.]+$": { "$ref": "#/$defs/interpreterDef" }
+        "^[^.]+$": {
+          "description": "Interpreter definition: an inline mapping ({cmd, ext?, preamble?}) or a bare string (shorthand for {cmd: <string>})",
+          "oneOf": [
+            { "$ref": "#/$defs/interpreterDef" },
+            { "type": "string" }
+          ]
+        }
       },
       "additionalProperties": false
     },
@@ -52,7 +58,7 @@
           "type": "object",
           "properties": {
             "interpreter": {
-              "description": "Interpreter used to run tasks in this runner. Either an inline definition ({cmd, ext?, preamble?}) or a reference to a named interpreter ({use: name}).",
+              "description": "Interpreter used to run tasks in this runner. A bare string (shorthand for {cmd: <string>}), an inline definition ({cmd, ext?, preamble?}), or a reference to a named interpreter ({use: name}).",
               "oneOf": [
                 {
                   "type": "object",
@@ -63,7 +69,8 @@
                   "required": ["use"],
                   "additionalProperties": false
                 },
-                { "$ref": "#/$defs/interpreterDef" }
+                { "$ref": "#/$defs/interpreterDef" },
+                { "type": "string" }
               ]
             },
             "args": {
