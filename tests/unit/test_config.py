@@ -179,9 +179,9 @@ class TestParseConfigFile(unittest.TestCase):
             self.assertEqual(result.interpreter.preamble, "set -euo pipefail")
             self.assertEqual(result.dockerfile, "")
 
-    def test_bare_string_shell_raises_error(self):
+    def test_bare_string_interpreter_is_shorthand(self):
         """
-        Test that parse_config_file raises an error when shell is a bare string (dict form required).
+        Test that a bare string interpreter is shorthand for {cmd: <string>}.
         """
         with TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.yml"
@@ -191,8 +191,10 @@ class TestParseConfigFile(unittest.TestCase):
     interpreter: bash
 """
             )
-            with self.assertRaises(Exception):
-                parse_config_file(config_path)
+            result = parse_config_file(config_path)
+            self.assertIsNotNone(result)
+            self.assertIsNotNone(result.interpreter)
+            self.assertEqual(result.interpreter.cmd, "bash")
 
     def test_valid_dockerfile_runner(self):
         """
@@ -656,7 +658,7 @@ class TestErrorMessageContext(unittest.TestCase):
                 "may only contain a runner named 'default'",
             ),
             ("runners:\n  default: not-a-dict", "Runner 'default' must be a dictionary"),
-            ("runners:\n  default:\n    interpreter: 123", "'interpreter' must be a mapping"),
+            ("runners:\n  default:\n    interpreter: 123", "'interpreter' must be a string"),
             ("runners:\n  default:\n    interpreter:\n      cmd: bash\n    args: not-a-list", "'args' must be a dict"),
             (
                 "runners:\n  default:\n    interpreter:\n      cmd: bash\n      preamble: [list]",
