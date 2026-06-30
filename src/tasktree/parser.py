@@ -1801,9 +1801,9 @@ def _parse_interpreters_section(data: dict[str, Any]) -> dict[str, Interpreter]:
     if not isinstance(section, dict):
         raise ValueError("'interpreters' must be a mapping of name to definition")
     for name, spec in section.items():
-        if not isinstance(spec, dict):
-            raise ValueError(f"Interpreter '{name}' must be a mapping")
-        if "use" in spec:
+        if not isinstance(spec, (str, dict)):
+            raise ValueError(f"Interpreter '{name}' must be a string or a mapping")
+        if isinstance(spec, dict) and "use" in spec:
             raise ValueError(
                 f"Interpreter '{name}': 'use' is only valid inside a runner's "
                 f"'interpreter' field, not in the interpreters section"

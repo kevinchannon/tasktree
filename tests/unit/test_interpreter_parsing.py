@@ -69,6 +69,15 @@ class TestParseInterpretersSection(unittest.TestCase):
         self.assertEqual(result["py"], Interpreter(cmd="python3", ext=".py"))
         self.assertEqual(result["sh"], Interpreter(cmd="bash"))
 
+    def test_string_shorthand_entry(self):
+        section = {"interpreters": {"sh": "bash"}}
+        result = _parse_interpreters_section(section)
+        self.assertEqual(result["sh"], Interpreter(cmd="bash"))
+
+    def test_non_string_non_mapping_entry_raises(self):
+        with self.assertRaises(ValueError):
+            _parse_interpreters_section({"interpreters": {"x": ["bash"]}})
+
     def test_use_inside_section_raises(self):
         section = {"interpreters": {"x": {"use": "y"}}}
         with self.assertRaises(ValueError) as ctx:
