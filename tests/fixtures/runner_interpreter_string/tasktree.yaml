@@ -1,0 +1,10 @@
+runners:
+  py:
+    interpreter: python3
+
+tasks:
+  test-python:
+    run_in: py
+    cmd: |
+      with open("output.txt", "w") as f:
+          f.write("Hello from string interpreter\n")

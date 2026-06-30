@@ -105,9 +105,13 @@ class TestParseInterpreterSpec(unittest.TestCase):
                 {"use": "py", "cmd": "x"}, "Runner 'r'", self.named
             )
 
-    def test_non_mapping_raises(self):
+    def test_string_shorthand(self):
+        interp = parse_interpreter_spec("bash", "Runner 'r'", self.named)
+        self.assertEqual(interp, Interpreter(cmd="bash"))
+
+    def test_non_string_non_mapping_raises(self):
         with self.assertRaises(ValueError):
-            parse_interpreter_spec("bash", "Runner 'r'", self.named)
+            parse_interpreter_spec(["bash"], "Runner 'r'", self.named)
 
 
 if __name__ == "__main__":

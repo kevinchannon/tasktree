@@ -1762,13 +1762,17 @@ def parse_interpreter_spec(
 ) -> Interpreter:
     """Parse a runner's 'interpreter' field into an Interpreter.
 
-    Accepts either an inline definition ({cmd, ext?, preamble?}) or a reference
-    to a named interpreter from the 'interpreters' section ({use: name}).
+    Accepts a bare string (shorthand for {cmd: <string>}), an inline definition
+    ({cmd, ext?, preamble?}), or a reference to a named interpreter from the
+    'interpreters' section ({use: name}).
     """
+    if isinstance(value, str):
+        return _parse_inline_interpreter(value, context)
     if not isinstance(value, dict):
         raise ValueError(
-            f"{context}: 'interpreter' must be a mapping with either 'cmd' "
-            f"(inline) or 'use' (reference to the interpreters section)"
+            f"{context}: 'interpreter' must be a string (shorthand for cmd), or "
+            f"a mapping with either 'cmd' (inline) or 'use' (reference to the "
+            f"interpreters section)"
         )
     if "use" in value:
         if set(value) != {"use"}:

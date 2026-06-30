@@ -42,6 +42,29 @@ class TestTaskInterpreter(unittest.TestCase):
             finally:
                 os.chdir(original_cwd)
 
+    @unittest.skipIf(sys.platform == "win32", "python3 command not available on Windows")
+    def test_runner_interpreter_string_shorthand_runs_command(self):
+        """A runner with `interpreter: python3` (string) runs its cmd as Python."""
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            original_cwd = os.getcwd()
+
+            try:
+                os.chdir(project_root)
+                copy_fixture_files("runner_interpreter_string", project_root)
+
+                result = self.runner.invoke(app, ["test-python"], env=self.env)
+
+                self.assertEqual(
+                    result.exit_code, 0, f"Command failed: {result.stdout}"
+                )
+
+                output_file = project_root / "output.txt"
+                self.assertTrue(output_file.exists(), "Output file was not created")
+                self.assertIn("Hello from string interpreter", output_file.read_text())
+            finally:
+                os.chdir(original_cwd)
+
 
 if __name__ == "__main__":
     unittest.main()
