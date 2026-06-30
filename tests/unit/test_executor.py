@@ -513,7 +513,9 @@ class TestResolveInterpreter(unittest.TestCase):
     def test_docker_runner_without_interpreter_defaults_to_sh(self):
         from tasktree.parser import container_default_interpreter
 
-        runner = Runner(name="r", dockerfile="Dockerfile")  # docker, no interpreter
+        runner = Runner(
+            name="r", type="containerised", engine="docker", dockerfile="Dockerfile"
+        )  # docker, no interpreter
         ex = self._make_executor(runners={"r": runner}, default_runner="r")
         task = Task(name="t", cmd="echo")
         self.assertEqual(ex._resolve_interpreter(task), container_default_interpreter())
@@ -2772,6 +2774,8 @@ runners:
             config_path.write_text(
                 """runners:
   default:
+    type: containerised
+    engine: docker
     dockerfile: docker/Dockerfile
     context: .
 """
@@ -2806,6 +2810,8 @@ runners:
             user_config_path.write_text(
                 """runners:
   default:
+    type: containerised
+    engine: docker
     dockerfile: relative/path/Dockerfile
     context: build
 """
@@ -2846,6 +2852,8 @@ runners:
             config_path.write_text(
                 f"""runners:
   default:
+    type: containerised
+    engine: docker
     dockerfile: {abs_dockerfile}
     context: {abs_context}
 """
@@ -3072,6 +3080,8 @@ class TestDockerOnlyFieldValidation(unittest.TestCase):
             dockerfile.write_text("FROM ubuntu\n")
             runner = Runner(
                 name="myrunner",
+                type="containerised",
+                engine="docker",
                 dockerfile="Dockerfile",
                 context=".",
                 volumes=["/host:/container"],

@@ -27,6 +27,8 @@ class TestIsDockerRunner(unittest.TestCase):
         """
         runner = Runner(
             name="builder",
+            type="containerised",
+            engine="docker",
             dockerfile="./Dockerfile",
             context=".",
         )
@@ -61,6 +63,8 @@ class TestIsDockerRunner(unittest.TestCase):
         """
         runner = Runner(
             name="builder",
+            type="containerised",
+            engine="docker",
             dockerfile="./Dockerfile",
             context=".",
             args=DockerArgs(build=["--build-arg", "BUILD_VERSION=1.0.0"]),
