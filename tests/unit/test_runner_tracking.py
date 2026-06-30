@@ -121,6 +121,30 @@ class TestHashRunnerDefinition(unittest.TestCase):
 
         self.assertNotEqual(hash1, hash2)
 
+    def test_hash_runner_definition_type_and_engine_change(self):
+        """
+        Test that changing type/engine produces a different hash, so cache
+        entries are invalidated if a runner's classification changes.
+        """
+
+        runner1 = Runner(
+            name="test",
+            type="containerised",
+            engine="docker",
+            dockerfile="Dockerfile",
+            context=".",
+        )
+        runner2 = Runner(
+            name="test",
+            dockerfile="Dockerfile",
+            context=".",
+        )
+
+        hash1 = hash_runner_definition(runner1)
+        hash2 = hash_runner_definition(runner2)
+
+        self.assertNotEqual(hash1, hash2)
+
     def test_hash_runner_definition_args_order_independent(self):
         """
         Test that docker run args order doesn't matter (they're sorted in hash).

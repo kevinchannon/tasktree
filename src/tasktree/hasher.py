@@ -184,6 +184,8 @@ def hash_runner_definition(env) -> str:
         "interpreter": interpreter_data,
         "args_build": sorted(env.args.build),
         "args_run": sorted(env.args.run),
+        "type": env.type,
+        "engine": env.engine,
         "dockerfile": env.dockerfile,
         "context": env.context,
         "volumes": sorted(env.volumes),
