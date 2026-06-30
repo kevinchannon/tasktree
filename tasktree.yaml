@@ -2,7 +2,7 @@
 runners:
   default: bash-strict
   bash-strict:
-    shell:
+    interpreter:
       cmd: bash
       preamble: set -euo pipefail
   tt-test:
