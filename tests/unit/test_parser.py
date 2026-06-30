@@ -693,6 +693,8 @@ tasks:
             recipe_path.write_text("""
 runners:
   builder:
+    type: containerised
+    engine: docker
     dockerfile: Dockerfile
     interpreter: { cmd: bash }
 tasks:
@@ -4872,6 +4874,8 @@ class TestDockerRunnerDefaultContext(unittest.TestCase):
             recipe_path.write_text("""
 runners:
   my_runner:
+    type: containerised
+    engine: docker
     dockerfile: docker/Dockerfile
 
 tasks:
@@ -4881,6 +4885,124 @@ tasks:
 
             recipe = parse_recipe(recipe_path)
             self.assertEqual(recipe.runners["my_runner"].context, "docker")
+
+
+class TestRunnerTypeAndEngine(unittest.TestCase):
+    """
+    Tests for the runner 'type'/'engine' classification fields.
+    """
+
+    def test_docker_runner_parses_type_and_engine(self):
+        with TemporaryDirectory() as tmpdir:
+            (Path(tmpdir) / "Dockerfile").write_text("FROM alpine\n")
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+runners:
+  builder:
+    type: containerised
+    engine: docker
+    dockerfile: Dockerfile
+tasks:
+  build:
+    run_in: builder
+    cmd: echo hi
+""")
+            recipe = parse_recipe(recipe_path)
+            runner = recipe.get_runner("builder")
+            self.assertEqual(runner.type, "containerised")
+            self.assertEqual(runner.engine, "docker")
+            self.assertTrue(runner.is_containerised)
+
+    def test_host_runner_has_no_type_or_engine(self):
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+runners:
+  shell:
+    interpreter: bash
+tasks:
+  build:
+    run_in: shell
+    cmd: echo hi
+""")
+            recipe = parse_recipe(recipe_path)
+            runner = recipe.get_runner("shell")
+            self.assertEqual(runner.type, "")
+            self.assertEqual(runner.engine, "")
+            self.assertFalse(runner.is_containerised)
+
+    def test_dockerfile_without_type_and_engine_rejected(self):
+        with TemporaryDirectory() as tmpdir:
+            (Path(tmpdir) / "Dockerfile").write_text("FROM alpine\n")
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+runners:
+  builder:
+    dockerfile: Dockerfile
+tasks:
+  build:
+    run_in: builder
+    cmd: echo hi
+""")
+            with self.assertRaises(ValueError) as ctx:
+                parse_recipe(recipe_path)
+            self.assertIn("type", str(ctx.exception))
+            self.assertIn("engine", str(ctx.exception))
+
+    def test_type_and_engine_without_dockerfile_rejected(self):
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+runners:
+  builder:
+    type: containerised
+    engine: docker
+tasks:
+  build:
+    run_in: builder
+    cmd: echo hi
+""")
+            with self.assertRaises(ValueError) as ctx:
+                parse_recipe(recipe_path)
+            self.assertIn("dockerfile", str(ctx.exception))
+
+    def test_invalid_runner_type_rejected(self):
+        with TemporaryDirectory() as tmpdir:
+            (Path(tmpdir) / "Dockerfile").write_text("FROM alpine\n")
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+runners:
+  builder:
+    type: virtualised
+    engine: docker
+    dockerfile: Dockerfile
+tasks:
+  build:
+    run_in: builder
+    cmd: echo hi
+""")
+            with self.assertRaises(ValueError) as ctx:
+                parse_recipe(recipe_path)
+            self.assertIn("'type'", str(ctx.exception))
+
+    def test_invalid_runner_engine_rejected(self):
+        with TemporaryDirectory() as tmpdir:
+            (Path(tmpdir) / "Dockerfile").write_text("FROM alpine\n")
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+runners:
+  builder:
+    type: containerised
+    engine: podman
+    dockerfile: Dockerfile
+tasks:
+  build:
+    run_in: builder
+    cmd: echo hi
+""")
+            with self.assertRaises(ValueError) as ctx:
+                parse_recipe(recipe_path)
+            self.assertIn("'engine'", str(ctx.exception))
 
 
 if __name__ == "__main__":

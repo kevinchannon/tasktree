@@ -85,14 +85,22 @@ class ParsedFileResult:
     name_errors: dict[str, str] = field(default_factory=dict)
 
 
+CONTAINERISED_RUNNER_TYPE = "containerised"
+DOCKER_RUNNER_ENGINE = "docker"
+VALID_RUNNER_TYPES = {CONTAINERISED_RUNNER_TYPE}
+VALID_RUNNER_ENGINES = {DOCKER_RUNNER_ENGINE}
+
+
 @dataclass
 class Runner:
     """
     Represents an execution runner configuration.
 
-    Can be either a host runner or a Docker runner:
-    - Host runner: no 'dockerfile', executes directly on host
-    - Docker runner: has 'dockerfile' field, executes in container
+    Can be either a host runner or a containerised runner:
+    - Host runner: no 'type'/'engine', executes directly on host
+    - Containerised runner: 'type' and 'engine' set (currently the only
+      supported combination is type='containerised', engine='docker'),
+      executes in a container
     Both may declare an 'interpreter' used to run task scripts; when absent the
     session default interpreter is used.
     """
@@ -100,7 +108,9 @@ class Runner:
     name: str
     interpreter: Interpreter | None = None  # Interpreter used to run task scripts
     args: DockerArgs = field(default_factory=DockerArgs)  # Docker build/run arguments
-    # Docker-specific fields (presence of dockerfile indicates Docker environment)
+    type: str = ""  # Runner classification, e.g. "containerised"
+    engine: str = ""  # Execution engine for a containerised runner, e.g. "docker"
+    # Docker-specific fields (only valid when type="containerised", engine="docker")
     dockerfile: str = ""  # Path to Dockerfile
     context: str = ""  # Path to build context directory
     volumes: list[str] = field(default_factory=list)  # Volume mounts
@@ -108,6 +118,11 @@ class Runner:
     env_vars: dict[str, str] = field(default_factory=dict)  # Environment variables
     working_dir: str = ""  # Working directory (container or host)
     run_as_root: bool = False  # If True, skip user mapping (run as root in container)
+
+    @property
+    def is_containerised(self) -> bool:
+        """True if this runner executes tasks inside a container."""
+        return self.type == CONTAINERISED_RUNNER_TYPE
 
 
 @dataclass
@@ -1906,6 +1921,10 @@ def _parse_runners_from_data(
 
         working_dir = env_config.get("working_dir", "")
 
+        # Parse runner classification
+        runner_type = env_config.get("type", "")
+        runner_engine = env_config.get("engine", "")
+
         # Parse Docker-specific fields
         dockerfile = env_config.get("dockerfile", "")
         context = env_config.get("context", "")
@@ -1922,6 +1941,23 @@ def _parse_runners_from_data(
             raise ValueError(f"Runner '{env_name}': 'env_vars' must be a dictionary")
         if not isinstance(run_as_root, bool):
             raise ValueError(f"Runner '{env_name}': 'run_as_root' must be a boolean")
+        if not isinstance(runner_type, str):
+            raise ValueError(f"Runner '{env_name}': 'type' must be a string")
+        if not isinstance(runner_engine, str):
+            raise ValueError(f"Runner '{env_name}': 'engine' must be a string")
+
+        _validate_runner_classification(
+            env_name,
+            runner_type,
+            runner_engine,
+            dockerfile=dockerfile,
+            context=context,
+            volumes=volumes,
+            ports=ports,
+            env_vars=env_vars,
+            run_as_root=run_as_root,
+            args_config=args_config,
+        )
 
         # SKIP variable substitution in runner fields - defer to lazy evaluation
         # Runner fields may contain {{ var.* }} placeholders
@@ -1954,6 +1990,8 @@ def _parse_runners_from_data(
             name=env_name,
             interpreter=runner_interpreter,
             args=args_config,
+            type=runner_type,
+            engine=runner_engine,
             dockerfile=dockerfile,
             context=context,
             volumes=volumes,
@@ -1964,6 +2002,65 @@ def _parse_runners_from_data(
         )
 
     return runners, default_runner, interpreters
+
+
+def _validate_runner_classification(
+    env_name: str,
+    runner_type: str,
+    runner_engine: str,
+    *,
+    dockerfile: str,
+    context: str,
+    volumes: list[str],
+    ports: list[str],
+    env_vars: dict[str, str],
+    run_as_root: bool,
+    args_config: DockerArgs,
+) -> None:
+    """
+    Validate a runner's 'type'/'engine' classification against its other fields.
+
+    Docker-only fields (dockerfile, context, volumes, ports, env_vars,
+    run_as_root, args) require type='containerised' and engine='docker' to be
+    set, and vice versa: a runner is only valid as a host runner if none of
+    these fields, including type/engine, are present.
+    """
+    if runner_type and runner_type not in VALID_RUNNER_TYPES:
+        raise ValueError(
+            f"Runner '{env_name}': 'type' must be one of "
+            f"{sorted(VALID_RUNNER_TYPES)}, got {runner_type!r}"
+        )
+    if runner_engine and runner_engine not in VALID_RUNNER_ENGINES:
+        raise ValueError(
+            f"Runner '{env_name}': 'engine' must be one of "
+            f"{sorted(VALID_RUNNER_ENGINES)}, got {runner_engine!r}"
+        )
+
+    has_docker_only_field = bool(
+        dockerfile
+        or context
+        or volumes
+        or ports
+        or env_vars
+        or run_as_root
+        or args_config.build
+        or args_config.run
+    )
+    has_classification = bool(runner_type or runner_engine)
+
+    if has_docker_only_field or has_classification:
+        if runner_type != CONTAINERISED_RUNNER_TYPE or runner_engine != DOCKER_RUNNER_ENGINE:
+            raise ValueError(
+                f"Runner '{env_name}': 'type: {CONTAINERISED_RUNNER_TYPE}' and "
+                f"'engine: {DOCKER_RUNNER_ENGINE}' must both be set for runners "
+                f"that use Docker-specific fields (dockerfile, context, volumes, "
+                f"ports, env_vars, run_as_root, args)"
+            )
+        if not dockerfile:
+            raise ValueError(
+                f"Runner '{env_name}': 'dockerfile' is required for "
+                f"'type: {CONTAINERISED_RUNNER_TYPE}', 'engine: {DOCKER_RUNNER_ENGINE}' runners"
+            )
 
 
 def _extract_and_validate_variables(
