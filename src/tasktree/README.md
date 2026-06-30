@@ -455,24 +455,24 @@ tasks:
 
 ### Execution Runners
 
-Configure custom shell runners for task execution. Use the `preamble` field inside `shell` to add initialization code to all commands:
+Configure custom runners for task execution. A runner's `interpreter` field describes, literally, how to run a task's script. Use the `preamble` field to add initialization code to every command:
 
 ```yaml
 runners:
   default: bash-strict
 
   bash-strict:
-    shell:
+    interpreter:
       cmd: bash
       preamble: set -euo pipefail  # Prepended to all commands
 
   python:
-    shell:
-      cmd: [python3]          # python3 is not a known shorthand; use explicit cmd list
+    interpreter: python3           # string shorthand for {cmd: python3}
 
   powershell:
-    shell:
-      cmd: powershell
+    interpreter:
+      cmd: powershell -ExecutionPolicy Bypass -File
+      ext: .ps1
       preamble: $ErrorActionPreference = 'Stop'
 
 tasks:
@@ -492,29 +492,44 @@ tasks:
     cmd: Compress-Archive -Path dist/* -DestinationPath package.zip
 ```
 
-**Shell field format:**
+**Interpreter field format:**
 
-The `shell` field must be a dict. The `cmd` field inside accepts two forms:
+A runner's `interpreter` accepts three forms:
 
-- **String shorthand**: `cmd: bash` — TaskTree looks up the name in a built-in table and fills in the correct invocation arguments automatically.
-- **Explicit list**: `cmd: [/bin/bash, -c]` — The list is used verbatim as the command invocation.
+- **String shorthand**: `interpreter: bash` — equivalent to `interpreter: {cmd: bash}`.
+- **Inline definition**: a mapping with `cmd` (required), `ext` (optional), and `preamble` (optional).
+- **Named reference**: `interpreter: {use: name}` — reuse an interpreter from the top-level `interpreters:` section.
 
-**Built-in `cmd` shorthands:**
+Inline interpreter fields:
 
-| Shorthand | Invocation |
-|-----------|------------|
-| `bash` | `["bash"]` |
-| `sh` | `["sh"]` |
-| `zsh` | `["zsh"]` |
-| `fish` | `["fish"]` |
-| `cmd.exe` | `["cmd.exe", "/c"]` |
-| `powershell` | `["powershell", "-ExecutionPolicy", "Bypass", "-File"]` |
+| Field | Meaning |
+|-------|---------|
+| `cmd` | Command used to invoke the interpreter. Tokenised with `shlex` and used verbatim before the script path (e.g. `python3`, `powershell -ExecutionPolicy Bypass -File`). |
+| `ext` | Temp-script file extension. Empty/absent means no extension; otherwise it must start with a dot (e.g. `.ps1`, `.bat`). |
+| `preamble` | Text prepended to every task body run by this interpreter. |
 
-TaskTree writes the task `cmd` to a temporary script file and executes `shell_cmd + [script_path]`. No shebang is needed — the interpreter is specified explicitly. This works for any language on any platform.
+**Named interpreters.** Define reusable interpreters once in a top-level `interpreters:` section and reference them with `{use: name}`. Entries accept the same string shorthand:
+
+```yaml
+interpreters:
+  py:
+    cmd: python3
+    ext: .py
+  sh: bash             # string shorthand for {cmd: bash}
+
+runners:
+  python:
+    interpreter: {use: py}
+
+tasks:
+  generate:
+    interpreter: py    # a task can also name an interpreter directly
+    cmd: print("hi")
+```
+
+TaskTree writes the task `cmd` to a temporary script file and executes `interpreter_cmd + [script_path]`. No shebang is needed — the interpreter is specified explicitly. This works for any language on any platform.
 
 > **Note:** Do not add a shebang line (e.g. `#!/bin/bash`) to your `cmd` content. Because the interpreter is passed explicitly in the subprocess call, a shebang in `cmd` is silently ignored — it is treated as a comment by most shells or as plain text by other interpreters.
-
-For any interpreter not in the table (e.g. `python3`, `ruby`, `/usr/local/bin/bash`), use an explicit list: `cmd: [python3]`. Using an unknown name as a string shorthand raises a configuration error at load time.
 
 **Runner resolution priority:**
 1. CLI override: `tt --runner python build`

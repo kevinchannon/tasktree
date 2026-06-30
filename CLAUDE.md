@@ -152,10 +152,16 @@ tasks:
 runners:
   default: runner-name  # Declare the default runner by name (optional)
   runner-name:
-    shell: /bin/bash  # Shell runner
-    preamble: |  # Optional preamble prepended to all commands
-      set -euo pipefail
-    # OR
+    interpreter: bash  # String shorthand for {cmd: bash}
+    # OR an inline definition:
+    interpreter:
+      cmd: bash  # Command tokenised (shlex) and used verbatim before the script path
+      ext: .sh  # Optional temp-script extension (must start with a dot)
+      preamble: |  # Optional preamble prepended to all commands
+        set -euo pipefail
+    # OR a reference to a named interpreter from the 'interpreters' section:
+    # interpreter: { use: py }
+    # OR a Docker runner:
     dockerfile: path/to/Dockerfile  # Docker runner
     context: build-context-dir
     volumes:
@@ -166,6 +172,12 @@ runners:
       ARG_NAME: value
     env_vars:
       ENV_VAR: value
+
+interpreters:
+  py:  # Named interpreter, referenced via { use: py }
+    cmd: python3
+    ext: .py
+  sh: bash  # String shorthand for { cmd: bash }
 
 variables:
   var-name: value  # Simple string value
