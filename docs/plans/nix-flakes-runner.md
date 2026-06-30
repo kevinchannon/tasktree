@@ -80,10 +80,15 @@ The runner system already keys off a single marker field, so this is a clean add
 File:line anchors below were accurate at the time of writing — **verify before
 editing**, the files churn.
 
-- **Runner type detection.** `Runner.dockerfile` being non-empty means "container
-  runner" (`src/tasktree/parser.py`, `Runner` dataclass ~line 88-110; dispatch in
-  `src/tasktree/executor.py` ~line 1080). A new `Runner.flake` field is the analogous
-  marker for "nix runner".
+- **Runner type detection.** Runners now carry an explicit `type`/`engine`
+  classification (`Runner.type`, `Runner.engine` — `src/tasktree/parser.py`,
+  `Runner` dataclass ~line 88-125; `docker_module.is_docker_runner` checks
+  `type == "containerised" and engine == "docker"`, used in dispatch in
+  `src/tasktree/executor.py` ~line 1080) instead of inferring "container runner"
+  from `dockerfile` presence. A Nix runner should set `type: nix` (a new entry in
+  `VALID_RUNNER_TYPES`) with no `engine` — Nix isn't a containerised runner, so the
+  `engine` field doesn't apply. `Runner.flake` is the field that carries the actual
+  flakeref.
 - **Execution path.** A nix task stays on the **host** path
   (`Executor._run_command_as_script`, `executor.py` ~line 1149). It only needs the
   realised devShell env merged into the `env` dict that
@@ -92,8 +97,9 @@ editing**, the files churn.
   touched.
 - **Interpreter default.** `container_default_interpreter()` returns `sh` and is
   selected in `Executor._resolve_interpreter` (`executor.py` ~line 507-541, the
-  `runner.dockerfile` branch ~line 538). Add a parallel `nix` default returning
-  `Interpreter(cmd="bash")` and a branch `if runner.flake:` before the dockerfile one.
+  `is_docker_runner(runner)` branch ~line 538). Add a parallel `nix` default
+  returning `Interpreter(cmd="bash")` and a branch `if runner.type == "nix":`
+  before the Docker one.
 - **Runner identity for stale-detection.** `hash_runner_definition` in
   `src/tasktree/hasher.py` (~line 165-195) serialises the fields that affect
   execution. Extend it with the nix runner identity = `(flakeref, devShell attr,
@@ -103,14 +109,16 @@ editing**, the files churn.
   in-process cache dict. The Docker availability check
   (`DockerManager._check_docker_available`, `docker.py` ~line 361) is the template
   for `_check_nix_available`.
-- **Schema.** `schema/tasktree-schema.json` defines the runner object; add `flake`
-  and `devshell` properties. Runner-parsing lives in `parser.py` ~line 1880-1966.
+- **Schema.** `schema/tasktree-schema.json` defines the runner object; add `"nix"`
+  to the `type` enum and add `flake`/`devshell` properties (conditionally required
+  when `type: nix`, mirroring how `type`/`engine: docker` gate the Docker-only
+  fields). Runner-parsing lives in `parser.py` ~line 1880-1966.
 
 ## 4. Proposed shapes
 
 ```python
 # parser.py — Runner dataclass gains:
-flake: str = ""        # flakeref; non-empty marks a nix runner
+flake: str = ""        # flakeref; required (and only valid) when type == "nix"
 devshell: str = "default"
 
 # executor.py — new default, parallel to container_default_interpreter():
@@ -139,11 +147,13 @@ Each slice is one or a few small commits **with tests**, in the project's increm
 style. Land them in order; slices 1–4 produce a usable runner, 5–6 complete the
 acceptance criteria, 7 is documentation.
 
-1. **Parse `flake`/`devshell` into `Runner` + JSON schema.** Add the two fields,
-   schema entries, and parser validation (flake must be a local path that exists;
-   reject remote-looking refs like `github:`/`git+`/`<name>` registry shorthand with
-   the "planned" message). No execution yet. *Unit tests on the parser + a schema
-   validation test.*
+1. **Parse `flake`/`devshell` into `Runner` + JSON schema.** Add `"nix"` to the
+   `type` enum, add the `flake`/`devshell` fields, schema entries, and parser
+   validation (`type: nix` requires `flake`, mirroring the `type: containerised`/
+   `engine: docker` pairing added for Docker runners; flake must be a local path
+   that exists; reject remote-looking refs like `github:`/`git+`/`<name>` registry
+   shorthand with the "planned" message). No execution yet. *Unit tests on the
+   parser + a schema validation test.*
 2. **`nix.py`: `NixError` + `_check_nix_available()`.** Fast, clear failure if `nix`
    is absent or `nix-command`/`flakes` not enabled. *Unit tests mocking subprocess
    (`nix --version`, `nix config show`).*

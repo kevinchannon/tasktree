@@ -2018,6 +2018,8 @@ You can override the runner for all non-pinned tasks in an imported file using t
 # tasktree.yaml
 runners:
   docker:
+    type: containerised
+    engine: docker
     dockerfile: Dockerfile
     context: .
 
@@ -2066,6 +2068,8 @@ tasks:
 # tasktree.yaml
 runners:
   docker:
+    type: containerised
+    engine: docker
     dockerfile: Dockerfile
 
 imports:

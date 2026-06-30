@@ -161,8 +161,10 @@ runners:
         set -euo pipefail
     # OR a reference to a named interpreter from the 'interpreters' section:
     # interpreter: { use: py }
-    # OR a Docker runner:
-    dockerfile: path/to/Dockerfile  # Docker runner
+    # OR a containerised (Docker) runner:
+    type: containerised  # Required alongside 'engine' for any containerised runner
+    engine: docker  # Currently the only supported engine
+    dockerfile: path/to/Dockerfile
     context: build-context-dir
     volumes:
       - host_path:container_path[:ro]
