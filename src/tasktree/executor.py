@@ -41,6 +41,23 @@ def _supports_fileno(stream) -> bool:
         return False
 
 
+def _extract_shebang_interpreter(shebang_line: str) -> str:
+    """Extract the interpreter name from a shebang line.
+
+    Examples:
+        '#!/usr/bin/env bash' -> 'bash'
+        '#!/bin/bash'         -> 'bash'
+        '#!/usr/bin/python3'  -> 'python3'
+    """
+    path_part = shebang_line[2:].strip()
+    parts = path_part.split()
+    if not parts:
+        return ""
+    if os.path.basename(parts[0]) == "env" and len(parts) > 1:
+        return parts[1]
+    return os.path.basename(parts[0])
+
+
 @dataclass
 class TaskStatus:
     """
@@ -1032,9 +1049,12 @@ class Executor:
             task.cmd, builtin_vars, regular_args, exported_args, task.name
         )
 
-        # A leading shebang has no effect: the interpreter is chosen explicitly,
-        # not by executing the script directly. Point the user at 'interpreter:'.
-        self._warn_if_cmd_has_shebang(cmd)
+        # Resolve interpreter early so the shebang check can compare against it.
+        interpreter = self._resolve_interpreter(task)
+
+        # Warn if the user wrote a shebang in cmd: it has no effect because the
+        # interpreter is always invoked explicitly, not by running the script directly.
+        self._warn_if_cmd_has_shebang(cmd, interpreter)
 
         # Check if task uses Docker environment
         env_name = self._get_effective_runner_name(task)
@@ -1061,8 +1081,6 @@ class Executor:
             # Shell execution path - either local or inside an existing container.
             # The interpreter (and its preamble) is resolved the same way in both
             # cases; a nested-in-container task uses its runner's interpreter.
-            interpreter = self._resolve_interpreter(task)
-
             self._run_command_as_script(
                 cmd,
                 working_dir,
@@ -1082,16 +1100,33 @@ class Executor:
         # Update state
         self._update_state(task, args_dict, process_runner)
 
-    def _warn_if_cmd_has_shebang(self, cmd: str) -> None:
-        """Warn that a leading shebang in a task command is ignored.
+    def _warn_if_cmd_has_shebang(self, cmd: str, interpreter: Interpreter) -> None:
+        """Warn if a shebang in the task cmd field will be ineffective.
 
-        Commands run via an explicitly chosen interpreter, so a ``#!`` line is
-        treated as an ordinary first line rather than selecting an interpreter.
+        On Windows shebangs are ignored entirely. On other platforms the
+        shebang has no effect because the interpreter is invoked explicitly;
+        warn only when the shebang specifies a different interpreter than the
+        one that will actually run the script (a silent mismatch is confusing).
         """
-        if cmd.lstrip().startswith("#!"):
+        stripped = cmd.lstrip()
+        if not stripped.startswith("#!"):
+            return
+
+        shebang_line = stripped.split("\n")[0]
+
+        if platform.system() == "Windows":
             self.logger.warn(
-                "[yellow]Shebang on line 1 of cmd is ignored. "
-                "Set 'interpreter:' to choose a non-default interpreter.[/yellow]"
+                "[yellow]Shebang detected in cmd. "
+                "On Windows, shebangs are ignored entirely.[/yellow]"
+            )
+            return
+
+        shebang_interpreter = _extract_shebang_interpreter(shebang_line)
+        if shebang_interpreter and shebang_interpreter != interpreter.cmd:
+            self.logger.warn(
+                f"[yellow]Shebang in cmd specifies '{shebang_interpreter}' but the task will "
+                f"run with '{interpreter.cmd}'. The shebang has no effect — set 'interpreter:' "
+                f"to choose a non-default interpreter.[/yellow]"
             )
 
     def _run_command_as_script(
@@ -1130,15 +1165,14 @@ class Executor:
         # Prepare environment with exported args and call chain
         env = self._prepare_env_with_exports(exported_env_vars, call_chain)
 
-        # Create temporary script using context manager — no shebang needed since
-        # the interpreter is passed explicitly in the subprocess call. The script
+        # Create temporary script using context manager. The interpreter is passed
+        # explicitly in the subprocess call, so no shebang is needed. The script
         # extension is the interpreter's literal ext (empty = no extension).
         with TempScript(
             logger=self.logger,
             cmd=cmd,
             preamble=interpreter.preamble,
             interpreter=interpreter,
-            use_shebang=False,
         ) as script_path:
             run_cmd = interpreter.invocation + [str(script_path)]
 

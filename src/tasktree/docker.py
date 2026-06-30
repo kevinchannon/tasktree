@@ -179,14 +179,14 @@ class DockerManager:
 
         # Create temp script on host with the interpreter's preamble + command,
         # then mount into container. The extension is the interpreter's literal ext,
-        # not the host platform. No shebang: the interpreter is invoked explicitly.
+        # not the host platform. The interpreter is invoked explicitly, so no shebang
+        # is needed.
         try:
             with TempScript(
                 logger=self._logger,
                 cmd=cmd,
                 preamble=interpreter.preamble,
                 interpreter=interpreter,
-                use_shebang=False,
             ) as script_path:
                 # Build docker run command from the shared flags (user mapping,
                 # run args, volume mounts incl. the auto repo-mount, ports, env).

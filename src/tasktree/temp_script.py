@@ -9,7 +9,6 @@ between containerized and non-containerized execution paths.
 
 import os
 import platform
-import stat
 import tempfile
 import types
 from pathlib import Path
@@ -31,13 +30,14 @@ class TempScript:
 
     The context manager creates a temporary script file with the appropriate
     platform-specific extension (.sh for Unix/macOS, .bat for Windows),
-    writes a shebang (Unix/macOS only), optional preamble, and the command
-    to execute. On Unix/macOS, the script is made executable.
+    writes an optional preamble, and the command to execute. The interpreter
+    is always passed explicitly when invoking the script, so no shebang is
+    written and no executable bit is set.
 
     Usage:
         with TempScript(logger=my_logger, cmd="echo hello", preamble="set -e", interpreter=Interpreter(cmd="bash")) as script_path:
             # script_path is a Path object pointing to the temp script
-            subprocess.run([str(script_path)], check=True)
+            subprocess.run(["bash", str(script_path)], check=True)
         # Script is automatically cleaned up after the with block
 
     """
@@ -48,7 +48,6 @@ class TempScript:
         cmd: str,
         preamble: str = "",
         script_extension: str | None = None,
-        use_shebang: bool | None = None,
         interpreter: Interpreter | None = None,
     ):
         """
@@ -60,11 +59,8 @@ class TempScript:
             preamble: Optional preamble to prepend to command
             script_extension: Optional override for script file extension (e.g., ".sh", ".bat", ".ps1").
                             If None, derived from ``interpreter`` when provided, otherwise the platform.
-            use_shebang: Optional override for whether to add shebang.
-                        If None, determined from platform (True on Unix/macOS, False on Windows).
             interpreter: Optional Interpreter describing how the script is run.
-                        When provided, supplies the shebang command and the
-                        default script extension.
+                        When provided, supplies the default script extension.
 
         """
         self.cmd = cmd
@@ -72,7 +68,6 @@ class TempScript:
         self.logger = logger
         self.script_path: Path | None = None
         self.script_extension = script_extension
-        self.use_shebang = use_shebang
         self.interpreter = interpreter
 
     def __enter__(self) -> Path:
@@ -80,14 +75,7 @@ class TempScript:
         Create temp script and return path.
 
         Creates a temporary script file with platform-appropriate extension,
-        writes shebang (Unix/macOS only by default), preamble, and command.
-        Makes the script executable on Unix/macOS.
-
-        Note: There is a small race condition window between file creation
-        (with delete=False) and chmod on Unix/macOS. A malicious process could
-        potentially access the file before permissions are set. This is accepted
-        as the temp directory should have appropriate permissions and the window
-        is very small.
+        writes optional preamble and command.
 
         Returns:
             Path object pointing to the temporary script file
@@ -102,12 +90,6 @@ class TempScript:
         else:
             script_ext = ".bat" if _IS_WINDOWS else ".sh"
 
-        # Determine whether to use shebang (use override if provided, otherwise platform default)
-        if self.use_shebang is not None:
-            should_use_shebang = self.use_shebang
-        else:
-            should_use_shebang = not _IS_WINDOWS
-
         self.logger.debug(f"Creating temp script with extension {script_ext}")
 
         # Create temporary script file with explicit UTF-8 encoding
@@ -118,19 +100,6 @@ class TempScript:
             encoding="utf-8",
         ) as script_file:
             script_path_str = script_file.name
-
-            # Add shebang if enabled and not already present in command
-            if should_use_shebang:
-                if not self.cmd.startswith("#!"):
-                    # Derive the shebang interpreter from the configured interpreter.
-                    shebang_cmd = (
-                        self.interpreter.invocation[0]
-                        if self.interpreter is not None
-                        else "sh"
-                    )
-                    shebang = f"#!/usr/bin/env {shebang_cmd}\n"
-                    script_file.write(shebang)
-                    self.logger.debug(f"Added shebang: {shebang.strip()}")
 
             # Add preamble if provided
             if self.preamble:
@@ -147,14 +116,6 @@ class TempScript:
         self.script_path = Path(script_path_str)
 
         self.logger.debug(f"Created temp script at: {self.script_path}")
-
-        # Make executable on Unix/macOS (only for non-Windows scripts)
-        if not _IS_WINDOWS and script_ext == ".sh":
-            os.chmod(
-                self.script_path,
-                os.stat(self.script_path).st_mode | stat.S_IEXEC
-            )
-            self.logger.debug("Set executable permissions on script")
 
         return self.script_path
 

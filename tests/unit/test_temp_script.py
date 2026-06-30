@@ -8,10 +8,9 @@ temporary shell script files.
 
 import os
 import platform
-import stat
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from helpers.logging import logger_stub
 from tasktree.temp_script import TempScript
@@ -41,13 +40,10 @@ class TestTempScript(unittest.TestCase):
             expected_ext = ".bat" if is_windows else ".sh"
             self.assertTrue(str(script_path).endswith(expected_ext))
 
-            # Verify content
+            # Verify content contains command (no shebang prepended)
             content = script_path.read_text()
             self.assertIn(cmd, content)
-
-            # On Unix/macOS, verify shebang is present
-            if not is_windows:
-                self.assertTrue(content.startswith("#!/usr/bin/env sh\n"))
+            self.assertFalse(content.startswith("#!"))
 
         # Verify cleanup - script should be deleted after context exit
         self.assertFalse(script_path.exists())
@@ -109,45 +105,6 @@ class TestTempScript(unittest.TestCase):
 
         self.assertFalse(script_path.exists())
 
-    def test_custom_shell(self):
-        """
-        Test TempScript uses custom shell in shebang.
-
-        """
-        is_windows = platform.system() == "Windows"
-        if is_windows:
-            self.skipTest("Shebang test only applicable on Unix/macOS")
-
-        cmd = "echo hello"
-        shell = "zsh"
-
-        with TempScript(logger=logger_stub, cmd=cmd, interpreter=Interpreter(cmd=shell)) as script_path:
-            content = script_path.read_text()
-
-            # Verify custom shell in shebang
-            self.assertTrue(content.startswith("#!/usr/bin/env zsh\n"))
-
-        self.assertFalse(script_path.exists())
-
-    def test_script_is_executable_on_unix(self):
-        """
-        Test TempScript makes script executable on Unix/macOS.
-
-        """
-        is_windows = platform.system() == "Windows"
-        if is_windows:
-            self.skipTest("Executable test only applicable on Unix/macOS")
-
-        cmd = "echo hello"
-
-        with TempScript(logger=logger_stub, cmd=cmd) as script_path:
-            # Verify script is executable
-            file_stat = os.stat(script_path)
-            is_executable = bool(file_stat.st_mode & stat.S_IEXEC)
-            self.assertTrue(is_executable)
-
-        self.assertFalse(script_path.exists())
-
     def test_cleanup_on_exception(self):
         """
         Test TempScript cleans up script even when exception occurs.
@@ -184,28 +141,6 @@ class TestTempScript(unittest.TestCase):
 
         # Test passes if no exception was raised
 
-    def test_command_with_existing_shebang(self):
-        """
-        Test TempScript does not add shebang if command already has one.
-
-        """
-        is_windows = platform.system() == "Windows"
-        if is_windows:
-            self.skipTest("Shebang test only applicable on Unix/macOS")
-
-        cmd = "#!/bin/sh\necho hello"
-
-        with TempScript(logger=logger_stub, cmd=cmd, interpreter=Interpreter(cmd="bash")) as script_path:
-            content = script_path.read_text()
-
-            # Verify original shebang is preserved
-            self.assertTrue(content.startswith("#!/bin/sh\n"))
-
-            # Verify bash shebang was NOT added
-            self.assertNotIn("#!/usr/bin/env bash", content)
-
-        self.assertFalse(script_path.exists())
-
     def test_empty_command(self):
         """
         Test TempScript handles empty command string.
@@ -216,10 +151,8 @@ class TestTempScript(unittest.TestCase):
         with TempScript(logger=logger_stub, cmd=cmd) as script_path:
             content = script_path.read_text()
 
-            # On Unix/macOS, should have shebang even with empty command
-            is_windows = platform.system() == "Windows"
-            if not is_windows:
-                self.assertTrue(content.startswith("#!/usr/bin/env sh\n"))
+            # No shebang should be written
+            self.assertFalse(content.startswith("#!"))
 
             self.assertTrue(script_path.exists())
 
@@ -238,24 +171,17 @@ class TestTempScript(unittest.TestCase):
 
         self.assertFalse(script_path.exists())
 
+    @unittest.skipUnless(platform.system() == "Windows", "Windows-specific test")
     def test_windows_bat_extension(self):
         """
         Test TempScript uses .bat extension on Windows.
 
         """
-        is_windows = platform.system() == "Windows"
-        if not is_windows:
-            self.skipTest("Windows-specific test")
-
         cmd = "echo hello"
 
         with TempScript(logger=logger_stub, cmd=cmd) as script_path:
             # Verify .bat extension
             self.assertTrue(str(script_path).endswith(".bat"))
-
-            # Verify no shebang on Windows
-            content = script_path.read_text()
-            self.assertNotIn("#!/usr/bin/env", content)
 
         self.assertFalse(script_path.exists())
 
@@ -306,19 +232,19 @@ class TestTempScriptInterpreter(unittest.TestCase):
         ) as script_path:
             self.assertTrue(str(script_path).endswith(".custom"))
 
-    @unittest.skipIf(platform.system() == "Windows", "Shebang is Unix-only")
-    def test_interpreter_supplies_shebang_command(self):
-        """The interpreter's executable is used in the shebang line."""
-        from tasktree.interpreter import Interpreter
-
+    def test_no_shebang_written_for_any_interpreter(self):
+        """TempScript never writes a shebang — the interpreter is always invoked explicitly."""
         cmd = "echo hello"
-        with TempScript(
-            logger=logger_stub,
-            cmd=cmd,
-            interpreter=Interpreter(cmd="zsh"),
-            use_shebang=True,
-        ) as script_path:
-            self.assertTrue(script_path.read_text().startswith("#!/usr/bin/env zsh\n"))
+        for shell in ("bash", "zsh", "sh", "python3"):
+            with TempScript(
+                logger=logger_stub,
+                cmd=cmd,
+                interpreter=Interpreter(cmd=shell),
+            ) as script_path:
+                self.assertFalse(
+                    script_path.read_text().startswith("#!"),
+                    f"No shebang expected for interpreter '{shell}'",
+                )
 
 
 if __name__ == "__main__":
