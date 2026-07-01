@@ -12,7 +12,7 @@ from tasktree.config import (
     get_user_config_path,
     parse_config_file,
 )
-from tasktree.parser import Runner
+from tasktree.parser import DockerRunner, HostRunner, Runner
 
 
 class TestGetUserConfigPath(unittest.TestCase):
@@ -172,7 +172,7 @@ class TestParseConfigFile(unittest.TestCase):
             )
             result = parse_config_file(config_path)
             self.assertIsNotNone(result)
-            self.assertIsInstance(result, Runner)
+            self.assertIsInstance(result, HostRunner)
             self.assertEqual(result.name, "default")
             self.assertIsNotNone(result.interpreter)
             self.assertEqual(result.interpreter.cmd, "bash")
@@ -249,7 +249,7 @@ class TestParseConfigFile(unittest.TestCase):
 """
             )
             result = parse_config_file(config_path)
-            self.assertIsNotNone(result)
+            self.assertIsInstance(result, DockerRunner)
             self.assertIsNotNone(result.interpreter)
             self.assertEqual(result.interpreter.cmd, "/bin/zsh")
             self.assertEqual(result.interpreter.preamble, "export FOO=bar")

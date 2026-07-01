@@ -11,12 +11,11 @@ import platformdirs
 import yaml
 
 from tasktree.parser import (
-    CONTAINERISED_RUNNER_TYPE,
-    DOCKER_RUNNER_ENGINE,
     VALID_RUNNER_ENGINES,
     VALID_RUNNER_TYPES,
     DockerArgs,
     Runner,
+    create_runner,
     parse_docker_args,
     parse_interpreter_spec,
 )
@@ -361,41 +360,26 @@ def parse_config_file(path: Path) -> Optional[Runner]:
             f"Error in config file '{path}': Field 'run_as_root' must be a boolean"
         )
 
-    has_docker_only_field = bool(
-        dockerfile or context or volumes or ports or env_vars or run_as_root
-        or args_config.build or args_config.run
-    )
-    has_classification = bool(runner_type or runner_engine)
-    if has_docker_only_field or has_classification:
-        if runner_type != CONTAINERISED_RUNNER_TYPE or runner_engine != DOCKER_RUNNER_ENGINE:
-            raise ConfigError(
-                f"Error in config file '{path}': 'type: {CONTAINERISED_RUNNER_TYPE}' and "
-                f"'engine: {DOCKER_RUNNER_ENGINE}' must both be set for runners that use "
-                f"Docker-specific fields (dockerfile, context, volumes, ports, env_vars, "
-                f"run_as_root, args)"
-            )
-        if not dockerfile:
-            raise ConfigError(
-                f"Error in config file '{path}': 'dockerfile' is required for "
-                f"'type: {CONTAINERISED_RUNNER_TYPE}', 'engine: {DOCKER_RUNNER_ENGINE}' runners"
-            )
-
     # Note: Path validation (checking if dockerfile/context exist) is deferred to
     # execution time, as per the spec: "Validation occurs at task execution time"
     # This allows configs to reference files that may not exist on all machines
 
-    # Create and return the Runner object
-    return Runner(
-        name="default",
-        interpreter=interpreter,
-        args=args_config,
-        type=runner_type,
-        engine=runner_engine,
-        dockerfile=dockerfile,
-        context=context,
-        volumes=volumes,
-        ports=ports,
-        env_vars=env_vars,
-        working_dir=working_dir,
-        run_as_root=run_as_root,
-    )
+    # Create and return the Runner object; create_runner applies the type/engine
+    # classification rules and selects the concrete subclass.
+    try:
+        return create_runner(
+            "default",
+            runner_type=runner_type,
+            runner_engine=runner_engine,
+            dockerfile=dockerfile,
+            context=context,
+            volumes=volumes,
+            ports=ports,
+            env_vars=env_vars,
+            run_as_root=run_as_root,
+            args=args_config,
+            interpreter=interpreter,
+            working_dir=working_dir,
+        )
+    except ValueError as e:
+        raise ConfigError(f"Error in config file '{path}': {e}") from e
