@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 from helpers.logging import logger_stub
 from tasktree.executor import Executor
-from tasktree.parser import DockerArgs, DockerRunner, Recipe, Runner, Task
+from tasktree.parser import DockerArgs, DockerRunner, HostRunner, Recipe, Runner, Task
 from tasktree.interpreter import Interpreter
 from tasktree.process_runner import TaskOutputTypes, make_process_runner
 from tasktree.state import StateManager, TaskState
@@ -690,7 +690,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
                 context=".",
             )
 
-            shell_runner = Runner(
+            shell_runner = HostRunner(
                 name="lint",
                 interpreter=Interpreter(cmd="/bin/sh", preamble="set -e"),
             )
@@ -1137,7 +1137,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            shell_runner = Runner(
+            shell_runner = HostRunner(
                 name="shell",
                 interpreter=Interpreter(cmd="/bin/bash"),
             )

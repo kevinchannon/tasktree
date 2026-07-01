@@ -27,7 +27,7 @@ class TestHashRunnerDefinition(unittest.TestCase):
         Test that hashing same runner twice produces same hash.
         """
 
-        runner = Runner(
+        runner = HostRunner(
             name="test",
             interpreter=Interpreter(cmd="bash", preamble="set -e"),
         )
@@ -43,11 +43,11 @@ class TestHashRunnerDefinition(unittest.TestCase):
         Test that changing shell produces different hash.
         """
 
-        runner1 = Runner(
+        runner1 = HostRunner(
             name="test",
             interpreter=Interpreter(cmd="bash"),
         )
-        runner2 = Runner(
+        runner2 = HostRunner(
             name="test",
             interpreter=Interpreter(cmd="zsh"),
         )
@@ -85,11 +85,11 @@ class TestHashRunnerDefinition(unittest.TestCase):
         Test that changing preamble produces different hash.
         """
 
-        runner1 = Runner(
+        runner1 = HostRunner(
             name="test",
             interpreter=Interpreter(cmd="bash", preamble=""),
         )
-        runner2 = Runner(
+        runner2 = HostRunner(
             name="test",
             interpreter=Interpreter(cmd="bash", preamble="set -e"),
         )
@@ -177,7 +177,7 @@ class TestCheckRunnerChanged(unittest.TestCase):
         Set up test runner.
         """
         self.project_root = Path("/tmp/test")
-        self.runner = Runner(
+        self.runner = HostRunner(
             name="test",
             interpreter=Interpreter(cmd="bash"),
         )
@@ -255,14 +255,14 @@ class TestCheckRunnerChanged(unittest.TestCase):
         task = Task(name="test", cmd="echo test", run_in="test")
 
         # Store old hash
-        old_runner = Runner(name="test", interpreter=Interpreter(cmd="bash"))
+        old_runner = HostRunner(name="test", interpreter=Interpreter(cmd="bash"))
         old_hash = hash_runner_definition(old_runner)
         cached_state = TaskState(
             last_run=123.0, input_state={"_runner_hash_test": old_hash}
         )
 
         # Recipe now has modified runner
-        self.recipe.runners["test"] = Runner(name="test", interpreter=Interpreter(cmd="zsh"))
+        self.recipe.runners["test"] = HostRunner(name="test", interpreter=Interpreter(cmd="zsh"))
 
         result = self.executor._check_runner_changed(
             task,

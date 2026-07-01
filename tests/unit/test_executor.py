@@ -472,7 +472,7 @@ class TestResolveInterpreter(unittest.TestCase):
 
     def test_cli_override_takes_highest_precedence(self):
         interpreters = {"sh-i": Interpreter(cmd="sh"), "py-i": Interpreter(cmd="python3")}
-        runner = Runner(name="r", interpreter=Interpreter(cmd="zsh"))
+        runner = HostRunner(name="r", interpreter=Interpreter(cmd="zsh"))
         ex = self._make_executor(
             runners={"r": runner}, interpreters=interpreters, default_runner="r"
         )
@@ -482,7 +482,7 @@ class TestResolveInterpreter(unittest.TestCase):
 
     def test_task_interpreter_takes_precedence(self):
         interpreters = {"py-i": Interpreter(cmd="python3")}
-        runner = Runner(name="r", interpreter=Interpreter(cmd="zsh"))
+        runner = HostRunner(name="r", interpreter=Interpreter(cmd="zsh"))
         ex = self._make_executor(
             runners={"r": runner}, interpreters=interpreters, default_runner="r"
         )
@@ -490,7 +490,7 @@ class TestResolveInterpreter(unittest.TestCase):
         self.assertEqual(ex._resolve_interpreter(task).cmd, "python3")
 
     def test_runner_interpreter_used(self):
-        runner = Runner(name="r", interpreter=Interpreter(cmd="zsh"))
+        runner = HostRunner(name="r", interpreter=Interpreter(cmd="zsh"))
         ex = self._make_executor(runners={"r": runner}, default_runner="r")
         task = Task(name="t", cmd="echo")
         self.assertEqual(ex._resolve_interpreter(task).cmd, "zsh")
@@ -505,7 +505,7 @@ class TestResolveInterpreter(unittest.TestCase):
     def test_runner_without_interpreter_falls_back_to_default(self):
         from tasktree.parser import platform_default_interpreter
 
-        runner = Runner(name="r")  # no interpreter
+        runner = HostRunner(name="r")  # no interpreter
         ex = self._make_executor(runners={"r": runner}, default_runner="r")
         task = Task(name="t", cmd="echo")
         self.assertEqual(ex._resolve_interpreter(task), platform_default_interpreter())
@@ -1217,7 +1217,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
             dep_output.write_text("initial content")
             original_mtime = dep_output.stat().st_mtime
 
-            runner = Runner(name="shell", interpreter=Interpreter(cmd="bash"))
+            runner = HostRunner(name="shell", interpreter=Interpreter(cmd="bash"))
             task = Task(name="package", cmd="zip pkg.zip dep-output.txt", run_in="shell")
             tasks = {"package": task}
             recipe = Recipe(
@@ -1536,8 +1536,8 @@ class TestRunnerResolution(unittest.TestCase):
             from tasktree.parser import Runner
 
             runners = {
-                "prod": Runner(name="prod", interpreter=Interpreter(cmd="sh")),
-                "dev": Runner(name="dev", interpreter=Interpreter(cmd="bash")),
+                "prod": HostRunner(name="prod", interpreter=Interpreter(cmd="sh")),
+                "dev": HostRunner(name="dev", interpreter=Interpreter(cmd="bash")),
             }
 
             # Create task with explicit run_in and recipe with default_runner
@@ -1568,8 +1568,8 @@ class TestRunnerResolution(unittest.TestCase):
             from tasktree.parser import Runner
 
             runners = {
-                "prod": Runner(name="prod", interpreter=Interpreter(cmd="sh")),
-                "dev": Runner(name="dev", interpreter=Interpreter(cmd="bash")),
+                "prod": HostRunner(name="prod", interpreter=Interpreter(cmd="sh")),
+                "dev": HostRunner(name="dev", interpreter=Interpreter(cmd="bash")),
             }
 
             tasks = {"build": Task(name="build", cmd="echo hello", run_in="dev")}
@@ -1597,7 +1597,7 @@ class TestRunnerResolution(unittest.TestCase):
 
             from tasktree.parser import Runner
 
-            runners = {"prod": Runner(name="prod", interpreter=Interpreter(cmd="sh"))}
+            runners = {"prod": HostRunner(name="prod", interpreter=Interpreter(cmd="sh"))}
 
             tasks = {"build": Task(name="build", cmd="echo hello")}  # No run_in
             recipe = Recipe(
@@ -1646,7 +1646,7 @@ class TestRunnerResolution(unittest.TestCase):
             from tasktree.parser import Runner
 
             runners = {
-                "zsh_runner": Runner(
+                "zsh_runner": HostRunner(
                     name="zsh_runner",
                     interpreter=Interpreter(cmd="zsh", preamble="set -e\n"),
                 )
@@ -1729,7 +1729,7 @@ class TestRunnerResolution(unittest.TestCase):
 
             from tasktree.parser import Runner
 
-            runners = {"fish": Runner(name="fish", interpreter=Interpreter(cmd="fish"))}
+            runners = {"fish": HostRunner(name="fish", interpreter=Interpreter(cmd="fish"))}
 
             tasks = {"build": Task(name="build", cmd="echo hello", run_in="fish")}
             recipe = Recipe(

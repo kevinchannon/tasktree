@@ -4903,6 +4903,14 @@ class TestRunnerHierarchy(unittest.TestCase):
         runner = HostRunner(name="shell")
         self.assertIsInstance(runner, Runner)
 
+    def test_base_runner_is_abstract(self):
+        with self.assertRaises(TypeError):
+            Runner(name="nope")
+
+    def test_containerised_runner_is_abstract(self):
+        with self.assertRaises(TypeError):
+            ContainerisedRunner(name="nope")
+
     def test_host_runner_is_not_containerised(self):
         runner = HostRunner(name="shell")
         self.assertNotIsInstance(runner, ContainerisedRunner)

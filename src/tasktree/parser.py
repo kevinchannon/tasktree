@@ -94,20 +94,26 @@ VALID_RUNNER_ENGINES = {DOCKER_RUNNER_ENGINE}
 @dataclass
 class Runner:
     """
-    Represents an execution runner configuration.
+    Abstract base for execution runners.
 
-    Can be either a host runner or a containerised runner:
-    - Host runner: no 'type'/'engine', executes directly on host
-    - Containerised runner: 'type' and 'engine' set (currently the only
-      supported combination is type='containerised', engine='docker'),
-      executes in a container
-    Both may declare an 'interpreter' used to run task scripts; when absent the
-    session default interpreter is used.
+    A runner is always one of the concrete subclasses: HostRunner (executes
+    directly on the host) or DockerRunner (executes in a container). The class
+    itself, and the intermediate ContainerisedRunner, are abstract and cannot
+    be instantiated directly - build runners through create_runner. Every
+    runner may declare an 'interpreter' used to run task scripts; when absent
+    the session default interpreter is used.
     """
 
     name: str
     interpreter: Interpreter | None = None  # Interpreter used to run task scripts
     working_dir: str = ""  # Working directory (container or host)
+
+    def __post_init__(self):
+        if type(self) in (Runner, ContainerisedRunner):
+            raise TypeError(
+                f"{type(self).__name__} is abstract; construct a concrete runner "
+                f"(HostRunner or DockerRunner), e.g. via create_runner"
+            )
 
     def hash_fields(self) -> dict:
         """
