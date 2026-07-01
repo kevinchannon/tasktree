@@ -8,71 +8,11 @@ from unittest.mock import Mock, patch
 from helpers.logging import logger_stub
 from tasktree.docker import (
     DockerManager,
-    is_docker_runner,
     resolve_container_working_dir,
 )
 from tasktree.interpreter import Interpreter
 from tasktree.parser import DockerArgs, DockerRunner, Runner
 from tasktree.process_runner import TaskOutputTypes, make_process_runner
-
-
-class TestIsDockerRunner(unittest.TestCase):
-    """
-    Test Docker environment detection.
-    """
-
-    def test_docker_runner(self):
-        """
-        Test runner with dockerfile.
-        """
-        runner = Runner(
-            name="builder",
-            type="containerised",
-            engine="docker",
-            dockerfile="./Dockerfile",
-            context=".",
-        )
-        self.assertTrue(is_docker_runner(runner))
-
-    def test_shell_runner(self):
-        """
-        Test runner without dockerfile.
-        """
-        runner = Runner(
-            name="bash",
-            interpreter=Interpreter(cmd="bash -c"),
-        )
-        self.assertFalse(is_docker_runner(runner))
-
-    def test_shell_runner_with_explicit_cmd(self):
-        """
-        Test that shell runners work with explicit cmd list in ShellConfig.
-        """
-        runner = Runner(
-            name="bash",
-            interpreter=Interpreter(cmd="bash -c -e"),
-        )
-
-        # Verify it's recognized as a shell runner (not Docker)
-        self.assertFalse(is_docker_runner(runner))
-        self.assertEqual(runner.interpreter.cmd, "bash -c -e")
-
-    def test_docker_runner_with_build_args(self):
-        """
-        Test that Docker runners use DockerArgs for build arguments.
-        """
-        runner = Runner(
-            name="builder",
-            type="containerised",
-            engine="docker",
-            dockerfile="./Dockerfile",
-            context=".",
-            args=DockerArgs(build=["--build-arg", "BUILD_VERSION=1.0.0"]),
-        )
-
-        # Verify it's recognized as a Docker runner
-        self.assertTrue(is_docker_runner(runner))
-        self.assertEqual(runner.args.build, ["--build-arg", "BUILD_VERSION=1.0.0"])
 
 
 class TestResolveContainerWorkingDir(unittest.TestCase):

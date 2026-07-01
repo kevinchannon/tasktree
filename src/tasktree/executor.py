@@ -25,7 +25,7 @@ from tasktree.graph import (
 )
 from tasktree.hasher import hash_args, hash_task, make_cache_key
 from tasktree.logging import Logger, LogLevel
-from tasktree.parser import DockerArgs, Recipe, Task, Runner, HostRunner, platform_default_interpreter, container_default_interpreter
+from tasktree.parser import DockerArgs, Recipe, Task, Runner, HostRunner, ContainerisedRunner, platform_default_interpreter, container_default_interpreter
 from tasktree.interpreter import Interpreter
 from tasktree.process_runner import ProcessRunner, TaskOutputTypes
 from tasktree.state import StateManager, TaskState
@@ -472,7 +472,7 @@ class Executor:
         if not runner_name:
             return
         runner = self.recipe.get_runner(runner_name)
-        if runner is None or docker_module.is_docker_runner(runner):
+        if runner is None or isinstance(runner, ContainerisedRunner):
             return
         docker_only_fields = {
             "volumes": runner.volumes,
@@ -535,7 +535,7 @@ class Executor:
 
         # A Docker runner with no interpreter defaults to sh (always present in a
         # container); host execution falls back to the session/platform default.
-        if runner is not None and docker_module.is_docker_runner(runner):
+        if runner is not None and isinstance(runner, ContainerisedRunner):
             return container_default_interpreter()
 
         return self.get_session_default_runner().interpreter or platform_default_interpreter()
@@ -924,7 +924,7 @@ class Executor:
             # 2. The specified runner is Docker-based
             # 3. The runner differs from current container's runner
             # 4. We're in the same project (cross-project invocations are allowed)
-            if task_runner and docker_module.is_docker_runner(task_runner):
+            if task_runner and isinstance(task_runner, ContainerisedRunner):
                 # Check if this is a cross-project invocation
                 parent_project_root = os.environ.get("TT_PROJECT_ROOT", "").strip()
                 current_project_root = str(self.recipe.project_root)
@@ -1077,7 +1077,7 @@ class Executor:
         self.logger.log(LogLevel.INFO, f"Running: {task.name}")
 
         # Route to Docker execution or regular execution
-        if not force_shell_execution and env and docker_module.is_docker_runner(env):
+        if not force_shell_execution and env and isinstance(env, ContainerisedRunner):
             # Docker execution path - launch container
             self._run_task_in_docker(
                 task,
@@ -1844,7 +1844,7 @@ class Executor:
             return None
         env_name = self._get_effective_runner_name(task)
         env = self.recipe.get_runner(env_name) if env_name else None
-        if env and docker_module.is_docker_runner(env):
+        if env and isinstance(env, ContainerisedRunner):
             working_dir = self.recipe.project_root / task.working_dir
             builtin_vars = self._collect_builtin_variables(
                 task, working_dir, datetime.now(timezone.utc)

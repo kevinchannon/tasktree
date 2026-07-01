@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from tasktree.interpreter import Interpreter
-from tasktree.parser import DOCKER_RUNNER_ENGINE
 from tasktree.temp_script import TempScript
 
 if TYPE_CHECKING:
@@ -431,19 +430,6 @@ class DockerManager:
             raise DockerError(
                 f"Failed to fingerprint image {image_tag}: {e.stderr}"
             )
-
-
-def is_docker_runner(env: Runner) -> bool:
-    """
-    Check if runner is Docker-based.
-
-    Args:
-    env: Runner to check
-
-    Returns:
-    True if the runner is a containerised runner using the Docker engine
-    """
-    return env.is_containerised and env.engine == DOCKER_RUNNER_ENGINE
 
 
 def resolve_container_working_dir(

@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 from helpers.logging import logger_stub
 from tasktree.executor import Executor
-from tasktree.parser import DockerArgs, Recipe, Runner, Task
+from tasktree.parser import DockerArgs, DockerRunner, Recipe, Runner, Task
 from tasktree.interpreter import Interpreter
 from tasktree.process_runner import TaskOutputTypes, make_process_runner
 from tasktree.state import StateManager, TaskState
@@ -574,7 +574,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
             project_root = Path(tmpdir)
 
             # Create a Docker runner
-            test_runner = Runner(
+            test_runner = DockerRunner(
                 name="build",
                 interpreter=Interpreter(cmd="/bin/bash", preamble="set -e"),
                 type="containerised",
@@ -628,7 +628,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            build_runner = Runner(
+            build_runner = DockerRunner(
                 name="build",
                 interpreter=Interpreter(cmd="/bin/bash"),
                 type="containerised",
@@ -637,7 +637,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
                 context=".",
             )
 
-            test_runner = Runner(
+            test_runner = DockerRunner(
                 name="test",
                 interpreter=Interpreter(cmd="/bin/bash"),
                 type="containerised",
@@ -689,7 +689,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            docker_runner = Runner(
+            docker_runner = DockerRunner(
                 name="build",
                 interpreter=Interpreter(cmd="/bin/bash"),
                 type="containerised",
@@ -746,7 +746,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            docker_runner = Runner(
+            docker_runner = DockerRunner(
                 name="build",
                 interpreter=Interpreter(cmd="/bin/bash"),
                 type="containerised",
@@ -799,7 +799,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            docker_runner = Runner(
+            docker_runner = DockerRunner(
                 name="build",
                 interpreter=Interpreter(cmd="/bin/bash"),
                 type="containerised",
@@ -856,7 +856,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            docker_runner = Runner(
+            docker_runner = DockerRunner(
                 name="build",
                 interpreter=Interpreter(cmd="/bin/bash"),
                 type="containerised",
@@ -914,7 +914,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
             state_file = project_root / ".tasktree-state"
             # Do NOT create state file - test that executor creates it
 
-            docker_runner = Runner(
+            docker_runner = DockerRunner(
                 name="build",
                 interpreter=Interpreter(cmd="/bin/bash"),
                 type="containerised",
@@ -976,7 +976,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
             state_file = project_root / ".tasktree-state"
             state_file.touch()  # Create state file
 
-            docker_runner = Runner(
+            docker_runner = DockerRunner(
                 name="build",
                 interpreter=Interpreter(cmd="/bin/bash"),
                 type="containerised",
@@ -1034,7 +1034,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 
-            docker_runner = Runner(
+            docker_runner = DockerRunner(
                 name="build",
                 interpreter=Interpreter(cmd="zsh"),
                 type="containerised",
@@ -1103,7 +1103,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
                     state_file = project_root / ".tasktree-state"
                     state_file.touch()
 
-                    docker_runner = Runner(
+                    docker_runner = DockerRunner(
                         name=runner_name,
                         interpreter=Interpreter(cmd="/bin/bash"),
                         type="containerised",
