@@ -56,7 +56,7 @@ Your sponsor is not made of money! Try to minimise token useage, so that we can 
 
 ### Core Components
 
-- **`src/tasktree/parser.py`** (~3,590 lines): YAML recipe parsing, task and runner definitions (the Runner class hierarchy and `create_runner` factory), circular import detection, schema validation
+- **`src/tasktree/parser.py`** (~3,590 lines): YAML recipe parsing, task and runner definitions (the Runner class hierarchy and `runner_from_config` factory), circular import detection, schema validation
 - **`src/tasktree/executor.py`** (~1,940 lines): Task execution logic, incremental execution engine, state tracking, built-in variables, subprocess management
 - **`src/tasktree/cli.py`** (~215 lines): Typer-based CLI with commands: `--list`, `--show`, `--tree`, `--force`, `--only`, `--dry-run`, `--verbose`
 - **`src/tasktree/graph.py`** (~665 lines): Dependency resolution using graphlib.TopologicalSorter, parameterized dependencies, cycle detection
@@ -244,13 +244,18 @@ Runner (abstract)                    name, interpreter, working_dir, hash_fields
   hold container configuration — a `HostRunner` has no `volumes`/`dockerfile`
   attributes at all. Adding a docker-only field to a non-containerised runner is
   therefore impossible to construct, not just validated against.
-- **`create_runner(name, ...)` is the only sanctioned constructor.** It reads the
-  recipe's `type`/`engine` values purely as *discriminators* to select and build
-  the right concrete class (host → `HostRunner`; `containerised`+`docker` →
-  `DockerRunner`), applying the classification rules (`_validate_runner_classification`)
-  in one place. Both the recipe parser and the machine-config loader build runners
-  through it. `Runner` and `ContainerisedRunner` are abstract and raise `TypeError`
-  if instantiated directly.
+- **A two-level factory is the only sanctioned constructor**, mirroring the two
+  discriminator axes. `runner_from_config(name, config, *, interpreter=None)`
+  takes the runner's definition dict and branches solely on `type` (no `type` →
+  `HostRunner`; `type: containerised` → dispatch). It knows nothing engine-specific.
+  `containerised_runner_from_config(name, config, ...)` then branches on `engine`
+  to build the concrete containerised runner (currently `engine: docker` →
+  `DockerRunner`). Field extraction/validation for a containerised runner lives in
+  the second function; `runner_from_config` only rejects container-config keys that
+  appear without a `type`. Both the recipe parser and the machine-config loader
+  build runners through `runner_from_config` (the interpreter is resolved by the
+  caller and passed in, since it needs the interpreters registry). `Runner` and
+  `ContainerisedRunner` are abstract and raise `TypeError` if instantiated directly.
 - **Dispatch is polymorphic.** Host-vs-container decisions use
   `isinstance(env, ContainerisedRunner)` rather than string checks on `type`/`engine`.
   Docker-specific behaviour lives in `docker.py`'s `DockerManager`, reached only for
@@ -260,8 +265,9 @@ Runner (abstract)                    name, interpreter, working_dir, hash_fields
   (`ContainerisedRunner` contributes args/volumes/ports/env_vars; `DockerRunner`
   adds dockerfile/context). Changing a runner's kind therefore invalidates cached
   task results.
-- **Adding a new engine** (e.g. Podman, or a non-containerised Nix runner) means
-  adding a subclass at the right level and a case in `create_runner` — no new
+- **Adding a new engine** (e.g. Podman) means adding a subclass and an `engine`
+  branch in `containerised_runner_from_config`; a new *non-containerised* kind
+  (e.g. a Nix runner) means a new `type` branch in `runner_from_config` — no new
   conditionals scattered across the executor. The recipe's `type` axis selects the
   intermediate (containerised vs not) and `engine` selects the leaf.
 

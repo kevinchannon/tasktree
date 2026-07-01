@@ -18,13 +18,14 @@ from tasktree.parser import (
     ContainerisedRunner,
     DockerRunner,
     HostRunner,
-    create_runner,
     Recipe,
     Runner,
     Task,
     _resolve_eval_variable,
+    containerised_runner_from_config,
     find_recipe_file,
     parse_arg_spec,
+    runner_from_config,
     parse_recipe,
 )
 from tasktree.interpreter import Interpreter
@@ -4925,55 +4926,78 @@ class TestRunnerHierarchy(unittest.TestCase):
         self.assertEqual(runner.context, ".")
 
 
-class TestCreateRunner(unittest.TestCase):
+class TestRunnerFromConfig(unittest.TestCase):
     """
-    Tests for the create_runner factory that selects the concrete subclass.
+    Tests for the runner_from_config / containerised_runner_from_config factory
+    functions that select the concrete subclass from a runner definition dict.
     """
 
     def test_no_fields_builds_host_runner(self):
-        runner = create_runner("shell")
+        runner = runner_from_config("shell", {})
         self.assertIsInstance(runner, HostRunner)
 
-    def test_docker_fields_build_docker_runner(self):
-        runner = create_runner(
+    def test_docker_config_builds_docker_runner(self):
+        runner = runner_from_config(
             "builder",
-            runner_type=CONTAINERISED_RUNNER_TYPE,
-            runner_engine=DOCKER_RUNNER_ENGINE,
-            dockerfile="Dockerfile",
-            context=".",
+            {
+                "type": CONTAINERISED_RUNNER_TYPE,
+                "engine": DOCKER_RUNNER_ENGINE,
+                "dockerfile": "Dockerfile",
+                "context": ".",
+            },
         )
         self.assertIsInstance(runner, DockerRunner)
         self.assertEqual(runner.dockerfile, "Dockerfile")
         self.assertEqual(runner.context, ".")
 
-    def test_dockerfile_without_classification_rejected(self):
+    def test_docker_only_field_without_type_rejected(self):
         with self.assertRaises(ValueError) as ctx:
-            create_runner("builder", dockerfile="Dockerfile")
+            runner_from_config("builder", {"dockerfile": "Dockerfile"})
         self.assertIn("type", str(ctx.exception))
 
-    def test_docker_only_field_without_classification_rejected(self):
+    def test_container_field_without_type_rejected(self):
         with self.assertRaises(ValueError) as ctx:
-            create_runner("builder", volumes=["/host:/container"])
+            runner_from_config("builder", {"volumes": ["/host:/container"]})
         self.assertIn("type", str(ctx.exception))
 
-    def test_classification_without_dockerfile_rejected(self):
+    def test_containerised_without_dockerfile_rejected(self):
         with self.assertRaises(ValueError) as ctx:
-            create_runner(
+            runner_from_config(
                 "builder",
-                runner_type=CONTAINERISED_RUNNER_TYPE,
-                runner_engine=DOCKER_RUNNER_ENGINE,
+                {"type": CONTAINERISED_RUNNER_TYPE, "engine": DOCKER_RUNNER_ENGINE},
             )
         self.assertIn("dockerfile", str(ctx.exception))
 
     def test_invalid_type_rejected(self):
         with self.assertRaises(ValueError) as ctx:
-            create_runner(
+            runner_from_config(
                 "builder",
-                runner_type="virtualised",
-                runner_engine=DOCKER_RUNNER_ENGINE,
-                dockerfile="Dockerfile",
+                {
+                    "type": "virtualised",
+                    "engine": DOCKER_RUNNER_ENGINE,
+                    "dockerfile": "Dockerfile",
+                },
             )
         self.assertIn("'type'", str(ctx.exception))
+
+    def test_invalid_engine_rejected(self):
+        with self.assertRaises(ValueError) as ctx:
+            runner_from_config(
+                "builder",
+                {
+                    "type": CONTAINERISED_RUNNER_TYPE,
+                    "engine": "podman",
+                    "dockerfile": "Dockerfile",
+                },
+            )
+        self.assertIn("'engine'", str(ctx.exception))
+
+    def test_containerised_factory_builds_docker_runner(self):
+        runner = containerised_runner_from_config(
+            "builder",
+            {"engine": DOCKER_RUNNER_ENGINE, "dockerfile": "Dockerfile"},
+        )
+        self.assertIsInstance(runner, DockerRunner)
 
 
 class TestRunnerTypeAndEngine(unittest.TestCase):

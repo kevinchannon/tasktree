@@ -99,7 +99,7 @@ class Runner:
     A runner is always one of the concrete subclasses: HostRunner (executes
     directly on the host) or DockerRunner (executes in a container). The class
     itself, and the intermediate ContainerisedRunner, are abstract and cannot
-    be instantiated directly - build runners through create_runner. Every
+    be instantiated directly - build runners through runner_from_config. Every
     runner may declare an 'interpreter' used to run task scripts; when absent
     the session default interpreter is used.
     """
@@ -112,7 +112,7 @@ class Runner:
         if type(self) in (Runner, ContainerisedRunner):
             raise TypeError(
                 f"{type(self).__name__} is abstract; construct a concrete runner "
-                f"(HostRunner or DockerRunner), e.g. via create_runner"
+                f"(HostRunner or DockerRunner), e.g. via runner_from_config"
             )
 
     def hash_fields(self) -> dict:
@@ -1955,214 +1955,157 @@ def _parse_runners_from_data(
             else None
         )
 
-        # Parse docker args
-        args_config = parse_docker_args(env_config.get("args"), env_name)
+        # Build the concrete runner. Field extraction/validation and the
+        # type/engine classification all live in the factory. Runner fields may
+        # still contain {{ var.* }} placeholders - substitution is deferred.
+        runner = runner_from_config(env_name, env_config, interpreter=runner_interpreter)
 
-        working_dir = env_config.get("working_dir", "")
+        # Recipe runners resolve and validate their Dockerfile/context paths on
+        # disk now (config runners defer this to execution time).
+        if isinstance(runner, DockerRunner):
+            if runner.dockerfile and not runner.context:
+                runner.context = str(Path(runner.dockerfile).parent)
 
-        # Parse runner classification
-        runner_type = env_config.get("type", "")
-        runner_engine = env_config.get("engine", "")
+            if runner.dockerfile:
+                dockerfile_path = project_root / runner.dockerfile
+                if not dockerfile_path.exists():
+                    raise ValueError(
+                        f"Runner '{env_name}': Dockerfile not found at {dockerfile_path}"
+                    )
 
-        # Parse Docker-specific fields
-        dockerfile = env_config.get("dockerfile", "")
-        context = env_config.get("context", "")
-        volumes = env_config.get("volumes", [])
-        ports = env_config.get("ports", [])
-        env_vars = env_config.get("env_vars", {})
-        run_as_root = env_config.get("run_as_root", False)
+            if runner.context:
+                context_path = project_root / runner.context
+                if not context_path.exists():
+                    raise ValueError(
+                        f"Runner '{env_name}': context directory not found at {context_path}"
+                    )
+                if not context_path.is_dir():
+                    raise ValueError(
+                        f"Runner '{env_name}': context must be a directory, got {context_path}"
+                    )
 
-        if not isinstance(volumes, list):
-            raise ValueError(f"Runner '{env_name}': 'volumes' must be a list")
-        if not isinstance(ports, list):
-            raise ValueError(f"Runner '{env_name}': 'ports' must be a list")
-        if not isinstance(env_vars, dict):
-            raise ValueError(f"Runner '{env_name}': 'env_vars' must be a dictionary")
-        if not isinstance(run_as_root, bool):
-            raise ValueError(f"Runner '{env_name}': 'run_as_root' must be a boolean")
-        if not isinstance(runner_type, str):
-            raise ValueError(f"Runner '{env_name}': 'type' must be a string")
-        if not isinstance(runner_engine, str):
-            raise ValueError(f"Runner '{env_name}': 'engine' must be a string")
-
-        # Validate classification up front so config errors surface before the
-        # filesystem-dependent Dockerfile/context existence checks below.
-        _validate_runner_classification(
-            env_name,
-            runner_type,
-            runner_engine,
-            dockerfile=dockerfile,
-            context=context,
-            volumes=volumes,
-            ports=ports,
-            env_vars=env_vars,
-            run_as_root=run_as_root,
-            args_config=args_config,
-        )
-
-        # SKIP variable substitution in runner fields - defer to lazy evaluation
-        # Runner fields may contain {{ var.* }} placeholders
-
-        # Default context to the Dockerfile's directory if not specified
-        if dockerfile and not context:
-            context = str(Path(dockerfile).parent)
-
-        # Validate that Dockerfile exists if specified
-        if dockerfile:
-            dockerfile_path = project_root / dockerfile
-            if not dockerfile_path.exists():
-                raise ValueError(
-                    f"Runner '{env_name}': Dockerfile not found at {dockerfile_path}"
-                )
-
-        # Validate that context directory exists if specified
-        if context:
-            context_path = project_root / context
-            if not context_path.exists():
-                raise ValueError(
-                    f"Runner '{env_name}': context directory not found at {context_path}"
-                )
-            if not context_path.is_dir():
-                raise ValueError(
-                    f"Runner '{env_name}': context must be a directory, got {context_path}"
-                )
-
-        runners[env_name] = create_runner(
-            env_name,
-            runner_type=runner_type,
-            runner_engine=runner_engine,
-            dockerfile=dockerfile,
-            context=context,
-            volumes=volumes,
-            ports=ports,
-            env_vars=env_vars,
-            run_as_root=run_as_root,
-            args=args_config,
-            interpreter=runner_interpreter,
-            working_dir=working_dir,
-        )
+        runners[env_name] = runner
 
     return runners, default_runner, interpreters
 
 
-def _validate_runner_classification(
-    env_name: str,
-    runner_type: str,
-    runner_engine: str,
-    *,
-    dockerfile: str,
-    context: str,
-    volumes: list[str],
-    ports: list[str],
-    env_vars: dict[str, str],
-    run_as_root: bool,
-    args_config: DockerArgs,
-) -> None:
-    """
-    Validate a runner's 'type'/'engine' classification against its other fields.
-
-    Docker-only fields (dockerfile, context, volumes, ports, env_vars,
-    run_as_root, args) require type='containerised' and engine='docker' to be
-    set, and vice versa: a runner is only valid as a host runner if none of
-    these fields, including type/engine, are present.
-    """
-    if runner_type and runner_type not in VALID_RUNNER_TYPES:
-        raise ValueError(
-            f"Runner '{env_name}': 'type' must be one of "
-            f"{sorted(VALID_RUNNER_TYPES)}, got {runner_type!r}"
-        )
-    if runner_engine and runner_engine not in VALID_RUNNER_ENGINES:
-        raise ValueError(
-            f"Runner '{env_name}': 'engine' must be one of "
-            f"{sorted(VALID_RUNNER_ENGINES)}, got {runner_engine!r}"
-        )
-
-    has_docker_only_field = bool(
-        dockerfile
-        or context
-        or volumes
-        or ports
-        or env_vars
-        or run_as_root
-        or args_config.build
-        or args_config.run
-    )
-    has_classification = bool(runner_type or runner_engine)
-
-    if has_docker_only_field or has_classification:
-        if runner_type != CONTAINERISED_RUNNER_TYPE or runner_engine != DOCKER_RUNNER_ENGINE:
-            raise ValueError(
-                f"Runner '{env_name}': 'type: {CONTAINERISED_RUNNER_TYPE}' and "
-                f"'engine: {DOCKER_RUNNER_ENGINE}' must both be set for runners "
-                f"that use Docker-specific fields (dockerfile, context, volumes, "
-                f"ports, env_vars, run_as_root, args)"
-            )
-        if not dockerfile:
-            raise ValueError(
-                f"Runner '{env_name}': 'dockerfile' is required for "
-                f"'type: {CONTAINERISED_RUNNER_TYPE}', 'engine: {DOCKER_RUNNER_ENGINE}' runners"
-            )
+# Keys that only make sense on a containerised runner; their presence without a
+# 'type' is a configuration error. runner_from_config needs only this boundary,
+# not any engine-specific knowledge.
+_CONTAINER_CONFIG_KEYS = frozenset(
+    {"engine", "dockerfile", "context", "volumes", "ports", "env_vars", "run_as_root", "args"}
+)
 
 
-def create_runner(
+def runner_from_config(
     name: str,
+    config: dict,
     *,
-    runner_type: str = "",
-    runner_engine: str = "",
-    dockerfile: str = "",
-    context: str = "",
-    volumes: list[str] | None = None,
-    ports: list[str] | None = None,
-    env_vars: dict[str, str] | None = None,
-    run_as_root: bool = False,
-    args: DockerArgs | None = None,
     interpreter: Interpreter | None = None,
-    working_dir: str = "",
 ) -> Runner:
     """
-    Build the appropriate Runner subclass from runner fields.
+    Build a Runner from its definition dict, dispatching on the 'type' field.
 
-    Applies the type/engine classification rules and returns a HostRunner for
-    host runners or a DockerRunner for containerised Docker runners. Raises
-    ValueError on invalid or inconsistent configuration. Interpreter and args
-    are parsed by the caller (they differ between recipe and config contexts)
-    and passed in.
+    A definition with no 'type' is a host runner; 'type: containerised' is
+    dispatched to containerised_runner_from_config, which selects the concrete
+    containerised runner from its 'engine'. This function knows nothing about
+    any specific container engine. Raises ValueError on invalid configuration.
+
+    The interpreter is resolved by the caller (it needs the interpreters
+    registry, which differs between recipe and machine-config contexts) and
+    passed in; every other field is read from ``config``.
     """
-    volumes = volumes or []
-    ports = ports or []
-    env_vars = env_vars or {}
-    args = args or DockerArgs()
+    runner_type = config.get("type", "")
+    if not isinstance(runner_type, str):
+        raise ValueError(f"Runner '{name}': 'type' must be a string")
 
-    _validate_runner_classification(
-        name,
-        runner_type,
-        runner_engine,
+    working_dir = config.get("working_dir", "")
+    if not isinstance(working_dir, str):
+        raise ValueError(f"Runner '{name}': 'working_dir' must be a string")
+
+    if not runner_type:
+        container_fields = sorted(set(config) & _CONTAINER_CONFIG_KEYS)
+        if container_fields:
+            raise ValueError(
+                f"Runner '{name}': fields {container_fields} require a containerised "
+                f"runner ('type: {CONTAINERISED_RUNNER_TYPE}', "
+                f"'engine: {DOCKER_RUNNER_ENGINE}')"
+            )
+        return HostRunner(name=name, interpreter=interpreter, working_dir=working_dir)
+
+    if runner_type not in VALID_RUNNER_TYPES:
+        raise ValueError(
+            f"Runner '{name}': 'type' must be one of "
+            f"{sorted(VALID_RUNNER_TYPES)}, got {runner_type!r}"
+        )
+
+    return containerised_runner_from_config(name, config, interpreter=interpreter)
+
+
+def containerised_runner_from_config(
+    name: str,
+    config: dict,
+    *,
+    interpreter: Interpreter | None = None,
+) -> ContainerisedRunner:
+    """
+    Build a ContainerisedRunner from its definition dict, dispatching on the
+    'engine' field. Currently the only supported engine is docker, producing a
+    DockerRunner. Raises ValueError on invalid configuration.
+    """
+    engine = config.get("engine", "")
+    if not isinstance(engine, str):
+        raise ValueError(f"Runner '{name}': 'engine' must be a string")
+    if engine not in VALID_RUNNER_ENGINES:
+        raise ValueError(
+            f"Runner '{name}': 'engine' must be one of "
+            f"{sorted(VALID_RUNNER_ENGINES)}, got {engine!r}"
+        )
+
+    # Docker is the only supported engine today.
+    dockerfile = config.get("dockerfile", "")
+    if not isinstance(dockerfile, str):
+        raise ValueError(f"Runner '{name}': 'dockerfile' must be a string")
+
+    context = config.get("context", "")
+    if not isinstance(context, str):
+        raise ValueError(f"Runner '{name}': 'context' must be a string")
+
+    volumes = config.get("volumes", [])
+    if not isinstance(volumes, list):
+        raise ValueError(f"Runner '{name}': 'volumes' must be a list")
+
+    ports = config.get("ports", [])
+    if not isinstance(ports, list):
+        raise ValueError(f"Runner '{name}': 'ports' must be a list")
+
+    env_vars = config.get("env_vars", {})
+    if not isinstance(env_vars, dict):
+        raise ValueError(f"Runner '{name}': 'env_vars' must be a dictionary")
+
+    run_as_root = config.get("run_as_root", False)
+    if not isinstance(run_as_root, bool):
+        raise ValueError(f"Runner '{name}': 'run_as_root' must be a boolean")
+
+    args = parse_docker_args(config.get("args"), name)
+
+    if not dockerfile:
+        raise ValueError(
+            f"Runner '{name}': 'dockerfile' is required for "
+            f"'engine: {DOCKER_RUNNER_ENGINE}' runners"
+        )
+
+    return DockerRunner(
+        name=name,
+        interpreter=interpreter,
+        working_dir=config.get("working_dir", ""),
+        args=args,
         dockerfile=dockerfile,
         context=context,
         volumes=volumes,
         ports=ports,
         env_vars=env_vars,
         run_as_root=run_as_root,
-        args_config=args,
-    )
-
-    if runner_type == CONTAINERISED_RUNNER_TYPE:
-        return DockerRunner(
-            name=name,
-            interpreter=interpreter,
-            args=args,
-            dockerfile=dockerfile,
-            context=context,
-            volumes=volumes,
-            ports=ports,
-            env_vars=env_vars,
-            working_dir=working_dir,
-            run_as_root=run_as_root,
-        )
-    return HostRunner(
-        name=name,
-        interpreter=interpreter,
-        working_dir=working_dir,
     )
 
 

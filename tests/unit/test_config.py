@@ -498,6 +498,8 @@ class TestConfigFieldValidation(unittest.TestCase):
             config_path.write_text(
                 """runners:
   default:
+    type: containerised
+    engine: docker
     interpreter:
       cmd: bash
     args: ["--rm"]
@@ -536,6 +538,8 @@ class TestConfigFieldValidation(unittest.TestCase):
             config_path.write_text(
                 """runners:
   default:
+    type: containerised
+    engine: docker
     dockerfile: 123
     context: .
 """
@@ -554,6 +558,8 @@ class TestConfigFieldValidation(unittest.TestCase):
             config_path.write_text(
                 """runners:
   default:
+    type: containerised
+    engine: docker
     dockerfile: Dockerfile
     context: [path, to, context]
 """
@@ -572,6 +578,8 @@ class TestConfigFieldValidation(unittest.TestCase):
             config_path.write_text(
                 """runners:
   default:
+    type: containerised
+    engine: docker
     dockerfile: Dockerfile
     context: .
     volumes: "/host:/container"
@@ -591,6 +599,8 @@ class TestConfigFieldValidation(unittest.TestCase):
             config_path.write_text(
                 """runners:
   default:
+    type: containerised
+    engine: docker
     dockerfile: Dockerfile
     context: .
     ports: "8080:80"
@@ -610,6 +620,8 @@ class TestConfigFieldValidation(unittest.TestCase):
             config_path.write_text(
                 """runners:
   default:
+    type: containerised
+    engine: docker
     dockerfile: Dockerfile
     context: .
     env_vars: ["VAR1=value1", "VAR2=value2"]
@@ -629,6 +641,8 @@ class TestConfigFieldValidation(unittest.TestCase):
             config_path.write_text(
                 """runners:
   default:
+    type: containerised
+    engine: docker
     dockerfile: Dockerfile
     context: .
     run_as_root: "yes"
@@ -733,21 +747,21 @@ class TestErrorMessageContext(unittest.TestCase):
             ),
             ("runners:\n  default: not-a-dict", "Runner 'default' must be a dictionary"),
             ("runners:\n  default:\n    interpreter: 123", "'interpreter' must be a string"),
-            ("runners:\n  default:\n    interpreter:\n      cmd: bash\n    args: not-a-list", "'args' must be a dict"),
+            ("runners:\n  default:\n    type: containerised\n    engine: docker\n    interpreter:\n      cmd: bash\n    args: not-a-list", "'args' must be a dict"),
             (
                 "runners:\n  default:\n    interpreter:\n      cmd: bash\n      preamble: [list]",
                 "interpreter 'preamble' must be a string",
             ),
             (
-                "runners:\n  default:\n    dockerfile: Dockerfile\n    context: .\n    volumes: not-a-list",
+                "runners:\n  default:\n    type: containerised\n    engine: docker\n    dockerfile: Dockerfile\n    context: .\n    volumes: not-a-list",
                 "'volumes' must be a list",
             ),
             (
-                "runners:\n  default:\n    dockerfile: Dockerfile\n    context: .\n    env_vars: [list]",
+                "runners:\n  default:\n    type: containerised\n    engine: docker\n    dockerfile: Dockerfile\n    context: .\n    env_vars: [list]",
                 "'env_vars' must be a dictionary",
             ),
             (
-                "runners:\n  default:\n    dockerfile: Dockerfile\n    context: .\n    ports: not-a-list",
+                "runners:\n  default:\n    type: containerised\n    engine: docker\n    dockerfile: Dockerfile\n    context: .\n    ports: not-a-list",
                 "'ports' must be a list",
             ),
         ]
