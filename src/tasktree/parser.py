@@ -1971,6 +1971,8 @@ def _parse_runners_from_data(
         if not isinstance(runner_engine, str):
             raise ValueError(f"Runner '{env_name}': 'engine' must be a string")
 
+        # Validate classification up front so config errors surface before the
+        # filesystem-dependent Dockerfile/context existence checks below.
         _validate_runner_classification(
             env_name,
             runner_type,
@@ -2011,19 +2013,19 @@ def _parse_runners_from_data(
                     f"Runner '{env_name}': context must be a directory, got {context_path}"
                 )
 
-        runners[env_name] = Runner(
-            name=env_name,
-            interpreter=runner_interpreter,
-            args=args_config,
-            type=runner_type,
-            engine=runner_engine,
+        runners[env_name] = create_runner(
+            env_name,
+            runner_type=runner_type,
+            runner_engine=runner_engine,
             dockerfile=dockerfile,
             context=context,
             volumes=volumes,
             ports=ports,
             env_vars=env_vars,
-            working_dir=working_dir,
             run_as_root=run_as_root,
+            args=args_config,
+            interpreter=runner_interpreter,
+            working_dir=working_dir,
         )
 
     return runners, default_runner, interpreters
