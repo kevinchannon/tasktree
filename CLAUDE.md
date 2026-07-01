@@ -56,7 +56,7 @@ Your sponsor is not made of money! Try to minimise token useage, so that we can 
 
 ### Core Components
 
-- **`src/tasktree/parser.py`** (~3,590 lines): YAML recipe parsing, task and runner definitions (the Runner class hierarchy and `runner_from_config` factory), circular import detection, schema validation
+- **`src/tasktree/parser.py`** (~3,540 lines): YAML recipe parsing, task and runner definitions (the Runner class hierarchy and `runner_from_config` factory), circular import detection, schema validation
 - **`src/tasktree/executor.py`** (~1,940 lines): Task execution logic, incremental execution engine, state tracking, built-in variables, subprocess management
 - **`src/tasktree/cli.py`** (~215 lines): Typer-based CLI with commands: `--list`, `--show`, `--tree`, `--force`, `--only`, `--dry-run`, `--verbose`
 - **`src/tasktree/graph.py`** (~665 lines): Dependency resolution using graphlib.TopologicalSorter, parameterized dependencies, cycle detection
