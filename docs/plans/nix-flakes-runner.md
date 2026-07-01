@@ -13,7 +13,8 @@ Add `nix` as a new runner type, selectable exactly like the Docker runner:
 ```yaml
 runners:
   nix:
-    flake: .            # flakeref (local path); the marker that makes this a nix runner
+    type: nix           # discriminator; selects the Nix runner (peer of `type: containerised`)
+    flake: .            # flakeref (local path)
     devshell: default   # devShell attr -> devShells.<system>.<devshell>; default "default"
 
 tasks:
@@ -21,6 +22,11 @@ tasks:
     run_in: nix
     cmd: cargo build    # cargo comes from the flake's devShell, not the host
 ```
+
+> **Runner declaration changed.** Runners are now declared with an explicit `type:`
+> discriminator (`type: containerised` + `engine: docker` for Docker), rather than
+> being inferred from the presence of a `dockerfile` field. The Nix runner is declared
+> `type: nix`. Nix is **not** a containerised runner, so it takes no `engine`.
 
 **Nix is an environment provider, not a sandbox.** It gives a pinned, reproducible
 toolchain. It gives **no** process/network/filesystem isolation, and that is by
@@ -80,30 +86,47 @@ The runner system already keys off a single marker field, so this is a clean add
 File:line anchors below were accurate at the time of writing — **verify before
 editing**, the files churn.
 
-- **Runner type detection.** Runners now carry an explicit `type`/`engine`
-  classification (`Runner.type`, `Runner.engine` — `src/tasktree/parser.py`,
-  `Runner` dataclass ~line 88-125; `docker_module.is_docker_runner` checks
-  `type == "containerised" and engine == "docker"`, used in dispatch in
-  `src/tasktree/executor.py` ~line 1080) instead of inferring "container runner"
-  from `dockerfile` presence. A Nix runner should set `type: nix` (a new entry in
-  `VALID_RUNNER_TYPES`) with no `engine` — Nix isn't a containerised runner, so the
-  `engine` field doesn't apply. `Runner.flake` is the field that carries the actual
-  flakeref.
-- **Execution path.** A nix task stays on the **host** path
-  (`Executor._run_command_as_script`, `executor.py` ~line 1149). It only needs the
+- **Runners are a polymorphic class hierarchy, not a flag-carrying struct.** In
+  `src/tasktree/parser.py` (~line 88-165): `Runner` (abstract: `name`,
+  `interpreter`, `working_dir`, `hash_fields()`) → `HostRunner` (host execution) and
+  `ContainerisedRunner` (abstract: `args`, `volumes`, `ports`, `env_vars`,
+  `run_as_root`) → `DockerRunner` (`dockerfile`, `context`). **The class encodes the
+  classification — there is no stored `type`/`engine` field on the object.** `type`
+  and `engine` are *recipe-YAML discriminator strings only* (`VALID_RUNNER_TYPES`,
+  `VALID_RUNNER_ENGINES` ~line 88-91). Dispatch is by `isinstance`, e.g.
+  `isinstance(env, ContainerisedRunner)` in `executor.py` ~line 1039.
+- **Add a new `NixRunner(Runner)`** — a **peer of `HostRunner` and
+  `ContainerisedRunner`** (Nix is *not* containerised, so it does **not** extend
+  `ContainerisedRunner`). Fields: `flake: str` and `devshell: str = "default"`.
+  Override `hash_fields()` to return `{flake, devshell, narhashes}`.
+- **Factory dispatch.** Building runners goes through `runner_from_config(name,
+  config, *, interpreter)` (`parser.py` ~line 2000), which branches on the YAML
+  `type`: no `type` → `HostRunner`; `type: containerised` →
+  `containerised_runner_from_config` (~line 2045, branches on `engine`). Add
+  `NIX_RUNNER_TYPE = "nix"` to `VALID_RUNNER_TYPES` and a `type == "nix"` branch in
+  `runner_from_config` that builds the `NixRunner` (mirror the containerised path
+  with a small `nix_runner_from_config` helper). Both the recipe parser and the
+  machine-config loader build runners through `runner_from_config`.
+- **Config-key guards.** `runner_from_config` rejects container-only keys that appear
+  without a `type` (via `_CONTAINER_CONFIG_KEYS`, ~line 2027). Add the analogous
+  guard so `flake`/`devshell` are rejected on non-Nix runners, and container keys are
+  rejected on a Nix runner.
+- **Execution path.** A Nix task stays on the **host** path
+  (`Executor._run_command_as_script`, `executor.py` ~line 1108). It only needs the
   realised devShell env merged into the `env` dict that
-  `_prepare_env_with_exports` (`executor.py` ~line 1183/276) already builds. **None**
-  of the Docker machinery (volumes, ports, UID/GID mapping, `run_in_container`) is
-  touched.
+  `_prepare_env_with_exports` (`executor.py` ~line 276) already builds. Detection is
+  `isinstance(env, NixRunner)`. **None** of the Docker machinery (volumes, ports,
+  UID/GID mapping, `run_in_container`) is touched.
 - **Interpreter default.** `container_default_interpreter()` returns `sh` and is
-  selected in `Executor._resolve_interpreter` (`executor.py` ~line 507-541, the
-  `is_docker_runner(runner)` branch ~line 538). Add a parallel `nix` default
-  returning `Interpreter(cmd="bash")` and a branch `if runner.type == "nix":`
-  before the Docker one.
-- **Runner identity for stale-detection.** `hash_runner_definition` in
-  `src/tasktree/hasher.py` (~line 165-195) serialises the fields that affect
-  execution. Extend it with the nix runner identity = `(flakeref, devShell attr,
-  locked input narHashes)`.
+  selected in `Executor._resolve_interpreter` (`executor.py` ~line 469-503, the
+  `isinstance(runner, ContainerisedRunner)` branch ~line 500). Add a
+  `nix_default_interpreter()` returning `Interpreter(cmd="bash")` and a parallel
+  `isinstance(runner, NixRunner)` branch.
+- **Runner identity for stale-detection — mostly free.** `hash_runner_definition`
+  in `src/tasktree/hasher.py` (~line 165-190) already keys on `type(env).__name__`
+  (`"kind"`) plus `env.hash_fields()`. So a `NixRunner` is automatically distinguished
+  by class, and its identity comes entirely from `NixRunner.hash_fields()` returning
+  `{flake, devshell, narhashes}` — **no edit to `hasher.py` is required**.
 - **New module `src/tasktree/nix.py`**, mirroring `src/tasktree/docker.py`'s
   `DockerManager` (`docker.py` ~line 32): availability check, realise-and-cache,
   in-process cache dict. The Docker availability check
@@ -111,15 +134,29 @@ editing**, the files churn.
   for `_check_nix_available`.
 - **Schema.** `schema/tasktree-schema.json` defines the runner object; add `"nix"`
   to the `type` enum and add `flake`/`devshell` properties (conditionally required
-  when `type: nix`, mirroring how `type`/`engine: docker` gate the Docker-only
-  fields). Runner-parsing lives in `parser.py` ~line 1880-1966.
+  when `type: nix`, mirroring how the `type`/`engine: docker` combination gates the
+  Docker-only fields). Runner-parsing lives in `parser.py` ~line 2137 onward.
 
 ## 4. Proposed shapes
 
 ```python
-# parser.py — Runner dataclass gains:
-flake: str = ""        # flakeref; required (and only valid) when type == "nix"
-devshell: str = "default"
+# parser.py — new runner subclass, a peer of HostRunner / ContainerisedRunner:
+NIX_RUNNER_TYPE = "nix"          # add to VALID_RUNNER_TYPES
+
+@dataclass
+class NixRunner(Runner):
+    flake: str = ""              # flakeref (local path); required for a Nix runner
+    devshell: str = "default"    # devShells.<system>.<devshell>
+    narhashes: tuple[str, ...] = ()   # locked input narHashes (filled at realise time / slice 6)
+
+    def hash_fields(self) -> dict:
+        return {"flake": self.flake, "devshell": self.devshell,
+                "narhashes": sorted(self.narhashes)}
+
+# parser.py — factory branch inside runner_from_config, mirroring the
+# containerised path (dispatch on the YAML `type` string):
+def nix_runner_from_config(name, config, *, interpreter=None) -> NixRunner: ...
+#   validates flake (local path, exists, not a remote ref), reads devshell
 
 # executor.py — new default, parallel to container_default_interpreter():
 def nix_default_interpreter() -> Interpreter:
@@ -147,13 +184,15 @@ Each slice is one or a few small commits **with tests**, in the project's increm
 style. Land them in order; slices 1–4 produce a usable runner, 5–6 complete the
 acceptance criteria, 7 is documentation.
 
-1. **Parse `flake`/`devshell` into `Runner` + JSON schema.** Add `"nix"` to the
-   `type` enum, add the `flake`/`devshell` fields, schema entries, and parser
-   validation (`type: nix` requires `flake`, mirroring the `type: containerised`/
-   `engine: docker` pairing added for Docker runners; flake must be a local path
-   that exists; reject remote-looking refs like `github:`/`git+`/`<name>` registry
-   shorthand with the "planned" message). No execution yet. *Unit tests on the
-   parser + a schema validation test.*
+1. **Add `NixRunner` + `type: nix` parsing + JSON schema.** Add the `NixRunner(Runner)`
+   subclass and its `hash_fields()`; add `NIX_RUNNER_TYPE` to `VALID_RUNNER_TYPES`;
+   add a `type == "nix"` branch (`nix_runner_from_config`) to `runner_from_config`;
+   add the config-key guards; add `"nix"` to the schema `type` enum plus
+   `flake`/`devshell` properties. Parser validation: `type: nix` requires `flake`;
+   flake must be a local path that exists; reject remote-looking refs
+   (`github:`/`git+`/`<name>` registry shorthand) with the "planned" message. No
+   execution yet. *Unit tests on the parser (incl. `runner_from_config` returns a
+   `NixRunner`, and abstract-base guards still hold) + a schema validation test.*
 2. **`nix.py`: `NixError` + `_check_nix_available()`.** Fast, clear failure if `nix`
    is absent or `nix-command`/`flakes` not enabled. *Unit tests mocking subprocess
    (`nix --version`, `nix config show`).*
@@ -161,9 +200,10 @@ acceptance criteria, 7 is documentation.
    `nix print-dev-env --json --no-write-lock-file <flakeref>` (selecting the devShell
    attr), parse the JSON, return the exported `variables` as `dict[str, str]`. *Unit
    test with a mocked JSON payload.*
-4. **Wire into the executor (the end-to-end slice).** Dispatch: `if env.flake:`
-   realise the env and merge it into the env passed to `_run_command_as_script`; add
-   the `nix → bash` interpreter default in `_resolve_interpreter`. *Add an e2e test
+4. **Wire into the executor (the end-to-end slice).** Dispatch: `isinstance(env,
+   NixRunner)` → realise the env and merge it into the env passed to
+   `_run_command_as_script`; add the `nix → bash` interpreter default via a new
+   `isinstance(runner, NixRunner)` branch in `_resolve_interpreter`. *Add an e2e test
    gated with `@unittest.skipUnless(nix_available(), ...)` that runs a task inside a
    tiny fixture flake's devShell and asserts a devShell-provided tool/var is visible.*
    A conditional skip (CI without Nix) is explicitly allowed by `CLAUDE.md`; an
@@ -173,10 +213,13 @@ acceptance criteria, 7 is documentation.
    of taking only the static exported variables. *Test that a var set by the hook
    reaches the task.*
 6. **Caching + runner identity.** Read locked input narHashes from `flake.lock` (or
-   `nix flake metadata --json`); add an in-process cache of the realised env keyed on
-   `(flakeref, devshell attr, narHashes)`; extend `hash_runner_definition` with the
-   same identity so stale-detection re-runs tasks when flake inputs change. *Tests on
-   both the cache behaviour and the hash.*
+   `nix flake metadata --json`) and populate `NixRunner.narhashes`; add an in-process
+   cache of the realised env keyed on `(flakeref, devshell attr, narHashes)`. Because
+   `hash_runner_definition` already folds in `type(env).__name__` and
+   `env.hash_fields()`, including the narHashes in `NixRunner.hash_fields()` makes
+   stale-detection re-run tasks when flake inputs change — **no `hasher.py` edit
+   needed**. *Tests on the cache behaviour and on `NixRunner.hash_fields()` /
+   `hash_runner_definition` reflecting a narHash change.*
 7. **Docs.** Update `README.md`, the runner section of `CLAUDE.md`, and
    `schema/README.md`: the **non-isolation caveat**, host-env-inheritance default,
    "nested `tt` still works", "shellHook runs at realisation", supported flakeref
