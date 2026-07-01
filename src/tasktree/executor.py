@@ -25,7 +25,7 @@ from tasktree.graph import (
 )
 from tasktree.hasher import hash_args, hash_task, make_cache_key
 from tasktree.logging import Logger, LogLevel
-from tasktree.parser import DockerArgs, Recipe, Task, Runner, platform_default_interpreter, container_default_interpreter
+from tasktree.parser import DockerArgs, Recipe, Task, Runner, HostRunner, ContainerisedRunner, platform_default_interpreter, container_default_interpreter
 from tasktree.interpreter import Interpreter
 from tasktree.process_runner import ProcessRunner, TaskOutputTypes
 from tasktree.state import StateManager, TaskState
@@ -384,7 +384,7 @@ class Executor:
         )
 
         # Start with platform default
-        platform_default = Runner(
+        platform_default = HostRunner(
             name="__platform_default__",
             interpreter=platform_default_interpreter(),
         )
@@ -466,44 +466,6 @@ class Executor:
         # Return session default runner name
         return self.get_session_default_runner().name
 
-    def _validate_runner_for_task(self, task: Task) -> None:
-        """Raise ValueError if a shell runner for this task has docker-only fields set."""
-        runner_name = self._get_effective_runner_name(task)
-        if not runner_name:
-            return
-        runner = self.recipe.get_runner(runner_name)
-        if runner is None or runner.dockerfile:
-            return
-        docker_only_fields = {
-            "volumes": runner.volumes,
-            "ports": runner.ports,
-            "env_vars": runner.env_vars,
-        }
-        for field_name, value in docker_only_fields.items():
-            if value:
-                raise ValueError(
-                    f"Runner '{runner_name}': '{field_name}' is only valid for Docker runners "
-                    f"(runners with a 'dockerfile' field)"
-                )
-        if runner.run_as_root:
-            raise ValueError(
-                f"Runner '{runner_name}': 'run_as_root' is only valid for Docker runners "
-                f"(runners with a 'dockerfile' field)"
-            )
-        if runner.args.build or runner.args.run:
-            raise ValueError(
-                f"Runner '{runner_name}': 'args' is only valid for Docker runners "
-                f"(runners with a 'dockerfile' field)"
-            )
-
-    def _validate_runners_for_reachable_tasks(
-        self, execution_order: list[tuple[str, dict]]
-    ) -> None:
-        """Validate all runners required by the reachable tasks before execution begins."""
-        for name, _ in execution_order:
-            task = self.recipe.tasks[name]
-            self._validate_runner_for_task(task)
-
     def _resolve_interpreter(self, task: Task) -> Interpreter:
         """
         Resolve the Interpreter used to run a task's command.
@@ -535,7 +497,7 @@ class Executor:
 
         # A Docker runner with no interpreter defaults to sh (always present in a
         # container); host execution falls back to the session/platform default.
-        if runner is not None and runner.dockerfile:
+        if runner is not None and isinstance(runner, ContainerisedRunner):
             return container_default_interpreter()
 
         return self.get_session_default_runner().interpreter or platform_default_interpreter()
@@ -744,9 +706,6 @@ class Executor:
             task_names = [name for name, _ in execution_order]
             self.logger.debug(f"Execution order: {' -> '.join(task_names)}")
 
-        # Validate runners for all reachable tasks before executing anything
-        self._validate_runners_for_reachable_tasks(execution_order)
-
         # Resolve dependency output references in topological order
         # This substitutes {{ dep.*.outputs.* }} templates before execution
         resolve_dependency_output_references(self.recipe, execution_order)
@@ -921,10 +880,10 @@ class Executor:
             # REFINED REJECTION LOGIC:
             # Only reject if:
             # 1. Task has run_in specified (checked above via task_runner_name)
-            # 2. The specified runner has a dockerfile field
-            # 3. The dockerfile differs from current container's runner
+            # 2. The specified runner is Docker-based
+            # 3. The runner differs from current container's runner
             # 4. We're in the same project (cross-project invocations are allowed)
-            if task_runner and task_runner.dockerfile:
+            if task_runner and isinstance(task_runner, ContainerisedRunner):
                 # Check if this is a cross-project invocation
                 parent_project_root = os.environ.get("TT_PROJECT_ROOT", "").strip()
                 current_project_root = str(self.recipe.project_root)
@@ -1077,7 +1036,7 @@ class Executor:
         self.logger.log(LogLevel.INFO, f"Running: {task.name}")
 
         # Route to Docker execution or regular execution
-        if not force_shell_execution and env and env.dockerfile:
+        if not force_shell_execution and env and isinstance(env, ContainerisedRunner):
             # Docker execution path - launch container
             self._run_task_in_docker(
                 task,
@@ -1844,7 +1803,7 @@ class Executor:
             return None
         env_name = self._get_effective_runner_name(task)
         env = self.recipe.get_runner(env_name) if env_name else None
-        if env and env.dockerfile:
+        if env and isinstance(env, ContainerisedRunner):
             working_dir = self.recipe.project_root / task.working_dir
             builtin_vars = self._collect_builtin_variables(
                 task, working_dir, datetime.now(timezone.utc)

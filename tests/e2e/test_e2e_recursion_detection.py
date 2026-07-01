@@ -112,6 +112,8 @@ ENV PYTHONPATH=/app/src
                 f"""
 runners:
   docker-env:
+    type: containerised
+    engine: docker
     dockerfile: Dockerfile
     context: .
     interpreter:

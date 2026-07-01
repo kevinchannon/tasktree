@@ -45,6 +45,8 @@ class TestDockerOwnership(unittest.TestCase):
             (project_root / "tasktree.yaml").write_text("""
 runners:
   alpine:
+    type: containerised
+    engine: docker
     dockerfile: ./Dockerfile
     context: .
     volumes: ["./data:/workspace/data"]
@@ -109,6 +111,8 @@ tasks:
             (project_root / "tasktree.yaml").write_text("""
 runners:
   alpine:
+    type: containerised
+    engine: docker
     dockerfile: ./Dockerfile
     context: .
     volumes: ["./data:/workspace/data"]

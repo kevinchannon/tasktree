@@ -8,67 +8,11 @@ from unittest.mock import Mock, patch
 from helpers.logging import logger_stub
 from tasktree.docker import (
     DockerManager,
-    is_docker_runner,
     resolve_container_working_dir,
 )
 from tasktree.interpreter import Interpreter
-from tasktree.parser import DockerArgs, Runner
+from tasktree.parser import DockerArgs, DockerRunner, Runner
 from tasktree.process_runner import TaskOutputTypes, make_process_runner
-
-
-class TestIsDockerRunner(unittest.TestCase):
-    """
-    Test Docker environment detection.
-    """
-
-    def test_docker_runner(self):
-        """
-        Test runner with dockerfile.
-        """
-        runner = Runner(
-            name="builder",
-            dockerfile="./Dockerfile",
-            context=".",
-        )
-        self.assertTrue(is_docker_runner(runner))
-
-    def test_shell_runner(self):
-        """
-        Test runner without dockerfile.
-        """
-        runner = Runner(
-            name="bash",
-            interpreter=Interpreter(cmd="bash -c"),
-        )
-        self.assertFalse(is_docker_runner(runner))
-
-    def test_shell_runner_with_explicit_cmd(self):
-        """
-        Test that shell runners work with explicit cmd list in ShellConfig.
-        """
-        runner = Runner(
-            name="bash",
-            interpreter=Interpreter(cmd="bash -c -e"),
-        )
-
-        # Verify it's recognized as a shell runner (not Docker)
-        self.assertFalse(is_docker_runner(runner))
-        self.assertEqual(runner.interpreter.cmd, "bash -c -e")
-
-    def test_docker_runner_with_build_args(self):
-        """
-        Test that Docker runners use DockerArgs for build arguments.
-        """
-        runner = Runner(
-            name="builder",
-            dockerfile="./Dockerfile",
-            context=".",
-            args=DockerArgs(build=["--build-arg", "BUILD_VERSION=1.0.0"]),
-        )
-
-        # Verify it's recognized as a Docker runner
-        self.assertTrue(is_docker_runner(runner))
-        self.assertEqual(runner.args.build, ["--build-arg", "BUILD_VERSION=1.0.0"])
 
 
 class TestResolveContainerWorkingDir(unittest.TestCase):
@@ -130,7 +74,7 @@ class TestDockerManager(unittest.TestCase):
         """
         Test that images are cached per invocation.
         """
-        env = Runner(
+        env = DockerRunner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
@@ -171,7 +115,7 @@ class TestDockerManager(unittest.TestCase):
         """
         Test that docker build command is structured correctly.
         """
-        env = Runner(
+        env = DockerRunner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
@@ -204,7 +148,7 @@ class TestDockerManager(unittest.TestCase):
         """
         Test that docker build command passes args.build list to docker build.
         """
-        env = Runner(
+        env = DockerRunner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
@@ -242,7 +186,7 @@ class TestDockerManager(unittest.TestCase):
         """
         Test that docker build command works with empty build args.
         """
-        env = Runner(
+        env = DockerRunner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
@@ -347,7 +291,7 @@ class TestDockerManager(unittest.TestCase):
         mock_getuid.return_value = 1000
         mock_getgid.return_value = 1000
 
-        env = Runner(
+        env = DockerRunner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
@@ -394,7 +338,7 @@ class TestDockerManager(unittest.TestCase):
         """
         mock_platform.return_value = "Windows"  # Skip user flag for simplicity
 
-        env = Runner(
+        env = DockerRunner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
@@ -459,7 +403,7 @@ class TestDockerManager(unittest.TestCase):
         """
         mock_platform.return_value = "Windows"  # skip user flag for simplicity
 
-        env = Runner(
+        env = DockerRunner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
@@ -500,7 +444,7 @@ class TestDockerManager(unittest.TestCase):
         """
         mock_platform.return_value = "Windows"  # Skip user flag for simplicity
 
-        env = Runner(
+        env = DockerRunner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
@@ -547,7 +491,7 @@ class TestDockerManager(unittest.TestCase):
         """
         mock_platform.return_value = "Windows"  # Skip user flag for simplicity
 
-        env = Runner(
+        env = DockerRunner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
@@ -603,7 +547,7 @@ class TestDockerManager(unittest.TestCase):
         """
         mock_platform.return_value = "Windows"
 
-        env = Runner(
+        env = DockerRunner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
@@ -650,7 +594,7 @@ class TestDockerManager(unittest.TestCase):
         """
         mock_platform.return_value = "Windows"
 
-        env = Runner(
+        env = DockerRunner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
@@ -698,7 +642,7 @@ class TestDockerManager(unittest.TestCase):
         mock_getuid.return_value = 1000
         mock_getgid.return_value = 1000
 
-        env = Runner(
+        env = DockerRunner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
@@ -741,7 +685,7 @@ class TestDockerManager(unittest.TestCase):
         """
         mock_platform.return_value = "Windows"  # Skip user flag for simplicity
 
-        env = Runner(
+        env = DockerRunner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
@@ -798,7 +742,7 @@ class TestDockerManager(unittest.TestCase):
         """
         mock_platform.return_value = "Windows"
 
-        env = Runner(
+        env = DockerRunner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
@@ -850,7 +794,7 @@ class TestDockerManager(unittest.TestCase):
         mock_platform.return_value = "Linux"
 
         # Environment with already-substituted path (as would come from executor)
-        env = Runner(
+        env = DockerRunner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
@@ -907,7 +851,7 @@ class TestDockerManager(unittest.TestCase):
         """
         mock_platform.return_value = "Linux"  # Host platform (doesn't matter for container)
 
-        env = Runner(
+        env = DockerRunner(
             name="builder",
             dockerfile="./Dockerfile.windows",
             context=".",
@@ -953,7 +897,7 @@ class TestDockerManager(unittest.TestCase):
         """
         mock_platform.return_value = "Linux"
 
-        env = Runner(
+        env = DockerRunner(
             name="builder",
             dockerfile="./Dockerfile.windows",
             context=".",
@@ -994,7 +938,7 @@ class TestDockerManager(unittest.TestCase):
         Test that appropriate error occurs when dockerfile path cannot be resolved.
         Verifies that Docker build fails with clear error when file doesn't exist.
         """
-        env = Runner(
+        env = DockerRunner(
             name="builder",
             dockerfile="nonexistent/Dockerfile",
             context=".",
@@ -1031,7 +975,7 @@ class TestDockerManager(unittest.TestCase):
         Test that path traversal attempts in dockerfile paths are handled safely.
         Verifies that paths like ../../etc/passwd are resolved by pathlib correctly.
         """
-        env = Runner(
+        env = DockerRunner(
             name="traversal",
             dockerfile="../../etc/passwd",
             context=".",
@@ -1084,7 +1028,7 @@ class TestDockerManager(unittest.TestCase):
         # Mock temp file creation to fail
         mock_tempfile.side_effect = OSError("Disk full")
 
-        env = Runner(
+        env = DockerRunner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",
@@ -1130,7 +1074,7 @@ class TestDockerManager(unittest.TestCase):
         """
         mock_platform.return_value = "Linux"
 
-        env = Runner(
+        env = DockerRunner(
             name="builder",
             dockerfile="./Dockerfile",
             context=".",

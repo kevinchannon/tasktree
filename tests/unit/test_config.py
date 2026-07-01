@@ -12,7 +12,7 @@ from tasktree.config import (
     get_user_config_path,
     parse_config_file,
 )
-from tasktree.parser import Runner
+from tasktree.parser import DockerRunner, HostRunner, Runner
 
 
 class TestGetUserConfigPath(unittest.TestCase):
@@ -172,12 +172,11 @@ class TestParseConfigFile(unittest.TestCase):
             )
             result = parse_config_file(config_path)
             self.assertIsNotNone(result)
-            self.assertIsInstance(result, Runner)
+            self.assertIsInstance(result, HostRunner)
             self.assertEqual(result.name, "default")
             self.assertIsNotNone(result.interpreter)
             self.assertEqual(result.interpreter.cmd, "bash")
             self.assertEqual(result.interpreter.preamble, "set -euo pipefail")
-            self.assertEqual(result.dockerfile, "")
 
     def test_bare_string_interpreter_is_shorthand(self):
         """
@@ -205,6 +204,8 @@ class TestParseConfigFile(unittest.TestCase):
             config_path.write_text(
                 """runners:
   default:
+    type: containerised
+    engine: docker
     dockerfile: docker/Dockerfile
     context: docker
 """
@@ -233,6 +234,8 @@ class TestParseConfigFile(unittest.TestCase):
       build: ["--no-cache"]
       run: ["--network=host"]
     working_dir: /workspace
+    type: containerised
+    engine: docker
     dockerfile: Dockerfile
     context: .
     volumes:
@@ -245,7 +248,7 @@ class TestParseConfigFile(unittest.TestCase):
 """
             )
             result = parse_config_file(config_path)
-            self.assertIsNotNone(result)
+            self.assertIsInstance(result, DockerRunner)
             self.assertIsNotNone(result.interpreter)
             self.assertEqual(result.interpreter.cmd, "/bin/zsh")
             self.assertEqual(result.interpreter.preamble, "export FOO=bar")
@@ -367,12 +370,10 @@ class TestParseConfigFile(unittest.TestCase):
 """
             )
             result = parse_config_file(config_path)
-            self.assertIsNotNone(result)
+            self.assertIsInstance(result, HostRunner)
             self.assertIsNotNone(result.interpreter)
             self.assertEqual(result.interpreter.cmd, "bash")
             self.assertEqual(result.interpreter.preamble, "")
-            self.assertEqual(result.args.build, [])
-            self.assertEqual(result.args.run, [])
 
     def test_dockerfile_runner_with_minimal_config(self):
         """
@@ -383,6 +384,8 @@ class TestParseConfigFile(unittest.TestCase):
             config_path.write_text(
                 """runners:
   default:
+    type: containerised
+    engine: docker
     dockerfile: Dockerfile
     context: .
 """
@@ -404,6 +407,8 @@ class TestParseConfigFile(unittest.TestCase):
             config_path.write_text(
                 """runners:
   default:
+    type: containerised
+    engine: docker
     dockerfile: ../nonexistent/Dockerfile
     context: ./build
     working_dir: relative/path
@@ -427,6 +432,8 @@ class TestParseConfigFile(unittest.TestCase):
             config_path.write_text(
                 """runners:
   default:
+    type: containerised
+    engine: docker
     dockerfile: docker/Dockerfile
     context: build
 """
@@ -448,6 +455,8 @@ class TestParseConfigFile(unittest.TestCase):
             config_path.write_text(
                 """runners:
   default:
+    type: containerised
+    engine: docker
     dockerfile: docker/Dockerfile
     context: .
 """
@@ -489,6 +498,8 @@ class TestConfigFieldValidation(unittest.TestCase):
             config_path.write_text(
                 """runners:
   default:
+    type: containerised
+    engine: docker
     interpreter:
       cmd: bash
     args: ["--rm"]
@@ -527,6 +538,8 @@ class TestConfigFieldValidation(unittest.TestCase):
             config_path.write_text(
                 """runners:
   default:
+    type: containerised
+    engine: docker
     dockerfile: 123
     context: .
 """
@@ -545,6 +558,8 @@ class TestConfigFieldValidation(unittest.TestCase):
             config_path.write_text(
                 """runners:
   default:
+    type: containerised
+    engine: docker
     dockerfile: Dockerfile
     context: [path, to, context]
 """
@@ -563,6 +578,8 @@ class TestConfigFieldValidation(unittest.TestCase):
             config_path.write_text(
                 """runners:
   default:
+    type: containerised
+    engine: docker
     dockerfile: Dockerfile
     context: .
     volumes: "/host:/container"
@@ -582,6 +599,8 @@ class TestConfigFieldValidation(unittest.TestCase):
             config_path.write_text(
                 """runners:
   default:
+    type: containerised
+    engine: docker
     dockerfile: Dockerfile
     context: .
     ports: "8080:80"
@@ -601,6 +620,8 @@ class TestConfigFieldValidation(unittest.TestCase):
             config_path.write_text(
                 """runners:
   default:
+    type: containerised
+    engine: docker
     dockerfile: Dockerfile
     context: .
     env_vars: ["VAR1=value1", "VAR2=value2"]
@@ -620,6 +641,8 @@ class TestConfigFieldValidation(unittest.TestCase):
             config_path.write_text(
                 """runners:
   default:
+    type: containerised
+    engine: docker
     dockerfile: Dockerfile
     context: .
     run_as_root: "yes"
@@ -629,6 +652,71 @@ class TestConfigFieldValidation(unittest.TestCase):
                 parse_config_file(config_path)
             self.assertIn("'run_as_root' must be a boolean", str(ctx.exception))
             self.assertIn(str(config_path), str(ctx.exception))
+
+
+class TestConfigRunnerTypeAndEngine(unittest.TestCase):
+    """
+    Tests for the 'type'/'engine' classification fields in config files.
+    """
+
+    def test_dockerfile_without_type_and_engine_rejected(self):
+        with TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.yml"
+            config_path.write_text(
+                """runners:
+  default:
+    dockerfile: Dockerfile
+    context: .
+"""
+            )
+            with self.assertRaises(ConfigError) as ctx:
+                parse_config_file(config_path)
+            self.assertIn("type", str(ctx.exception))
+            self.assertIn("engine", str(ctx.exception))
+
+    def test_type_and_engine_without_dockerfile_rejected(self):
+        with TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.yml"
+            config_path.write_text(
+                """runners:
+  default:
+    type: containerised
+    engine: docker
+"""
+            )
+            with self.assertRaises(ConfigError) as ctx:
+                parse_config_file(config_path)
+            self.assertIn("dockerfile", str(ctx.exception))
+
+    def test_invalid_runner_type_rejected(self):
+        with TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.yml"
+            config_path.write_text(
+                """runners:
+  default:
+    type: virtualised
+    engine: docker
+    dockerfile: Dockerfile
+"""
+            )
+            with self.assertRaises(ConfigError) as ctx:
+                parse_config_file(config_path)
+            self.assertIn("'type'", str(ctx.exception))
+
+    def test_invalid_runner_engine_rejected(self):
+        with TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.yml"
+            config_path.write_text(
+                """runners:
+  default:
+    type: containerised
+    engine: podman
+    dockerfile: Dockerfile
+"""
+            )
+            with self.assertRaises(ConfigError) as ctx:
+                parse_config_file(config_path)
+            self.assertIn("'engine'", str(ctx.exception))
 
 
 class TestErrorMessageContext(unittest.TestCase):
@@ -659,21 +747,21 @@ class TestErrorMessageContext(unittest.TestCase):
             ),
             ("runners:\n  default: not-a-dict", "Runner 'default' must be a dictionary"),
             ("runners:\n  default:\n    interpreter: 123", "'interpreter' must be a string"),
-            ("runners:\n  default:\n    interpreter:\n      cmd: bash\n    args: not-a-list", "'args' must be a dict"),
+            ("runners:\n  default:\n    type: containerised\n    engine: docker\n    interpreter:\n      cmd: bash\n    args: not-a-list", "'args' must be a dict"),
             (
                 "runners:\n  default:\n    interpreter:\n      cmd: bash\n      preamble: [list]",
                 "interpreter 'preamble' must be a string",
             ),
             (
-                "runners:\n  default:\n    dockerfile: Dockerfile\n    context: .\n    volumes: not-a-list",
+                "runners:\n  default:\n    type: containerised\n    engine: docker\n    dockerfile: Dockerfile\n    context: .\n    volumes: not-a-list",
                 "'volumes' must be a list",
             ),
             (
-                "runners:\n  default:\n    dockerfile: Dockerfile\n    context: .\n    env_vars: [list]",
+                "runners:\n  default:\n    type: containerised\n    engine: docker\n    dockerfile: Dockerfile\n    context: .\n    env_vars: [list]",
                 "'env_vars' must be a dictionary",
             ),
             (
-                "runners:\n  default:\n    dockerfile: Dockerfile\n    context: .\n    ports: not-a-list",
+                "runners:\n  default:\n    type: containerised\n    engine: docker\n    dockerfile: Dockerfile\n    context: .\n    ports: not-a-list",
                 "'ports' must be a list",
             ),
         ]

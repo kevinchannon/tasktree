@@ -1,5 +1,7 @@
 runners:
   docker_runner:
+    type: containerised
+    engine: docker
     dockerfile: Dockerfile
     context: .
 

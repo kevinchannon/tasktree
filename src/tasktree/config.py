@@ -10,7 +10,11 @@ from typing import Optional
 import platformdirs
 import yaml
 
-from tasktree.parser import DockerArgs, Runner, parse_docker_args, parse_interpreter_spec
+from tasktree.parser import (
+    Runner,
+    parse_interpreter_spec,
+    runner_from_config,
+)
 
 __all__ = [
     "get_user_config_path",
@@ -167,6 +171,8 @@ def parse_config_file(path: Path) -> Optional[Runner]:
             ```yaml
             runners:
               default:
+                type: containerised
+                engine: docker
                 dockerfile: docker/Dockerfile
                 context: .
                 volumes:
@@ -177,6 +183,8 @@ def parse_config_file(path: Path) -> Optional[Runner]:
             ```yaml
             runners:
               default:
+                type: containerised
+                engine: docker
                 # Relative paths work if your projects use consistent structure
                 dockerfile: docker/Dockerfile
                 context: .
@@ -280,69 +288,13 @@ def parse_config_file(path: Path) -> Optional[Runner]:
         except ValueError as e:
             raise ConfigError(f"Error in config file '{path}': {e}") from e
 
-    # Parse docker args
-    try:
-        args_config = parse_docker_args(runner_config.get("args"), "default")
-    except ValueError as e:
-        raise ConfigError(f"Error in config file '{path}': {e}") from e
-
-    working_dir = runner_config.get("working_dir", "")
-    if not isinstance(working_dir, str):
-        raise ConfigError(
-            f"Error in config file '{path}': Field 'working_dir' must be a string"
-        )
-
-    # Parse Docker-specific fields with type validation
-    dockerfile = runner_config.get("dockerfile", "")
-    if not isinstance(dockerfile, str):
-        raise ConfigError(
-            f"Error in config file '{path}': Field 'dockerfile' must be a string"
-        )
-
-    context = runner_config.get("context", "")
-    if not isinstance(context, str):
-        raise ConfigError(
-            f"Error in config file '{path}': Field 'context' must be a string"
-        )
-
-    volumes = runner_config.get("volumes", [])
-    if not isinstance(volumes, list):
-        raise ConfigError(
-            f"Error in config file '{path}': Field 'volumes' must be a list"
-        )
-
-    ports = runner_config.get("ports", [])
-    if not isinstance(ports, list):
-        raise ConfigError(
-            f"Error in config file '{path}': Field 'ports' must be a list"
-        )
-
-    env_vars = runner_config.get("env_vars", {})
-    if not isinstance(env_vars, dict):
-        raise ConfigError(
-            f"Error in config file '{path}': Field 'env_vars' must be a dictionary"
-        )
-
-    run_as_root = runner_config.get("run_as_root", False)
-    if not isinstance(run_as_root, bool):
-        raise ConfigError(
-            f"Error in config file '{path}': Field 'run_as_root' must be a boolean"
-        )
-
     # Note: Path validation (checking if dockerfile/context exist) is deferred to
     # execution time, as per the spec: "Validation occurs at task execution time"
     # This allows configs to reference files that may not exist on all machines
 
-    # Create and return the Runner object
-    return Runner(
-        name="default",
-        interpreter=interpreter,
-        args=args_config,
-        dockerfile=dockerfile,
-        context=context,
-        volumes=volumes,
-        ports=ports,
-        env_vars=env_vars,
-        working_dir=working_dir,
-        run_as_root=run_as_root,
-    )
+    # Build the runner; runner_from_config extracts and validates every field and
+    # selects the concrete subclass.
+    try:
+        return runner_from_config("default", runner_config, interpreter=interpreter)
+    except ValueError as e:
+        raise ConfigError(f"Error in config file '{path}': {e}") from e

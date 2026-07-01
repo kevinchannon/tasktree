@@ -56,15 +56,15 @@ Your sponsor is not made of money! Try to minimise token useage, so that we can 
 
 ### Core Components
 
-- **`src/tasktree/parser.py`** (2,415 lines): YAML recipe parsing, task and runner definitions, circular import detection, schema validation
-- **`src/tasktree/executor.py`** (1,200 lines): Task execution logic, incremental execution engine, state tracking, built-in variables, subprocess management
-- **`src/tasktree/cli.py`** (591 lines): Typer-based CLI with commands: `--list`, `--show`, `--tree`, `--force`, `--only`, `--dry-run`, `--verbose`
-- **`src/tasktree/graph.py`** (545 lines): Dependency resolution using graphlib.TopologicalSorter, parameterized dependencies, cycle detection
-- **`src/tasktree/docker.py`** (446 lines): Docker image building and container execution, user mapping, volume mounts, build args
-- **`src/tasktree/substitution.py`** (374 lines): Template variable substitution engine supporting multiple prefixes (var, arg, env, tt, dep, self)
-- **`src/tasktree/types.py`** (139 lines): Custom Click parameter types for argument validation (hostname, email, IP, IPv4, IPv6, datetime)
-- **`src/tasktree/hasher.py`** (161 lines): Task hashing for incremental execution, cache key generation, runner definition hashing
-- **`src/tasktree/state.py`** (119 lines): State file management (.tasktree-state), task execution state tracking
+- **`src/tasktree/parser.py`** (~3,590 lines): YAML recipe parsing, task and runner definitions (the Runner class hierarchy and `runner_from_config` factory), circular import detection, schema validation
+- **`src/tasktree/executor.py`** (~1,940 lines): Task execution logic, incremental execution engine, state tracking, built-in variables, subprocess management
+- **`src/tasktree/cli.py`** (~215 lines): Typer-based CLI with commands: `--list`, `--show`, `--tree`, `--force`, `--only`, `--dry-run`, `--verbose`
+- **`src/tasktree/graph.py`** (~665 lines): Dependency resolution using graphlib.TopologicalSorter, parameterized dependencies, cycle detection
+- **`src/tasktree/docker.py`** (~490 lines): Docker image building and container execution, user mapping, volume mounts, build args
+- **`src/tasktree/substitution.py`** (~510 lines): Template variable substitution engine supporting multiple prefixes (var, arg, env, tt, dep, self)
+- **`src/tasktree/types.py`** (~180 lines): Custom Click parameter types for argument validation (hostname, email, IP, IPv4, IPv6, datetime)
+- **`src/tasktree/hasher.py`** (~205 lines): Task hashing for incremental execution, cache key generation, runner definition hashing
+- **`src/tasktree/state.py`** (~180 lines): State file management (.tasktree-state), task execution state tracking
 - **`src/tasktree/lsp/`**: Language Server Protocol implementation
   - **`server.py`**: Main LSP server with pygls handlers (initialize, shutdown, completion, document tracking)
   - **`builtin_variables.py`**: Built-in variable constant definitions (tt.*)
@@ -161,8 +161,11 @@ runners:
         set -euo pipefail
     # OR a reference to a named interpreter from the 'interpreters' section:
     # interpreter: { use: py }
-    # OR a Docker runner:
-    dockerfile: path/to/Dockerfile  # Docker runner
+    # OR a containerised (Docker) runner:
+    # (type/engine select the concrete runner class - see "Runner Architecture")
+    type: containerised  # Required alongside 'engine' for any containerised runner
+    engine: docker  # Currently the only supported engine
+    dockerfile: path/to/Dockerfile
     context: build-context-dir
     volumes:
       - host_path:container_path[:ro]
@@ -223,6 +226,50 @@ tasks:
     deps:
       - dependency(value1, key=value2)  # Positional and named args
 ```
+
+### Runner Architecture
+
+Runners are modelled as a polymorphic class hierarchy in `parser.py`, not a
+single flag-carrying struct. The runner's **class encodes its classification**;
+there is no stored `type`/`engine` field on the object.
+
+```
+Runner (abstract)                    name, interpreter, working_dir, hash_fields()
+├── HostRunner                       executes tasks directly on the host
+└── ContainerisedRunner (abstract)   args, volumes, ports, env_vars, run_as_root
+    └── DockerRunner                 dockerfile, context (Docker engine)
+```
+
+- **Field ownership follows the hierarchy.** Host runners structurally cannot
+  hold container configuration — a `HostRunner` has no `volumes`/`dockerfile`
+  attributes at all. Adding a docker-only field to a non-containerised runner is
+  therefore impossible to construct, not just validated against.
+- **A two-level factory is the only sanctioned constructor**, mirroring the two
+  discriminator axes. `runner_from_config(name, config, *, interpreter=None)`
+  takes the runner's definition dict and branches solely on `type` (no `type` →
+  `HostRunner`; `type: containerised` → dispatch). It knows nothing engine-specific.
+  `containerised_runner_from_config(name, config, ...)` then branches on `engine`
+  to build the concrete containerised runner (currently `engine: docker` →
+  `DockerRunner`). Field extraction/validation for a containerised runner lives in
+  the second function; `runner_from_config` only rejects container-config keys that
+  appear without a `type`. Both the recipe parser and the machine-config loader
+  build runners through `runner_from_config` (the interpreter is resolved by the
+  caller and passed in, since it needs the interpreters registry). `Runner` and
+  `ContainerisedRunner` are abstract and raise `TypeError` if instantiated directly.
+- **Dispatch is polymorphic.** Host-vs-container decisions use
+  `isinstance(env, ContainerisedRunner)` rather than string checks on `type`/`engine`.
+  Docker-specific behaviour lives in `docker.py`'s `DockerManager`, reached only for
+  `DockerRunner` instances.
+- **Hashing keys on the runner class.** `hash_runner_definition` (in `hasher.py`)
+  combines the class name with each runner's polymorphic `hash_fields()`
+  (`ContainerisedRunner` contributes args/volumes/ports/env_vars; `DockerRunner`
+  adds dockerfile/context). Changing a runner's kind therefore invalidates cached
+  task results.
+- **Adding a new engine** (e.g. Podman) means adding a subclass and an `engine`
+  branch in `containerised_runner_from_config`; a new *non-containerised* kind
+  (e.g. a Nix runner) means a new `type` branch in `runner_from_config` — no new
+  conditionals scattered across the executor. The recipe's `type` axis selects the
+  intermediate (containerised vs not) and `engine` selects the leaf.
 
 ### Docker Integration
 Full Docker support with:

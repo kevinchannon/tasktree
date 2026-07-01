@@ -40,6 +40,8 @@ class TestDockerComplexCommands(unittest.TestCase):
             (project_root / "tasktree.yaml").write_text("""
 runners:
   alpine:
+    type: containerised
+    engine: docker
     dockerfile: ./Dockerfile
     context: .
     volumes: ["./output:/workspace/output"]
@@ -113,6 +115,8 @@ tasks:
             (project_root / "tasktree.yaml").write_text("""
 runners:
   alpine:
+    type: containerised
+    engine: docker
     dockerfile: ./Dockerfile
     context: .
     volumes: ["./output:/workspace/output"]
@@ -176,6 +180,8 @@ tasks:
             (project_root / "tasktree.yaml").write_text("""
 runners:
   alpine:
+    type: containerised
+    engine: docker
     dockerfile: ./Dockerfile
     context: .
     interpreter:

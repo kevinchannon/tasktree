@@ -227,6 +227,8 @@ ENV PYTHONPATH=/app/src
             (project_root / "tasktree.yaml").write_text(f"""
 runners:
   build:
+    type: containerised
+    engine: docker
     dockerfile: Dockerfile
     context: .
     interpreter:
@@ -300,6 +302,8 @@ ENV PYTHONPATH=/app/src
             (project_root / "tasktree.yaml").write_text(f"""
 runners:
   build:
+    type: containerised
+    engine: docker
     dockerfile: Dockerfile.build
     context: .
     interpreter:
@@ -309,6 +313,8 @@ runners:
       - "{src_dir}:/app/src:ro"
 
   test:
+    type: containerised
+    engine: docker
     dockerfile: Dockerfile.test
     context: .
     interpreter:
@@ -360,6 +366,8 @@ ENV PYTHONPATH=/app/src
             (project_root / "tasktree.yaml").write_text(f"""
 runners:
   build:
+    type: containerised
+    engine: docker
     dockerfile: Dockerfile
     context: .
     interpreter:

@@ -11,7 +11,7 @@ from helpers.logging import logger_stub
 import tasktree.docker as docker_module
 from tasktree.executor import Executor
 from tasktree.hasher import hash_runner_definition
-from tasktree.parser import DockerArgs, Runner, Recipe, Task
+from tasktree.parser import DockerArgs, DockerRunner, HostRunner, Runner, Recipe, Task
 from tasktree.interpreter import Interpreter
 from tasktree.process_runner import TaskOutputTypes, make_process_runner
 from tasktree.state import StateManager, TaskState
@@ -27,7 +27,7 @@ class TestHashRunnerDefinition(unittest.TestCase):
         Test that hashing same runner twice produces same hash.
         """
 
-        runner = Runner(
+        runner = HostRunner(
             name="test",
             interpreter=Interpreter(cmd="bash", preamble="set -e"),
         )
@@ -43,11 +43,11 @@ class TestHashRunnerDefinition(unittest.TestCase):
         Test that changing shell produces different hash.
         """
 
-        runner1 = Runner(
+        runner1 = HostRunner(
             name="test",
             interpreter=Interpreter(cmd="bash"),
         )
-        runner2 = Runner(
+        runner2 = HostRunner(
             name="test",
             interpreter=Interpreter(cmd="zsh"),
         )
@@ -62,13 +62,13 @@ class TestHashRunnerDefinition(unittest.TestCase):
         Test that changing docker run args produces different hash.
         """
 
-        runner1 = Runner(
+        runner1 = DockerRunner(
             name="test",
             dockerfile="Dockerfile",
             context=".",
             args=DockerArgs(run=["--rm"]),
         )
-        runner2 = Runner(
+        runner2 = DockerRunner(
             name="test",
             dockerfile="Dockerfile",
             context=".",
@@ -85,11 +85,11 @@ class TestHashRunnerDefinition(unittest.TestCase):
         Test that changing preamble produces different hash.
         """
 
-        runner1 = Runner(
+        runner1 = HostRunner(
             name="test",
             interpreter=Interpreter(cmd="bash", preamble=""),
         )
-        runner2 = Runner(
+        runner2 = HostRunner(
             name="test",
             interpreter=Interpreter(cmd="bash", preamble="set -e"),
         )
@@ -104,12 +104,12 @@ class TestHashRunnerDefinition(unittest.TestCase):
         Test that changing Docker fields produces different hash.
         """
 
-        runner1 = Runner(
+        runner1 = DockerRunner(
             name="test",
             dockerfile="Dockerfile",
             context=".",
         )
-        runner2 = Runner(
+        runner2 = DockerRunner(
             name="test",
             dockerfile="Dockerfile",
             context=".",
@@ -121,18 +121,40 @@ class TestHashRunnerDefinition(unittest.TestCase):
 
         self.assertNotEqual(hash1, hash2)
 
+    def test_hash_runner_definition_differs_by_runner_kind(self):
+        """
+        Test that runners of different kinds hash differently, so cache entries
+        are invalidated if a runner's classification (its class) changes. The
+        hash keys on the runner class rather than stored type/engine strings.
+        """
+        host_runner = HostRunner(
+            name="test",
+            interpreter=Interpreter(cmd="bash"),
+        )
+        docker_runner = DockerRunner(
+            name="test",
+            interpreter=Interpreter(cmd="bash"),
+            dockerfile="Dockerfile",
+            context=".",
+        )
+
+        self.assertNotEqual(
+            hash_runner_definition(host_runner),
+            hash_runner_definition(docker_runner),
+        )
+
     def test_hash_runner_definition_args_order_independent(self):
         """
         Test that docker run args order doesn't matter (they're sorted in hash).
         """
 
-        runner1 = Runner(
+        runner1 = DockerRunner(
             name="test",
             dockerfile="Dockerfile",
             context=".",
             args=DockerArgs(run=["--rm", "--network=host"]),
         )
-        runner2 = Runner(
+        runner2 = DockerRunner(
             name="test",
             dockerfile="Dockerfile",
             context=".",
@@ -155,7 +177,7 @@ class TestCheckRunnerChanged(unittest.TestCase):
         Set up test runner.
         """
         self.project_root = Path("/tmp/test")
-        self.runner = Runner(
+        self.runner = HostRunner(
             name="test",
             interpreter=Interpreter(cmd="bash"),
         )
@@ -233,14 +255,14 @@ class TestCheckRunnerChanged(unittest.TestCase):
         task = Task(name="test", cmd="echo test", run_in="test")
 
         # Store old hash
-        old_runner = Runner(name="test", interpreter=Interpreter(cmd="bash"))
+        old_runner = HostRunner(name="test", interpreter=Interpreter(cmd="bash"))
         old_hash = hash_runner_definition(old_runner)
         cached_state = TaskState(
             last_run=123.0, input_state={"_runner_hash_test": old_hash}
         )
 
         # Recipe now has modified runner
-        self.recipe.runners["test"] = Runner(name="test", interpreter=Interpreter(cmd="zsh"))
+        self.recipe.runners["test"] = HostRunner(name="test", interpreter=Interpreter(cmd="zsh"))
 
         result = self.executor._check_runner_changed(
             task,
@@ -288,7 +310,7 @@ class TestCheckRunnerChangedDocker(unittest.TestCase):
         self.project_root = Path("/tmp/test")
 
         # Create Docker runner
-        self.runner = Runner(
+        self.runner = DockerRunner(
             name="builder",
             dockerfile="Dockerfile",
             context=".",
@@ -341,7 +363,7 @@ class TestCheckRunnerChangedDocker(unittest.TestCase):
         task = Task(name="test", cmd="echo test", run_in="builder")
 
         # Cached state with OLD runner hash (YAML changed)
-        old_runner = Runner(name="builder", dockerfile="OldDockerfile", context=".")
+        old_runner = DockerRunner(name="builder", dockerfile="OldDockerfile", context=".")
         old_runner_hash = hash_runner_definition(old_runner)
 
         cached_state = TaskState(

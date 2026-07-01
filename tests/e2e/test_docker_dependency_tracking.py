@@ -60,6 +60,8 @@ class TestDockerDependencyTracking(unittest.TestCase):
             recipe = """\
 runners:
   docker:
+    type: containerised
+    engine: docker
     dockerfile: docker/Dockerfile
     context: docker
     volumes:
@@ -175,6 +177,8 @@ class TestDockerDependencyTrackingDirectoryOutputs(unittest.TestCase):
             recipe = """\
 runners:
   docker:
+    type: containerised
+    engine: docker
     dockerfile: docker/Dockerfile
     context: docker
     volumes:

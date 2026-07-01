@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch, call
 from helpers.logging import logger_stub
 from tasktree.executor import Executor
 from tasktree.interpreter import Interpreter
-from tasktree.parser import Recipe, Runner, Task, parse_recipe
+from tasktree.parser import DockerRunner, HostRunner, Recipe, Runner, Task, parse_recipe
 from tasktree.process_runner import ProcessRunner, TaskOutputTypes, make_process_runner
 from tasktree.state import StateManager, TaskState
 
@@ -472,7 +472,7 @@ class TestResolveInterpreter(unittest.TestCase):
 
     def test_cli_override_takes_highest_precedence(self):
         interpreters = {"sh-i": Interpreter(cmd="sh"), "py-i": Interpreter(cmd="python3")}
-        runner = Runner(name="r", interpreter=Interpreter(cmd="zsh"))
+        runner = HostRunner(name="r", interpreter=Interpreter(cmd="zsh"))
         ex = self._make_executor(
             runners={"r": runner}, interpreters=interpreters, default_runner="r"
         )
@@ -482,7 +482,7 @@ class TestResolveInterpreter(unittest.TestCase):
 
     def test_task_interpreter_takes_precedence(self):
         interpreters = {"py-i": Interpreter(cmd="python3")}
-        runner = Runner(name="r", interpreter=Interpreter(cmd="zsh"))
+        runner = HostRunner(name="r", interpreter=Interpreter(cmd="zsh"))
         ex = self._make_executor(
             runners={"r": runner}, interpreters=interpreters, default_runner="r"
         )
@@ -490,7 +490,7 @@ class TestResolveInterpreter(unittest.TestCase):
         self.assertEqual(ex._resolve_interpreter(task).cmd, "python3")
 
     def test_runner_interpreter_used(self):
-        runner = Runner(name="r", interpreter=Interpreter(cmd="zsh"))
+        runner = HostRunner(name="r", interpreter=Interpreter(cmd="zsh"))
         ex = self._make_executor(runners={"r": runner}, default_runner="r")
         task = Task(name="t", cmd="echo")
         self.assertEqual(ex._resolve_interpreter(task).cmd, "zsh")
@@ -505,7 +505,7 @@ class TestResolveInterpreter(unittest.TestCase):
     def test_runner_without_interpreter_falls_back_to_default(self):
         from tasktree.parser import platform_default_interpreter
 
-        runner = Runner(name="r")  # no interpreter
+        runner = HostRunner(name="r")  # no interpreter
         ex = self._make_executor(runners={"r": runner}, default_runner="r")
         task = Task(name="t", cmd="echo")
         self.assertEqual(ex._resolve_interpreter(task), platform_default_interpreter())
@@ -513,7 +513,9 @@ class TestResolveInterpreter(unittest.TestCase):
     def test_docker_runner_without_interpreter_defaults_to_sh(self):
         from tasktree.parser import container_default_interpreter
 
-        runner = Runner(name="r", dockerfile="Dockerfile")  # docker, no interpreter
+        runner = DockerRunner(
+            name="r", dockerfile="Dockerfile"
+        )  # docker, no interpreter
         ex = self._make_executor(runners={"r": runner}, default_runner="r")
         task = Task(name="t", cmd="echo")
         self.assertEqual(ex._resolve_interpreter(task), container_default_interpreter())
@@ -1215,7 +1217,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
             dep_output.write_text("initial content")
             original_mtime = dep_output.stat().st_mtime
 
-            runner = Runner(name="shell", interpreter=Interpreter(cmd="bash"))
+            runner = HostRunner(name="shell", interpreter=Interpreter(cmd="bash"))
             task = Task(name="package", cmd="zip pkg.zip dep-output.txt", run_in="shell")
             tasks = {"package": task}
             recipe = Recipe(
@@ -1534,8 +1536,8 @@ class TestRunnerResolution(unittest.TestCase):
             from tasktree.parser import Runner
 
             runners = {
-                "prod": Runner(name="prod", interpreter=Interpreter(cmd="sh")),
-                "dev": Runner(name="dev", interpreter=Interpreter(cmd="bash")),
+                "prod": HostRunner(name="prod", interpreter=Interpreter(cmd="sh")),
+                "dev": HostRunner(name="dev", interpreter=Interpreter(cmd="bash")),
             }
 
             # Create task with explicit run_in and recipe with default_runner
@@ -1566,8 +1568,8 @@ class TestRunnerResolution(unittest.TestCase):
             from tasktree.parser import Runner
 
             runners = {
-                "prod": Runner(name="prod", interpreter=Interpreter(cmd="sh")),
-                "dev": Runner(name="dev", interpreter=Interpreter(cmd="bash")),
+                "prod": HostRunner(name="prod", interpreter=Interpreter(cmd="sh")),
+                "dev": HostRunner(name="dev", interpreter=Interpreter(cmd="bash")),
             }
 
             tasks = {"build": Task(name="build", cmd="echo hello", run_in="dev")}
@@ -1595,7 +1597,7 @@ class TestRunnerResolution(unittest.TestCase):
 
             from tasktree.parser import Runner
 
-            runners = {"prod": Runner(name="prod", interpreter=Interpreter(cmd="sh"))}
+            runners = {"prod": HostRunner(name="prod", interpreter=Interpreter(cmd="sh"))}
 
             tasks = {"build": Task(name="build", cmd="echo hello")}  # No run_in
             recipe = Recipe(
@@ -1644,7 +1646,7 @@ class TestRunnerResolution(unittest.TestCase):
             from tasktree.parser import Runner
 
             runners = {
-                "zsh_runner": Runner(
+                "zsh_runner": HostRunner(
                     name="zsh_runner",
                     interpreter=Interpreter(cmd="zsh", preamble="set -e\n"),
                 )
@@ -1727,7 +1729,7 @@ class TestRunnerResolution(unittest.TestCase):
 
             from tasktree.parser import Runner
 
-            runners = {"fish": Runner(name="fish", interpreter=Interpreter(cmd="fish"))}
+            runners = {"fish": HostRunner(name="fish", interpreter=Interpreter(cmd="fish"))}
 
             tasks = {"build": Task(name="build", cmd="echo hello", run_in="fish")}
             recipe = Recipe(
@@ -2051,7 +2053,7 @@ class TestExecutorProcessRunner(unittest.TestCase):
 
                 # Create runner with variables in docker run args
                 from tasktree.parser import DockerArgs
-                runner = Runner(
+                runner = DockerRunner(
                     name="test",
                     dockerfile="Dockerfile",
                     context=".",
@@ -2105,7 +2107,7 @@ class TestExecutorProcessRunner(unittest.TestCase):
                 )
 
                 # Create runner with variables in interpreter cmd/preamble, dockerfile, context
-                runner = Runner(
+                runner = DockerRunner(
                     name="test",
                     interpreter=Interpreter(
                         cmd="{{ env.CUSTOM_SHELL }}",
@@ -2161,6 +2163,7 @@ class TestGetSessionDefaultRunner(unittest.TestCase):
             executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
             runner = executor.get_session_default_runner()
 
+            self.assertIsInstance(runner, HostRunner)
             self.assertEqual(runner.name, "__platform_default__")
             self.assertEqual(runner.interpreter.cmd, "bash")
             self.assertEqual(runner.interpreter.preamble, "")
@@ -2772,6 +2775,8 @@ runners:
             config_path.write_text(
                 """runners:
   default:
+    type: containerised
+    engine: docker
     dockerfile: docker/Dockerfile
     context: .
 """
@@ -2806,6 +2811,8 @@ runners:
             user_config_path.write_text(
                 """runners:
   default:
+    type: containerised
+    engine: docker
     dockerfile: relative/path/Dockerfile
     context: build
 """
@@ -2846,6 +2853,8 @@ runners:
             config_path.write_text(
                 f"""runners:
   default:
+    type: containerised
+    engine: docker
     dockerfile: {abs_dockerfile}
     context: {abs_context}
 """
@@ -2975,113 +2984,6 @@ tasks:
 
             self.assertIn("nonexistent_runner", str(context.exception))
             self.assertIn("invalid runner", str(context.exception))
-
-
-class TestDockerOnlyFieldValidation(unittest.TestCase):
-    """
-    Tests that docker-only runner fields are rejected when used without a dockerfile.
-    Validation is performed before execution, once the reachable tasks are known.
-    """
-
-    def _make_executor(self, project_root, runner):
-        from tasktree.parser import Runner
-        tasks = {"build": Task(name="build", cmd="echo hello", run_in=runner.name)}
-        recipe = Recipe(
-            tasks=tasks,
-            project_root=project_root,
-            recipe_path=project_root / "tasktree.yaml",
-            runners={runner.name: runner},
-        )
-        return Executor(recipe, StateManager(project_root), logger_stub, make_process_runner)
-
-    def test_volumes_on_shell_runner_raises(self):
-        from tasktree.parser import Runner
-        with TemporaryDirectory() as tmpdir:
-            runner = Runner(
-                name="myrunner",
-                interpreter=Interpreter(cmd="bash"),
-                volumes=["/host:/container"],
-            )
-            executor = self._make_executor(Path(tmpdir), runner)
-            with self.assertRaises(ValueError) as ctx:
-                executor._validate_runners_for_reachable_tasks([("build", {})])
-            self.assertIn("'volumes'", str(ctx.exception))
-            self.assertIn("only valid for Docker runners", str(ctx.exception))
-
-    def test_ports_on_shell_runner_raises(self):
-        from tasktree.parser import Runner
-        with TemporaryDirectory() as tmpdir:
-            runner = Runner(
-                name="myrunner",
-                interpreter=Interpreter(cmd="bash"),
-                ports=["8080:80"],
-            )
-            executor = self._make_executor(Path(tmpdir), runner)
-            with self.assertRaises(ValueError) as ctx:
-                executor._validate_runners_for_reachable_tasks([("build", {})])
-            self.assertIn("'ports'", str(ctx.exception))
-            self.assertIn("only valid for Docker runners", str(ctx.exception))
-
-    def test_env_vars_on_shell_runner_raises(self):
-        from tasktree.parser import Runner
-        with TemporaryDirectory() as tmpdir:
-            runner = Runner(
-                name="myrunner",
-                interpreter=Interpreter(cmd="bash"),
-                env_vars={"MY_VAR": "value"},
-            )
-            executor = self._make_executor(Path(tmpdir), runner)
-            with self.assertRaises(ValueError) as ctx:
-                executor._validate_runners_for_reachable_tasks([("build", {})])
-            self.assertIn("'env_vars'", str(ctx.exception))
-            self.assertIn("only valid for Docker runners", str(ctx.exception))
-
-    def test_run_as_root_on_shell_runner_raises(self):
-        from tasktree.parser import Runner
-        with TemporaryDirectory() as tmpdir:
-            runner = Runner(
-                name="myrunner",
-                interpreter=Interpreter(cmd="bash"),
-                run_as_root=True,
-            )
-            executor = self._make_executor(Path(tmpdir), runner)
-            with self.assertRaises(ValueError) as ctx:
-                executor._validate_runners_for_reachable_tasks([("build", {})])
-            self.assertIn("'run_as_root'", str(ctx.exception))
-            self.assertIn("only valid for Docker runners", str(ctx.exception))
-
-    def test_args_on_shell_runner_raises(self):
-        from tasktree.parser import Runner, DockerArgs
-        with TemporaryDirectory() as tmpdir:
-            runner = Runner(
-                name="myrunner",
-                interpreter=Interpreter(cmd="bash"),
-                args=DockerArgs(build=["--no-cache"]),
-            )
-            executor = self._make_executor(Path(tmpdir), runner)
-            with self.assertRaises(ValueError) as ctx:
-                executor._validate_runners_for_reachable_tasks([("build", {})])
-            self.assertIn("'args'", str(ctx.exception))
-            self.assertIn("only valid for Docker runners", str(ctx.exception))
-
-    def test_docker_only_fields_on_docker_runner_allowed(self):
-        from tasktree.parser import Runner
-        with TemporaryDirectory() as tmpdir:
-            project_root = Path(tmpdir)
-            dockerfile = project_root / "Dockerfile"
-            dockerfile.write_text("FROM ubuntu\n")
-            runner = Runner(
-                name="myrunner",
-                dockerfile="Dockerfile",
-                context=".",
-                volumes=["/host:/container"],
-                ports=["8080:80"],
-                env_vars={"MY_VAR": "value"},
-                run_as_root=True,
-            )
-            executor = self._make_executor(project_root, runner)
-            # Should not raise
-            executor._validate_runners_for_reachable_tasks([("build", {})])
 
 
 if __name__ == "__main__":

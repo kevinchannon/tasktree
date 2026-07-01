@@ -57,6 +57,16 @@
           "description": "Runner name (dots not allowed in local definitions but will be present in imported runners due to namespace prefixing)",
           "type": "object",
           "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["containerised"],
+              "description": "Runner classification. Only required for non-shell runners; currently the only supported classification is 'containerised'."
+            },
+            "engine": {
+              "type": "string",
+              "enum": ["docker"],
+              "description": "Execution engine for a containerised runner. Currently the only supported engine is 'docker'."
+            },
             "interpreter": {
               "description": "Interpreter used to run tasks in this runner. A bare string (shorthand for {cmd: <string>}), an inline definition ({cmd, ext?, preamble?}), or a reference to a named interpreter ({use: name}).",
               "oneOf": [
@@ -139,8 +149,13 @@
               { "not": { "required": ["ports"] } },
               { "not": { "required": ["env_vars"] } },
               { "not": { "required": ["run_as_root"] } },
-              { "not": { "required": ["args"] } }
+              { "not": { "required": ["args"] } },
+              { "not": { "required": ["type"] } },
+              { "not": { "required": ["engine"] } }
             ]
+          },
+          "else": {
+            "required": ["type", "engine"]
           },
           "additionalProperties": false
         }

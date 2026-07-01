@@ -12,12 +12,20 @@ from unittest.mock import MagicMock, patch
 import yaml
 
 from tasktree.parser import (
+    CONTAINERISED_RUNNER_TYPE,
+    DOCKER_RUNNER_ENGINE,
     CircularImportError,
+    ContainerisedRunner,
+    DockerRunner,
+    HostRunner,
     Recipe,
+    Runner,
     Task,
     _resolve_eval_variable,
+    containerised_runner_from_config,
     find_recipe_file,
     parse_arg_spec,
+    runner_from_config,
     parse_recipe,
 )
 from tasktree.interpreter import Interpreter
@@ -693,6 +701,8 @@ tasks:
             recipe_path.write_text("""
 runners:
   builder:
+    type: containerised
+    engine: docker
     dockerfile: Dockerfile
     interpreter: { cmd: bash }
 tasks:
@@ -4872,6 +4882,8 @@ class TestDockerRunnerDefaultContext(unittest.TestCase):
             recipe_path.write_text("""
 runners:
   my_runner:
+    type: containerised
+    engine: docker
     dockerfile: docker/Dockerfile
 
 tasks:
@@ -4881,6 +4893,225 @@ tasks:
 
             recipe = parse_recipe(recipe_path)
             self.assertEqual(recipe.runners["my_runner"].context, "docker")
+
+
+class TestRunnerHierarchy(unittest.TestCase):
+    """
+    Tests for the concrete Runner subclasses.
+    """
+
+    def test_host_runner_is_a_runner(self):
+        runner = HostRunner(name="shell")
+        self.assertIsInstance(runner, Runner)
+
+    def test_base_runner_is_abstract(self):
+        with self.assertRaises(TypeError):
+            Runner(name="nope")
+
+    def test_containerised_runner_is_abstract(self):
+        with self.assertRaises(TypeError):
+            ContainerisedRunner(name="nope")
+
+    def test_host_runner_is_not_containerised(self):
+        runner = HostRunner(name="shell")
+        self.assertNotIsInstance(runner, ContainerisedRunner)
+
+    def test_docker_runner_is_containerised(self):
+        runner = DockerRunner(name="builder", dockerfile="Dockerfile")
+        self.assertIsInstance(runner, ContainerisedRunner)
+
+    def test_docker_runner_keeps_docker_fields(self):
+        runner = DockerRunner(name="builder", dockerfile="Dockerfile", context=".")
+        self.assertEqual(runner.dockerfile, "Dockerfile")
+        self.assertEqual(runner.context, ".")
+
+
+class TestRunnerFromConfig(unittest.TestCase):
+    """
+    Tests for the runner_from_config / containerised_runner_from_config factory
+    functions that select the concrete subclass from a runner definition dict.
+    """
+
+    def test_no_fields_builds_host_runner(self):
+        runner = runner_from_config("shell", {})
+        self.assertIsInstance(runner, HostRunner)
+
+    def test_docker_config_builds_docker_runner(self):
+        runner = runner_from_config(
+            "builder",
+            {
+                "type": CONTAINERISED_RUNNER_TYPE,
+                "engine": DOCKER_RUNNER_ENGINE,
+                "dockerfile": "Dockerfile",
+                "context": ".",
+            },
+        )
+        self.assertIsInstance(runner, DockerRunner)
+        self.assertEqual(runner.dockerfile, "Dockerfile")
+        self.assertEqual(runner.context, ".")
+
+    def test_docker_only_field_without_type_rejected(self):
+        with self.assertRaises(ValueError) as ctx:
+            runner_from_config("builder", {"dockerfile": "Dockerfile"})
+        self.assertIn("type", str(ctx.exception))
+
+    def test_container_field_without_type_rejected(self):
+        with self.assertRaises(ValueError) as ctx:
+            runner_from_config("builder", {"volumes": ["/host:/container"]})
+        self.assertIn("type", str(ctx.exception))
+
+    def test_containerised_without_dockerfile_rejected(self):
+        with self.assertRaises(ValueError) as ctx:
+            runner_from_config(
+                "builder",
+                {"type": CONTAINERISED_RUNNER_TYPE, "engine": DOCKER_RUNNER_ENGINE},
+            )
+        self.assertIn("dockerfile", str(ctx.exception))
+
+    def test_invalid_type_rejected(self):
+        with self.assertRaises(ValueError) as ctx:
+            runner_from_config(
+                "builder",
+                {
+                    "type": "virtualised",
+                    "engine": DOCKER_RUNNER_ENGINE,
+                    "dockerfile": "Dockerfile",
+                },
+            )
+        self.assertIn("'type'", str(ctx.exception))
+
+    def test_invalid_engine_rejected(self):
+        with self.assertRaises(ValueError) as ctx:
+            runner_from_config(
+                "builder",
+                {
+                    "type": CONTAINERISED_RUNNER_TYPE,
+                    "engine": "podman",
+                    "dockerfile": "Dockerfile",
+                },
+            )
+        self.assertIn("'engine'", str(ctx.exception))
+
+    def test_containerised_factory_builds_docker_runner(self):
+        runner = containerised_runner_from_config(
+            "builder",
+            {"engine": DOCKER_RUNNER_ENGINE, "dockerfile": "Dockerfile"},
+        )
+        self.assertIsInstance(runner, DockerRunner)
+
+
+class TestRunnerTypeAndEngine(unittest.TestCase):
+    """
+    Tests for the runner 'type'/'engine' classification fields.
+    """
+
+    def test_docker_runner_parses_as_docker_runner(self):
+        with TemporaryDirectory() as tmpdir:
+            (Path(tmpdir) / "Dockerfile").write_text("FROM alpine\n")
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+runners:
+  builder:
+    type: containerised
+    engine: docker
+    dockerfile: Dockerfile
+tasks:
+  build:
+    run_in: builder
+    cmd: echo hi
+""")
+            recipe = parse_recipe(recipe_path)
+            runner = recipe.get_runner("builder")
+            self.assertIsInstance(runner, DockerRunner)
+
+    def test_host_runner_parses_as_host_runner(self):
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+runners:
+  shell:
+    interpreter: bash
+tasks:
+  build:
+    run_in: shell
+    cmd: echo hi
+""")
+            recipe = parse_recipe(recipe_path)
+            runner = recipe.get_runner("shell")
+            self.assertIsInstance(runner, HostRunner)
+
+    def test_dockerfile_without_type_and_engine_rejected(self):
+        with TemporaryDirectory() as tmpdir:
+            (Path(tmpdir) / "Dockerfile").write_text("FROM alpine\n")
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+runners:
+  builder:
+    dockerfile: Dockerfile
+tasks:
+  build:
+    run_in: builder
+    cmd: echo hi
+""")
+            with self.assertRaises(ValueError) as ctx:
+                parse_recipe(recipe_path)
+            self.assertIn("type", str(ctx.exception))
+            self.assertIn("engine", str(ctx.exception))
+
+    def test_type_and_engine_without_dockerfile_rejected(self):
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+runners:
+  builder:
+    type: containerised
+    engine: docker
+tasks:
+  build:
+    run_in: builder
+    cmd: echo hi
+""")
+            with self.assertRaises(ValueError) as ctx:
+                parse_recipe(recipe_path)
+            self.assertIn("dockerfile", str(ctx.exception))
+
+    def test_invalid_runner_type_rejected(self):
+        with TemporaryDirectory() as tmpdir:
+            (Path(tmpdir) / "Dockerfile").write_text("FROM alpine\n")
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+runners:
+  builder:
+    type: virtualised
+    engine: docker
+    dockerfile: Dockerfile
+tasks:
+  build:
+    run_in: builder
+    cmd: echo hi
+""")
+            with self.assertRaises(ValueError) as ctx:
+                parse_recipe(recipe_path)
+            self.assertIn("'type'", str(ctx.exception))
+
+    def test_invalid_runner_engine_rejected(self):
+        with TemporaryDirectory() as tmpdir:
+            (Path(tmpdir) / "Dockerfile").write_text("FROM alpine\n")
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+runners:
+  builder:
+    type: containerised
+    engine: podman
+    dockerfile: Dockerfile
+tasks:
+  build:
+    run_in: builder
+    cmd: echo hi
+""")
+            with self.assertRaises(ValueError) as ctx:
+                parse_recipe(recipe_path)
+            self.assertIn("'engine'", str(ctx.exception))
 
 
 if __name__ == "__main__":

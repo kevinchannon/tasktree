@@ -432,19 +432,6 @@ class DockerManager:
             )
 
 
-def is_docker_runner(env: Runner) -> bool:
-    """
-    Check if runner is Docker-based.
-
-    Args:
-    env: Runner to check
-
-    Returns:
-    True if runner has a dockerfile field, False otherwise
-    """
-    return bool(env.dockerfile)
-
-
 def resolve_container_working_dir(
     env_working_dir: str, task_working_dir: str
 ) -> str | None:

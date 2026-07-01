@@ -35,6 +35,8 @@ class TestDockerEnvironmentChange(unittest.TestCase):
         (project_root / "tasktree.yaml").write_text("""
 runners:
   alpine:
+    type: containerised
+    engine: docker
     dockerfile: ./Dockerfile
     context: .
 
