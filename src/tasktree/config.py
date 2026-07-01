@@ -13,7 +13,6 @@ import yaml
 from tasktree.parser import (
     VALID_RUNNER_ENGINES,
     VALID_RUNNER_TYPES,
-    DockerArgs,
     Runner,
     create_runner,
     parse_docker_args,
