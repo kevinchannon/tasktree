@@ -125,6 +125,12 @@ class Runner:
         return self.type == CONTAINERISED_RUNNER_TYPE
 
 
+class HostRunner(Runner):
+    """A runner that executes tasks directly on the host (no container)."""
+
+    pass
+
+
 @dataclass
 class Task:
     """

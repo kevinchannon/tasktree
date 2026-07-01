@@ -13,7 +13,9 @@ import yaml
 
 from tasktree.parser import (
     CircularImportError,
+    HostRunner,
     Recipe,
+    Runner,
     Task,
     _resolve_eval_variable,
     find_recipe_file,
@@ -4885,6 +4887,20 @@ tasks:
 
             recipe = parse_recipe(recipe_path)
             self.assertEqual(recipe.runners["my_runner"].context, "docker")
+
+
+class TestRunnerHierarchy(unittest.TestCase):
+    """
+    Tests for the concrete Runner subclasses.
+    """
+
+    def test_host_runner_is_a_runner(self):
+        runner = HostRunner(name="shell")
+        self.assertIsInstance(runner, Runner)
+
+    def test_host_runner_is_not_containerised(self):
+        runner = HostRunner(name="shell")
+        self.assertFalse(runner.is_containerised)
 
 
 class TestRunnerTypeAndEngine(unittest.TestCase):
