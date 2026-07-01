@@ -11,7 +11,7 @@ from tasktree.graph import (
     resolve_execution_order,
     resolve_self_references,
 )
-from tasktree.parser import Recipe, Runner, Task
+from tasktree.parser import DockerRunner, Recipe, Runner, Task
 
 
 class TestResolveExecutionOrder(unittest.TestCase):
@@ -197,7 +197,7 @@ class TestGetImplicitInputs(unittest.TestCase):
         """
         Test that a Docker-runner task inherits dependency outputs as implicit inputs.
         """
-        runner = Runner(name="docker", dockerfile="Dockerfile", context=".")
+        runner = DockerRunner(name="docker", dockerfile="Dockerfile", context=".")
         tasks = {
             "build": Task(name="build", cmd="make", outputs=["build/output.txt"]),
             "package": Task(

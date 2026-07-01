@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch, call
 from helpers.logging import logger_stub
 from tasktree.executor import Executor
 from tasktree.interpreter import Interpreter
-from tasktree.parser import HostRunner, Recipe, Runner, Task, parse_recipe
+from tasktree.parser import DockerRunner, HostRunner, Recipe, Runner, Task, parse_recipe
 from tasktree.process_runner import ProcessRunner, TaskOutputTypes, make_process_runner
 from tasktree.state import StateManager, TaskState
 
@@ -2053,7 +2053,7 @@ class TestExecutorProcessRunner(unittest.TestCase):
 
                 # Create runner with variables in docker run args
                 from tasktree.parser import DockerArgs
-                runner = Runner(
+                runner = DockerRunner(
                     name="test",
                     dockerfile="Dockerfile",
                     context=".",
@@ -2107,7 +2107,7 @@ class TestExecutorProcessRunner(unittest.TestCase):
                 )
 
                 # Create runner with variables in interpreter cmd/preamble, dockerfile, context
-                runner = Runner(
+                runner = DockerRunner(
                     name="test",
                     interpreter=Interpreter(
                         cmd="{{ env.CUSTOM_SHELL }}",
