@@ -56,15 +56,15 @@ Your sponsor is not made of money! Try to minimise token useage, so that we can 
 
 ### Core Components
 
-- **`src/tasktree/parser.py`** (2,415 lines): YAML recipe parsing, task and runner definitions, circular import detection, schema validation
-- **`src/tasktree/executor.py`** (1,200 lines): Task execution logic, incremental execution engine, state tracking, built-in variables, subprocess management
-- **`src/tasktree/cli.py`** (591 lines): Typer-based CLI with commands: `--list`, `--show`, `--tree`, `--force`, `--only`, `--dry-run`, `--verbose`
-- **`src/tasktree/graph.py`** (545 lines): Dependency resolution using graphlib.TopologicalSorter, parameterized dependencies, cycle detection
-- **`src/tasktree/docker.py`** (446 lines): Docker image building and container execution, user mapping, volume mounts, build args
-- **`src/tasktree/substitution.py`** (374 lines): Template variable substitution engine supporting multiple prefixes (var, arg, env, tt, dep, self)
-- **`src/tasktree/types.py`** (139 lines): Custom Click parameter types for argument validation (hostname, email, IP, IPv4, IPv6, datetime)
-- **`src/tasktree/hasher.py`** (161 lines): Task hashing for incremental execution, cache key generation, runner definition hashing
-- **`src/tasktree/state.py`** (119 lines): State file management (.tasktree-state), task execution state tracking
+- **`src/tasktree/parser.py`** (~3,590 lines): YAML recipe parsing, task and runner definitions (the Runner class hierarchy and `create_runner` factory), circular import detection, schema validation
+- **`src/tasktree/executor.py`** (~1,940 lines): Task execution logic, incremental execution engine, state tracking, built-in variables, subprocess management
+- **`src/tasktree/cli.py`** (~215 lines): Typer-based CLI with commands: `--list`, `--show`, `--tree`, `--force`, `--only`, `--dry-run`, `--verbose`
+- **`src/tasktree/graph.py`** (~665 lines): Dependency resolution using graphlib.TopologicalSorter, parameterized dependencies, cycle detection
+- **`src/tasktree/docker.py`** (~490 lines): Docker image building and container execution, user mapping, volume mounts, build args
+- **`src/tasktree/substitution.py`** (~510 lines): Template variable substitution engine supporting multiple prefixes (var, arg, env, tt, dep, self)
+- **`src/tasktree/types.py`** (~180 lines): Custom Click parameter types for argument validation (hostname, email, IP, IPv4, IPv6, datetime)
+- **`src/tasktree/hasher.py`** (~205 lines): Task hashing for incremental execution, cache key generation, runner definition hashing
+- **`src/tasktree/state.py`** (~180 lines): State file management (.tasktree-state), task execution state tracking
 - **`src/tasktree/lsp/`**: Language Server Protocol implementation
   - **`server.py`**: Main LSP server with pygls handlers (initialize, shutdown, completion, document tracking)
   - **`builtin_variables.py`**: Built-in variable constant definitions (tt.*)
