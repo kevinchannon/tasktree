@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch, call
 from helpers.logging import logger_stub
 from tasktree.executor import Executor
 from tasktree.interpreter import Interpreter
-from tasktree.parser import Recipe, Runner, Task, parse_recipe
+from tasktree.parser import HostRunner, Recipe, Runner, Task, parse_recipe
 from tasktree.process_runner import ProcessRunner, TaskOutputTypes, make_process_runner
 from tasktree.state import StateManager, TaskState
 
@@ -2163,6 +2163,7 @@ class TestGetSessionDefaultRunner(unittest.TestCase):
             executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
             runner = executor.get_session_default_runner()
 
+            self.assertIsInstance(runner, HostRunner)
             self.assertEqual(runner.name, "__platform_default__")
             self.assertEqual(runner.interpreter.cmd, "bash")
             self.assertEqual(runner.interpreter.preamble, "")

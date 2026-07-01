@@ -25,7 +25,7 @@ from tasktree.graph import (
 )
 from tasktree.hasher import hash_args, hash_task, make_cache_key
 from tasktree.logging import Logger, LogLevel
-from tasktree.parser import DockerArgs, Recipe, Task, Runner, platform_default_interpreter, container_default_interpreter
+from tasktree.parser import DockerArgs, Recipe, Task, Runner, HostRunner, platform_default_interpreter, container_default_interpreter
 from tasktree.interpreter import Interpreter
 from tasktree.process_runner import ProcessRunner, TaskOutputTypes
 from tasktree.state import StateManager, TaskState
@@ -384,7 +384,7 @@ class Executor:
         )
 
         # Start with platform default
-        platform_default = Runner(
+        platform_default = HostRunner(
             name="__platform_default__",
             interpreter=platform_default_interpreter(),
         )
