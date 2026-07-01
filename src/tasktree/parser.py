@@ -2088,6 +2088,69 @@ def _validate_runner_classification(
             )
 
 
+def create_runner(
+    name: str,
+    *,
+    runner_type: str = "",
+    runner_engine: str = "",
+    dockerfile: str = "",
+    context: str = "",
+    volumes: list[str] | None = None,
+    ports: list[str] | None = None,
+    env_vars: dict[str, str] | None = None,
+    run_as_root: bool = False,
+    args: DockerArgs | None = None,
+    interpreter: Interpreter | None = None,
+    working_dir: str = "",
+) -> Runner:
+    """
+    Build the appropriate Runner subclass from runner fields.
+
+    Applies the type/engine classification rules and returns a HostRunner for
+    host runners or a DockerRunner for containerised Docker runners. Raises
+    ValueError on invalid or inconsistent configuration. Interpreter and args
+    are parsed by the caller (they differ between recipe and config contexts)
+    and passed in.
+    """
+    volumes = volumes or []
+    ports = ports or []
+    env_vars = env_vars or {}
+    args = args or DockerArgs()
+
+    _validate_runner_classification(
+        name,
+        runner_type,
+        runner_engine,
+        dockerfile=dockerfile,
+        context=context,
+        volumes=volumes,
+        ports=ports,
+        env_vars=env_vars,
+        run_as_root=run_as_root,
+        args_config=args,
+    )
+
+    if runner_type == CONTAINERISED_RUNNER_TYPE:
+        return DockerRunner(
+            name=name,
+            interpreter=interpreter,
+            args=args,
+            dockerfile=dockerfile,
+            context=context,
+            volumes=volumes,
+            ports=ports,
+            env_vars=env_vars,
+            working_dir=working_dir,
+            run_as_root=run_as_root,
+        )
+    return HostRunner(
+        name=name,
+        interpreter=interpreter,
+        args=args,
+        working_dir=working_dir,
+    )
+
+
 def _extract_and_validate_variables(
     data: dict[str, Any] | None,
 ) -> tuple[dict[str, Any], dict[str, str]]:

@@ -18,6 +18,7 @@ from tasktree.parser import (
     ContainerisedRunner,
     DockerRunner,
     HostRunner,
+    create_runner,
     Recipe,
     Runner,
     Task,
@@ -4928,6 +4929,52 @@ class TestRunnerHierarchy(unittest.TestCase):
         runner = DockerRunner(name="builder", dockerfile="Dockerfile", context=".")
         self.assertEqual(runner.dockerfile, "Dockerfile")
         self.assertEqual(runner.context, ".")
+
+
+class TestCreateRunner(unittest.TestCase):
+    """
+    Tests for the create_runner factory that selects the concrete subclass.
+    """
+
+    def test_no_fields_builds_host_runner(self):
+        runner = create_runner("shell")
+        self.assertIsInstance(runner, HostRunner)
+
+    def test_docker_fields_build_docker_runner(self):
+        runner = create_runner(
+            "builder",
+            runner_type=CONTAINERISED_RUNNER_TYPE,
+            runner_engine=DOCKER_RUNNER_ENGINE,
+            dockerfile="Dockerfile",
+            context=".",
+        )
+        self.assertIsInstance(runner, DockerRunner)
+        self.assertEqual(runner.dockerfile, "Dockerfile")
+        self.assertEqual(runner.context, ".")
+
+    def test_dockerfile_without_classification_rejected(self):
+        with self.assertRaises(ValueError) as ctx:
+            create_runner("builder", dockerfile="Dockerfile")
+        self.assertIn("type", str(ctx.exception))
+
+    def test_classification_without_dockerfile_rejected(self):
+        with self.assertRaises(ValueError) as ctx:
+            create_runner(
+                "builder",
+                runner_type=CONTAINERISED_RUNNER_TYPE,
+                runner_engine=DOCKER_RUNNER_ENGINE,
+            )
+        self.assertIn("dockerfile", str(ctx.exception))
+
+    def test_invalid_type_rejected(self):
+        with self.assertRaises(ValueError) as ctx:
+            create_runner(
+                "builder",
+                runner_type="virtualised",
+                runner_engine=DOCKER_RUNNER_ENGINE,
+                dockerfile="Dockerfile",
+            )
+        self.assertIn("'type'", str(ctx.exception))
 
 
 class TestRunnerTypeAndEngine(unittest.TestCase):
