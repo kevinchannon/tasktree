@@ -107,8 +107,6 @@ class Runner:
 
     name: str
     interpreter: Interpreter | None = None  # Interpreter used to run task scripts
-    type: str = ""  # Runner classification, e.g. "containerised"
-    engine: str = ""  # Execution engine for a containerised runner, e.g. "docker"
     working_dir: str = ""  # Working directory (container or host)
 
     def hash_fields(self) -> dict:
@@ -136,10 +134,6 @@ class ContainerisedRunner(Runner):
     env_vars: dict[str, str] = field(default_factory=dict)  # Environment variables
     run_as_root: bool = False  # If True, skip user mapping (run as root in container)
 
-    def __post_init__(self):
-        if not self.type:
-            self.type = CONTAINERISED_RUNNER_TYPE
-
     def hash_fields(self) -> dict:
         return {
             "args_build": sorted(self.args.build),
@@ -156,11 +150,6 @@ class DockerRunner(ContainerisedRunner):
 
     dockerfile: str = ""  # Path to Dockerfile
     context: str = ""  # Path to build context directory
-
-    def __post_init__(self):
-        super().__post_init__()
-        if not self.engine:
-            self.engine = DOCKER_RUNNER_ENGINE
 
     def hash_fields(self) -> dict:
         return {

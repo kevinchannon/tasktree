@@ -4907,18 +4907,9 @@ class TestRunnerHierarchy(unittest.TestCase):
         runner = HostRunner(name="shell")
         self.assertNotIsInstance(runner, ContainerisedRunner)
 
-    def test_containerised_runner_sets_type(self):
-        runner = ContainerisedRunner(name="box")
-        self.assertEqual(runner.type, CONTAINERISED_RUNNER_TYPE)
-
     def test_docker_runner_is_containerised(self):
         runner = DockerRunner(name="builder", dockerfile="Dockerfile")
         self.assertIsInstance(runner, ContainerisedRunner)
-
-    def test_docker_runner_sets_type_and_engine(self):
-        runner = DockerRunner(name="builder", dockerfile="Dockerfile")
-        self.assertEqual(runner.type, CONTAINERISED_RUNNER_TYPE)
-        self.assertEqual(runner.engine, DOCKER_RUNNER_ENGINE)
 
     def test_docker_runner_keeps_docker_fields(self):
         runner = DockerRunner(name="builder", dockerfile="Dockerfile", context=".")
@@ -4982,7 +4973,7 @@ class TestRunnerTypeAndEngine(unittest.TestCase):
     Tests for the runner 'type'/'engine' classification fields.
     """
 
-    def test_docker_runner_parses_type_and_engine(self):
+    def test_docker_runner_parses_as_docker_runner(self):
         with TemporaryDirectory() as tmpdir:
             (Path(tmpdir) / "Dockerfile").write_text("FROM alpine\n")
             recipe_path = Path(tmpdir) / "tasktree.yaml"
@@ -5000,10 +4991,8 @@ tasks:
             recipe = parse_recipe(recipe_path)
             runner = recipe.get_runner("builder")
             self.assertIsInstance(runner, DockerRunner)
-            self.assertEqual(runner.type, "containerised")
-            self.assertEqual(runner.engine, "docker")
 
-    def test_host_runner_has_no_type_or_engine(self):
+    def test_host_runner_parses_as_host_runner(self):
         with TemporaryDirectory() as tmpdir:
             recipe_path = Path(tmpdir) / "tasktree.yaml"
             recipe_path.write_text("""
@@ -5018,8 +5007,6 @@ tasks:
             recipe = parse_recipe(recipe_path)
             runner = recipe.get_runner("shell")
             self.assertIsInstance(runner, HostRunner)
-            self.assertEqual(runner.type, "")
-            self.assertEqual(runner.engine, "")
 
     def test_dockerfile_without_type_and_engine_rejected(self):
         with TemporaryDirectory() as tmpdir:

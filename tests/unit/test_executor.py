@@ -514,7 +514,7 @@ class TestResolveInterpreter(unittest.TestCase):
         from tasktree.parser import container_default_interpreter
 
         runner = DockerRunner(
-            name="r", type="containerised", engine="docker", dockerfile="Dockerfile"
+            name="r", dockerfile="Dockerfile"
         )  # docker, no interpreter
         ex = self._make_executor(runners={"r": runner}, default_runner="r")
         task = Task(name="t", cmd="echo")

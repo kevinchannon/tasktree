@@ -577,8 +577,6 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
             test_runner = DockerRunner(
                 name="build",
                 interpreter=Interpreter(cmd="/bin/bash", preamble="set -e"),
-                type="containerised",
-                engine="docker",
                 dockerfile="Dockerfile",
                 context=".",
             )
@@ -631,8 +629,6 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
             build_runner = DockerRunner(
                 name="build",
                 interpreter=Interpreter(cmd="/bin/bash"),
-                type="containerised",
-                engine="docker",
                 dockerfile="Dockerfile.build",
                 context=".",
             )
@@ -640,8 +636,6 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
             test_runner = DockerRunner(
                 name="test",
                 interpreter=Interpreter(cmd="/bin/bash"),
-                type="containerised",
-                engine="docker",
                 dockerfile="Dockerfile.test",  # Different dockerfile
                 context=".",
             )
@@ -692,8 +686,6 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
             docker_runner = DockerRunner(
                 name="build",
                 interpreter=Interpreter(cmd="/bin/bash"),
-                type="containerised",
-                engine="docker",
                 dockerfile="Dockerfile",
                 context=".",
             )
@@ -749,8 +741,6 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
             docker_runner = DockerRunner(
                 name="build",
                 interpreter=Interpreter(cmd="/bin/bash"),
-                type="containerised",
-                engine="docker",
                 dockerfile="Dockerfile",
                 context=".",
             )
@@ -802,8 +792,6 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
             docker_runner = DockerRunner(
                 name="build",
                 interpreter=Interpreter(cmd="/bin/bash"),
-                type="containerised",
-                engine="docker",
                 dockerfile="Dockerfile",
                 context=".",
             )
@@ -859,8 +847,6 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
             docker_runner = DockerRunner(
                 name="build",
                 interpreter=Interpreter(cmd="/bin/bash"),
-                type="containerised",
-                engine="docker",
                 dockerfile="Dockerfile",
                 context=".",
             )
@@ -917,8 +903,6 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
             docker_runner = DockerRunner(
                 name="build",
                 interpreter=Interpreter(cmd="/bin/bash"),
-                type="containerised",
-                engine="docker",
                 dockerfile="Dockerfile",
                 context=".",
             )
@@ -979,8 +963,6 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
             docker_runner = DockerRunner(
                 name="build",
                 interpreter=Interpreter(cmd="/bin/bash"),
-                type="containerised",
-                engine="docker",
                 dockerfile="Dockerfile",
                 context=".",
             )
@@ -1037,8 +1019,6 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
             docker_runner = DockerRunner(
                 name="build",
                 interpreter=Interpreter(cmd="zsh"),
-                type="containerised",
-                engine="docker",
                 dockerfile="Dockerfile",
                 context=".",
             )
@@ -1106,8 +1086,6 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
                     docker_runner = DockerRunner(
                         name=runner_name,
                         interpreter=Interpreter(cmd="/bin/bash"),
-                        type="containerised",
-                        engine="docker",
                         dockerfile="Dockerfile",
                         context=".",
                     )
