@@ -119,11 +119,6 @@ class Runner:
     working_dir: str = ""  # Working directory (container or host)
     run_as_root: bool = False  # If True, skip user mapping (run as root in container)
 
-    @property
-    def is_containerised(self) -> bool:
-        """True if this runner executes tasks inside a container."""
-        return self.type == CONTAINERISED_RUNNER_TYPE
-
 
 class HostRunner(Runner):
     """A runner that executes tasks directly on the host (no container)."""

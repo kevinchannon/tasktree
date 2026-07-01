@@ -4905,11 +4905,7 @@ class TestRunnerHierarchy(unittest.TestCase):
 
     def test_host_runner_is_not_containerised(self):
         runner = HostRunner(name="shell")
-        self.assertFalse(runner.is_containerised)
-
-    def test_containerised_runner_is_containerised(self):
-        runner = ContainerisedRunner(name="box")
-        self.assertTrue(runner.is_containerised)
+        self.assertNotIsInstance(runner, ContainerisedRunner)
 
     def test_containerised_runner_sets_type(self):
         runner = ContainerisedRunner(name="box")
@@ -4918,7 +4914,6 @@ class TestRunnerHierarchy(unittest.TestCase):
     def test_docker_runner_is_containerised(self):
         runner = DockerRunner(name="builder", dockerfile="Dockerfile")
         self.assertIsInstance(runner, ContainerisedRunner)
-        self.assertTrue(runner.is_containerised)
 
     def test_docker_runner_sets_type_and_engine(self):
         runner = DockerRunner(name="builder", dockerfile="Dockerfile")
@@ -5002,7 +4997,6 @@ tasks:
             self.assertIsInstance(runner, DockerRunner)
             self.assertEqual(runner.type, "containerised")
             self.assertEqual(runner.engine, "docker")
-            self.assertTrue(runner.is_containerised)
 
     def test_host_runner_has_no_type_or_engine(self):
         with TemporaryDirectory() as tmpdir:
@@ -5021,7 +5015,6 @@ tasks:
             self.assertIsInstance(runner, HostRunner)
             self.assertEqual(runner.type, "")
             self.assertEqual(runner.engine, "")
-            self.assertFalse(runner.is_containerised)
 
     def test_dockerfile_without_type_and_engine_rejected(self):
         with TemporaryDirectory() as tmpdir:
