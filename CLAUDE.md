@@ -162,6 +162,7 @@ runners:
     # OR a reference to a named interpreter from the 'interpreters' section:
     # interpreter: { use: py }
     # OR a containerised (Docker) runner:
+    # (type/engine select the concrete runner class - see "Runner Architecture")
     type: containerised  # Required alongside 'engine' for any containerised runner
     engine: docker  # Currently the only supported engine
     dockerfile: path/to/Dockerfile
@@ -225,6 +226,44 @@ tasks:
     deps:
       - dependency(value1, key=value2)  # Positional and named args
 ```
+
+### Runner Architecture
+
+Runners are modelled as a polymorphic class hierarchy in `parser.py`, not a
+single flag-carrying struct. The runner's **class encodes its classification**;
+there is no stored `type`/`engine` field on the object.
+
+```
+Runner (abstract)                    name, interpreter, working_dir, hash_fields()
+├── HostRunner                       executes tasks directly on the host
+└── ContainerisedRunner (abstract)   args, volumes, ports, env_vars, run_as_root
+    └── DockerRunner                 dockerfile, context (Docker engine)
+```
+
+- **Field ownership follows the hierarchy.** Host runners structurally cannot
+  hold container configuration — a `HostRunner` has no `volumes`/`dockerfile`
+  attributes at all. Adding a docker-only field to a non-containerised runner is
+  therefore impossible to construct, not just validated against.
+- **`create_runner(name, ...)` is the only sanctioned constructor.** It reads the
+  recipe's `type`/`engine` values purely as *discriminators* to select and build
+  the right concrete class (host → `HostRunner`; `containerised`+`docker` →
+  `DockerRunner`), applying the classification rules (`_validate_runner_classification`)
+  in one place. Both the recipe parser and the machine-config loader build runners
+  through it. `Runner` and `ContainerisedRunner` are abstract and raise `TypeError`
+  if instantiated directly.
+- **Dispatch is polymorphic.** Host-vs-container decisions use
+  `isinstance(env, ContainerisedRunner)` rather than string checks on `type`/`engine`.
+  Docker-specific behaviour lives in `docker.py`'s `DockerManager`, reached only for
+  `DockerRunner` instances.
+- **Hashing keys on the runner class.** `hash_runner_definition` (in `hasher.py`)
+  combines the class name with each runner's polymorphic `hash_fields()`
+  (`ContainerisedRunner` contributes args/volumes/ports/env_vars; `DockerRunner`
+  adds dockerfile/context). Changing a runner's kind therefore invalidates cached
+  task results.
+- **Adding a new engine** (e.g. Podman, or a non-containerised Nix runner) means
+  adding a subclass at the right level and a case in `create_runner` — no new
+  conditionals scattered across the executor. The recipe's `type` axis selects the
+  intermediate (containerised vs not) and `engine` selects the leaf.
 
 ### Docker Integration
 Full Docker support with:
