@@ -13,8 +13,10 @@ import yaml
 
 from tasktree.parser import (
     CONTAINERISED_RUNNER_TYPE,
+    DOCKER_RUNNER_ENGINE,
     CircularImportError,
     ContainerisedRunner,
+    DockerRunner,
     HostRunner,
     Recipe,
     Runner,
@@ -4911,6 +4913,21 @@ class TestRunnerHierarchy(unittest.TestCase):
     def test_containerised_runner_sets_type(self):
         runner = ContainerisedRunner(name="box")
         self.assertEqual(runner.type, CONTAINERISED_RUNNER_TYPE)
+
+    def test_docker_runner_is_containerised(self):
+        runner = DockerRunner(name="builder", dockerfile="Dockerfile")
+        self.assertIsInstance(runner, ContainerisedRunner)
+        self.assertTrue(runner.is_containerised)
+
+    def test_docker_runner_sets_type_and_engine(self):
+        runner = DockerRunner(name="builder", dockerfile="Dockerfile")
+        self.assertEqual(runner.type, CONTAINERISED_RUNNER_TYPE)
+        self.assertEqual(runner.engine, DOCKER_RUNNER_ENGINE)
+
+    def test_docker_runner_keeps_docker_fields(self):
+        runner = DockerRunner(name="builder", dockerfile="Dockerfile", context=".")
+        self.assertEqual(runner.dockerfile, "Dockerfile")
+        self.assertEqual(runner.context, ".")
 
 
 class TestRunnerTypeAndEngine(unittest.TestCase):

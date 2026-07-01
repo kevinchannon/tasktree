@@ -141,6 +141,16 @@ class ContainerisedRunner(Runner):
 
 
 @dataclass
+class DockerRunner(ContainerisedRunner):
+    """A containerised runner backed by the Docker engine."""
+
+    def __post_init__(self):
+        super().__post_init__()
+        if not self.engine:
+            self.engine = DOCKER_RUNNER_ENGINE
+
+
+@dataclass
 class Task:
     """
     Represents a task definition.
