@@ -182,16 +182,9 @@ def hash_runner_definition(env) -> str:
 
     data = {
         "interpreter": interpreter_data,
-        "args_build": sorted(env.args.build),
-        "args_run": sorted(env.args.run),
-        "type": env.type,
-        "engine": env.engine,
-        "dockerfile": env.dockerfile,
-        "context": env.context,
-        "volumes": sorted(env.volumes),
-        "ports": sorted(env.ports),
-        "env_vars": dict(sorted(env.env_vars.items())),
+        "kind": type(env).__name__,
         "working_dir": env.working_dir,
+        **env.hash_fields(),
     }
     serialized = json.dumps(data, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(serialized.encode()).hexdigest()[:16]

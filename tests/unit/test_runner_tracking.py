@@ -11,7 +11,7 @@ from helpers.logging import logger_stub
 import tasktree.docker as docker_module
 from tasktree.executor import Executor
 from tasktree.hasher import hash_runner_definition
-from tasktree.parser import DockerArgs, DockerRunner, Runner, Recipe, Task
+from tasktree.parser import DockerArgs, DockerRunner, HostRunner, Runner, Recipe, Task
 from tasktree.interpreter import Interpreter
 from tasktree.process_runner import TaskOutputTypes, make_process_runner
 from tasktree.state import StateManager, TaskState
@@ -121,29 +121,27 @@ class TestHashRunnerDefinition(unittest.TestCase):
 
         self.assertNotEqual(hash1, hash2)
 
-    def test_hash_runner_definition_type_and_engine_change(self):
+    def test_hash_runner_definition_differs_by_runner_kind(self):
         """
-        Test that changing type/engine produces a different hash, so cache
-        entries are invalidated if a runner's classification changes.
+        Test that runners of different kinds hash differently, so cache entries
+        are invalidated if a runner's classification (its class) changes. The
+        hash keys on the runner class rather than stored type/engine strings.
         """
-
-        runner1 = Runner(
+        host_runner = HostRunner(
             name="test",
-            type="containerised",
-            engine="docker",
+            interpreter=Interpreter(cmd="bash"),
+        )
+        docker_runner = DockerRunner(
+            name="test",
+            interpreter=Interpreter(cmd="bash"),
             dockerfile="Dockerfile",
             context=".",
         )
-        runner2 = Runner(
-            name="test",
-            dockerfile="Dockerfile",
-            context=".",
+
+        self.assertNotEqual(
+            hash_runner_definition(host_runner),
+            hash_runner_definition(docker_runner),
         )
-
-        hash1 = hash_runner_definition(runner1)
-        hash2 = hash_runner_definition(runner2)
-
-        self.assertNotEqual(hash1, hash2)
 
     def test_hash_runner_definition_args_order_independent(self):
         """

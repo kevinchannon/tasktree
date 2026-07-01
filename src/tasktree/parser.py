@@ -119,6 +119,14 @@ class Runner:
     working_dir: str = ""  # Working directory (container or host)
     run_as_root: bool = False  # If True, skip user mapping (run as root in container)
 
+    def hash_fields(self) -> dict:
+        """
+        Return the runner-specific fields that affect task execution, keyed for
+        hashing. Subclasses extend this with their own execution-affecting
+        fields; the runner class itself is part of the hash (see hasher).
+        """
+        return {}
+
 
 class HostRunner(Runner):
     """A runner that executes tasks directly on the host (no container)."""
@@ -134,6 +142,15 @@ class ContainerisedRunner(Runner):
         if not self.type:
             self.type = CONTAINERISED_RUNNER_TYPE
 
+    def hash_fields(self) -> dict:
+        return {
+            "args_build": sorted(self.args.build),
+            "args_run": sorted(self.args.run),
+            "volumes": sorted(self.volumes),
+            "ports": sorted(self.ports),
+            "env_vars": dict(sorted(self.env_vars.items())),
+        }
+
 
 @dataclass
 class DockerRunner(ContainerisedRunner):
@@ -143,6 +160,13 @@ class DockerRunner(ContainerisedRunner):
         super().__post_init__()
         if not self.engine:
             self.engine = DOCKER_RUNNER_ENGINE
+
+    def hash_fields(self) -> dict:
+        return {
+            **super().hash_fields(),
+            "dockerfile": self.dockerfile,
+            "context": self.context,
+        }
 
 
 @dataclass
