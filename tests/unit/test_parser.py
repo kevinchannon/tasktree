@@ -4952,6 +4952,11 @@ class TestCreateRunner(unittest.TestCase):
             create_runner("builder", dockerfile="Dockerfile")
         self.assertIn("type", str(ctx.exception))
 
+    def test_docker_only_field_without_classification_rejected(self):
+        with self.assertRaises(ValueError) as ctx:
+            create_runner("builder", volumes=["/host:/container"])
+        self.assertIn("type", str(ctx.exception))
+
     def test_classification_without_dockerfile_rejected(self):
         with self.assertRaises(ValueError) as ctx:
             create_runner(
