@@ -107,17 +107,9 @@ class Runner:
 
     name: str
     interpreter: Interpreter | None = None  # Interpreter used to run task scripts
-    args: DockerArgs = field(default_factory=DockerArgs)  # Docker build/run arguments
     type: str = ""  # Runner classification, e.g. "containerised"
     engine: str = ""  # Execution engine for a containerised runner, e.g. "docker"
-    # Docker-specific fields (only valid when type="containerised", engine="docker")
-    dockerfile: str = ""  # Path to Dockerfile
-    context: str = ""  # Path to build context directory
-    volumes: list[str] = field(default_factory=list)  # Volume mounts
-    ports: list[str] = field(default_factory=list)  # Port mappings
-    env_vars: dict[str, str] = field(default_factory=dict)  # Environment variables
     working_dir: str = ""  # Working directory (container or host)
-    run_as_root: bool = False  # If True, skip user mapping (run as root in container)
 
     def hash_fields(self) -> dict:
         """
@@ -138,6 +130,12 @@ class HostRunner(Runner):
 class ContainerisedRunner(Runner):
     """A runner that executes tasks inside a container."""
 
+    args: DockerArgs = field(default_factory=DockerArgs)  # Build/run arguments
+    volumes: list[str] = field(default_factory=list)  # Volume mounts
+    ports: list[str] = field(default_factory=list)  # Port mappings
+    env_vars: dict[str, str] = field(default_factory=dict)  # Environment variables
+    run_as_root: bool = False  # If True, skip user mapping (run as root in container)
+
     def __post_init__(self):
         if not self.type:
             self.type = CONTAINERISED_RUNNER_TYPE
@@ -155,6 +153,9 @@ class ContainerisedRunner(Runner):
 @dataclass
 class DockerRunner(ContainerisedRunner):
     """A containerised runner backed by the Docker engine."""
+
+    dockerfile: str = ""  # Path to Dockerfile
+    context: str = ""  # Path to build context directory
 
     def __post_init__(self):
         super().__post_init__()
@@ -2166,7 +2167,6 @@ def create_runner(
     return HostRunner(
         name=name,
         interpreter=interpreter,
-        args=args,
         working_dir=working_dir,
     )
 
