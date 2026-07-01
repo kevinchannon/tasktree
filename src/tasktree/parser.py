@@ -132,6 +132,15 @@ class HostRunner(Runner):
 
 
 @dataclass
+class ContainerisedRunner(Runner):
+    """A runner that executes tasks inside a container."""
+
+    def __post_init__(self):
+        if not self.type:
+            self.type = CONTAINERISED_RUNNER_TYPE
+
+
+@dataclass
 class Task:
     """
     Represents a task definition.

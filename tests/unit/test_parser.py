@@ -12,7 +12,9 @@ from unittest.mock import MagicMock, patch
 import yaml
 
 from tasktree.parser import (
+    CONTAINERISED_RUNNER_TYPE,
     CircularImportError,
+    ContainerisedRunner,
     HostRunner,
     Recipe,
     Runner,
@@ -4901,6 +4903,14 @@ class TestRunnerHierarchy(unittest.TestCase):
     def test_host_runner_is_not_containerised(self):
         runner = HostRunner(name="shell")
         self.assertFalse(runner.is_containerised)
+
+    def test_containerised_runner_is_containerised(self):
+        runner = ContainerisedRunner(name="box")
+        self.assertTrue(runner.is_containerised)
+
+    def test_containerised_runner_sets_type(self):
+        runner = ContainerisedRunner(name="box")
+        self.assertEqual(runner.type, CONTAINERISED_RUNNER_TYPE)
 
 
 class TestRunnerTypeAndEngine(unittest.TestCase):
