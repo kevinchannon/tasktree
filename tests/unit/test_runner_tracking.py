@@ -11,7 +11,7 @@ from helpers.logging import logger_stub
 import tasktree.docker as docker_module
 from tasktree.executor import Executor
 from tasktree.hasher import hash_runner_definition
-from tasktree.parser import DockerArgs, Runner, Recipe, Task
+from tasktree.parser import DockerArgs, DockerRunner, Runner, Recipe, Task
 from tasktree.interpreter import Interpreter
 from tasktree.process_runner import TaskOutputTypes, make_process_runner
 from tasktree.state import StateManager, TaskState
@@ -62,13 +62,13 @@ class TestHashRunnerDefinition(unittest.TestCase):
         Test that changing docker run args produces different hash.
         """
 
-        runner1 = Runner(
+        runner1 = DockerRunner(
             name="test",
             dockerfile="Dockerfile",
             context=".",
             args=DockerArgs(run=["--rm"]),
         )
-        runner2 = Runner(
+        runner2 = DockerRunner(
             name="test",
             dockerfile="Dockerfile",
             context=".",
@@ -104,12 +104,12 @@ class TestHashRunnerDefinition(unittest.TestCase):
         Test that changing Docker fields produces different hash.
         """
 
-        runner1 = Runner(
+        runner1 = DockerRunner(
             name="test",
             dockerfile="Dockerfile",
             context=".",
         )
-        runner2 = Runner(
+        runner2 = DockerRunner(
             name="test",
             dockerfile="Dockerfile",
             context=".",
@@ -150,13 +150,13 @@ class TestHashRunnerDefinition(unittest.TestCase):
         Test that docker run args order doesn't matter (they're sorted in hash).
         """
 
-        runner1 = Runner(
+        runner1 = DockerRunner(
             name="test",
             dockerfile="Dockerfile",
             context=".",
             args=DockerArgs(run=["--rm", "--network=host"]),
         )
-        runner2 = Runner(
+        runner2 = DockerRunner(
             name="test",
             dockerfile="Dockerfile",
             context=".",
@@ -312,7 +312,7 @@ class TestCheckRunnerChangedDocker(unittest.TestCase):
         self.project_root = Path("/tmp/test")
 
         # Create Docker runner
-        self.runner = Runner(
+        self.runner = DockerRunner(
             name="builder",
             dockerfile="Dockerfile",
             context=".",
@@ -365,7 +365,7 @@ class TestCheckRunnerChangedDocker(unittest.TestCase):
         task = Task(name="test", cmd="echo test", run_in="builder")
 
         # Cached state with OLD runner hash (YAML changed)
-        old_runner = Runner(name="builder", dockerfile="OldDockerfile", context=".")
+        old_runner = DockerRunner(name="builder", dockerfile="OldDockerfile", context=".")
         old_runner_hash = hash_runner_definition(old_runner)
 
         cached_state = TaskState(
