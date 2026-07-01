@@ -652,46 +652,43 @@ class Recipe:
                     ),
                 )
 
-            # Substitute in volumes
-            if env.volumes:
-                env.volumes = [
-                    substitute_variables(vol, self.evaluated_variables)
-                    for vol in env.volumes
-                ]
-
-            # Substitute in ports
-            if env.ports:
-                env.ports = [
-                    substitute_variables(port, self.evaluated_variables)
-                    for port in env.ports
-                ]
-
-            # Substitute in env_vars values
-            if env.env_vars:
-                env.env_vars = {
-                    key: substitute_variables(value, self.evaluated_variables)
-                    for key, value in env.env_vars.items()
-                }
-
             # Substitute in working_dir
             if env.working_dir:
                 env.working_dir = substitute_variables(
                     env.working_dir, self.evaluated_variables
                 )
 
-            # Substitute in docker build args
-            if env.args.build:
-                env.args.build = [
-                    substitute_variables(arg, self.evaluated_variables)
-                    for arg in env.args.build
-                ]
+            # Container-only fields: only present on containerised runners
+            if isinstance(env, ContainerisedRunner):
+                if env.volumes:
+                    env.volumes = [
+                        substitute_variables(vol, self.evaluated_variables)
+                        for vol in env.volumes
+                    ]
 
-            # Substitute in docker run args
-            if env.args.run:
-                env.args.run = [
-                    substitute_variables(arg, self.evaluated_variables)
-                    for arg in env.args.run
-                ]
+                if env.ports:
+                    env.ports = [
+                        substitute_variables(port, self.evaluated_variables)
+                        for port in env.ports
+                    ]
+
+                if env.env_vars:
+                    env.env_vars = {
+                        key: substitute_variables(value, self.evaluated_variables)
+                        for key, value in env.env_vars.items()
+                    }
+
+                if env.args.build:
+                    env.args.build = [
+                        substitute_variables(arg, self.evaluated_variables)
+                        for arg in env.args.build
+                    ]
+
+                if env.args.run:
+                    env.args.run = [
+                        substitute_variables(arg, self.evaluated_variables)
+                        for arg in env.args.run
+                    ]
 
         # Mark as evaluated
         self._variables_evaluated = True
@@ -1012,16 +1009,18 @@ def _rewrite_runner_variable_references(runner: "Runner", namespace: str) -> Non
             cmd=_rewrite_variable_references(runner.interpreter.cmd, namespace),
             preamble=_rewrite_variable_references(runner.interpreter.preamble, namespace),
         )
-    runner.dockerfile = _rewrite_variable_references(runner.dockerfile, namespace)
-    runner.context = _rewrite_variable_references(runner.context, namespace)
     runner.working_dir = _rewrite_variable_references(runner.working_dir, namespace)
-    runner.volumes = [_rewrite_variable_references(v, namespace) for v in runner.volumes]
-    runner.ports = [_rewrite_variable_references(p, namespace) for p in runner.ports]
-    runner.env_vars = {
-        k: _rewrite_variable_references(v, namespace) for k, v in runner.env_vars.items()
-    }
-    runner.args.build = [_rewrite_variable_references(a, namespace) for a in runner.args.build]
-    runner.args.run = [_rewrite_variable_references(a, namespace) for a in runner.args.run]
+    if isinstance(runner, ContainerisedRunner):
+        runner.volumes = [_rewrite_variable_references(v, namespace) for v in runner.volumes]
+        runner.ports = [_rewrite_variable_references(p, namespace) for p in runner.ports]
+        runner.env_vars = {
+            k: _rewrite_variable_references(v, namespace) for k, v in runner.env_vars.items()
+        }
+        runner.args.build = [_rewrite_variable_references(a, namespace) for a in runner.args.build]
+        runner.args.run = [_rewrite_variable_references(a, namespace) for a in runner.args.run]
+    if isinstance(runner, DockerRunner):
+        runner.dockerfile = _rewrite_variable_references(runner.dockerfile, namespace)
+        runner.context = _rewrite_variable_references(runner.context, namespace)
 
 
 def _infer_variable_type(value: Any) -> str:
@@ -2446,7 +2445,7 @@ def collect_reachable_variables(
             if task.run_in in runners:
                 env = runners[task.run_in]
 
-                if env.dockerfile and env.dockerfile != "":
+                if isinstance(env, DockerRunner) and env.dockerfile:
                     for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(env.dockerfile):
                         variables.add(match.group(1))
 
