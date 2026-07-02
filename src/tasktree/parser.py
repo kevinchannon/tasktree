@@ -191,6 +191,7 @@ class Task:
     runner: str = ""  # Runner name to use for execution
     runner_def: dict[str, Any] | None = None  # Inline runner definition (materialised into a named runner in parse_recipe)
     interpreter: str = ""  # Interpreter name override (e.g. "python3", "bash")
+    interpreter_def: dict[str, Any] | None = None  # Inline interpreter definition (materialised into a named interpreter in parse_recipe)
     private: bool = False  # If True, task is hidden from --list output
     pin_runner: bool = False  # If True, task's runner cannot be overridden
     task_output: TaskOutputTypes | None = None
@@ -2472,7 +2473,7 @@ def parse_recipe(
         recipe_path, namespace=None, project_root=project_root
     )
 
-    _materialise_inline_runners(tasks, runners, interpreters, project_root)
+    _materialise_inline_definitions(tasks, runners, interpreters, project_root)
 
     # Create recipe with raw (unevaluated) variables
     recipe = Recipe(
@@ -2501,33 +2502,37 @@ def parse_recipe(
     return recipe
 
 
-def _materialise_inline_runners(
+def _materialise_inline_definitions(
     tasks: dict[str, Task],
     runners: dict[str, Runner],
     interpreters: dict[str, Interpreter],
     project_root: Path,
 ) -> None:
     """
-    Turn each task's inline runner definition into a named runner.
+    Turn each task's inline runner/interpreter definition into a named one.
 
-    The runner is registered under '<task name>.__inline__' (dots are reserved
-    for namespacing, so a local runner definition can never collide with it)
-    and the task's 'runner' field is pointed at it, so everything downstream
-    of parsing sees an ordinary named runner.
+    Definitions are registered under '<task name>.__inline__' (dots are
+    reserved for namespacing, so a local definition can never collide with
+    that name) and the task's 'runner'/'interpreter' field is pointed at it,
+    so everything downstream of parsing sees ordinary named definitions.
     """
     for task in tasks.values():
-        if task.runner_def is None:
-            continue
         inline_name = f"{task.name}.__inline__"
-        if inline_name in runners:
-            raise ValueError(
-                f"Task '{task.name}': inline runner name '{inline_name}' "
-                f"collides with an imported runner"
+        if task.runner_def is not None:
+            if inline_name in runners:
+                raise ValueError(
+                    f"Task '{task.name}': inline runner name '{inline_name}' "
+                    f"collides with an imported runner"
+                )
+            runners[inline_name] = build_recipe_runner(
+                inline_name, task.runner_def, interpreters, project_root
             )
-        runners[inline_name] = build_recipe_runner(
-            inline_name, task.runner_def, interpreters, project_root
-        )
-        task.runner = inline_name
+            task.runner = inline_name
+        if task.interpreter_def is not None:
+            interpreters[inline_name] = parse_interpreter_spec(
+                task.interpreter_def, f"Task '{task.name}'", interpreters
+            )
+            task.interpreter = inline_name
 
 
 def _validate_task_interpreter_refs(recipe: Recipe) -> None:
@@ -2795,8 +2800,20 @@ def _parse_file(
             )
 
         # Task interpreter is the NAME of an interpreter from the 'interpreters'
-        # section; existence is validated post-parse (see _validate_interpreter_refs).
-        interpreter = task_data.get("interpreter", "")
+        # section (existence validated post-parse, see _validate_interpreter_refs)
+        # or an inline definition dict (materialised in parse_recipe).
+        interpreter_value = task_data.get("interpreter", "")
+        interpreter_def = None
+        if isinstance(interpreter_value, dict):
+            interpreter = ""
+            interpreter_def = interpreter_value
+        elif isinstance(interpreter_value, str):
+            interpreter = interpreter_value
+        else:
+            raise ValueError(
+                f"Task '{task_name}': 'interpreter' must be an interpreter name "
+                f"or an inline interpreter definition mapping"
+            )
 
         task = Task(
             name=full_name,
@@ -2811,6 +2828,7 @@ def _parse_file(
             runner=runner,
             runner_def=runner_def,
             interpreter=interpreter,
+            interpreter_def=interpreter_def,
             private=task_data.get("private", False),
             pin_runner=task_data.get("pin_runner", False),
             task_output=task_data.get("task_output", None),

@@ -306,8 +306,20 @@
               ]
             },
             "interpreter": {
-              "type": "string",
-              "description": "Name of an interpreter from the top-level 'interpreters' section, used to run this task's command (overrides the runner's interpreter)"
+              "description": "Interpreter used to run this task's command (overrides the runner's interpreter): the name of an interpreter from the top-level 'interpreters' section, an inline definition ({cmd, ext?, preamble?}), or a reference ({use: name})",
+              "oneOf": [
+                { "type": "string" },
+                {
+                  "type": "object",
+                  "description": "Reference to an interpreter from the top-level 'interpreters' section",
+                  "properties": {
+                    "use": { "type": "string" }
+                  },
+                  "required": ["use"],
+                  "additionalProperties": false
+                },
+                { "$ref": "#/$defs/interpreterDef" }
+              ]
             },
             "pin_runner": {
               "type": "boolean",

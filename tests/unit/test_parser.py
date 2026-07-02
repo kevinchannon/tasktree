@@ -5246,5 +5246,94 @@ tasks:
             self.assertEqual(runner.interpreter.cmd, "zsh")
 
 
+class TestInlineTaskInterpreter(unittest.TestCase):
+    """
+    Tests for inline interpreter definitions in a task's 'interpreter' field.
+    """
+
+    def test_task_with_inline_interpreter(self):
+        """Test that a task can define its interpreter inline."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+tasks:
+  build:
+    interpreter:
+      cmd: python3
+      ext: .py
+    cmd: print("hi")
+""")
+            recipe = parse_recipe(recipe_path)
+
+            task = recipe.tasks["build"]
+            self.assertTrue(task.interpreter)
+            interpreter = recipe.interpreters[task.interpreter]
+            self.assertEqual(interpreter.cmd, "python3")
+            self.assertEqual(interpreter.ext, ".py")
+
+    def test_task_with_interpreter_use_reference(self):
+        """Test that a task's interpreter can be a {use: name} reference."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+interpreters:
+  py:
+    cmd: python3
+tasks:
+  build:
+    interpreter: { use: py }
+    cmd: print("hi")
+""")
+            recipe = parse_recipe(recipe_path)
+
+            interpreter = recipe.interpreters[recipe.tasks["build"].interpreter]
+            self.assertEqual(interpreter.cmd, "python3")
+
+    def test_task_interpreter_name_reference_still_works(self):
+        """Test that a plain string still names an interpreter from the section."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+interpreters:
+  py:
+    cmd: python3
+tasks:
+  build:
+    interpreter: py
+    cmd: print("hi")
+""")
+            recipe = parse_recipe(recipe_path)
+
+            self.assertEqual(recipe.tasks["build"].interpreter, "py")
+
+    def test_task_inline_interpreter_missing_cmd_fails(self):
+        """Test that an inline interpreter without 'cmd' is rejected."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+tasks:
+  build:
+    interpreter:
+      ext: .py
+    cmd: print("hi")
+""")
+            with self.assertRaises(ValueError):
+                parse_recipe(recipe_path)
+
+    def test_task_interpreter_of_invalid_type_fails(self):
+        """Test that a non-string, non-dict interpreter value is rejected."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+tasks:
+  build:
+    interpreter: 42
+    cmd: echo hi
+""")
+            with self.assertRaises(ValueError) as ctx:
+                parse_recipe(recipe_path)
+            self.assertIn("'interpreter'", str(ctx.exception))
+
+
 if __name__ == "__main__":
     unittest.main()
