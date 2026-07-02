@@ -189,6 +189,7 @@ class Task:
     )  # Can be strings or dicts (each dict has single key: arg name)
     source_file: str = ""  # Track which file defined this task
     runner: str = ""  # Runner name to use for execution
+    runner_def: dict[str, Any] | None = None  # Inline runner definition (materialised into a named runner in parse_recipe)
     interpreter: str = ""  # Interpreter name override (e.g. "python3", "bash")
     private: bool = False  # If True, task is hidden from --list output
     pin_runner: bool = False  # If True, task's runner cannot be overridden
@@ -1947,46 +1948,60 @@ def _parse_runners_from_data(
         if not isinstance(env_config, dict):
             raise ValueError(f"Runner '{env_name}' must be a dictionary")
 
-        # Parse the optional interpreter (inline definition or {use: name}).
-        interpreter_value = env_config.get("interpreter")
-        runner_interpreter = (
-            parse_interpreter_spec(interpreter_value, f"Runner '{env_name}'", interpreters)
-            if interpreter_value is not None
-            else None
+        runners[env_name] = build_recipe_runner(
+            env_name, env_config, interpreters, project_root
         )
 
-        # Build the concrete runner. Field extraction/validation and the
-        # type/engine classification all live in the factory. Runner fields may
-        # still contain {{ var.* }} placeholders - substitution is deferred.
-        runner = runner_from_config(env_name, env_config, interpreter=runner_interpreter)
-
-        # Recipe runners resolve and validate their Dockerfile/context paths on
-        # disk now (config runners defer this to execution time).
-        if isinstance(runner, DockerRunner):
-            if runner.dockerfile and not runner.context:
-                runner.context = str(Path(runner.dockerfile).parent)
-
-            if runner.dockerfile:
-                dockerfile_path = project_root / runner.dockerfile
-                if not dockerfile_path.exists():
-                    raise ValueError(
-                        f"Runner '{env_name}': Dockerfile not found at {dockerfile_path}"
-                    )
-
-            if runner.context:
-                context_path = project_root / runner.context
-                if not context_path.exists():
-                    raise ValueError(
-                        f"Runner '{env_name}': context directory not found at {context_path}"
-                    )
-                if not context_path.is_dir():
-                    raise ValueError(
-                        f"Runner '{env_name}': context must be a directory, got {context_path}"
-                    )
-
-        runners[env_name] = runner
-
     return runners, default_runner, interpreters
+
+
+def build_recipe_runner(
+    name: str,
+    config: dict[str, Any],
+    interpreters: dict[str, Interpreter],
+    project_root: Path,
+) -> Runner:
+    """
+    Build a runner from a recipe definition dict, resolving its interpreter
+    and validating Dockerfile/context paths on disk (config runners defer
+    path validation to execution time).
+    """
+    # Parse the optional interpreter (inline definition or {use: name}).
+    interpreter_value = config.get("interpreter")
+    runner_interpreter = (
+        parse_interpreter_spec(interpreter_value, f"Runner '{name}'", interpreters)
+        if interpreter_value is not None
+        else None
+    )
+
+    # Build the concrete runner. Field extraction/validation and the
+    # type/engine classification all live in the factory. Runner fields may
+    # still contain {{ var.* }} placeholders - substitution is deferred.
+    runner = runner_from_config(name, config, interpreter=runner_interpreter)
+
+    if isinstance(runner, DockerRunner):
+        if runner.dockerfile and not runner.context:
+            runner.context = str(Path(runner.dockerfile).parent)
+
+        if runner.dockerfile:
+            dockerfile_path = project_root / runner.dockerfile
+            if not dockerfile_path.exists():
+                raise ValueError(
+                    f"Runner '{name}': Dockerfile not found at {dockerfile_path}"
+                )
+
+        if runner.context:
+            context_path = project_root / runner.context
+            if not context_path.exists():
+                raise ValueError(
+                    f"Runner '{name}': context directory not found at {context_path}"
+                )
+            if not context_path.is_dir():
+                raise ValueError(
+                    f"Runner '{name}': context must be a directory, got {context_path}"
+                )
+
+    return runner
 
 
 # Keys that only make sense on a containerised runner; their presence without a
@@ -2457,6 +2472,8 @@ def parse_recipe(
         recipe_path, namespace=None, project_root=project_root
     )
 
+    _materialise_inline_runners(tasks, runners, interpreters, project_root)
+
     # Create recipe with raw (unevaluated) variables
     recipe = Recipe(
         tasks=tasks,
@@ -2482,6 +2499,35 @@ def parse_recipe(
     recipe.evaluate_variables(root_task)
 
     return recipe
+
+
+def _materialise_inline_runners(
+    tasks: dict[str, Task],
+    runners: dict[str, Runner],
+    interpreters: dict[str, Interpreter],
+    project_root: Path,
+) -> None:
+    """
+    Turn each task's inline runner definition into a named runner.
+
+    The runner is registered under '<task name>.__inline__' (dots are reserved
+    for namespacing, so a local runner definition can never collide with it)
+    and the task's 'runner' field is pointed at it, so everything downstream
+    of parsing sees an ordinary named runner.
+    """
+    for task in tasks.values():
+        if task.runner_def is None:
+            continue
+        inline_name = f"{task.name}.__inline__"
+        if inline_name in runners:
+            raise ValueError(
+                f"Task '{task.name}': inline runner name '{inline_name}' "
+                f"collides with an imported runner"
+            )
+        runners[inline_name] = build_recipe_runner(
+            inline_name, task.runner_def, interpreters, project_root
+        )
+        task.runner = inline_name
 
 
 def _validate_task_interpreter_refs(recipe: Recipe) -> None:
@@ -2730,10 +2776,23 @@ def _parse_file(
                     rewritten_deps.append(dep)
             deps = rewritten_deps
 
-        # Rewrite runner with namespace prefix for imported tasks
-        runner = task_data.get("runner", "")
-        if namespace and runner:
-            runner = f"{namespace}.{runner}"
+        # The task's runner is either the name of a runner (namespaced for
+        # imported tasks) or an inline definition dict (materialised into a
+        # named runner in parse_recipe, once the interpreters registry exists).
+        runner_value = task_data.get("runner", "")
+        runner_def = None
+        if isinstance(runner_value, dict):
+            runner = ""
+            runner_def = runner_value
+        elif isinstance(runner_value, str):
+            runner = runner_value
+            if namespace and runner:
+                runner = f"{namespace}.{runner}"
+        else:
+            raise ValueError(
+                f"Task '{task_name}': 'runner' must be a runner name or an "
+                f"inline runner definition mapping"
+            )
 
         # Task interpreter is the NAME of an interpreter from the 'interpreters'
         # section; existence is validated post-parse (see _validate_interpreter_refs).
@@ -2750,14 +2809,16 @@ def _parse_file(
             args=task_data.get("args", []),
             source_file=str(file_path),
             runner=runner,
+            runner_def=runner_def,
             interpreter=interpreter,
             private=task_data.get("private", False),
             pin_runner=task_data.get("pin_runner", False),
             task_output=task_data.get("task_output", None),
         )
 
-        # Apply blanket runner to non-pinned tasks from imports
-        if blanket_runner and not task.pin_runner and not task.runner:
+        # Apply blanket runner to non-pinned tasks from imports (an inline
+        # runner definition counts as an explicit task-level runner)
+        if blanket_runner and not task.pin_runner and not task.runner and task.runner_def is None:
             task.runner = blanket_runner
 
         # Rewrite {{ var.* }} references in imported tasks

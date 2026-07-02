@@ -5114,5 +5114,137 @@ tasks:
             self.assertIn("'engine'", str(ctx.exception))
 
 
+class TestInlineTaskRunner(unittest.TestCase):
+    """
+    Tests for inline runner definitions in a task's 'runner' field.
+    """
+
+    def test_task_with_inline_host_runner(self):
+        """Test that a task can define a host runner inline."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+tasks:
+  build:
+    runner:
+      interpreter:
+        cmd: bash
+    cmd: echo hi
+""")
+            recipe = parse_recipe(recipe_path)
+
+            task = recipe.tasks["build"]
+            self.assertTrue(task.runner)
+            runner = recipe.runners[task.runner]
+            self.assertIsInstance(runner, HostRunner)
+            self.assertEqual(runner.interpreter.cmd, "bash")
+
+    def test_task_with_inline_docker_runner(self):
+        """Test that a task can define a containerised runner inline."""
+        with TemporaryDirectory() as tmpdir:
+            (Path(tmpdir) / "Dockerfile").write_text("FROM alpine\n")
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+tasks:
+  build:
+    runner:
+      type: containerised
+      engine: docker
+      dockerfile: Dockerfile
+    cmd: echo hi
+""")
+            recipe = parse_recipe(recipe_path)
+
+            runner = recipe.runners[recipe.tasks["build"].runner]
+            self.assertIsInstance(runner, DockerRunner)
+            self.assertEqual(runner.dockerfile, "Dockerfile")
+            self.assertEqual(runner.context, ".")
+
+    def test_inline_runner_with_interpreter_reference(self):
+        """Test that an inline runner can reference a named interpreter."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+interpreters:
+  py:
+    cmd: python3
+    ext: .py
+tasks:
+  build:
+    runner:
+      interpreter: { use: py }
+    cmd: print("hi")
+""")
+            recipe = parse_recipe(recipe_path)
+
+            runner = recipe.runners[recipe.tasks["build"].runner]
+            self.assertEqual(runner.interpreter.cmd, "python3")
+            self.assertEqual(runner.interpreter.ext, ".py")
+
+    def test_inline_runner_with_container_fields_but_no_type_fails(self):
+        """Test that container fields without 'type' are rejected inline too."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+tasks:
+  build:
+    runner:
+      volumes:
+        - /src:/dst
+    cmd: echo hi
+""")
+            with self.assertRaises(ValueError) as ctx:
+                parse_recipe(recipe_path)
+            self.assertIn("containerised", str(ctx.exception))
+
+    def test_task_runner_of_invalid_type_fails(self):
+        """Test that a non-string, non-dict runner value is rejected."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+tasks:
+  build:
+    runner: 42
+    cmd: echo hi
+""")
+            with self.assertRaises(ValueError) as ctx:
+                parse_recipe(recipe_path)
+            self.assertIn("'runner'", str(ctx.exception))
+
+    def test_blanket_runner_does_not_override_inline_runner(self):
+        """Test that an import-level blanket runner leaves inline-runner tasks alone."""
+        with TemporaryDirectory() as tmpdir:
+            imported_path = Path(tmpdir) / "build.yaml"
+            imported_path.write_text("""
+tasks:
+  compile:
+    runner:
+      interpreter:
+        cmd: zsh
+    cmd: echo compile
+""")
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+runners:
+  docker:
+    interpreter:
+      cmd: bash
+
+imports:
+  - file: build.yaml
+    as: build
+    run_in: docker
+
+tasks:
+  main:
+    cmd: echo main
+""")
+            recipe = parse_recipe(recipe_path)
+
+            task = recipe.tasks["build.compile"]
+            runner = recipe.runners[task.runner]
+            self.assertEqual(runner.interpreter.cmd, "zsh")
+
+
 if __name__ == "__main__":
     unittest.main()
