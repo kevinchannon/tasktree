@@ -6,6 +6,8 @@ runners:
       cmd: bash
       preamble: set -euo pipefail
   tt-test:
+    type: containerised
+    engine: docker
     dockerfile: Dockerfile
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
