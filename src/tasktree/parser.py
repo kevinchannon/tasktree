@@ -112,7 +112,7 @@ class Runner:
         if type(self) in (Runner, ContainerisedRunner):
             raise TypeError(
                 f"{type(self).__name__} is abstract; construct a concrete runner "
-                f"(HostRunner or DockerRunner), e.g. via runner_from_config"
+                f"(HostRunner, DockerRunner or NixRunner), e.g. via runner_from_config"
             )
 
     def hash_fields(self) -> dict:
@@ -162,6 +162,27 @@ class DockerRunner(ContainerisedRunner):
             **super().hash_fields(),
             "dockerfile": self.dockerfile,
             "context": self.context,
+        }
+
+
+@dataclass
+class NixRunner(Runner):
+    """
+    A runner that executes tasks on the host inside a Nix flake devShell.
+
+    Nix provides a pinned, reproducible toolchain, not a sandbox: the task runs
+    in the host process tree with the realised devShell environment merged in.
+    """
+
+    flake: str = ""  # Flakeref (local path); required for a Nix runner
+    devshell: str = "default"  # devShells.<system>.<devshell> attribute
+    narhashes: tuple[str, ...] = ()  # Locked input narHashes, filled at realise time
+
+    def hash_fields(self) -> dict:
+        return {
+            "flake": self.flake,
+            "devshell": self.devshell,
+            "narhashes": sorted(self.narhashes),
         }
 
 

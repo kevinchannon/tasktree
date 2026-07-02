@@ -18,6 +18,7 @@ from tasktree.parser import (
     ContainerisedRunner,
     DockerRunner,
     HostRunner,
+    NixRunner,
     Recipe,
     Runner,
     Task,
@@ -4924,6 +4925,36 @@ class TestRunnerHierarchy(unittest.TestCase):
         runner = DockerRunner(name="builder", dockerfile="Dockerfile", context=".")
         self.assertEqual(runner.dockerfile, "Dockerfile")
         self.assertEqual(runner.context, ".")
+
+    def test_nix_runner_is_a_runner(self):
+        runner = NixRunner(name="nix", flake=".")
+        self.assertIsInstance(runner, Runner)
+
+    def test_nix_runner_is_not_containerised(self):
+        runner = NixRunner(name="nix", flake=".")
+        self.assertNotIsInstance(runner, ContainerisedRunner)
+
+    def test_nix_runner_keeps_nix_fields(self):
+        runner = NixRunner(name="nix", flake="path:./sub", devshell="ci")
+        self.assertEqual(runner.flake, "path:./sub")
+        self.assertEqual(runner.devshell, "ci")
+
+    def test_nix_runner_devshell_defaults_to_default(self):
+        runner = NixRunner(name="nix", flake=".")
+        self.assertEqual(runner.devshell, "default")
+
+    def test_nix_runner_hash_fields(self):
+        runner = NixRunner(
+            name="nix", flake=".", devshell="ci", narhashes=("sha256-b", "sha256-a")
+        )
+        self.assertEqual(
+            runner.hash_fields(),
+            {
+                "flake": ".",
+                "devshell": "ci",
+                "narhashes": ["sha256-a", "sha256-b"],
+            },
+        )
 
 
 class TestRunnerFromConfig(unittest.TestCase):

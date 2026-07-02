@@ -11,7 +11,7 @@ from helpers.logging import logger_stub
 import tasktree.docker as docker_module
 from tasktree.executor import Executor
 from tasktree.hasher import hash_runner_definition
-from tasktree.parser import DockerArgs, DockerRunner, HostRunner, Runner, Recipe, Task
+from tasktree.parser import DockerArgs, DockerRunner, HostRunner, NixRunner, Runner, Recipe, Task
 from tasktree.interpreter import Interpreter
 from tasktree.process_runner import TaskOutputTypes, make_process_runner
 from tasktree.state import StateManager, TaskState
@@ -141,6 +141,34 @@ class TestHashRunnerDefinition(unittest.TestCase):
         self.assertNotEqual(
             hash_runner_definition(host_runner),
             hash_runner_definition(docker_runner),
+        )
+
+    def test_hash_runner_definition_nix_differs_from_host(self):
+        """
+        Test that a Nix runner hashes differently from a host runner with the
+        same name/interpreter, so switching a runner's kind invalidates caches.
+        """
+        host_runner = HostRunner(name="test", interpreter=Interpreter(cmd="bash"))
+        nix_runner = NixRunner(
+            name="test", interpreter=Interpreter(cmd="bash"), flake="."
+        )
+
+        self.assertNotEqual(
+            hash_runner_definition(host_runner),
+            hash_runner_definition(nix_runner),
+        )
+
+    def test_hash_runner_definition_nix_narhash_change(self):
+        """
+        Test that a change in locked input narHashes changes the hash, so tasks
+        re-run when flake inputs are updated.
+        """
+        runner1 = NixRunner(name="test", flake=".", narhashes=("sha256-a",))
+        runner2 = NixRunner(name="test", flake=".", narhashes=("sha256-b",))
+
+        self.assertNotEqual(
+            hash_runner_definition(runner1),
+            hash_runner_definition(runner2),
         )
 
     def test_hash_runner_definition_args_order_independent(self):
