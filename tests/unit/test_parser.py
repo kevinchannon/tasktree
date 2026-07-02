@@ -5335,5 +5335,88 @@ tasks:
             self.assertIn("'interpreter'", str(ctx.exception))
 
 
+class TestDefaultInterpreter(unittest.TestCase):
+    """
+    Tests for the 'interpreters: default:' declaration.
+    """
+
+    def test_recipe_default_interpreter_populated(self):
+        """Test that interpreters.default is parsed into Recipe.default_interpreter."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+interpreters:
+  default: py
+  py:
+    cmd: python3
+tasks:
+  build:
+    cmd: print("hi")
+""")
+            recipe = parse_recipe(recipe_path)
+
+            self.assertEqual(recipe.default_interpreter, "py")
+            self.assertNotIn("default", recipe.interpreters)
+
+    def test_recipe_without_default_interpreter(self):
+        """Test that Recipe.default_interpreter is empty when not declared."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+interpreters:
+  py:
+    cmd: python3
+tasks:
+  build:
+    cmd: echo hi
+""")
+            recipe = parse_recipe(recipe_path)
+
+            self.assertEqual(recipe.default_interpreter, "")
+
+    def test_unknown_default_interpreter_fails_at_parse_time(self):
+        """Test that interpreters.default must name a defined interpreter."""
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+interpreters:
+  default: nope
+  py:
+    cmd: python3
+tasks:
+  build:
+    cmd: echo hi
+""")
+            with self.assertRaises(ValueError) as ctx:
+                parse_recipe(recipe_path)
+            self.assertIn("nope", str(ctx.exception))
+
+    def test_imported_file_default_interpreter_is_inert(self):
+        """Test that an imported file's interpreters.default is ignored (root-file only)."""
+        with TemporaryDirectory() as tmpdir:
+            imported_path = Path(tmpdir) / "build.yaml"
+            imported_path.write_text("""
+interpreters:
+  default: zsh-i
+  zsh-i:
+    cmd: zsh
+tasks:
+  compile:
+    cmd: echo compile
+""")
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+imports:
+  - file: build.yaml
+    as: build
+tasks:
+  main:
+    cmd: echo main
+""")
+            recipe = parse_recipe(recipe_path)
+
+            self.assertEqual(recipe.default_interpreter, "")
+
+
 if __name__ == "__main__":
     unittest.main()

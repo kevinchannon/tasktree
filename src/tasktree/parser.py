@@ -1345,18 +1345,31 @@ def _validate_eval_reference(var_name: str, value: dict) -> str:
 def _eval_interpreter(recipe_data: dict) -> Interpreter:
     """Pick the interpreter for an { eval: ... } variable command.
 
-    Uses the default runner's interpreter when one is configured, otherwise the
-    platform default. Any malformed configuration falls back to the default.
+    Uses the default runner's interpreter when one is configured, then the
+    default interpreter ('interpreters: default:'), otherwise the platform
+    default. Any malformed configuration falls back to the platform default.
     """
-    if not recipe_data or not isinstance(recipe_data.get("runners"), dict):
+    if not recipe_data:
         return platform_default_interpreter()
-    env_data = recipe_data["runners"]
+
+    def default_or_platform() -> Interpreter:
+        try:
+            interpreters, default_name = _parse_interpreters_section(recipe_data)
+            if default_name:
+                return interpreters[default_name]
+        except ValueError:
+            pass
+        return platform_default_interpreter()
+
+    env_data = recipe_data.get("runners")
+    if not isinstance(env_data, dict):
+        return default_or_platform()
     default_runner_name = env_data.get("default", "")
     env_config = env_data.get(default_runner_name)
     if not isinstance(env_config, dict) or env_config.get("interpreter") is None:
-        return platform_default_interpreter()
+        return default_or_platform()
     try:
-        interpreters = _parse_interpreters_section(recipe_data)
+        interpreters, _ = _parse_interpreters_section(recipe_data)
         return parse_interpreter_spec(
             env_config["interpreter"], f"Runner '{default_runner_name}'", interpreters
         )
@@ -1849,15 +1862,33 @@ def parse_interpreter_spec(
     return _parse_inline_interpreter(value, context)
 
 
-def _parse_interpreters_section(data: dict[str, Any]) -> dict[str, Interpreter]:
-    """Parse the top-level 'interpreters' section into named Interpreters."""
+def _parse_interpreters_section(
+    data: dict[str, Any],
+) -> tuple[dict[str, Interpreter], str]:
+    """
+    Parse the top-level 'interpreters' section into named Interpreters.
+
+    Returns a tuple of (interpreters, default interpreter name). The 'default'
+    key is a pointer to one of the named interpreters, not a definition; it is
+    validated to name an interpreter defined in the same section.
+    """
     interpreters: dict[str, Interpreter] = {}
     section = data.get("interpreters") if data else None
     if section is None:
-        return interpreters
+        return interpreters, ""
     if not isinstance(section, dict):
         raise ValueError("'interpreters' must be a mapping of name to definition")
+
+    default_interpreter = section.get("default", "")
+    if not isinstance(default_interpreter, str):
+        raise ValueError(
+            "'interpreters: default:' must be a string naming an interpreter "
+            "from the same section"
+        )
+
     for name, spec in section.items():
+        if name == "default":
+            continue  # Skip the default key itself
         if not isinstance(spec, (str, dict)):
             raise ValueError(f"Interpreter '{name}' must be a string or a mapping")
         if isinstance(spec, dict) and "use" in spec:
@@ -1866,7 +1897,15 @@ def _parse_interpreters_section(data: dict[str, Any]) -> dict[str, Interpreter]:
                 f"'interpreter' field, not in the interpreters section"
             )
         interpreters[name] = _parse_inline_interpreter(spec, f"Interpreter '{name}'")
-    return interpreters
+
+    if default_interpreter and default_interpreter not in interpreters:
+        known = ", ".join(sorted(interpreters)) or "(none defined)"
+        raise ValueError(
+            f"'interpreters: default:' names unknown interpreter "
+            f"'{default_interpreter}'. Defined interpreters: {known}"
+        )
+
+    return interpreters, default_interpreter
 
 
 def parse_docker_args(args_value: Any, runner_name: str) -> DockerArgs:
@@ -1916,7 +1955,7 @@ def parse_docker_args(args_value: Any, runner_name: str) -> DockerArgs:
 
 def _parse_runners_from_data(
     data: dict[str, Any], project_root: Path
-) -> tuple[dict[str, Runner], str, dict[str, Interpreter]]:
+) -> tuple[dict[str, Runner], str, dict[str, Interpreter], str]:
     """
     Parse runner and interpreter definitions from YAML data.
 
@@ -1925,19 +1964,22 @@ def _parse_runners_from_data(
     project_root: Root directory of the project (for validating Dockerfile/context paths)
 
     Returns:
-    Tuple of (runners dict, default_runner_name, interpreters dict)
+    Tuple of (runners dict, default_runner_name, interpreters dict,
+    default_interpreter_name)
     """
     runners: dict[str, Runner] = {}
     default_runner = ""
 
-    interpreters = _parse_interpreters_section(data) if data else {}
+    interpreters, default_interpreter = (
+        _parse_interpreters_section(data) if data else ({}, "")
+    )
 
     if not data or "runners" not in data:
-        return runners, default_runner, interpreters
+        return runners, default_runner, interpreters, default_interpreter
 
     env_data = data["runners"]
     if not isinstance(env_data, dict):
-        return runners, default_runner, interpreters
+        return runners, default_runner, interpreters, default_interpreter
 
     # Extract default environment name
     default_runner = env_data.get("default", "")
@@ -1954,7 +1996,7 @@ def _parse_runners_from_data(
             env_name, env_config, interpreters, project_root
         )
 
-    return runners, default_runner, interpreters
+    return runners, default_runner, interpreters, default_interpreter
 
 
 def build_recipe_runner(
@@ -2153,7 +2195,7 @@ def _extract_and_validate_variables(
 
 def _extract_and_validate_runners(
     data: dict[str, Any] | None, project_root: Path
-) -> tuple[dict[str, Runner], str, dict[str, Interpreter], dict[str, str]]:
+) -> tuple[dict[str, Runner], str, dict[str, Interpreter], str, dict[str, str]]:
     """
     Extract runners and interpreters from YAML data and validate their names.
 
@@ -2162,10 +2204,13 @@ def _extract_and_validate_runners(
         project_root: Root directory of the project
 
     Returns:
-        Tuple of (runners, default_runner_name, interpreters, name_errors)
+        Tuple of (runners, default_runner_name, interpreters,
+        default_interpreter_name, name_errors)
     """
     name_errors: dict[str, str] = {}
-    runners, default_runner, interpreters = _parse_runners_from_data(data, project_root)
+    runners, default_runner, interpreters, default_interpreter = _parse_runners_from_data(
+        data, project_root
+    )
 
     for runner_name in runners:
         error = _validate_local_item_name(runner_name, "Runner")
@@ -2177,7 +2222,7 @@ def _extract_and_validate_runners(
         if error:
             name_errors[interpreter_name] = error
 
-    return runners, default_runner, interpreters, name_errors
+    return runners, default_runner, interpreters, default_interpreter, name_errors
 
 
 def _parse_file_with_env(
@@ -2185,7 +2230,7 @@ def _parse_file_with_env(
     namespace: str | None,
     project_root: Path,
     import_stack: list[Path] | None = None,
-) -> tuple[dict[str, Task], dict[str, Runner], dict[str, Interpreter], str, dict[str, Any], dict[str, Any], dict[str, str]]:
+) -> tuple[dict[str, Task], dict[str, Runner], dict[str, Interpreter], str, str, dict[str, Any], dict[str, Any], dict[str, str]]:
     """
     Parse file and extract tasks, runners, interpreters, and variables.
 
@@ -2196,7 +2241,8 @@ def _parse_file_with_env(
     import_stack: Stack of files being imported (for circular detection)
 
     Returns:
-    Tuple of (tasks, runners, interpreters, default_runner_name, raw_variables, YAML_data, name_errors)
+    Tuple of (tasks, runners, interpreters, default_runner_name,
+    default_interpreter_name, raw_variables, YAML_data, name_errors)
     Note: Variables are NOT evaluated here - they're stored as raw specs for lazy evaluation
     """
     # Parse tasks normally
@@ -2208,6 +2254,7 @@ def _parse_file_with_env(
     runners: dict[str, Runner] = {}
     interpreters: dict[str, Interpreter] = {}
     default_runner = ""
+    default_interpreter = ""
     raw_variables: dict[str, Any] = {}
     yaml_data: dict[str, Any] = {}
 
@@ -2222,8 +2269,8 @@ def _parse_file_with_env(
         name_errors.update(var_errors)
 
         # Extract and validate runners and interpreters
-        runners, default_runner, interpreters, runner_errors = _extract_and_validate_runners(
-            data, project_root
+        runners, default_runner, interpreters, default_interpreter, runner_errors = (
+            _extract_and_validate_runners(data, project_root)
         )
         name_errors.update(runner_errors)
 
@@ -2231,7 +2278,7 @@ def _parse_file_with_env(
     runners.update(parsed.runners)
     raw_variables.update(parsed.raw_variables)
 
-    return tasks, runners, interpreters, default_runner, raw_variables, yaml_data, name_errors
+    return tasks, runners, interpreters, default_runner, default_interpreter, raw_variables, yaml_data, name_errors
 
 
 def collect_reachable_tasks(tasks: dict[str, Task], root_task: str) -> set[str]:
@@ -2470,7 +2517,7 @@ def parse_recipe(
 
     # Parse main file - it will recursively handle all imports
     # Variables are NOT evaluated here (lazy evaluation)
-    tasks, runners, interpreters, default_runner, raw_variables, yaml_data, name_errors = _parse_file_with_env(
+    tasks, runners, interpreters, default_runner, default_interpreter, raw_variables, yaml_data, name_errors = _parse_file_with_env(
         recipe_path, namespace=None, project_root=project_root
     )
 
@@ -2484,6 +2531,7 @@ def parse_recipe(
         runners=runners,
         interpreters=interpreters,
         default_runner=default_runner,
+        default_interpreter=default_interpreter,
         variables={},  # Empty initially (deprecated field)
         raw_variables=raw_variables,
         evaluated_variables={},  # Empty initially
@@ -2853,7 +2901,7 @@ def _parse_file(
     # Parse runners and variables from imported files (namespace is set) and apply namespace prefix
     # Root file runners/variables are handled by _parse_file_with_env, not here
     if namespace:
-        local_runners, _, _ = _parse_runners_from_data(data, project_root)
+        local_runners, _, _, _ = _parse_runners_from_data(data, project_root)
         for runner_name, runner in local_runners.items():
             full_runner_name = f"{namespace}.{runner_name}"
             error = _validate_local_item_name(runner_name, "Runner")

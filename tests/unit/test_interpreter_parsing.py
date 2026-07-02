@@ -56,7 +56,7 @@ class TestParseInterpretersSection(unittest.TestCase):
     """Tests for the top-level 'interpreters' section."""
 
     def test_empty_when_absent(self):
-        self.assertEqual(_parse_interpreters_section({}), {})
+        self.assertEqual(_parse_interpreters_section({}), ({}, ""))
 
     def test_parses_named_interpreters(self):
         section = {
@@ -65,14 +65,37 @@ class TestParseInterpretersSection(unittest.TestCase):
                 "sh": {"cmd": "bash"},
             }
         }
-        result = _parse_interpreters_section(section)
+        result, _ = _parse_interpreters_section(section)
         self.assertEqual(result["py"], Interpreter(cmd="python3", ext=".py"))
         self.assertEqual(result["sh"], Interpreter(cmd="bash"))
 
     def test_string_shorthand_entry(self):
         section = {"interpreters": {"sh": "bash"}}
-        result = _parse_interpreters_section(section)
+        result, _ = _parse_interpreters_section(section)
         self.assertEqual(result["sh"], Interpreter(cmd="bash"))
+
+    def test_default_interpreter_extracted(self):
+        section = {"interpreters": {"default": "py", "py": {"cmd": "python3"}}}
+        result, default = _parse_interpreters_section(section)
+        self.assertEqual(default, "py")
+        self.assertNotIn("default", result)
+
+    def test_no_default_interpreter_when_absent(self):
+        section = {"interpreters": {"py": {"cmd": "python3"}}}
+        _, default = _parse_interpreters_section(section)
+        self.assertEqual(default, "")
+
+    def test_default_naming_unknown_interpreter_raises(self):
+        section = {"interpreters": {"default": "nope", "py": {"cmd": "python3"}}}
+        with self.assertRaises(ValueError) as ctx:
+            _parse_interpreters_section(section)
+        self.assertIn("nope", str(ctx.exception))
+
+    def test_non_string_default_raises(self):
+        section = {"interpreters": {"default": {"cmd": "bash"}}}
+        with self.assertRaises(ValueError) as ctx:
+            _parse_interpreters_section(section)
+        self.assertIn("default", str(ctx.exception))
 
     def test_non_string_non_mapping_entry_raises(self):
         with self.assertRaises(ValueError):
