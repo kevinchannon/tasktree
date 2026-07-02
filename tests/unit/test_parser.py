@@ -14,6 +14,7 @@ import yaml
 from tasktree.parser import (
     CONTAINERISED_RUNNER_TYPE,
     DOCKER_RUNNER_ENGINE,
+    NIX_RUNNER_TYPE,
     CircularImportError,
     ContainerisedRunner,
     DockerRunner,
@@ -25,6 +26,7 @@ from tasktree.parser import (
     _resolve_eval_variable,
     containerised_runner_from_config,
     find_recipe_file,
+    nix_runner_from_config,
     parse_arg_spec,
     runner_from_config,
     parse_recipe,
@@ -5029,6 +5031,99 @@ class TestRunnerFromConfig(unittest.TestCase):
             {"engine": DOCKER_RUNNER_ENGINE, "dockerfile": "Dockerfile"},
         )
         self.assertIsInstance(runner, DockerRunner)
+
+    def test_nix_config_builds_nix_runner(self):
+        runner = runner_from_config("nix", {"type": NIX_RUNNER_TYPE, "flake": "."})
+        self.assertIsInstance(runner, NixRunner)
+        self.assertEqual(runner.flake, ".")
+        self.assertEqual(runner.devshell, "default")
+
+    def test_nix_config_with_devshell(self):
+        runner = runner_from_config(
+            "nix", {"type": NIX_RUNNER_TYPE, "flake": "./sub", "devshell": "ci"}
+        )
+        self.assertEqual(runner.devshell, "ci")
+
+    def test_nix_path_prefix_flakeref_accepted(self):
+        runner = runner_from_config(
+            "nix", {"type": NIX_RUNNER_TYPE, "flake": "path:./sub"}
+        )
+        self.assertEqual(runner.flake, "path:./sub")
+
+    def test_nix_without_flake_rejected(self):
+        with self.assertRaises(ValueError) as ctx:
+            runner_from_config("nix", {"type": NIX_RUNNER_TYPE})
+        self.assertIn("'flake' is required", str(ctx.exception))
+
+    def test_nix_github_flakeref_rejected_as_remote(self):
+        with self.assertRaises(ValueError) as ctx:
+            runner_from_config(
+                "nix", {"type": NIX_RUNNER_TYPE, "flake": "github:owner/repo"}
+            )
+        self.assertIn("not yet supported", str(ctx.exception))
+
+    def test_nix_git_flakeref_rejected_as_remote(self):
+        with self.assertRaises(ValueError) as ctx:
+            runner_from_config(
+                "nix",
+                {"type": NIX_RUNNER_TYPE, "flake": "git+https://example.com/repo"},
+            )
+        self.assertIn("not yet supported", str(ctx.exception))
+
+    def test_nix_registry_flakeref_rejected_as_remote(self):
+        with self.assertRaises(ValueError) as ctx:
+            runner_from_config("nix", {"type": NIX_RUNNER_TYPE, "flake": "nixpkgs"})
+        self.assertIn("not yet supported", str(ctx.exception))
+
+    def test_nix_factory_builds_nix_runner(self):
+        runner = nix_runner_from_config("nix", {"flake": "."})
+        self.assertIsInstance(runner, NixRunner)
+
+
+class TestNixRunnerRecipeParsing(unittest.TestCase):
+    """
+    Tests for parsing 'type: nix' runners from a recipe file, including the
+    on-disk flake path validation done by build_recipe_runner.
+    """
+
+    def test_parse_recipe_with_nix_runner(self):
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+runners:
+  nix:
+    type: nix
+    flake: .
+
+tasks:
+  build:
+    runner: nix
+    cmd: cargo build
+""")
+
+            recipe = parse_recipe(recipe_path)
+            runner = recipe.runners["nix"]
+            self.assertIsInstance(runner, NixRunner)
+            self.assertEqual(runner.flake, ".")
+
+    def test_parse_recipe_nix_flake_dir_missing_rejected(self):
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text("""
+runners:
+  nix:
+    type: nix
+    flake: ./no-such-dir
+
+tasks:
+  build:
+    runner: nix
+    cmd: cargo build
+""")
+
+            with self.assertRaises(ValueError) as ctx:
+                parse_recipe(recipe_path)
+            self.assertIn("flake directory not found", str(ctx.exception))
 
 
 class TestRunnerTypeAndEngine(unittest.TestCase):

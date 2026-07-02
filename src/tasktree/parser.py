@@ -87,7 +87,8 @@ class ParsedFileResult:
 
 CONTAINERISED_RUNNER_TYPE = "containerised"
 DOCKER_RUNNER_ENGINE = "docker"
-VALID_RUNNER_TYPES = {CONTAINERISED_RUNNER_TYPE}
+NIX_RUNNER_TYPE = "nix"
+VALID_RUNNER_TYPES = {CONTAINERISED_RUNNER_TYPE, NIX_RUNNER_TYPE}
 VALID_RUNNER_ENGINES = {DOCKER_RUNNER_ENGINE}
 
 
@@ -2066,6 +2067,13 @@ def build_recipe_runner(
                     f"Runner '{name}': context must be a directory, got {context_path}"
                 )
 
+    if isinstance(runner, NixRunner):
+        flake_path = project_root / runner.flake.removeprefix("path:")
+        if not flake_path.is_dir():
+            raise ValueError(
+                f"Runner '{name}': flake directory not found at {flake_path}"
+            )
+
     return runner
 
 
@@ -2088,8 +2096,9 @@ def runner_from_config(
 
     A definition with no 'type' is a host runner; 'type: containerised' is
     dispatched to containerised_runner_from_config, which selects the concrete
-    containerised runner from its 'engine'. This function knows nothing about
-    any specific container engine. Raises ValueError on invalid configuration.
+    containerised runner from its 'engine'; 'type: nix' is dispatched to
+    nix_runner_from_config. This function knows nothing about any specific
+    container engine. Raises ValueError on invalid configuration.
 
     The interpreter is resolved by the caller (it needs the interpreters
     registry, which differs between recipe and machine-config contexts) and
@@ -2118,6 +2127,9 @@ def runner_from_config(
             f"Runner '{name}': 'type' must be one of "
             f"{sorted(VALID_RUNNER_TYPES)}, got {runner_type!r}"
         )
+
+    if runner_type == NIX_RUNNER_TYPE:
+        return nix_runner_from_config(name, config, interpreter=interpreter)
 
     return containerised_runner_from_config(name, config, interpreter=interpreter)
 
@@ -2186,6 +2198,54 @@ def containerised_runner_from_config(
         ports=ports,
         env_vars=env_vars,
         run_as_root=run_as_root,
+    )
+
+
+def _is_local_flakeref(flake: str) -> bool:
+    """
+    Only local path flakerefs are supported: '.', './sub', '/abs' or an
+    explicit 'path:' ref. Anything else (github:, git+..., a bare registry
+    name) is remote.
+    """
+    return flake.startswith(("path:", ".", "/"))
+
+
+def nix_runner_from_config(
+    name: str,
+    config: dict,
+    *,
+    interpreter: Interpreter | None = None,
+) -> NixRunner:
+    """
+    Build a NixRunner from its definition dict. Requires a 'flake' that is a
+    local path flakeref; remote flakerefs are rejected until supported.
+    Raises ValueError on invalid configuration.
+    """
+    flake = config.get("flake", "")
+    if not isinstance(flake, str):
+        raise ValueError(f"Runner '{name}': 'flake' must be a string")
+    if not flake:
+        raise ValueError(
+            f"Runner '{name}': 'flake' is required for "
+            f"'type: {NIX_RUNNER_TYPE}' runners"
+        )
+    if not _is_local_flakeref(flake):
+        raise ValueError(
+            f"Runner '{name}': remote flakerefs are not yet supported (planned); "
+            f"'flake' must be a local path ('.', './sub' or 'path:./sub'), "
+            f"got {flake!r}"
+        )
+
+    devshell = config.get("devshell", "default")
+    if not isinstance(devshell, str):
+        raise ValueError(f"Runner '{name}': 'devshell' must be a string")
+
+    return NixRunner(
+        name=name,
+        interpreter=interpreter,
+        working_dir=config.get("working_dir", ""),
+        flake=flake,
+        devshell=devshell,
     )
 
 
