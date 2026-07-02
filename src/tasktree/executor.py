@@ -106,6 +106,12 @@ class ResolvedEnvironment:
     host_bypassed: bool = False  # True when an implied containerised runner was bypassed to the host
 
 
+# Name of the synthetic session runner used when no config file provides one.
+# Its interpreter is the platform fallback, not a user choice, so the
+# interpreter resolution chain ranks it below the recipe's default_interpreter.
+PLATFORM_DEFAULT_RUNNER_NAME = "__platform_default__"
+
+
 class Executor:
     """
     Executes tasks with incremental execution logic.
@@ -400,7 +406,7 @@ class Executor:
 
         # Start with platform default
         platform_default = HostRunner(
-            name="__platform_default__",
+            name=PLATFORM_DEFAULT_RUNNER_NAME,
             interpreter=platform_default_interpreter(),
         )
 
@@ -519,7 +525,13 @@ class Executor:
             interpreter = self.recipe.interpreters[self.recipe.global_interpreter_override]
         elif task.interpreter:
             interpreter = self.recipe.interpreters[task.interpreter]
-        elif runner is not None and runner.interpreter is not None:
+        elif (
+            runner is not None
+            and runner.interpreter is not None
+            # The platform-default session runner's interpreter is a fallback,
+            # not a user choice - it must not shadow default_interpreter.
+            and runner.name != PLATFORM_DEFAULT_RUNNER_NAME
+        ):
             interpreter = runner.interpreter
         elif self.recipe.default_interpreter:
             interpreter = self.recipe.interpreters[self.recipe.default_interpreter]
@@ -1610,7 +1622,7 @@ class Executor:
         True if environment definition changed, False otherwise
         """
         # If using platform default (no environment), no definition to track
-        if not env_name or env_name == "__platform_default__":
+        if not env_name or env_name == PLATFORM_DEFAULT_RUNNER_NAME:
             return False
 
         # Get environment definition

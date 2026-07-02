@@ -524,7 +524,14 @@ class TestResolveInterpreter(unittest.TestCase):
 class TestResolveEnvironment(unittest.TestCase):
     """Tests for Executor.resolve_environment (runner + interpreter, host bypass)."""
 
-    def _make_executor(self, *, runners=None, interpreters=None, default_runner=""):
+    def _make_executor(
+        self,
+        *,
+        runners=None,
+        interpreters=None,
+        default_runner="",
+        default_interpreter="",
+    ):
         tmp = TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         project_root = Path(tmp.name)
@@ -535,6 +542,7 @@ class TestResolveEnvironment(unittest.TestCase):
             runners=runners or {},
             interpreters=interpreters or {},
             default_runner=default_runner,
+            default_interpreter=default_interpreter,
         )
         return Executor(
             recipe, StateManager(project_root), logger_stub, make_process_runner
@@ -615,6 +623,58 @@ class TestResolveEnvironment(unittest.TestCase):
 
         with patch.dict(os.environ, {"TT_CONTAINERIZED_RUNNER": ""}):
             self.assertIsNone(ex._docker_env_for_top_level_task(task))
+
+    def test_default_interpreter_used_when_nothing_specified(self):
+        """interpreters.default applies when neither task nor runner specify one."""
+        ex = self._make_executor(
+            interpreters={"py-i": Interpreter(cmd="python3")},
+            default_interpreter="py-i",
+        )
+        task = Task(name="t", cmd="echo")
+
+        self.assertEqual(ex.resolve_environment(task).interpreter.cmd, "python3")
+
+    def test_default_interpreter_overrides_container_sh_fallback(self):
+        """interpreters.default beats the sh fallback of a bare Docker runner."""
+        docker = DockerRunner(name="docker", dockerfile="Dockerfile")  # no interpreter
+        ex = self._make_executor(
+            runners={"docker": docker},
+            interpreters={"py-i": Interpreter(cmd="python3")},
+            default_runner="docker",
+            default_interpreter="py-i",
+        )
+        task = Task(name="t", cmd="echo")
+
+        resolved = ex.resolve_environment(task)
+
+        self.assertIsInstance(resolved.runner, DockerRunner)
+        self.assertEqual(resolved.interpreter.cmd, "python3")
+
+    def test_runner_interpreter_beats_default_interpreter(self):
+        """A runner's own interpreter still wins over interpreters.default."""
+        runner = HostRunner(name="r", interpreter=Interpreter(cmd="zsh"))
+        ex = self._make_executor(
+            runners={"r": runner},
+            interpreters={"py-i": Interpreter(cmd="python3")},
+            default_runner="r",
+            default_interpreter="py-i",
+        )
+        task = Task(name="t", cmd="echo")
+
+        self.assertEqual(ex.resolve_environment(task).interpreter.cmd, "zsh")
+
+    def test_task_interpreter_beats_default_interpreter(self):
+        """A task's own interpreter still wins over interpreters.default."""
+        ex = self._make_executor(
+            interpreters={
+                "py-i": Interpreter(cmd="python3"),
+                "rb-i": Interpreter(cmd="ruby"),
+            },
+            default_interpreter="py-i",
+        )
+        task = Task(name="t", cmd="echo", interpreter="rb-i")
+
+        self.assertEqual(ex.resolve_environment(task).interpreter.cmd, "ruby")
 
 
 class TestExtractShebangInterpreter(unittest.TestCase):
