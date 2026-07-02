@@ -1218,7 +1218,7 @@ class TestExecutorPrivateMethods(unittest.TestCase):
             original_mtime = dep_output.stat().st_mtime
 
             runner = HostRunner(name="shell", interpreter=Interpreter(cmd="bash"))
-            task = Task(name="package", cmd="zip pkg.zip dep-output.txt", run_in="shell")
+            task = Task(name="package", cmd="zip pkg.zip dep-output.txt", runner="shell")
             tasks = {"package": task}
             recipe = Recipe(
                 tasks=tasks,
@@ -1540,8 +1540,8 @@ class TestRunnerResolution(unittest.TestCase):
                 "dev": HostRunner(name="dev", interpreter=Interpreter(cmd="bash")),
             }
 
-            # Create task with explicit run_in and recipe with default_runner
-            tasks = {"build": Task(name="build", cmd="echo hello", run_in="dev")}
+            # Create task with explicit runner and recipe with default_runner
+            tasks = {"build": Task(name="build", cmd="echo hello", runner="dev")}
             recipe = Recipe(
                 tasks=tasks,
                 project_root=project_root,
@@ -1558,7 +1558,7 @@ class TestRunnerResolution(unittest.TestCase):
 
     def test_get_effective_runner_with_task_runner(self):
         """
-        Test that task.run_in is used when no global override.
+        Test that task.runner is used when no global override.
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -1572,7 +1572,7 @@ class TestRunnerResolution(unittest.TestCase):
                 "dev": HostRunner(name="dev", interpreter=Interpreter(cmd="bash")),
             }
 
-            tasks = {"build": Task(name="build", cmd="echo hello", run_in="dev")}
+            tasks = {"build": Task(name="build", cmd="echo hello", runner="dev")}
             recipe = Recipe(
                 tasks=tasks,
                 project_root=project_root,
@@ -1588,7 +1588,7 @@ class TestRunnerResolution(unittest.TestCase):
 
     def test_get_effective_runner_with_default_runner(self):
         """
-        Test that default_runner is used when task has no explicit run_in.
+        Test that default_runner is used when task has no explicit runner.
         """
 
         with TemporaryDirectory() as tmpdir:
@@ -1599,7 +1599,7 @@ class TestRunnerResolution(unittest.TestCase):
 
             runners = {"prod": HostRunner(name="prod", interpreter=Interpreter(cmd="sh"))}
 
-            tasks = {"build": Task(name="build", cmd="echo hello")}  # No run_in
+            tasks = {"build": Task(name="build", cmd="echo hello")}  # No runner
             recipe = Recipe(
                 tasks=tasks,
                 project_root=project_root,
@@ -1652,7 +1652,7 @@ class TestRunnerResolution(unittest.TestCase):
                 )
             }
 
-            tasks = {"build": Task(name="build", cmd="echo hello", run_in="zsh_runner")}
+            tasks = {"build": Task(name="build", cmd="echo hello", runner="zsh_runner")}
             recipe = Recipe(
                 tasks=tasks,
                 project_root=project_root,
@@ -1678,7 +1678,7 @@ class TestRunnerResolution(unittest.TestCase):
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
 
-            # No runners defined, task has no run_in
+            # No runners defined, task has no runner
             tasks = {"build": Task(name="build", cmd="echo hello")}
             recipe = Recipe(
                 tasks=tasks,
@@ -1731,7 +1731,7 @@ class TestRunnerResolution(unittest.TestCase):
 
             runners = {"fish": HostRunner(name="fish", interpreter=Interpreter(cmd="fish"))}
 
-            tasks = {"build": Task(name="build", cmd="echo hello", run_in="fish")}
+            tasks = {"build": Task(name="build", cmd="echo hello", runner="fish")}
             recipe = Recipe(
                 tasks=tasks,
                 project_root=project_root,
@@ -2896,14 +2896,14 @@ class TestPlatformdirs(unittest.TestCase):
 class TestPinnedRunnerValidation(unittest.TestCase):
     """Tests for pinned runner validation."""
 
-    def test_pinned_task_without_run_in_raises_error(self):
-        """Test that pinned task without run_in raises ValueError."""
+    def test_pinned_task_without_runner_raises_error(self):
+        """Test that pinned task without runner raises ValueError."""
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
 
-            # Create task with pin_runner but no run_in
-            task = Task(name="build", cmd="make", pin_runner=True, run_in="")
+            # Create task with pin_runner but no runner
+            task = Task(name="build", cmd="make", pin_runner=True, runner="")
 
             recipe = Recipe(
                 tasks={"build": task},
@@ -2918,16 +2918,16 @@ class TestPinnedRunnerValidation(unittest.TestCase):
                 executor._get_effective_runner_name(task)
 
             self.assertIn("pin_runner=true", str(context.exception))
-            self.assertIn("no run_in specified", str(context.exception))
+            self.assertIn("no runner specified", str(context.exception))
 
-    def test_pinned_task_with_run_in_succeeds(self):
-        """Test that pinned task with run_in does not raise error."""
+    def test_pinned_task_with_runner_succeeds(self):
+        """Test that pinned task with runner does not raise error."""
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
 
-            # Create task with both pin_runner and run_in
-            task = Task(name="build", cmd="make", pin_runner=True, run_in="docker")
+            # Create task with both pin_runner and runner
+            task = Task(name="build", cmd="make", pin_runner=True, runner="docker")
 
             recipe = Recipe(
                 tasks={"build": task},
@@ -2941,14 +2941,14 @@ class TestPinnedRunnerValidation(unittest.TestCase):
             runner_name = executor._get_effective_runner_name(task)
             self.assertEqual(runner_name, "docker")
 
-    def test_non_pinned_task_without_run_in_succeeds(self):
-        """Test that non-pinned task without run_in uses default runner."""
+    def test_non_pinned_task_without_runner_succeeds(self):
+        """Test that non-pinned task without runner uses default runner."""
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             state_manager = StateManager(project_root)
 
-            # Create task without pin_runner or run_in
-            task = Task(name="build", cmd="make", pin_runner=False, run_in="")
+            # Create task without pin_runner or runner
+            task = Task(name="build", cmd="make", pin_runner=False, runner="")
 
             recipe = Recipe(
                 tasks={"build": task},
@@ -2974,7 +2974,7 @@ class TestPinnedRunnerValidation(unittest.TestCase):
 tasks:
   build:
     cmd: make
-    run_in: nonexistent_runner
+    runner: nonexistent_runner
     pin_runner: true
 """)
 

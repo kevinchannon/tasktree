@@ -7,6 +7,6 @@ runners:
 
 tasks:
   docker_task:
-    run_in: docker_runner
+    runner: docker_runner
     pin_runner: true
     cmd: echo 'Running in Docker'

@@ -11,5 +11,5 @@ runners:
 
 tasks:
   docker-test:
-    run_in: test-runner
+    runner: test-runner
     cmd: echo "Testing env vars in docker"

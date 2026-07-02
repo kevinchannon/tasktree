@@ -63,7 +63,7 @@ runners:
 
 tasks:
   foo:
-    run_in: docker
+    runner: docker
     outputs: [data/result.txt]
     cmd: "echo running > /a/result.txt"
 """)

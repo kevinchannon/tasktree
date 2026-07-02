@@ -8,5 +8,5 @@ runners:
 
 tasks:
   test-preamble:
-    run_in: strict
+    runner: strict
     cmd: echo %TEST_VAR%>output.txt

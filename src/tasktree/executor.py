@@ -432,11 +432,11 @@ class Executor:
 
         Resolution order:
         1. Recipe's global_runner_override (from CLI --runner)
-        2. Task's explicit run_in field (includes blanket runner if applied)
+        2. Task's explicit runner field (includes blanket runner if applied)
         3. Recipe's default_runner
         4. Session default runner name (from get_session_default_runner)
 
-        Note: Pinned tasks (pin_runner=true) must have run_in specified.
+        Note: Pinned tasks (pin_runner=true) must have runner specified.
 
         Args:
         task: Task to get runner name for
@@ -445,9 +445,9 @@ class Executor:
         Runner name (session default runner name if no other override)
         """
         # Validate pinned tasks have a runner specified
-        if task.pin_runner and not task.run_in:
+        if task.pin_runner and not task.runner:
             raise ValueError(
-                f"Task '{task.name}' has pin_runner=true but no run_in specified. "
+                f"Task '{task.name}' has pin_runner=true but no runner specified. "
                 f"Pinned tasks must explicitly declare their runner."
             )
 
@@ -456,8 +456,8 @@ class Executor:
             return self.recipe.global_runner_override
 
         # Use task's runner
-        if task.run_in:
-            return task.run_in
+        if task.runner:
+            return task.runner
 
         # Use recipe default
         if self.recipe.default_runner:
@@ -879,7 +879,7 @@ class Executor:
 
             # REFINED REJECTION LOGIC:
             # Only reject if:
-            # 1. Task has run_in specified (checked above via task_runner_name)
+            # 1. Task has runner specified (checked above via task_runner_name)
             # 2. The specified runner is Docker-based
             # 3. The runner differs from current container's runner
             # 4. We're in the same project (cross-project invocations are allowed)

@@ -54,7 +54,7 @@ runners:
 
 tasks:
   check_env:
-    run_in: alpine
+    runner: alpine
     outputs: [output/env.txt]
     cmd: |
       echo "BUILD_ENV=$BUILD_ENV" > /workspace/output/env.txt
@@ -109,7 +109,7 @@ runners:
 
 tasks:
   check_pwd:
-    run_in: alpine
+    runner: alpine
     outputs: [output/pwd.txt]
     cmd: pwd > /workspace/output/pwd.txt
 """)
@@ -165,7 +165,7 @@ runners:
 
 tasks:
   limited:
-    run_in: alpine
+    runner: alpine
     outputs: [output/success.txt]
     cmd: echo "container ran with limits" > /workspace/output/success.txt
 """)
@@ -210,7 +210,7 @@ runners:
 
 tasks:
   gen:
-    run_in: alpine
+    runner: alpine
     outputs: [made.txt, pwd.txt]
     cmd: |
       pwd > pwd.txt
@@ -265,7 +265,7 @@ runners:
 
 tasks:
   check_pwd:
-    run_in: alpine
+    runner: alpine
     outputs: [output/pwd.txt]
     cmd: pwd > /output/pwd.txt
 """)
@@ -338,7 +338,7 @@ tasks:
 
 tasks:
   test:
-    run_in: docker-test
+    runner: docker-test
     outputs: [output/result.txt]
     cmd: echo "path resolution works" > /workspace/output/result.txt
 """)

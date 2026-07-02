@@ -5,7 +5,7 @@ runners:
 
 tasks:
   test-python:
-    run_in: python
+    runner: python
     cmd: |
       import os
       with open("output.txt", "w") as f:

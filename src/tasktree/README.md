@@ -293,7 +293,7 @@ tasks:
     inputs: [src/**/*.go]                  # Explicit input files (glob patterns)
     outputs: [dist/binary]                 # Output files (glob patterns)
     working_dir: subproject/               # Execution directory (default: project root)
-    run_in: bash-strict                    # Execution runner (optional)
+    runner: bash-strict                    # Execution runner (optional)
     private: false                         # Hide from --list output (default: false)
     task_output: all                       # Control task output: all, out, err, on-err, none (default: all)
     args:                                   # Task parameters
@@ -481,14 +481,14 @@ tasks:
     cmd: cargo build --release
 
   analyze:
-    run_in: python
+    runner: python
     cmd: |
       import sys
       print(f"Analyzing with Python {sys.version}")
       # ... analysis code ...
 
   windows-task:
-    run_in: powershell
+    runner: powershell
     cmd: Compress-Archive -Path dist/* -DestinationPath package.zip
 ```
 
@@ -533,7 +533,7 @@ TaskTree writes the task `cmd` to a temporary script file and executes `interpre
 
 **Runner resolution priority:**
 1. CLI override: `tt --runner python build`
-2. Task's `run_in` field
+2. Task's `runner` field
 3. Recipe's `default` runner
 4. Project config (`.tasktree-config.yml`)
 5. User config (`~/.config/tasktree/config.yml`)
@@ -1703,7 +1703,7 @@ To inspect these variables inside a Docker task:
 ```yaml
 tasks:
   debug:
-    run_in: builder
+    runner: builder
     cmd: |
       echo "Call chain: $TT_CALL_CHAIN"
       echo "Container runner: $TT_CONTAINERIZED_RUNNER"
@@ -2056,7 +2056,7 @@ runners:
 
 tasks:
   compile:
-    run_in: native
+    runner: native
     pin_runner: true  # Brings native runner with it
     cmd: gcc -o app main.c
 

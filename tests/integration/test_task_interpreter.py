@@ -65,7 +65,7 @@ class TestTaskInterpreter(unittest.TestCase):
                     "runners": {"py": {"interpreter": shlex.quote(sys.executable)}},
                     "tasks": {
                         "test-python": {
-                            "run_in": "py",
+                            "runner": "py",
                             "cmd": (
                                 'with open("output.txt", "w") as f:\n'
                                 '    f.write("Hello from string interpreter\\n")\n'

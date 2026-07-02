@@ -81,8 +81,8 @@ class TestBlanketRunnerOverride(unittest.TestCase):
             finally:
                 os.chdir(original_cwd)
 
-    def test_blanket_runner_does_not_override_explicit_task_run_in(self):
-        """Test that blanket runner doesn't override task's own run_in."""
+    def test_blanket_runner_does_not_override_explicit_task_runner(self):
+        """Test that blanket runner doesn't override task's own runner."""
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             copy_fixture_files("runner_override_blanket_does_not_override_explicit_run_in", project_root)
@@ -91,7 +91,7 @@ class TestBlanketRunnerOverride(unittest.TestCase):
             try:
                 os.chdir(project_root)
 
-                # Verify task keeps its own run_in (namespaced)
+                # Verify task keeps its own runner (namespaced)
                 result = self.runner.invoke(
                     app, ["--show", "build.compile"], env=self.env
                 )
@@ -255,7 +255,7 @@ class TestRunnerNamespacing(unittest.TestCase):
                 os.chdir(original_cwd)
 
     def test_runner_reference_rewritten_in_pinned_task(self):
-        """Test that run_in references are rewritten to use namespaced runner names."""
+        """Test that runner references are rewritten to use namespaced runner names."""
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             copy_fixture_files("runner_override_reference_rewritten_in_pinned_task", project_root)
@@ -264,7 +264,7 @@ class TestRunnerNamespacing(unittest.TestCase):
             try:
                 os.chdir(project_root)
 
-                # Verify task's run_in was rewritten to "build.my_runner"
+                # Verify task's runner was rewritten to "build.my_runner"
                 result = self.runner.invoke(
                     app, ["--show", "build.compile"], env=self.env
                 )
@@ -442,7 +442,7 @@ class TestRunnerPrecedenceOrder(unittest.TestCase):
                 os.chdir(original_cwd)
 
     def test_precedence_task_level_over_default(self):
-        """Test that task-level run_in takes precedence over default runner."""
+        """Test that task-level runner takes precedence over default runner."""
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
             copy_fixture_files("runner_override_precedence_task_level_over_default", project_root)
@@ -451,7 +451,7 @@ class TestRunnerPrecedenceOrder(unittest.TestCase):
             try:
                 os.chdir(project_root)
 
-                # Task with run_in should use its own runner
+                # Task with runner should use its own runner
                 result = self.runner.invoke(
                     app, ["--show", "task_with_runner"], env=self.env
                 )
@@ -459,7 +459,7 @@ class TestRunnerPrecedenceOrder(unittest.TestCase):
                 self.assertEqual(result.exit_code, 0, f"Command failed: {stripped}")
                 self.assertIn("task_runner", stripped)
 
-                # Task without run_in should use default
+                # Task without runner should use default
                 result = self.runner.invoke(
                     app, ["--show", "task_without_runner"], env=self.env
                 )

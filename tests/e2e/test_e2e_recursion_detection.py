@@ -124,7 +124,7 @@ runners:
 
 tasks:
   docker-recursive:
-    run_in: docker-env
+    runner: docker-env
     cmd: |
       set -e
       echo "In Docker, before recursive call"

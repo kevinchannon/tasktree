@@ -27,7 +27,7 @@ class TestPythonRunner(unittest.TestCase):
     @unittest.skipIf(sys.platform == "win32", "python3 command not available on Windows")
     def test_python_runner_executes_python_script(self):
         """
-        Test that a task with run_in: python3 runner executes as a Python script.
+        Test that a task with runner: python3 runner executes as a Python script.
         """
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)

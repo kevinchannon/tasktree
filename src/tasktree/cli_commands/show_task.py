@@ -16,7 +16,7 @@ def _resolve_effective_runner(recipe: Recipe, task: Task) -> Optional[str]:
 
     Resolution order:
     1. Recipe's global_runner_override (from CLI --runner)
-    2. Task's explicit run_in field (includes blanket runner if applied)
+    2. Task's explicit runner field (includes blanket runner if applied)
     3. Recipe's default_runner
     4. None (indicating session default will be used)
 
@@ -29,8 +29,8 @@ def _resolve_effective_runner(recipe: Recipe, task: Task) -> Optional[str]:
         return recipe.global_runner_override
 
     # Use task's runner
-    if task.run_in:
-        return task.run_in
+    if task.runner:
+        return task.runner
 
     # Use recipe default
     if recipe.default_runner:
@@ -81,7 +81,7 @@ def show_task(logger: Logger, task_name: str, tasks_file: Optional[str] = None, 
             "inputs": task.inputs,
             "outputs": task.outputs,
             "working_dir": task.working_dir,
-            "run_in": task.run_in,
+            "runner": task.runner,
             "args": task.args,
             "cmd": task.cmd,
         }

@@ -9,6 +9,6 @@ runners:
 tasks:
   task_with_runner:
     cmd: echo 'task with runner'
-    run_in: task_runner
+    runner: task_runner
   task_without_runner:
     cmd: echo 'task without runner'

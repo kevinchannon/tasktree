@@ -5,5 +5,5 @@ runners:
 tasks:
   compile:
     cmd: echo 'compiling'
-    run_in: my_runner
+    runner: my_runner
     pin_runner: true

@@ -19,7 +19,7 @@ runners:
 
 tasks:
   build:
-    run_in: nix
+    runner: nix
     cmd: cargo build    # cargo comes from the flake's devShell, not the host
 ```
 

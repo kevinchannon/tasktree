@@ -215,7 +215,7 @@ class TestCheckRunnerChanged(unittest.TestCase):
         Test that missing cached hash returns True.
         """
 
-        task = Task(name="test", cmd="echo test", run_in="test")
+        task = Task(name="test", cmd="echo test", runner="test")
         cached_state = TaskState(last_run=123.0, input_state={})
 
         result = self.executor._check_runner_changed(
@@ -231,7 +231,7 @@ class TestCheckRunnerChanged(unittest.TestCase):
         """
         Test that matching hash returns False.
         """
-        task = Task(name="test", cmd="echo test", run_in="test")
+        task = Task(name="test", cmd="echo test", runner="test")
 
         # Compute hash and store in cached state
         runner_hash = hash_runner_definition(self.runner)
@@ -252,7 +252,7 @@ class TestCheckRunnerChanged(unittest.TestCase):
         """
         Test that modified shell is detected.
         """
-        task = Task(name="test", cmd="echo test", run_in="test")
+        task = Task(name="test", cmd="echo test", runner="test")
 
         # Store old hash
         old_runner = HostRunner(name="test", interpreter=Interpreter(cmd="bash"))
@@ -278,7 +278,7 @@ class TestCheckRunnerChanged(unittest.TestCase):
         Test that deleted runner returns True.
         """
 
-        task = Task(name="test", cmd="echo test", run_in="test")
+        task = Task(name="test", cmd="echo test", runner="test")
         cached_state = TaskState(
             last_run=123.0, input_state={"_runner_hash_test": "somehash"}
         )
@@ -333,7 +333,7 @@ class TestCheckRunnerChangedDocker(unittest.TestCase):
         because it is non-deterministic under BuildKit).
         """
 
-        task = Task(name="test", cmd="echo test", run_in="builder")
+        task = Task(name="test", cmd="echo test", runner="builder")
 
         # Cached state with matching runner hash; no context/base-image entries,
         # so context and digest checks both report "unchanged".
@@ -360,7 +360,7 @@ class TestCheckRunnerChangedDocker(unittest.TestCase):
         Test that a YAML change is detected from the runner hash alone.
         """
 
-        task = Task(name="test", cmd="echo test", run_in="builder")
+        task = Task(name="test", cmd="echo test", runner="builder")
 
         # Cached state with OLD runner hash (YAML changed)
         old_runner = DockerRunner(name="builder", dockerfile="OldDockerfile", context=".")

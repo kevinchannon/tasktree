@@ -42,7 +42,7 @@ runners:
 
 tasks:
   build:
-    run_in: alpine
+    runner: alpine
     inputs: [source.txt]
     outputs: [out.txt]
     cmd: cat source.txt > out.txt

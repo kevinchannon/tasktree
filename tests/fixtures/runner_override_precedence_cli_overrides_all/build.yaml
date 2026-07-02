@@ -5,7 +5,7 @@ runners:
 tasks:
   pinned_task:
     cmd: echo 'pinned task'
-    run_in: pinned_runner
+    runner: pinned_runner
     pin_runner: true
   normal_task:
     cmd: echo 'normal task'

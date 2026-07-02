@@ -136,7 +136,7 @@ tasks:
       - pattern1  # Anonymous glob patterns
       - name: path-or-pattern  # Named outputs for reference
     working_dir: execution-directory
-    run_in: runner-name  # Reference to runner definition
+    runner: runner-name  # Reference to runner definition
     args:
       - name: arg-name
         type: str|int|float|bool|path|datetime|hostname|email|ip|ipv4|ipv6
@@ -296,7 +296,7 @@ imports:
 tasks:
   special_task:
     cmd: "echo special"
-    run_in: special_container
+    runner: special_container
     pin_runner: true  # Ignores import-level run_in override
 ```
 
@@ -307,15 +307,15 @@ tasks:
 
 **Precedence Order** (highest to lowest):
 1. CLI `--runner` flag (overrides everything, including pinned runners)
-2. Pinned task runner (`pin_runner: true` with `run_in`)
+2. Pinned task runner (`pin_runner: true` with `runner`)
 3. Import-level blanket runner (`imports[].run_in`)
-4. Task-level `run_in` (unpinned)
+4. Task-level `runner` (unpinned)
 5. Default runner (`default: true` in runner definition)
 6. Session default runner
 
 **Validation Rules**:
 - Runner names cannot contain dots (reserved for namespacing)
-- Pinned tasks must have `run_in` specified
+- Pinned tasks must have `runner` specified
 - Pinned runner validation is lazy (occurs at task invocation, not parse time)
 
 ### Schema Validation

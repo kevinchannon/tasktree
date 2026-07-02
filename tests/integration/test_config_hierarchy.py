@@ -2,7 +2,7 @@
 
 Tests the full 7-level configuration hierarchy:
 1. CLI --runner flag
-2. Task's run_in field
+2. Task's runner field
 3. Recipe's default_runner
 4. Project config (.tasktree-config.yml)
 5. User config
@@ -93,8 +93,8 @@ class TestConfigHierarchy(unittest.TestCase):
             finally:
                 os.chdir(original_cwd)
 
-    def test_task_run_in_overrides_all_configs(self):
-        """Test that task's run_in field overrides all config levels."""
+    def test_task_runner_overrides_all_configs(self):
+        """Test that task's runner field overrides all config levels."""
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
 

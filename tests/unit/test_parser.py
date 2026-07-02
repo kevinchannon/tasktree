@@ -707,7 +707,7 @@ runners:
     interpreter: { cmd: bash }
 tasks:
   build:
-    run_in: builder
+    runner: builder
     cmd: echo hi
 """)
             recipe = parse_recipe(recipe_path)
@@ -1372,7 +1372,7 @@ imports:
                 "tasks:\n"
                 "  compile:\n"
                 "    cmd: gcc main.c\n"
-                "    run_in: shell\n"
+                "    runner: shell\n"
                 "    pin_runner: true\n"
             )
 
@@ -1395,8 +1395,8 @@ imports:
             self.assertEqual(recipe.runners["build.shell"].name, "build.shell")
             self.assertEqual(recipe.runners["build.shell"].interpreter.cmd, "bash")
 
-    def test_import_rewrites_run_in_with_namespace(self):
-        """Test that run_in in imported tasks is rewritten with namespace prefix."""
+    def test_import_rewrites_runner_with_namespace(self):
+        """Test that runner in imported tasks is rewritten with namespace prefix."""
         with TemporaryDirectory() as tmpdir:
             # Create imported file with a runner and a task using it
             (Path(tmpdir) / "build.yaml").write_text(
@@ -1405,7 +1405,7 @@ imports:
                 "    interpreter:\n      cmd: bash\n"
                 "tasks:\n"
                 "  compile:\n"
-                "    run_in: shell\n"
+                "    runner: shell\n"
                 "    pin_runner: true\n"
                 "    cmd: gcc main.c\n"
             )
@@ -1424,9 +1424,9 @@ imports:
 
             recipe = parse_recipe(recipe_path)
 
-            # Task's run_in should be rewritten to build.shell
+            # Task's runner should be rewritten to build.shell
             task = recipe.tasks["build.compile"]
-            self.assertEqual(task.run_in, "build.shell")
+            self.assertEqual(task.runner, "build.shell")
 
     def test_import_extracts_variables_with_namespace(self):
         """Test that variables from imported files are namespaced."""
@@ -1542,7 +1542,7 @@ imports:
                 "      preamble: '{{ var.setup_cmd }}'\n"
                 "tasks:\n"
                 "  compile:\n"
-                "    run_in: shell\n"
+                "    runner: shell\n"
                 "    pin_runner: true\n"
                 "    cmd: echo hello\n"
             )
@@ -1577,7 +1577,7 @@ imports:
                 "    interpreter:\n      cmd: bash\n"
                 "tasks:\n"
                 "  task1:\n"
-                "    run_in: runner_a\n"
+                "    runner: runner_a\n"
                 "    pin_runner: true\n"
                 "    cmd: echo task1\n"
                 "  task2:\n"
@@ -1614,7 +1614,7 @@ imports:
                 "tasks:\n"
                 "  util:\n"
                 "    cmd: echo common\n"
-                "    run_in: shell\n"
+                "    runner: shell\n"
                 "    pin_runner: true\n"
             )
 
@@ -1649,12 +1649,12 @@ imports:
 
             # Task should reference the fully namespaced runner
             task = recipe.tasks["build.common.util"]
-            self.assertEqual(task.run_in, "build.common.shell")
+            self.assertEqual(task.runner, "build.common.shell")
 
-    def test_pinned_task_without_run_in_field(self):
-        """Test that pinned task without run_in field doesn't cause errors."""
+    def test_pinned_task_without_runner_field(self):
+        """Test that pinned task without runner field doesn't cause errors."""
         with TemporaryDirectory() as tmpdir:
-            # Create imported file with pinned task but no run_in
+            # Create imported file with pinned task but no runner
             (Path(tmpdir) / "build.yaml").write_text(
                 "runners:\n"
                 "  shell:\n"
@@ -1680,11 +1680,11 @@ imports:
             # Should parse without errors
             recipe = parse_recipe(recipe_path)
 
-            # Task should exist and have no run_in
+            # Task should exist and have no runner
             self.assertIn("build.task1", recipe.tasks)
-            self.assertEqual(recipe.tasks["build.task1"].run_in, "")
+            self.assertEqual(recipe.tasks["build.task1"].runner, "")
 
-            # No runners should be imported since task has no run_in
+            # No runners should be imported since task has no runner
             self.assertEqual(len([k for k in recipe.runners.keys() if k.startswith("build.")]), 0)
 
 
@@ -2772,7 +2772,7 @@ runners:
 
 tasks:
   test:
-    run_in: good_runner
+    runner: good_runner
     cmd: echo test
 """)
 
@@ -2830,7 +2830,7 @@ runners:
 
 tasks:
   test:
-    run_in: bad.runner
+    runner: bad.runner
     cmd: echo test
 """)
 
@@ -2871,13 +2871,13 @@ runners:
 
 tasks:
   test:
-    run_in: nonexistent-runner
+    runner: nonexistent-runner
     cmd: echo hello
 """)
 
             with self.assertRaises(ValueError) as cm:
                 parse_recipe(recipe_path, root_task="test")
-            self.assertIn("run_in", str(cm.exception))
+            self.assertIn("runner", str(cm.exception))
             self.assertIn("nonexistent-runner", str(cm.exception))
             self.assertIn("test", str(cm.exception))
 
@@ -2893,7 +2893,7 @@ runners:
 
 tasks:
   unreachable:
-    run_in: nonexistent-runner
+    runner: nonexistent-runner
     cmd: echo hello
 
   reachable:
@@ -5017,7 +5017,7 @@ runners:
     dockerfile: Dockerfile
 tasks:
   build:
-    run_in: builder
+    runner: builder
     cmd: echo hi
 """)
             recipe = parse_recipe(recipe_path)
@@ -5033,7 +5033,7 @@ runners:
     interpreter: bash
 tasks:
   build:
-    run_in: shell
+    runner: shell
     cmd: echo hi
 """)
             recipe = parse_recipe(recipe_path)
@@ -5050,7 +5050,7 @@ runners:
     dockerfile: Dockerfile
 tasks:
   build:
-    run_in: builder
+    runner: builder
     cmd: echo hi
 """)
             with self.assertRaises(ValueError) as ctx:
@@ -5068,7 +5068,7 @@ runners:
     engine: docker
 tasks:
   build:
-    run_in: builder
+    runner: builder
     cmd: echo hi
 """)
             with self.assertRaises(ValueError) as ctx:
@@ -5087,7 +5087,7 @@ runners:
     dockerfile: Dockerfile
 tasks:
   build:
-    run_in: builder
+    runner: builder
     cmd: echo hi
 """)
             with self.assertRaises(ValueError) as ctx:
@@ -5106,7 +5106,7 @@ runners:
     dockerfile: Dockerfile
 tasks:
   build:
-    run_in: builder
+    runner: builder
     cmd: echo hi
 """)
             with self.assertRaises(ValueError) as ctx:

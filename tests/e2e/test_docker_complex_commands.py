@@ -48,7 +48,7 @@ runners:
 
 tasks:
   complex:
-    run_in: alpine
+    runner: alpine
     outputs: [output/result.txt]
     cmd: |
       # Test various shell features
@@ -123,7 +123,7 @@ runners:
 
 tasks:
   pipes:
-    run_in: alpine
+    runner: alpine
     outputs: [output/filtered.txt, output/count.txt]
     cmd: |
       # Generate some data
@@ -190,7 +190,7 @@ runners:
 
 tasks:
   conditional:
-    run_in: alpine
+    runner: alpine
     outputs: [output/result.txt]
     cmd: |
       # Test conditional execution

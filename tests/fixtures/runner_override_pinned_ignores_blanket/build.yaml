@@ -7,5 +7,5 @@ tasks:
     cmd: echo 'normal task'
   special:
     cmd: echo 'special task'
-    run_in: special
+    runner: special
     pin_runner: true

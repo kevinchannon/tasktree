@@ -5,5 +5,5 @@ runners:
 tasks:
   helper:
     cmd: echo 'common helper'
-    run_in: util_runner
+    runner: util_runner
     pin_runner: true

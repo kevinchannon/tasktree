@@ -5,5 +5,5 @@ runners:
 tasks:
   base_task:
     cmd: echo 'base'
-    run_in: base
+    runner: base
     pin_runner: true

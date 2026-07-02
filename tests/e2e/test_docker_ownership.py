@@ -53,7 +53,7 @@ runners:
 
 tasks:
   create_file:
-    run_in: alpine
+    runner: alpine
     outputs: [data/owned.txt]
     cmd: echo "created by host user" > /workspace/data/owned.txt
 """)
@@ -120,7 +120,7 @@ runners:
 
 tasks:
   create_as_root:
-    run_in: alpine
+    runner: alpine
     outputs: [data/root_owned.txt]
     cmd: echo "created by root" > /workspace/data/root_owned.txt
 """)

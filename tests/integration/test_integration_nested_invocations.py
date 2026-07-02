@@ -390,12 +390,12 @@ runners:
 
 tasks:
   child:
-    run_in: build
+    runner: build
     outputs: [child.txt]
     cmd: echo "child output" > child.txt
 
   parent:
-    run_in: build
+    runner: build
     outputs: [parent.txt]
     cmd: |
       python3 -m tasktree.cli child
@@ -480,11 +480,11 @@ runners:
 
 tasks:
   child:
-    run_in: test
+    runner: test
     cmd: echo "child"
 
   parent:
-    run_in: build
+    runner: build
     cmd: python3 -m tasktree.cli child
 """)
 
@@ -543,12 +543,12 @@ runners:
 
 tasks:
   child:
-    run_in: lint
+    runner: lint
     outputs: [child.txt]
     cmd: echo "child output" > child.txt
 
   parent:
-    run_in: build
+    runner: build
     outputs: [parent.txt]
     cmd: |
       python3 -m tasktree.cli child
@@ -607,7 +607,7 @@ runners:
 
 tasks:
   docker-child:
-    run_in: build
+    runner: build
     outputs: [child.txt]
     cmd: echo "docker child" > child.txt
 
@@ -671,7 +671,7 @@ runners:
 
 tasks:
   docker-task:
-    run_in: build
+    runner: build
     outputs: [output.txt]
     cmd: echo "docker output" > output.txt
 """)
@@ -731,17 +731,17 @@ runners:
 
 tasks:
   child1:
-    run_in: build
+    runner: build
     outputs: [child1.txt]
     cmd: echo "child1" > child1.txt
 
   child2:
-    run_in: build
+    runner: build
     outputs: [child2.txt]
     cmd: echo "child2" > child2.txt
 
   parent:
-    run_in: build
+    runner: build
     outputs: [parent.txt]
     cmd: |
       python3 -m tasktree.cli child1

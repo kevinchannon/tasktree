@@ -1,5 +1,5 @@
 runners:
-  # Declare the default runner by name (tasks without run_in: use this runner)
+  # Declare the default runner by name (tasks without runner: use this runner)
   default: bash-strict
 
   # Default runner: bash with strict mode enabled
@@ -88,5 +88,5 @@ tasks:
 
   windows-task:
     desc: A task that runs in cmd.exe
-    run_in: windows-runner
+    runner: windows-runner
     cmd: dir

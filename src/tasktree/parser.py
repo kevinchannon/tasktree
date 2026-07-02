@@ -188,7 +188,7 @@ class Task:
         default_factory=list
     )  # Can be strings or dicts (each dict has single key: arg name)
     source_file: str = ""  # Track which file defined this task
-    run_in: str = ""  # Runner name to use for execution
+    runner: str = ""  # Runner name to use for execution
     interpreter: str = ""  # Interpreter name override (e.g. "python3", "bash")
     private: bool = False  # If True, task is hidden from --list output
     pin_runner: bool = False  # If True, task's runner cannot be overridden
@@ -721,9 +721,9 @@ class Recipe:
             Set of runner names that are referenced by the reachable tasks
         """
         return {
-            self.tasks[t].run_in
+            self.tasks[t].runner
             for t in reachable_tasks
-            if t in self.tasks and self.tasks[t].run_in
+            if t in self.tasks and self.tasks[t].runner
         }
 
     def _collect_runner_errors(
@@ -750,11 +750,11 @@ class Recipe:
                 referencing_tasks = [
                     t
                     for t in reachable_tasks
-                    if t in self.tasks and self.tasks[t].run_in == runner_name
+                    if t in self.tasks and self.tasks[t].runner == runner_name
                 ]
                 for task_name in referencing_tasks:
                     errors.append(
-                        f"Task '{task_name}' specifies run_in with invalid runner: '{runner_name}'"
+                        f"Task '{task_name}' specifies runner with invalid runner: '{runner_name}'"
                     )
         return errors
 
@@ -2379,9 +2379,9 @@ def collect_reachable_variables(
                                     for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(val):
                                         variables.add(match.group(1))
 
-        if task.run_in:
-            if task.run_in in runners:
-                env = runners[task.run_in]
+        if task.runner:
+            if task.runner in runners:
+                env = runners[task.runner]
 
                 if isinstance(env, DockerRunner) and env.dockerfile:
                     for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(env.dockerfile):
@@ -2599,12 +2599,12 @@ def _parse_file(
             #       run_in: docker  # Blanket override for non-pinned tasks
             #
             # If build.yaml has:
-            #   - task1 with run_in: shell, pin_runner: true  -> Uses build.shell (imported)
-            #   - task2 with no run_in                        -> Uses docker (blanket override)
+            #   - task1 with runner: shell, pin_runner: true  -> Uses build.shell (imported)
+            #   - task2 with no runner                        -> Uses docker (blanket override)
             pinned_runner_names = {
-                task.run_in
+                task.runner
                 for task in nested_result.tasks.values()
-                if task.pin_runner and task.run_in
+                if task.pin_runner and task.runner
             }
             # Selective import of runners (Step 3.2)
             # Import only runners that are referenced by pinned tasks.
@@ -2730,10 +2730,10 @@ def _parse_file(
                     rewritten_deps.append(dep)
             deps = rewritten_deps
 
-        # Rewrite run_in with namespace prefix for imported tasks
-        run_in = task_data.get("run_in", "")
-        if namespace and run_in:
-            run_in = f"{namespace}.{run_in}"
+        # Rewrite runner with namespace prefix for imported tasks
+        runner = task_data.get("runner", "")
+        if namespace and runner:
+            runner = f"{namespace}.{runner}"
 
         # Task interpreter is the NAME of an interpreter from the 'interpreters'
         # section; existence is validated post-parse (see _validate_interpreter_refs).
@@ -2749,7 +2749,7 @@ def _parse_file(
             working_dir=working_dir,
             args=task_data.get("args", []),
             source_file=str(file_path),
-            run_in=run_in,
+            runner=runner,
             interpreter=interpreter,
             private=task_data.get("private", False),
             pin_runner=task_data.get("pin_runner", False),
@@ -2757,8 +2757,8 @@ def _parse_file(
         )
 
         # Apply blanket runner to non-pinned tasks from imports
-        if blanket_runner and not task.pin_runner and not task.run_in:
-            task.run_in = blanket_runner
+        if blanket_runner and not task.pin_runner and not task.runner:
+            task.runner = blanket_runner
 
         # Rewrite {{ var.* }} references in imported tasks
         if namespace:

@@ -385,7 +385,7 @@ class TestRunnerTaskDependencyTracking(unittest.TestCase):
                         "deps": ["gen"],
                         "outputs": ["processed.txt"],
                         "cmd": "cp gen-output.txt processed.txt",
-                        "run_in": "shell",
+                        "runner": "shell",
                     },
                 },
             }

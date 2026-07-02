@@ -50,7 +50,7 @@ runners:
 
 tasks:
   build:
-    run_in: builder
+    runner: builder
     outputs: [output/first.txt, output/second.txt]
     cmd: |
       echo "first" > output/first.txt

@@ -18,7 +18,7 @@ tasks:
 
   generate-report:
     desc: Generate a build report (pinned to bash-utils runner - immune to import-level overrides)
-    run_in: bash-utils
+    runner: bash-utils
     pin_runner: true
     outputs:
       - report: reports/build-report.txt

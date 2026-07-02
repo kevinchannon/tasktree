@@ -8,7 +8,7 @@ runners:
 
 tasks:
   test-multi-preamble:
-    run_in: strict
+    runner: strict
     cmd: |
       echo "Start" > output.txt
       echo "$MY_VAR" >> output.txt

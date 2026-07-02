@@ -65,7 +65,7 @@ tasks:
 
   test:
     desc: "Run all test suites"
-    run_in: tt-test
+    runner: tt-test
     cmd: |
       uv sync --extra dev
 

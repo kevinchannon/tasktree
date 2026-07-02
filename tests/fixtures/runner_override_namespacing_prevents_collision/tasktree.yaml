@@ -8,4 +8,4 @@ imports:
 tasks:
   task2:
     cmd: echo 'task2 in root docker'
-    run_in: docker
+    runner: docker

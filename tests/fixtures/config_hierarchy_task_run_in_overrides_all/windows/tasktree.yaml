@@ -14,5 +14,5 @@ runners:
 
 tasks:
   test:
-    run_in: task-specific
+    runner: task-specific
     cmd: echo Hello

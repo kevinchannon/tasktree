@@ -511,7 +511,7 @@ class TestStateHashOptimization(unittest.TestCase):
                         inputs=[],
                         outputs=[],
                         working_dir=".",
-                        run_in=None,
+                        runner=None,
                         args=[],
                         private=False,
                     )
@@ -593,7 +593,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
                         inputs=[],
                         outputs=[],
                         working_dir=".",
-                        run_in="build",  # Same as current container
+                        runner="build",  # Same as current container
                         args=[],
                         private=False,
                     )
@@ -652,7 +652,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
                         inputs=[],
                         outputs=[],
                         working_dir=".",
-                        run_in="test",  # Different Docker runner
+                        runner="test",  # Different Docker runner
                         args=[],
                         private=False,
                     )
@@ -707,7 +707,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
                         inputs=[],
                         outputs=[],
                         working_dir=".",
-                        run_in="lint",  # Shell-only runner
+                        runner="lint",  # Shell-only runner
                         args=[],
                         private=False,
                     )
@@ -757,7 +757,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
                         inputs=[],
                         outputs=[],
                         working_dir=".",
-                        run_in=None,  # No runner specified
+                        runner=None,  # No runner specified
                         args=[],
                         private=False,
                     )
@@ -808,7 +808,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
                         inputs=[],
                         outputs=[],
                         working_dir=".",
-                        run_in="build",
+                        runner="build",
                         args=[],
                         private=False,
                     )
@@ -863,7 +863,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
                         inputs=[],
                         outputs=[],
                         working_dir=".",
-                        run_in="build",
+                        runner="build",
                         args=[],
                         private=False,
                     )
@@ -919,7 +919,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
                         inputs=[],
                         outputs=[],
                         working_dir=".",
-                        run_in="build",
+                        runner="build",
                         args=[],
                         private=False,
                     )
@@ -979,7 +979,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
                         inputs=[],
                         outputs=[],
                         working_dir=".",
-                        run_in="build",
+                        runner="build",
                         args=[],
                         private=False,
                     )
@@ -1035,7 +1035,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
                         inputs=[],
                         outputs=[],
                         working_dir=".",
-                        run_in="build",
+                        runner="build",
                         args=[],
                         private=False,
                     )
@@ -1102,7 +1102,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
                                 inputs=[],
                                 outputs=[],
                                 working_dir=".",
-                                run_in=runner_name,
+                                runner=runner_name,
                                 args=[],
                                 private=False,
                             )
@@ -1154,7 +1154,7 @@ class TestDockerEnvironmentSupport(unittest.TestCase):
                         inputs=[],
                         outputs=[],
                         working_dir=".",
-                        run_in="shell",
+                        runner="shell",
                         args=[],
                         private=False,
                     )

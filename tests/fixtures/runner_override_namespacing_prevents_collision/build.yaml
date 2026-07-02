@@ -5,5 +5,5 @@ runners:
 tasks:
   task1:
     cmd: echo 'task1 in imported docker'
-    run_in: docker
+    runner: docker
     pin_runner: true

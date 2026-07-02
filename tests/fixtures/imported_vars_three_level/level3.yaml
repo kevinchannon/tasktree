@@ -8,6 +8,6 @@ runners:
 
 tasks:
   greet:
-    run_in: shell
+    runner: shell
     pin_runner: true
     cmd: echo {{ var.greeting }}

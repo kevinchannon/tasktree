@@ -6,7 +6,7 @@ runners:
 
 tasks:
   one:
-    run_in: runner-1
+    runner: runner-1
     desc: "This is task 1"
     outputs:
       - output.txt

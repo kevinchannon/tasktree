@@ -72,7 +72,7 @@ runners:
 
 tasks:
   build:
-    run_in: builder
+    runner: builder
     outputs: [output/build-output.txt]
     cmd: cp /build-info.txt output/build-output.txt
 """)

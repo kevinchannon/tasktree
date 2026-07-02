@@ -50,7 +50,7 @@ runners:
 
 tasks:
   hello:
-    run_in: alpine
+    runner: alpine
     outputs: [data/output.txt]
     cmd: echo "hello from docker" > /workspace/data/output.txt
 """)
@@ -97,7 +97,7 @@ runners:
 
 tasks:
   generate:
-    run_in: alpine
+    runner: alpine
     outputs: [src/generated.txt]
     cmd: |
       echo "line 1" > /workspace/src/generated.txt
@@ -146,7 +146,7 @@ runners:
 
 tasks:
   gen:
-    run_in: alpine
+    runner: alpine
     outputs: [out.txt]
     cmd: echo "auto-mounted" > out.txt
 """)
@@ -192,7 +192,7 @@ runners:
 
 tasks:
   multi:
-    run_in: alpine
+    runner: alpine
     outputs: [output/result.txt]
     cmd: |
       # This is a multi-line command

@@ -70,13 +70,13 @@ runners:
 
 tasks:
   foo:
-    run_in: docker
+    runner: docker
     inputs: [source.txt]
     outputs: [foo-output.txt]
     cmd: cat source.txt > foo-output.txt
 
   bar:
-    run_in: docker
+    runner: docker
     deps: [foo]
     outputs: [bar-output.txt]
     cmd: cat foo-output.txt > bar-output.txt
@@ -187,7 +187,7 @@ runners:
 
 tasks:
   foo:
-    run_in: docker
+    runner: docker
     outputs: ["build/bin/*"]
     cmd: >-
       mkdir -p build/bin &&
@@ -195,7 +195,7 @@ tasks:
       ([ -f build/bin/exe2 ] || echo "exe2" > build/bin/exe2)
 
   bar:
-    run_in: docker
+    runner: docker
     deps: [foo]
     outputs: [bar-output.txt]
     cmd: ls build/bin | sort > bar-output.txt

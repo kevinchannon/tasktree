@@ -202,7 +202,7 @@ class TestGetImplicitInputs(unittest.TestCase):
             "build": Task(name="build", cmd="make", outputs=["build/output.txt"]),
             "package": Task(
                 name="package", cmd="zip package.zip build/output.txt",
-                deps=["build"], run_in="docker"
+                deps=["build"], runner="docker"
             ),
         }
         recipe = Recipe(

@@ -50,7 +50,7 @@ runners:
 
 tasks:
   write:
-    run_in: alpine
+    runner: alpine
     outputs: [src/from_container.txt]
     cmd: echo "created in container" > /workspace/src/from_container.txt
 """)
@@ -96,7 +96,7 @@ runners:
 
 tasks:
   absolute:
-    run_in: alpine
+    runner: alpine
     outputs: [data/absolute.txt]
     cmd: echo "absolute path mount" > /app/data/absolute.txt
 """)
@@ -151,7 +151,7 @@ runners:
 
 tasks:
   process:
-    run_in: alpine
+    runner: alpine
     outputs: [output/processed.txt]
     cmd: |
       cat /workspace/input/source.txt > /workspace/output/processed.txt
@@ -208,7 +208,7 @@ runners:
 
 tasks:
   readwrite:
-    run_in: alpine
+    runner: alpine
     outputs: [data/result.txt]
     cmd: |
       # Read existing file
