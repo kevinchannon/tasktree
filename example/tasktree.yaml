@@ -1,16 +1,26 @@
+# yaml-language-server: $schema=../schema/tasktree-schema.json
+interpreters:
+  # Named interpreters, referenced from runners/tasks via { use: name } or by name.
+  # An optional 'default: <name>' key here would replace the platform default
+  # wherever no interpreter is specified.
+  py:
+    cmd: python3
+    ext: .py
+
 runners:
   # Declare the default runner by name (tasks without runner: use this runner)
   default: bash-strict
 
   # Default runner: bash with strict mode enabled
   bash-strict:
-    shell:
-      cmd: ["/bin/bash"]
+    interpreter:
+      cmd: /bin/bash
       preamble: set -euo pipefail
 
   windows-runner:
-    shell:
-      cmd: ["cmd.exe"]
+    interpreter:
+      cmd: cmd.exe /c
+      ext: .bat
 
 variables:
   # Value from environment variable with fallback default
@@ -90,3 +100,10 @@ tasks:
     desc: A task that runs in cmd.exe
     runner: windows-runner
     cmd: dir
+
+  python-info:
+    desc: Print the Python version (demonstrates a task-level interpreter)
+    interpreter: py
+    cmd: |
+      import sys
+      print(f"Python {sys.version.split()[0]}")
