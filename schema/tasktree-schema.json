@@ -366,12 +366,12 @@
   "$defs": {
     "runnerDef": {
       "type": "object",
-      "description": "Runner definition (host runner by default; 'type: containerised' + 'engine: docker' for Docker runners)",
+      "description": "Runner definition (host runner by default; 'type: containerised' + 'engine: docker' for Docker runners; 'type: nix' for Nix flake devShell runners)",
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["containerised"],
-          "description": "Runner classification. Only required for non-shell runners; currently the only supported classification is 'containerised'."
+          "enum": ["containerised", "nix"],
+          "description": "Runner classification. Only required for non-host runners: 'containerised' (with an 'engine') or 'nix'."
         },
         "engine": {
           "type": "string",
@@ -448,26 +448,70 @@
           "type": "boolean",
           "description": "If true, run as root inside Docker container (skip user mapping). Default: false",
           "default": false
+        },
+        "flake": {
+          "type": "string",
+          "description": "Flakeref of the Nix flake providing the devShell (local paths only, e.g. '.', './sub', 'path:./sub'). Required for 'type: nix' runners."
+        },
+        "devshell": {
+          "type": "string",
+          "description": "devShell attribute to use (devShells.<system>.<devshell>). Default: 'default'",
+          "default": "default"
         }
       },
-      "if": {
-        "not": { "required": ["dockerfile"] }
-      },
-      "then": {
-        "allOf": [
-          { "not": { "required": ["context"] } },
-          { "not": { "required": ["volumes"] } },
-          { "not": { "required": ["ports"] } },
-          { "not": { "required": ["env_vars"] } },
-          { "not": { "required": ["run_as_root"] } },
-          { "not": { "required": ["args"] } },
-          { "not": { "required": ["type"] } },
-          { "not": { "required": ["engine"] } }
-        ]
-      },
-      "else": {
-        "required": ["type", "engine"]
-      },
+      "allOf": [
+        {
+          "if": {
+            "not": { "required": ["type"] }
+          },
+          "then": {
+            "allOf": [
+              { "not": { "required": ["engine"] } },
+              { "not": { "required": ["dockerfile"] } },
+              { "not": { "required": ["context"] } },
+              { "not": { "required": ["volumes"] } },
+              { "not": { "required": ["ports"] } },
+              { "not": { "required": ["env_vars"] } },
+              { "not": { "required": ["run_as_root"] } },
+              { "not": { "required": ["args"] } },
+              { "not": { "required": ["flake"] } },
+              { "not": { "required": ["devshell"] } }
+            ]
+          }
+        },
+        {
+          "if": {
+            "required": ["type"],
+            "properties": { "type": { "const": "containerised" } }
+          },
+          "then": {
+            "allOf": [
+              { "required": ["engine", "dockerfile"] },
+              { "not": { "required": ["flake"] } },
+              { "not": { "required": ["devshell"] } }
+            ]
+          }
+        },
+        {
+          "if": {
+            "required": ["type"],
+            "properties": { "type": { "const": "nix" } }
+          },
+          "then": {
+            "allOf": [
+              { "required": ["flake"] },
+              { "not": { "required": ["engine"] } },
+              { "not": { "required": ["dockerfile"] } },
+              { "not": { "required": ["context"] } },
+              { "not": { "required": ["volumes"] } },
+              { "not": { "required": ["ports"] } },
+              { "not": { "required": ["env_vars"] } },
+              { "not": { "required": ["run_as_root"] } },
+              { "not": { "required": ["args"] } }
+            ]
+          }
+        }
+      ],
       "additionalProperties": false
     },
     "interpreterDef": {
