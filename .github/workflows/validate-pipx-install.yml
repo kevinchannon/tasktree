@@ -44,7 +44,29 @@ jobs:
           python -m pipx ensurepath
 
       - name: Install tasktree via pipx
-        run: python -m pipx install tasktree
+        shell: bash
+        env:
+          RELEASED_TAG: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          VERSION="${RELEASED_TAG#v}"
+          if [ -z "$VERSION" ]; then
+            # Manual dispatch: no released tag to pin to, just install the latest
+            python -m pipx install tasktree
+            exit 0
+          fi
+          # The initial sleep usually covers PyPI propagation, but not always:
+          # an unlucky CDN edge can still serve the previous release, which
+          # pipx would silently install. Pin the released version and poll
+          # until PyPI can actually serve it.
+          for attempt in $(seq 1 30); do
+            if python -m pipx install "tasktree==$VERSION" --pip-args=--no-cache-dir; then
+              exit 0
+            fi
+            echo "tasktree $VERSION not installable yet (attempt $attempt/30), retrying in 10s..."
+            sleep 10
+          done
+          echo "::error::tasktree $VERSION did not become installable on PyPI in time"
+          exit 1
 
       - name: Get installed tt version
         working-directory: example
@@ -101,8 +123,28 @@ jobs:
         shell: bash
 
       - name: Install tasktree via pipx with Python 3.12
+        env:
+          RELEASED_TAG: ${{ github.event.workflow_run.head_branch }}
         run: |
-          pipx install --python python3.12 tasktree
+          VERSION="${RELEASED_TAG#v}"
+          if [ -z "$VERSION" ]; then
+            # Manual dispatch: no released tag to pin to, just install the latest
+            pipx install --python python3.12 tasktree
+            exit 0
+          fi
+          # The initial sleep usually covers PyPI propagation, but not always:
+          # an unlucky CDN edge can still serve the previous release, which
+          # pipx would silently install. Pin the released version and poll
+          # until PyPI can actually serve it.
+          for attempt in $(seq 1 30); do
+            if pipx install --python python3.12 "tasktree==$VERSION" --pip-args=--no-cache-dir; then
+              exit 0
+            fi
+            echo "tasktree $VERSION not installable yet (attempt $attempt/30), retrying in 10s..."
+            sleep 10
+          done
+          echo "::error::tasktree $VERSION did not become installable on PyPI in time"
+          exit 1
         shell: bash
 
       - name: Get installed tt version
