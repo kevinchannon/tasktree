@@ -32,8 +32,14 @@
     "interpreters": {
       "description": "Named interpreter definitions, referenced from runners via {use: name}",
       "type": "object",
+      "properties": {
+        "default": {
+          "type": "string",
+          "description": "Name of the default interpreter, used wherever an interpreter is needed but not specified (overrides the platform default)"
+        }
+      },
       "patternProperties": {
-        "^[^.]+$": {
+        "^(?!default$)[^.]+$": {
           "description": "Interpreter definition: an inline mapping ({cmd, ext?, preamble?}) or a bare string (shorthand for {cmd: <string>})",
           "oneOf": [
             { "$ref": "#/$defs/interpreterDef" },
@@ -53,7 +59,7 @@
         }
       },
       "patternProperties": {
-        "^[^.]+$": {
+        "^(?!default$)[^.]+$": {
           "description": "Runner name (dots not allowed in local definitions but will be present in imported runners due to namespace prefixing)",
           "$ref": "#/$defs/runnerDef"
         }
