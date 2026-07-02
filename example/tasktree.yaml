@@ -1,26 +1,33 @@
 # yaml-language-server: $schema=../schema/tasktree-schema.json
 interpreters:
   # Named interpreters, referenced from runners/tasks via { use: name } or by name.
-  # An optional 'default: <name>' key here would replace the platform default
-  # wherever no interpreter is specified.
+  # The 'default' key names the interpreter used wherever one is needed but not
+  # specified - it replaces the platform default (bash on Unix, cmd on Windows).
+  default: bash-strict
+
+  bash-strict:
+    cmd: /bin/bash
+    preamble: set -euo pipefail
+
   py:
     cmd: python3
     ext: .py
 
+  windows-cmd:
+    cmd: cmd.exe /c
+    ext: .bat
+
 runners:
-  # Declare the default runner by name (tasks without runner: use this runner)
-  default: bash-strict
-
-  # Default runner: bash with strict mode enabled
-  bash-strict:
-    interpreter:
-      cmd: /bin/bash
-      preamble: set -euo pipefail
-
-  windows-runner:
-    interpreter:
-      cmd: cmd.exe /c
-      ext: .bat
+  # A containerised runner: tasks with 'runner: alpine' run inside a container
+  # built from the Dockerfile. The project is mounted at the container's
+  # working directory, so task inputs/outputs behave as they do on the host.
+  alpine:
+    type: containerised
+    engine: docker
+    dockerfile: Dockerfile
+    # Alpine has no bash, so this runner brings its own interpreter; a
+    # runner's interpreter takes precedence over 'interpreters: default:'.
+    interpreter: sh
 
 variables:
   # Value from environment variable with fallback default
@@ -98,7 +105,7 @@ tasks:
 
   windows-task:
     desc: A task that runs in cmd.exe
-    runner: windows-runner
+    interpreter: windows-cmd
     cmd: dir
 
   python-info:
@@ -107,3 +114,10 @@ tasks:
     cmd: |
       import sys
       print(f"Python {sys.version.split()[0]}")
+
+  container-info:
+    desc: Show the container's OS (demonstrates a containerised runner)
+    runner: alpine
+    cmd: |
+      echo "Running in:"
+      cat /etc/os-release
