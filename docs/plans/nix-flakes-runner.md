@@ -207,7 +207,11 @@ acceptance criteria, 7 is documentation.
    gated with `@unittest.skipUnless(nix_available(), ...)` that runs a task inside a
    tiny fixture flake's devShell and asserts a devShell-provided tool/var is visible.*
    A conditional skip (CI without Nix) is explicitly allowed by `CLAUDE.md`; an
-   unconditional skip is not.
+   unconditional skip is not. **This slice requires the CI changes in §8** — without
+   them the e2e test only ever runs locally on a dev machine that happens to have
+   Nix, and silently skips in CI forever (technically a *conditional* skip, but a
+   condition that's never true anywhere in the pipeline is a coverage gap in
+   practice, not just in theory).
 5. **shellHook honouring via realise-once.** Change realisation to enter the env,
    `eval "$shellHook"`, then capture the resulting environment (`export -p`) instead
    of taking only the static exported variables. *Test that a var set by the hook
@@ -253,3 +257,59 @@ acceptance criteria, 7 is documentation.
   Nix only provides the environment, so that tension does not arise.
 - Reference for the JSON format:
   <https://nixos.org/manual/nix/stable/command-ref/new-cli/nix3-print-dev-env.html>
+
+## 8. CI workflow updates
+
+`.github/workflows/test.yml` currently has **no awareness of Nix at all** — it
+installs Docker's prerequisite (nothing; Docker ships on the `ubuntu-latest` image)
+and pre-pulls an Alpine image for Docker E2E, but there is no equivalent for Nix. As
+written, the slice-4 e2e test (`skipUnless(nix_available())`) would run **nowhere in
+CI** — a conditional skip is fine per `CLAUDE.md`, but only if the condition is
+actually satisfied somewhere in the pipeline. That means slice 4 is not truly "done"
+until this section's changes land alongside it.
+
+### What needs to change, concretely
+
+The `test` job runs a `matrix: os: [ubuntu-latest, macos-latest, windows-latest]`.
+Nix has no native Windows support (WSL only, and GitHub-hosted `windows-latest`
+doesn't have WSL preconfigured for this) — mirror the existing Docker E2E pattern
+(`if: runner.os == 'Linux'`, `test.yml` line 33/43) but for **Linux + macOS**, since
+unlike Docker, Nix installs cleanly and without a licensing/daemon story on GitHub's
+`macos-latest` runners too:
+
+1. **Install Nix with flakes enabled**, gated `if: runner.os != 'Windows'`, before the
+   test steps. Use an installer action rather than hand-rolling install +
+   `experimental-features` config:
+   - **`DeterminateSystems/nix-installer-action`** (recommended) — fast, and enables
+     `nix-command`/`flakes` by default, so no extra config step needed. This is the
+     natural fit since it minimises the CI YAML surface.
+   - Alternative: `cachix/install-nix-action`, which requires an explicit
+     `extra_nix_config: | experimental-features = nix-command flakes` block to match
+     what slice 2's `_check_nix_available()` requires.
+2. **A fixture flake for the e2e test** (referenced in slice 4) needs a *committed*
+   `flake.lock` so CI resolves the same pinned inputs as local dev — consistent with
+   the "honour and never rewrite the lock" design decision (§2.2/§2.3). First run in
+   CI still needs network access to fetch the flake's inputs from the Nix binary
+   cache (GitHub-hosted runners have outbound network by default, so this is fine,
+   just not instant).
+3. **New "Run E2E Nix tests" step**, gated the same way as the existing "Run E2E
+   Docker tests" step (`if: runner.os == 'Linux'` → extend/parallel condition for
+   Nix), running just the new Nix e2e test module so a Nix evaluation failure doesn't
+   get lost in the general E2E step's output.
+4. **Windows stays a no-op for Nix**, same shape as Docker already is on
+   `windows-latest` — the e2e test's `skipUnless` naturally skips it there, no
+   special-casing needed in the workflow beyond not installing Nix on that leg.
+5. **Optional but recommended: cache the Nix store** (e.g.
+   `DeterminateSystems/magic-nix-cache-action`) to avoid re-fetching `nixpkgs` on
+   every run — `nix print-dev-env` evaluation cost is exactly the wall-clock problem
+   the issue's caching design is trying to avoid, and an uncached CI run pays it on
+   every single invocation across the 2×Python-version × 2×OS matrix legs that would
+   gain Nix. Not required for correctness; worth adding in the same slice that adds
+   the installer step, or immediately after, if CI minutes become a concern.
+
+### Where this lands in the slice plan
+
+Land the CI wiring together with **slice 4** (the executor wiring), since that's the
+first slice with anything for the e2e test to exercise. `lint`, `release.yml`, and
+`validate-pipx-install.yml` need no changes — none of them run the test suite against
+a Nix runner.
