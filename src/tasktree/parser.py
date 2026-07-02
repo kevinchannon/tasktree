@@ -2084,6 +2084,9 @@ _CONTAINER_CONFIG_KEYS = frozenset(
     {"engine", "dockerfile", "context", "volumes", "ports", "env_vars", "run_as_root", "args"}
 )
 
+# Keys that only make sense on a Nix runner; rejected on any other runner kind.
+_NIX_CONFIG_KEYS = frozenset({"flake", "devshell"})
+
 
 def runner_from_config(
     name: str,
@@ -2112,13 +2115,20 @@ def runner_from_config(
     if not isinstance(working_dir, str):
         raise ValueError(f"Runner '{name}': 'working_dir' must be a string")
 
+    container_fields = sorted(set(config) & _CONTAINER_CONFIG_KEYS)
+    nix_fields = sorted(set(config) & _NIX_CONFIG_KEYS)
+
     if not runner_type:
-        container_fields = sorted(set(config) & _CONTAINER_CONFIG_KEYS)
         if container_fields:
             raise ValueError(
                 f"Runner '{name}': fields {container_fields} require a containerised "
                 f"runner ('type: {CONTAINERISED_RUNNER_TYPE}', "
                 f"'engine: {DOCKER_RUNNER_ENGINE}')"
+            )
+        if nix_fields:
+            raise ValueError(
+                f"Runner '{name}': fields {nix_fields} require a Nix runner "
+                f"('type: {NIX_RUNNER_TYPE}')"
             )
         return HostRunner(name=name, interpreter=interpreter, working_dir=working_dir)
 
@@ -2129,8 +2139,18 @@ def runner_from_config(
         )
 
     if runner_type == NIX_RUNNER_TYPE:
+        if container_fields:
+            raise ValueError(
+                f"Runner '{name}': fields {container_fields} are not valid for "
+                f"'type: {NIX_RUNNER_TYPE}' runners"
+            )
         return nix_runner_from_config(name, config, interpreter=interpreter)
 
+    if nix_fields:
+        raise ValueError(
+            f"Runner '{name}': fields {nix_fields} are not valid for "
+            f"'type: {CONTAINERISED_RUNNER_TYPE}' runners"
+        )
     return containerised_runner_from_config(name, config, interpreter=interpreter)
 
 

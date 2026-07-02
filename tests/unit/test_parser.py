@@ -5079,6 +5079,45 @@ class TestRunnerFromConfig(unittest.TestCase):
         runner = nix_runner_from_config("nix", {"flake": "."})
         self.assertIsInstance(runner, NixRunner)
 
+    def test_flake_without_type_rejected(self):
+        with self.assertRaises(ValueError) as ctx:
+            runner_from_config("shell", {"flake": "."})
+        self.assertIn("require a Nix runner", str(ctx.exception))
+
+    def test_devshell_without_type_rejected(self):
+        with self.assertRaises(ValueError) as ctx:
+            runner_from_config("shell", {"devshell": "ci"})
+        self.assertIn("require a Nix runner", str(ctx.exception))
+
+    def test_container_field_on_nix_runner_rejected(self):
+        with self.assertRaises(ValueError) as ctx:
+            runner_from_config(
+                "nix",
+                {"type": NIX_RUNNER_TYPE, "flake": ".", "dockerfile": "Dockerfile"},
+            )
+        self.assertIn("not valid for 'type: nix'", str(ctx.exception))
+
+    def test_volumes_on_nix_runner_rejected(self):
+        with self.assertRaises(ValueError) as ctx:
+            runner_from_config(
+                "nix",
+                {"type": NIX_RUNNER_TYPE, "flake": ".", "volumes": ["/a:/b"]},
+            )
+        self.assertIn("not valid for 'type: nix'", str(ctx.exception))
+
+    def test_nix_field_on_containerised_runner_rejected(self):
+        with self.assertRaises(ValueError) as ctx:
+            runner_from_config(
+                "builder",
+                {
+                    "type": CONTAINERISED_RUNNER_TYPE,
+                    "engine": DOCKER_RUNNER_ENGINE,
+                    "dockerfile": "Dockerfile",
+                    "flake": ".",
+                },
+            )
+        self.assertIn("not valid for 'type: containerised'", str(ctx.exception))
+
 
 class TestNixRunnerRecipeParsing(unittest.TestCase):
     """
