@@ -521,6 +521,102 @@ class TestResolveInterpreter(unittest.TestCase):
         self.assertEqual(ex._resolve_interpreter(task), container_default_interpreter())
 
 
+class TestResolveEnvironment(unittest.TestCase):
+    """Tests for Executor.resolve_environment (runner + interpreter, host bypass)."""
+
+    def _make_executor(self, *, runners=None, interpreters=None, default_runner=""):
+        tmp = TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        project_root = Path(tmp.name)
+        recipe = Recipe(
+            tasks={},
+            project_root=project_root,
+            recipe_path=project_root / "tasktree.yaml",
+            runners=runners or {},
+            interpreters=interpreters or {},
+            default_runner=default_runner,
+        )
+        return Executor(
+            recipe, StateManager(project_root), logger_stub, make_process_runner
+        )
+
+    def _docker_executor(self, interpreters=None):
+        docker = DockerRunner(name="docker", dockerfile="Dockerfile")
+        return self._make_executor(
+            runners={"docker": docker},
+            interpreters=interpreters or {"py-i": Interpreter(cmd="python3")},
+            default_runner="docker",
+        )
+
+    def test_implied_containerised_runner_bypassed_when_task_has_interpreter(self):
+        """A task-level interpreter under an implied Docker runner runs on the host."""
+        ex = self._docker_executor()
+        task = Task(name="t", cmd="echo", interpreter="py-i")
+
+        resolved = ex.resolve_environment(task)
+
+        self.assertTrue(resolved.host_bypassed)
+        self.assertNotIsInstance(resolved.runner, DockerRunner)
+        self.assertNotEqual(resolved.runner_name, "docker")
+        self.assertEqual(resolved.interpreter.cmd, "python3")
+
+    def test_implied_containerised_runner_kept_without_task_interpreter(self):
+        """Without a task-level interpreter the implied Docker runner is used."""
+        ex = self._docker_executor()
+        task = Task(name="t", cmd="echo")
+
+        resolved = ex.resolve_environment(task)
+
+        self.assertFalse(resolved.host_bypassed)
+        self.assertIsInstance(resolved.runner, DockerRunner)
+        self.assertEqual(resolved.runner_name, "docker")
+
+    def test_explicit_task_runner_not_bypassed(self):
+        """runner + interpreter on the task: interpreter overrides, runner stays."""
+        docker = DockerRunner(name="docker", dockerfile="Dockerfile")
+        ex = self._make_executor(
+            runners={"docker": docker},
+            interpreters={"py-i": Interpreter(cmd="python3")},
+        )
+        task = Task(name="t", cmd="echo", runner="docker", interpreter="py-i")
+
+        resolved = ex.resolve_environment(task)
+
+        self.assertFalse(resolved.host_bypassed)
+        self.assertIsInstance(resolved.runner, DockerRunner)
+        self.assertEqual(resolved.interpreter.cmd, "python3")
+
+    def test_cli_runner_override_not_bypassed(self):
+        """A CLI --runner override is explicit and never bypassed."""
+        ex = self._docker_executor()
+        ex.recipe.global_runner_override = "docker"
+        task = Task(name="t", cmd="echo", interpreter="py-i")
+
+        resolved = ex.resolve_environment(task)
+
+        self.assertFalse(resolved.host_bypassed)
+        self.assertIsInstance(resolved.runner, DockerRunner)
+
+    def test_bypass_changes_cache_key(self):
+        """Toggling the interpreter under an implied Docker runner changes the cache key."""
+        ex = self._docker_executor()
+        with_interpreter = Task(name="t", cmd="echo", interpreter="py-i")
+        without_interpreter = Task(name="t", cmd="echo")
+
+        self.assertNotEqual(
+            ex._cache_key(with_interpreter, {}),
+            ex._cache_key(without_interpreter, {}),
+        )
+
+    def test_no_docker_env_for_bypassed_task(self):
+        """A bypassed task must not build or probe the Docker image."""
+        ex = self._docker_executor()
+        task = Task(name="t", cmd="echo", interpreter="py-i")
+
+        with patch.dict(os.environ, {"TT_CONTAINERIZED_RUNNER": ""}):
+            self.assertIsNone(ex._docker_env_for_top_level_task(task))
+
+
 class TestExtractShebangInterpreter(unittest.TestCase):
     """Tests for the _extract_shebang_interpreter helper."""
 

@@ -421,6 +421,7 @@ class Recipe:
         default_factory=dict
     )  # Named interpreter definitions (from the 'interpreters' section)
     default_runner: str = ""  # Name of default runner
+    default_interpreter: str = ""  # Name of default interpreter (from 'interpreters: default:')
     global_runner_override: str = ""  # Global runner override (set via CLI --run-in)
     global_interpreter_override: str = ""  # Global interpreter override (CLI --interpreter)
     variables: dict[str, str] = field(

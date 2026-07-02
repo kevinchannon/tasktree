@@ -7,7 +7,7 @@ import yaml
 from rich.syntax import Syntax
 
 from tasktree.logging import Logger
-from tasktree.parser import Recipe, Task, get_recipe
+from tasktree.parser import ContainerisedRunner, Recipe, Task, get_recipe
 
 
 def _resolve_effective_runner(recipe: Recipe, task: Task) -> Optional[str]:
@@ -17,7 +17,8 @@ def _resolve_effective_runner(recipe: Recipe, task: Task) -> Optional[str]:
     Resolution order:
     1. Recipe's global_runner_override (from CLI --runner)
     2. Task's explicit runner field (includes blanket runner if applied)
-    3. Recipe's default_runner
+    3. Recipe's default_runner (bypassed to the host when the task sets its
+       own interpreter and the default runner is containerised)
     4. None (indicating session default will be used)
 
     Returns:
@@ -32,8 +33,12 @@ def _resolve_effective_runner(recipe: Recipe, task: Task) -> Optional[str]:
     if task.runner:
         return task.runner
 
-    # Use recipe default
+    # Use recipe default; a task-level interpreter under a merely implied
+    # containerised runner means "run on the host with that interpreter".
     if recipe.default_runner:
+        default = recipe.get_runner(recipe.default_runner)
+        if task.interpreter and isinstance(default, ContainerisedRunner):
+            return None
         return recipe.default_runner
 
     # Session default (don't display as it's platform-specific)

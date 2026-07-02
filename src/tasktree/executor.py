@@ -91,6 +91,21 @@ class ExecutionError(Exception):
     pass
 
 
+@dataclass(frozen=True)
+class ResolvedEnvironment:
+    """
+    The fully resolved execution environment for a task: which runner it will
+    use (by name and as a concrete object) and the interpreter that will run
+    its command. Resolved once, before hashing, so that freshness checks,
+    state tracking and execution all agree on the same answer.
+    """
+
+    runner_name: str  # Effective runner name (used for state keys and task hashing)
+    runner: Runner | None  # Concrete runner (None if the name is not defined in the recipe)
+    interpreter: Interpreter
+    host_bypassed: bool = False  # True when an implied containerised runner was bypassed to the host
+
+
 class Executor:
     """
     Executes tasks with incremental execution logic.
@@ -426,23 +441,38 @@ class Executor:
 
         return session_default
 
-    def _get_effective_runner_name(self, task: Task) -> str:
+    def resolve_environment(self, task: Task) -> ResolvedEnvironment:
         """
-        Get the effective runner name for a task.
+        Resolve the full execution environment (runner + interpreter) for a task.
 
-        Resolution order:
+        Runner resolution order (highest to lowest precedence):
         1. Recipe's global_runner_override (from CLI --runner)
         2. Task's explicit runner field (includes blanket runner if applied)
         3. Recipe's default_runner
-        4. Session default runner name (from get_session_default_runner)
+        4. Session default runner (from get_session_default_runner)
+
+        Tiers 1-2 are explicit, 3-4 are implied. A task that sets its own
+        ``interpreter`` under a merely *implied* containerised runner runs on
+        the host with that interpreter instead: the container was never asked
+        for, so it is bypassed rather than launched.
+
+        Interpreter resolution order (highest to lowest precedence):
+        1. CLI --interpreter override (a name in the interpreters section)
+        2. Task's explicit ``interpreter`` (a name in the interpreters section)
+        3. The resolved runner's ``interpreter``
+        4. Recipe's default_interpreter (from 'interpreters: default:')
+        5. sh, for a containerised runner with no interpreter of its own
+        6. The session/platform default interpreter
 
         Note: Pinned tasks (pin_runner=true) must have runner specified.
 
         Args:
-        task: Task to get runner name for
+        task: Task to resolve the environment for
 
         Returns:
-        Runner name (session default runner name if no other override)
+        ResolvedEnvironment with the effective runner name, the concrete
+        runner (None if the name is not defined in the recipe), and the
+        interpreter that will run the task's command
         """
         # Validate pinned tasks have a runner specified
         if task.pin_runner and not task.runner:
@@ -451,56 +481,69 @@ class Executor:
                 f"Pinned tasks must explicitly declare their runner."
             )
 
-        # Check for global override first
+        session_default: Runner | None = None
+
+        def session() -> Runner:
+            nonlocal session_default
+            if session_default is None:
+                session_default = self.get_session_default_runner()
+            return session_default
+
+        runner_explicit = True
         if self.recipe.global_runner_override:
-            return self.recipe.global_runner_override
+            runner_name = self.recipe.global_runner_override
+            runner = self.recipe.get_runner(runner_name)
+        elif task.runner:
+            runner_name = task.runner
+            runner = self.recipe.get_runner(runner_name)
+        else:
+            runner_explicit = False
+            if self.recipe.default_runner:
+                runner_name = self.recipe.default_runner
+                runner = self.recipe.get_runner(runner_name)
+            else:
+                runner = session()
+                runner_name = runner.name
 
-        # Use task's runner
-        if task.runner:
-            return task.runner
+        host_bypassed = False
+        if (
+            task.interpreter
+            and not runner_explicit
+            and isinstance(runner, ContainerisedRunner)
+        ):
+            runner = session()
+            runner_name = runner.name
+            host_bypassed = True
 
-        # Use recipe default
-        if self.recipe.default_runner:
-            return self.recipe.default_runner
+        if self.recipe.global_interpreter_override:
+            interpreter = self.recipe.interpreters[self.recipe.global_interpreter_override]
+        elif task.interpreter:
+            interpreter = self.recipe.interpreters[task.interpreter]
+        elif runner is not None and runner.interpreter is not None:
+            interpreter = runner.interpreter
+        elif self.recipe.default_interpreter:
+            interpreter = self.recipe.interpreters[self.recipe.default_interpreter]
+        elif isinstance(runner, ContainerisedRunner):
+            # A Docker runner with no interpreter defaults to sh (always
+            # present in a container).
+            interpreter = container_default_interpreter()
+        else:
+            interpreter = session().interpreter or platform_default_interpreter()
 
-        # Return session default runner name
-        return self.get_session_default_runner().name
+        return ResolvedEnvironment(
+            runner_name=runner_name,
+            runner=runner,
+            interpreter=interpreter,
+            host_bypassed=host_bypassed,
+        )
+
+    def _get_effective_runner_name(self, task: Task) -> str:
+        """The effective runner name for a task (see resolve_environment)."""
+        return self.resolve_environment(task).runner_name
 
     def _resolve_interpreter(self, task: Task) -> Interpreter:
-        """
-        Resolve the Interpreter used to run a task's command.
-
-        Resolution order (highest to lowest precedence):
-        1. CLI --interpreter override (a name in the interpreters section)
-        2. Task's explicit ``interpreter`` (a name in the interpreters section)
-        3. The effective runner's ``interpreter``
-        4. The session/platform default interpreter
-
-        Both name-based overrides are validated to exist before execution (the
-        CLI value in execute_dynamic_task, the task value at parse time).
-
-        Args:
-        task: Task being executed
-
-        Returns:
-        The Interpreter to invoke the task's temp script with
-        """
-        if self.recipe.global_interpreter_override:
-            return self.recipe.interpreters[self.recipe.global_interpreter_override]
-
-        if task.interpreter:
-            return self.recipe.interpreters[task.interpreter]
-
-        runner = self.recipe.get_runner(self._get_effective_runner_name(task))
-        if runner is not None and runner.interpreter is not None:
-            return runner.interpreter
-
-        # A Docker runner with no interpreter defaults to sh (always present in a
-        # container); host execution falls back to the session/platform default.
-        if runner is not None and isinstance(runner, ContainerisedRunner):
-            return container_default_interpreter()
-
-        return self.get_session_default_runner().interpreter or platform_default_interpreter()
+        """The Interpreter that runs a task's command (see resolve_environment)."""
+        return self.resolve_environment(task).interpreter
 
     @staticmethod
     def _interpreter_identity(interpreter: Interpreter) -> str:
@@ -546,7 +589,8 @@ class Executor:
             )
 
         # Compute hashes (include effective environment and dependencies)
-        effective_env = self._get_effective_runner_name(task)
+        resolved = self.resolve_environment(task)
+        effective_env = resolved.runner_name
         task_hash = hash_task(
             task.cmd,
             task.outputs,
@@ -554,7 +598,7 @@ class Executor:
             task.args,
             effective_env,
             task.deps,
-            self._interpreter_identity(self._resolve_interpreter(task)),
+            self._interpreter_identity(resolved.interpreter),
         )
         self.logger.trace(f"Task hash for '{task.name}': {task_hash}")
         args_hash = hash_args(args_dict) if args_dict else None
@@ -871,11 +915,12 @@ class Executor:
             ExecutionError: If task requires incompatible Docker runner
 
         """
-        task_runner_name = self._get_effective_runner_name(task)
+        resolved = self.resolve_environment(task)
+        task_runner_name = resolved.runner_name
 
         # Task specifies a runner - check if it's compatible
         if task_runner_name and task_runner_name != current_containerized_runner:
-            task_runner = self.recipe.get_runner(task_runner_name)
+            task_runner = resolved.runner
 
             # REFINED REJECTION LOGIC:
             # Only reject if:
@@ -1019,18 +1064,17 @@ class Executor:
             task.cmd, builtin_vars, regular_args, exported_args, task.name
         )
 
-        # Resolve interpreter early so the shebang check can compare against it.
-        interpreter = self._resolve_interpreter(task)
+        # Resolve the execution environment (runner + interpreter) once; the
+        # shebang check compares against the interpreter and routing follows
+        # the resolved runner (host-bypass included).
+        resolved = self.resolve_environment(task)
+        interpreter = resolved.interpreter
 
         # Warn if the user wrote a shebang in cmd: it has no effect because the
         # interpreter is always invoked explicitly, not by running the script directly.
         self._warn_if_cmd_has_shebang(cmd, interpreter)
 
-        # Check if task uses Docker environment
-        env_name = self._get_effective_runner_name(task)
-        env = None
-        if env_name:
-            env = self.recipe.get_runner(env_name)
+        env = resolved.runner
 
         # Execute command
         self.logger.log(LogLevel.INFO, f"Running: {task.name}")
@@ -1801,8 +1845,7 @@ class Executor:
         )
         if already_in_container:
             return None
-        env_name = self._get_effective_runner_name(task)
-        env = self.recipe.get_runner(env_name) if env_name else None
+        env = self.resolve_environment(task).runner
         if env and isinstance(env, ContainerisedRunner):
             working_dir = self.recipe.project_root / task.working_dir
             builtin_vars = self._collect_builtin_variables(
@@ -1889,15 +1932,15 @@ class Executor:
     def _cache_key(self, task: Task, args_dict: dict[str, Any]) -> str:
         """
         """
-        effective_env = self._get_effective_runner_name(task)
+        resolved = self.resolve_environment(task)
         task_hash = hash_task(
             task.cmd,
             task.outputs,
             task.working_dir,
             task.args,
-            effective_env,
+            resolved.runner_name,
             task.deps,
-            self._interpreter_identity(self._resolve_interpreter(task)),
+            self._interpreter_identity(resolved.interpreter),
         )
         args_hash = hash_args(args_dict) if args_dict else None
         return make_cache_key(task_hash, args_hash)
