@@ -527,6 +527,36 @@ tasks:
     cmd: print("hi")
 ```
 
+**Default interpreter.** Like runners, the `interpreters:` section accepts a `default` key naming the interpreter to use wherever one is needed but not specified — it replaces the platform default (and the `sh` fallback inside a container whose runner declares no interpreter of its own):
+
+```yaml
+interpreters:
+  default: py
+  py:
+    cmd: python3
+    ext: .py
+```
+
+**Inline definitions on tasks.** A task's `runner` and `interpreter` fields also accept full inline definitions, not just names:
+
+```yaml
+tasks:
+  build:
+    runner:                       # inline runner definition
+      type: containerised
+      engine: docker
+      dockerfile: Dockerfile
+    cmd: make
+
+  generate:
+    interpreter:                  # inline interpreter definition
+      cmd: python3
+      ext: .py
+    cmd: print("hi")
+```
+
+**Interpreter + implied runner.** If a task sets its own `interpreter` and its runner is only *implied* (the recipe's `default` runner or the session default — not `runner:` on the task, not `--runner` on the CLI), a containerised implied runner is bypassed: the task runs on the host with that interpreter. If the task names a `runner` explicitly as well, the task's interpreter overrides the runner's configured interpreter and the task still runs in that runner.
+
 TaskTree writes the task `cmd` to a temporary script file and executes `interpreter_cmd + [script_path]`. No shebang is needed — the interpreter is specified explicitly. This works for any language on any platform.
 
 > **Note:** Do not add a shebang line (e.g. `#!/bin/bash`) to your `cmd` content. Because the interpreter is passed explicitly in the subprocess call, a shebang in `cmd` is silently ignored — it is treated as a comment by most shells or as plain text by other interpreters.
@@ -539,6 +569,14 @@ TaskTree writes the task `cmd` to a temporary script file and executes `interpre
 5. User config (`~/.config/tasktree/config.yml`)
 6. Machine config (`/etc/tasktree/config.yml`)
 7. Platform default (bash on Unix, cmd on Windows)
+
+**Interpreter resolution priority:**
+1. CLI override: `tt --interpreter py build`
+2. Task's `interpreter` field (name, inline definition, or `{use: name}`)
+3. The effective runner's `interpreter`
+4. Recipe's default interpreter (`interpreters: default:`)
+5. `sh`, for a containerised runner with no interpreter of its own
+6. Session/platform default interpreter
 
 **Platform defaults** when no runners are configured:
 - **Unix/macOS**: bash

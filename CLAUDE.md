@@ -58,7 +58,7 @@ Your sponsor is not made of money! Try to minimise token useage, so that we can 
 
 - **`src/tasktree/parser.py`** (~3,540 lines): YAML recipe parsing, task and runner definitions (the Runner class hierarchy and `runner_from_config` factory), circular import detection, schema validation
 - **`src/tasktree/executor.py`** (~1,940 lines): Task execution logic, incremental execution engine, state tracking, built-in variables, subprocess management
-- **`src/tasktree/cli.py`** (~215 lines): Typer-based CLI with commands: `--list`, `--show`, `--tree`, `--force`, `--only`, `--dry-run`, `--verbose`
+- **`src/tasktree/cli.py`** (~215 lines): Typer-based CLI with options: `--list`, `--show`, `--tree`, `--force`, `--only`, `--runner`, `--interpreter`, `--log-level`, `--task-output`
 - **`src/tasktree/graph.py`** (~665 lines): Dependency resolution using graphlib.TopologicalSorter, parameterized dependencies, cycle detection
 - **`src/tasktree/docker.py`** (~490 lines): Docker image building and container execution, user mapping, volume mounts, build args
 - **`src/tasktree/substitution.py`** (~510 lines): Template variable substitution engine supporting multiple prefixes (var, arg, env, tt, dep, self)
@@ -136,7 +136,8 @@ tasks:
       - pattern1  # Anonymous glob patterns
       - name: path-or-pattern  # Named outputs for reference
     working_dir: execution-directory
-    runner: runner-name  # Reference to runner definition
+    runner: runner-name  # Reference to runner definition, or a full inline runner definition
+    interpreter: name  # Interpreter override: a name from 'interpreters', an inline {cmd, ext?, preamble?} definition, or {use: name}
     args:
       - name: arg-name
         type: str|int|float|bool|path|datetime|hostname|email|ip|ipv4|ipv6
@@ -177,6 +178,7 @@ runners:
       ENV_VAR: value
 
 interpreters:
+  default: py  # Declare the default interpreter by name (optional); replaces the platform default (and container sh fallback) wherever no interpreter is specified
   py:  # Named interpreter, referenced via { use: py }
     cmd: python3
     ext: .py
@@ -309,9 +311,11 @@ tasks:
 1. CLI `--runner` flag (overrides everything, including pinned runners)
 2. Pinned task runner (`pin_runner: true` with `runner`)
 3. Import-level blanket runner (`imports[].run_in`)
-4. Task-level `runner` (unpinned)
-5. Default runner (`default: true` in runner definition)
+4. Task-level `runner` (unpinned; may be a name or an inline definition)
+5. Default runner (`runners: default: <name>`)
 6. Session default runner
+
+**Interpreter precedence** (highest to lowest): CLI `--interpreter` > task `interpreter` > effective runner's `interpreter` > `interpreters: default:` > container `sh` fallback > session/platform default. A task-level `interpreter` under a merely *implied* containerised runner (tier 5/6 above) bypasses the container: the task runs on the host with that interpreter. Runner + interpreter resolution happens once, before task hashing (`Executor.resolve_environment`), so freshness checks, state tracking and execution always agree.
 
 **Validation Rules**:
 - Runner names cannot contain dots (reserved for namespacing)
