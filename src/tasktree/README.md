@@ -582,6 +582,39 @@ TaskTree writes the task `cmd` to a temporary script file and executes `interpre
 - **Unix/macOS**: bash
 - **Windows**: cmd
 
+### Nix Runners (flake devShells)
+
+A `type: nix` runner executes tasks inside the environment of a [Nix flake](https://nixos.org/manual/nix/stable/command-ref/new-cli/nix3-flake.html) devShell. The devShell provides a pinned, reproducible toolchain; the task itself runs as a normal host process with that toolchain merged into its environment:
+
+```yaml
+runners:
+  nix:
+    type: nix
+    flake: .            # flakeref (local path); required
+    devshell: default   # devShells.<system>.<devshell>; optional, default "default"
+
+tasks:
+  build:
+    runner: nix
+    cmd: cargo build    # cargo comes from the flake's devShell, not the host
+```
+
+**Nix is an environment provider, not a sandbox.** Unlike a Docker runner, a Nix runner gives **no** process, network, or filesystem isolation — by design. The task runs in the host process tree with the host environment inherited; the devShell's variables are layered on top, and the devShell's `PATH` entries are prepended to the host `PATH` (so the pinned tools shadow host equivalents, while host tools — including `tt` itself, for nested invocations — stay reachable).
+
+**Behaviour:**
+
+- The devShell is resolved with `nix print-dev-env`; `flake.lock` is honoured and **never rewritten**.
+- The default interpreter for a Nix runner is `bash` (devShells assume a bash-like environment); override it with the runner's `interpreter` field as usual.
+- Changing the flake, the devshell attribute, or the runner kind invalidates cached task results, so affected tasks re-run.
+
+**Prerequisites:** `nix` must be installed with the `nix-command` and `flakes` features usable (any recent [Determinate Nix](https://install.determinate.systems) has them out of the box; stock Nix needs `experimental-features = nix-command flakes` in `nix.conf`). If either is missing, the task fails immediately with instructions.
+
+**Current limitations:**
+
+- `flake` must be a **local path** (`.`, `./sub`, `path:./sub`). Remote flakerefs (`github:…`, `git+…`, registry names) are planned but not yet supported.
+- The devShell's `shellHook` is **not yet honoured** — environment changes made by the hook do not reach tasks yet (planned).
+- The realised environment is not yet cached by tt; each task run invokes `nix print-dev-env` (Nix's own evaluation cache makes repeat calls fast).
+
 ### Configuration Files
 
 Default runner settings can be configured outside of task files using configuration files at three levels:
