@@ -105,7 +105,8 @@ mid-implementation; if one proves untenable, stop and raise it.
   at the end. The branch is mergeable after slice 7 (double validation — schema
   plus not-yet-retired manual checks — is fine); slice 8 can trail.
 - **Local commits:** per `CLAUDE.md`, Claude working locally never commits —
-  each increment stops for user review and commit.
+  each increment passes the reference gate (§4) and then stops for user
+  review and commit.
 
 ## 4. Reference arbiter
 
@@ -114,11 +115,36 @@ worktree exists at `~/repos/tasktree-ref` pinned to tag `v1.3.2`
 (commit `36de66d`, detached). `uv run tt …` there gives reference behaviour;
 the source is readable and debuggable for "why does it do that" questions.
 
-**Process rule:** when a behavioural divergence is discovered and *no existing
-test pins it down*, reproduce it against the reference, write a
-characterization test capturing the **old** behaviour, then consciously decide
-keep-or-change. Never point both versions at the same project directory — they
-fight over `.tasktree-state`, and the hash format differs after slice 7.
+**The reference gates every increment — it is not only for disputes.** Before
+declaring any change ready for review and commit:
+
+1. Run the affected tests in the dev tree as usual.
+2. Run every new or materially changed **behaviour-level** test against the
+   reference: copy the test file(s) into the reference worktree, run just
+   those tests there (`uv run --extra dev python -m pytest <files>`), then
+   restore the worktree to pristine (`git checkout -- . && git clean -fd` in
+   `~/repos/tasktree-ref`). Behaviour-level means integration/e2e tests and
+   any unit test of pre-existing behaviour. Only tests of genuinely new
+   internals with no v1.3.2 counterpart (e.g. the walker's own unit tests)
+   are exempt — anything a user could observe through `tt` is never "new
+   internals".
+3. Record the verdict:
+   - Reference **passes** → parity confirmed for that behaviour; proceed.
+   - Reference **fails** → the test encodes a divergence. It must correspond
+     to an entry in the expected-divergences list below (if it is a
+     newly-intended divergence, add it to the list in the same increment).
+     Otherwise **stop**: reproduce against the reference, write a
+     characterization test capturing the **old** behaviour, and make a
+     conscious keep-or-change decision before anything is committed.
+
+The point is that parity evidence is collected continuously, increment by
+increment — by the time the branch merges, every behaviour-level test in the
+suite has a recorded verdict against v1.3.2, rather than the reference having
+been consulted only when something felt dicey.
+
+Never point both versions at the same project directory — they fight over
+`.tasktree-state`, and the hash format differs after slice 7. Run comparisons
+in separate copies of a fixture directory.
 
 **Expected divergences** (intended, not regressions — grow this list as slices
 land):
