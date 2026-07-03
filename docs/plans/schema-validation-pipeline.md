@@ -1,6 +1,8 @@
 # Implementation plan: runtime schema validation pipeline
 
-> **Status:** not started. **Tracking issue:** [#43](https://github.com/kevinchannon/tasktree/issues/43).
+> **Status:** in progress — slices 0–3 done (see per-slice notes), next is
+> slice 4. Branch `schema-validation-pipeline`, pushed to origin.
+> **Tracking issue:** [#43](https://github.com/kevinchannon/tasktree/issues/43).
 > This document is self-contained: it is written so a fresh contributor (human or
 > Claude) can implement the feature without the conversation that produced it.
 > Read `CLAUDE.md` first — its development philosophy (small incremental commits,
@@ -104,9 +106,13 @@ mid-implementation; if one proves untenable, stop and raise it.
 - **Branching:** all slices land on **one feature branch**, merged to `main`
   at the end. The branch is mergeable after slice 7 (double validation — schema
   plus not-yet-retired manual checks — is fine); slice 8 can trail.
-- **Local commits:** per `CLAUDE.md`, Claude working locally never commits —
-  each increment passes the reference gate (§4) and then stops for user
-  review and commit.
+- **Local commits:** Kevin has granted per-increment local commits for this
+  work (supersedes `CLAUDE.md`'s never-commit rule); pushing still needs his
+  explicit go-ahead.
+- **Test bar before a push / slice completion:** all three suites — unit,
+  integration, **and e2e** — must pass, not just the affected tests
+  (Kevin's requirement, 2026-07-03). Per-increment runs of the affected
+  tests remain the working rhythm; the full pyramid gates the push.
 
 ## 4. Reference arbiter
 
@@ -145,6 +151,23 @@ been consulted only when something felt dicey.
 Never point both versions at the same project directory — they fight over
 `.tasktree-state`, and the hash format differs after slice 7. Run comparisons
 in separate copies of a fixture directory.
+
+**Gate practicalities learned in slices 2–3:**
+
+- Write behaviour tests destined for the gate in **self-contained files**
+  (importing only v1.3.2-era symbols like `parse_recipe`), so a single file
+  copies cleanly into the reference worktree. Tests of new internals can't
+  even import there — keep them in separate files/classes.
+- Make gate recipes **valid apart from the behaviour under test**, or the
+  reference fails for the wrong reason and the verdict is contaminated.
+  Concretely: v1.3.2 validates `dockerfile:`/`context:` paths on disk at
+  parse time, so a gate fixture must create a real `docker/Dockerfile`; and
+  a template in the `dockerfile:` field itself never parsed in v1.3.2 (path
+  check), so templates under test belong in non-path-validated fields
+  (volumes, env_vars, ports…). The clean divergence signature for a
+  new-rejection test is exactly `AssertionError: ValueError not raised`.
+- Restore with `git checkout -- . && git clean -fd` in `~/repos/tasktree-ref`
+  and confirm `git status --porcelain` is empty before recording verdicts.
 
 **Expected divergences** (intended, not regressions — grow this list as slices
 land):
@@ -248,6 +271,35 @@ is retained). Namespacing, `run_in`, and pin rewrites become dict transforms.
 Build the new path additively alongside the old one and cut over one section at
 a time — runners first (most isolated) — deleting the old path when nothing
 uses it.
+
+**Handoff notes from the slice 2–3 session** (parser entry points verified
+2026-07-03; find by name, line numbers drift):
+
+- Runner construction is already well funnelled: the `runners:` section goes
+  `_parse_runners_from_data` → `build_recipe_runner` → `runner_from_config`,
+  and task-inline runners go `_materialise_inline_definitions` (registers
+  them as `<task>.__inline__`) → `build_recipe_runner`. `build_recipe_runner`
+  takes the **raw config dict**, which is what makes it the natural cutover
+  seam for the runners-first migration.
+- Interpreters likewise: `_parse_interpreters_section` and
+  `parse_interpreter_spec` both bottom out in `_parse_inline_interpreter`
+  (all in `parser.py`).
+- Slice 3's `check_runner_template_refs` (parser.py) runs at the top of
+  `build_recipe_runner` and `_parse_inline_interpreter` — the new merge path
+  must keep calling it on raw definitions.
+- The slice-2 walker lives in `src/tasktree/template_refs.py`
+  (`collect_template_refs`, `expand_variable_refs`, `TEMPLATE_PREFIXES`).
+  Slice 5 will use it to replace the Task-object-based
+  `collect_reachable_tasks`/`collect_reachable_variables` (parser.py) —
+  the latter's enumerated field list is exactly what the walker obsoletes.
+- Not yet surveyed: the import-merge core itself (`_parse_file` /
+  `_parse_file_with_env`, namespacing, `run_in`, pin rewrites). Start slice 4
+  by reading those before writing anything.
+- Don't forget the third runner kind: `NixRunner` (`type: nix`) exists in
+  v1.3.2 and on this branch — `runner_from_config` has a `nix` branch
+  (`nix_runner_from_config`), and `build_recipe_runner` validates flake
+  paths on disk. The merge phase must carry it along like the other kinds
+  (the §1/§2 prose predates it and only discusses host/containerised).
 
 ### Slice 5 — reachability + pruning over raw dicts
 Reimplement reachability over the merged dict (today `collect_reachable_tasks`
