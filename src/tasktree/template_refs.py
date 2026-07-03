@@ -69,7 +69,12 @@ def expand_variable_refs(
         if name in chased:
             continue
         chased.add(name)
-        definition_refs = collect_template_refs(raw_variables.get(name))
+        definition = raw_variables.get(name)
+        definition_refs = collect_template_refs(definition)
+        # The { env: NAME } definition form names its env var as a bare
+        # string, not a {{ env.NAME }} template, so the walker cannot see it.
+        if isinstance(definition, dict) and isinstance(definition.get("env"), str):
+            definition_refs["env"].add(definition["env"])
         for prefix in TEMPLATE_PREFIXES:
             expanded[prefix] |= definition_refs[prefix]
         pending.extend(definition_refs["var"])

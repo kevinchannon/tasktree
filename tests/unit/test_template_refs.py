@@ -137,6 +137,41 @@ class TestExpandVariableRefs(unittest.TestCase):
         expanded = expand_variable_refs(refs, variables)
         self.assertEqual(expanded["var"], {"a"})
 
+    def test_env_form_definition_adds_env_ref(self):
+        refs = collect_template_refs("{{ var.a }}")
+        variables = {"a": {"env": "BUILD_ENV", "default": "dev"}}
+        expanded = expand_variable_refs(refs, variables)
+        self.assertEqual(expanded["env"], {"BUILD_ENV"})
+
+    def test_env_form_default_is_walked_for_templates(self):
+        refs = collect_template_refs("{{ var.a }}")
+        variables = {"a": {"env": "MODE", "default": "{{ var.fallback }}"}, "fallback": "x"}
+        expanded = expand_variable_refs(refs, variables)
+        self.assertEqual(expanded["var"], {"a", "fallback"})
+
+    def test_eval_form_command_is_walked_for_templates(self):
+        refs = collect_template_refs("{{ var.a }}")
+        variables = {"a": {"eval": "git -C {{ tt.project_root }} rev-parse HEAD"}}
+        expanded = expand_variable_refs(refs, variables)
+        self.assertEqual(expanded["tt"], {"project_root"})
+
+    def test_read_form_path_is_walked_for_templates(self):
+        refs = collect_template_refs("{{ var.a }}")
+        variables = {"a": {"read": "{{ env.CONFIG_DIR }}/version.txt"}}
+        expanded = expand_variable_refs(refs, variables)
+        self.assertEqual(expanded["env"], {"CONFIG_DIR"})
+
+    def test_cyclic_definitions_terminate(self):
+        refs = collect_template_refs("{{ var.a }}")
+        variables = {"a": "{{ var.b }}", "b": "{{ var.a }}"}
+        expanded = expand_variable_refs(refs, variables)
+        self.assertEqual(expanded["var"], {"a", "b"})
+
+    def test_self_referencing_definition_terminates(self):
+        refs = collect_template_refs("{{ var.a }}")
+        expanded = expand_variable_refs(refs, {"a": "{{ var.a }}"})
+        self.assertEqual(expanded["var"], {"a"})
+
     def test_input_refs_are_not_mutated(self):
         refs = collect_template_refs("{{ var.a }}")
         expand_variable_refs(refs, {"a": "{{ var.b }}"})
