@@ -17,8 +17,6 @@ if TYPE_CHECKING:
     from tasktree.parser import NixRunner
     from tasktree.process_runner import ProcessRunner
 
-REQUIRED_EXPERIMENTAL_FEATURES = frozenset({"nix-command", "flakes"})
-
 _ENABLE_FEATURES_HINT = (
     "Enable them by adding this line to ~/.config/nix/nix.conf "
     "(or /etc/nix/nix.conf):\n"
@@ -134,25 +132,26 @@ class NixManager:
                 "Visit https://nixos.org/download/ for installation instructions."
             )
 
+        # Probe capabilities functionally rather than reading the
+        # experimental-features list: Determinate Nix has stabilised
+        # nix-command/flakes, so they no longer appear in that list at all.
+        # 'nix eval' itself needs nix-command; builtins.getFlake only exists
+        # when flakes are usable.
         try:
             result = subprocess.run(
-                ["nix", "config", "show", "experimental-features"],
+                ["nix", "eval", "--expr", "builtins ? getFlake"],
                 check=True,
                 capture_output=True,
                 text=True,
             )
         except subprocess.CalledProcessError:
-            # 'nix config show' is itself a new-style command, so it fails
-            # outright when nix-command is disabled.
             raise NixError(
-                "The Nix runner requires the 'nix-command' and 'flakes' "
-                f"experimental features, which are not enabled.\n{_ENABLE_FEATURES_HINT}"
+                "The Nix runner requires the 'nix-command' experimental "
+                f"feature, which is not enabled.\n{_ENABLE_FEATURES_HINT}"
             )
 
-        enabled_features = set(result.stdout.split())
-        missing_features = sorted(REQUIRED_EXPERIMENTAL_FEATURES - enabled_features)
-        if missing_features:
+        if result.stdout.strip() != "true":
             raise NixError(
-                f"The Nix runner requires the {missing_features} experimental "
-                f"feature(s), which are not enabled.\n{_ENABLE_FEATURES_HINT}"
+                "The Nix runner requires the 'flakes' experimental feature, "
+                f"which is not enabled.\n{_ENABLE_FEATURES_HINT}"
             )
