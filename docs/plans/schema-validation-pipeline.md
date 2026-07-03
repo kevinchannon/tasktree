@@ -163,19 +163,33 @@ land):
 Dependency-ordered. Each slice is a run of small, individually-reviewable
 increments (test + implementation per commit).
 
-### Slice 0 — verifications (findings only, no code)
-Confirm two assumptions empirically before building on them:
-- `rendering.py`'s Jinja engine supports every template prefix the unified
-  rendering path will need.
-- No existing recipe/fixture/test uses `arg.*`/`dep.*`/`self.*` in runner
-  fields (so slice 3's restriction breaks nothing).
+### Slice 0 — verifications (findings only, no code) ✅ done
+Both assumptions confirmed (2026-07-03):
+- **Jinja prefix coverage: yes.** `rendering.py` is namespace-agnostic — it
+  renders whatever context it is given, and the two necessary rewrites already
+  exist (`self` aliased around Jinja's reserved word; dotted `dep.` task names
+  rewritten to subscript form). `task_config.build_task_config` supplies all
+  six namespaces, with `env` defaulting to an `os.environ` snapshot.
+- **No forbidden prefixes in runner fields: confirmed.** 471
+  `arg.*`/`dep.*`/`self.*` template references exist across tests/fixtures,
+  but zero occur inside `runners:`/`interpreters:`/inline `runner:` blocks
+  (indentation-scoped scan, validated against planted positives). Slice 3's
+  restriction breaks nothing.
+- **Extra finding:** the regex runner-substitution path
+  (`executor._substitute_builtin_in_runner`) covers more fields than this plan
+  originally listed — see slice 1's expanded field list.
 
 ### Slice 1 — unify rendering onto Jinja
-Move docker runner field substitution (`volumes`, `ports`, `env_vars`,
-container `working_dir`) off the old regex path (in `executor.py`) onto
+Move runner field substitution off the old regex path
+(`executor._substitute_builtin_in_runner`, which chains
+`_substitute_builtin` for `tt.*` and `_substitute_env` for `env.*`) onto
 `rendering.py`'s Jinja engine — one field + test per commit; delete the regex
-path last. Independently valuable (fixes the `arg.*`-unsupported inconsistency
-for task-level fields) and a prerequisite for one-mechanism rendering.
+helpers last. The full field list (wider than first assumed): `volumes`,
+`ports`, `env_vars`, runner `working_dir`, `dockerfile`, `context`, docker
+build/run `args`, and the runner's interpreter `cmd`/`preamble`. The Jinja
+context for runner fields carries only `env` and `tt` (`var.*` was already
+folded in at parse time; `arg.*`/`dep.*`/`self.*` are forbidden per decision
+4). Independently valuable and a prerequisite for one-mechanism rendering.
 
 ### Slice 2 — the reference walker
 Build `collect_template_refs` (decision 6) plus the variable-definition
