@@ -43,6 +43,39 @@ def collect_template_refs(node: Any) -> dict[str, set[str]]:
     return refs
 
 
+def expand_variable_refs(
+    refs: dict[str, set[str]], raw_variables: dict[str, Any]
+) -> dict[str, set[str]]:
+    """
+    Expand collected refs with the transitive closure over variable definitions.
+
+    A referenced variable's definition may itself reference other variables
+    (``var.a: "{{ var.b }}"``), so consumers that need *everything* a subtree
+    depends on must chase definitions to a fixpoint. Names with no definition
+    in raw_variables are kept but not chased — discovery is not validation.
+
+    Args:
+    refs: Mapping as returned by collect_template_refs
+    raw_variables: The recipe's raw ``variables`` section
+
+    Returns:
+    A new mapping of the same shape, a superset of refs.
+    """
+    expanded = {prefix: set(refs.get(prefix, ())) for prefix in TEMPLATE_PREFIXES}
+    pending = list(expanded["var"])
+    chased: set[str] = set()
+    while pending:
+        name = pending.pop()
+        if name in chased:
+            continue
+        chased.add(name)
+        definition_refs = collect_template_refs(raw_variables.get(name))
+        for prefix in TEMPLATE_PREFIXES:
+            expanded[prefix] |= definition_refs[prefix]
+        pending.extend(definition_refs["var"])
+    return expanded
+
+
 def _walk(node: Any, refs: dict[str, set[str]]) -> None:
     if isinstance(node, str):
         _extract_from_string(node, refs)

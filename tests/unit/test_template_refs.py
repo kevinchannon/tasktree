@@ -2,7 +2,11 @@
 
 import unittest
 
-from tasktree.template_refs import TEMPLATE_PREFIXES, collect_template_refs
+from tasktree.template_refs import (
+    TEMPLATE_PREFIXES,
+    collect_template_refs,
+    expand_variable_refs,
+)
 
 
 class TestCollectFromStrings(unittest.TestCase):
@@ -96,6 +100,47 @@ class TestCollectFromSubtrees(unittest.TestCase):
         for node in ({}, []):
             refs = collect_template_refs(node)
             self.assertEqual(refs["var"], set(), f"unexpected refs for {node!r}")
+
+
+class TestExpandVariableRefs(unittest.TestCase):
+    def test_no_variables_referenced_returns_same_refs(self):
+        refs = collect_template_refs("echo {{ env.HOME }}")
+        expanded = expand_variable_refs(refs, {"unused": "value"})
+        self.assertEqual(expanded, refs)
+
+    def test_definition_referencing_another_variable(self):
+        refs = collect_template_refs("echo {{ var.greeting }}")
+        variables = {"greeting": "{{ var.salutation }} world", "salutation": "hello"}
+        expanded = expand_variable_refs(refs, variables)
+        self.assertEqual(expanded["var"], {"greeting", "salutation"})
+
+    def test_chain_of_definitions_reaches_fixpoint(self):
+        refs = collect_template_refs("{{ var.a }}")
+        variables = {"a": "{{ var.b }}", "b": "{{ var.c }}", "c": "leaf"}
+        expanded = expand_variable_refs(refs, variables)
+        self.assertEqual(expanded["var"], {"a", "b", "c"})
+
+    def test_definition_referencing_env_var(self):
+        refs = collect_template_refs("{{ var.a }}")
+        variables = {"a": "{{ env.BUILD_NUMBER }}"}
+        expanded = expand_variable_refs(refs, variables)
+        self.assertEqual(expanded["env"], {"BUILD_NUMBER"})
+
+    def test_undefined_variable_is_kept_but_not_chased(self):
+        refs = collect_template_refs("{{ var.missing }}")
+        expanded = expand_variable_refs(refs, {})
+        self.assertEqual(expanded["var"], {"missing"})
+
+    def test_unreferenced_definitions_are_not_chased(self):
+        refs = collect_template_refs("{{ var.a }}")
+        variables = {"a": "leaf", "other": "{{ var.b }}"}
+        expanded = expand_variable_refs(refs, variables)
+        self.assertEqual(expanded["var"], {"a"})
+
+    def test_input_refs_are_not_mutated(self):
+        refs = collect_template_refs("{{ var.a }}")
+        expand_variable_refs(refs, {"a": "{{ var.b }}"})
+        self.assertEqual(refs["var"], {"a"})
 
 
 if __name__ == "__main__":
