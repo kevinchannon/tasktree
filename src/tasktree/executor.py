@@ -1325,12 +1325,9 @@ class Executor:
             else {}
         )
 
-        # Substitute in ports (builtin vars first, then env vars)
+        # Substitute in ports
         substituted_ports = (
-            [
-                self._substitute_env(self._substitute_builtin(port, builtin_vars))
-                for port in env.ports
-            ]
+            [self._render_runner_field(port, builtin_vars) for port in env.ports]
             if env.ports
             else []
         )

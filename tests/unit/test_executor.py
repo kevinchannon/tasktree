@@ -2595,6 +2595,83 @@ class TestExecutorProcessRunner(unittest.TestCase):
             with self.assertRaises(ValueError):
                 executor._substitute_builtin_in_runner(runner, builtin_vars)
 
+    def test_substitute_runner_fields_substitutes_ports(self):
+        """
+        Test that _substitute_builtin_in_runner substitutes env variables in ports.
+        """
+        os.environ["HOST_PORT"] = "8080"
+
+        try:
+            with TemporaryDirectory() as tmpdir:
+                project_root = Path(tmpdir)
+                state_manager = StateManager(project_root)
+
+                recipe = Recipe(
+                    tasks={},
+                    project_root=project_root,
+                    recipe_path=project_root / "tasktree.yaml",
+                )
+                executor = Executor(
+                    recipe, state_manager, logger_stub, make_process_runner
+                )
+
+                runner = DockerRunner(
+                    name="test",
+                    dockerfile="Dockerfile",
+                    context=".",
+                    ports=["{{ env.HOST_PORT }}:80", "9000:9000"],
+                )
+
+                builtin_vars = {
+                    "project_root": str(project_root),
+                    "task_name": "test",
+                }
+
+                substituted_runner = executor._substitute_builtin_in_runner(
+                    runner, builtin_vars
+                )
+
+                self.assertEqual(
+                    substituted_runner.ports, ["8080:80", "9000:9000"]
+                )
+        finally:
+            del os.environ["HOST_PORT"]
+
+    def test_substitute_runner_fields_rejects_arg_reference_in_ports(self):
+        """
+        Test that an {{ arg.* }} reference in a runner port mapping is an error.
+
+        Runners are shared across tasks, so per-task values are not available
+        in runner fields (they were previously left in place, unsubstituted).
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+
+            recipe = Recipe(
+                tasks={},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+            executor = Executor(
+                recipe, state_manager, logger_stub, make_process_runner
+            )
+
+            runner = DockerRunner(
+                name="test",
+                dockerfile="Dockerfile",
+                context=".",
+                ports=["{{ arg.port }}:80"],
+            )
+
+            builtin_vars = {
+                "project_root": str(project_root),
+                "task_name": "test",
+            }
+
+            with self.assertRaises(ValueError):
+                executor._substitute_builtin_in_runner(runner, builtin_vars)
+
 
 class TestGetSessionDefaultRunner(unittest.TestCase):
     """
