@@ -1555,27 +1555,6 @@ class Executor:
         return render(text, build_runner_config(builtins=builtin_vars))
 
     @staticmethod
-    def _substitute_builtin(text: str, builtin_vars: dict[str, str]) -> str:
-        """
-        Substitute {{ tt.name }} placeholders in text.
-
-        Built-in variables are resolved at execution time.
-
-        Args:
-        text: Text with {{ tt.name }} placeholders
-        builtin_vars: Built-in variable values
-
-        Returns:
-        Text with built-in variables substituted
-
-        Raises:
-        ValueError: If built-in variable is not defined
-        """
-        from tasktree.substitution import substitute_builtin_variables
-
-        return substitute_builtin_variables(text, builtin_vars)
-
-    @staticmethod
     def _substitute_args(
         cmd: str, args_dict: dict[str, Any], exported_args: set[str] | None = None
     ) -> str:
@@ -1599,26 +1578,6 @@ class Executor:
         from tasktree.substitution import substitute_arguments
 
         return substitute_arguments(cmd, args_dict, exported_args)
-
-    @staticmethod
-    def _substitute_env(text: str) -> str:
-        """
-        Substitute {{ env.NAME }} placeholders in text.
-
-        Environment variables are resolved at execution time from os.environ.
-
-        Args:
-        text: Text with {{ env.NAME }} placeholders
-
-        Returns:
-        Text with environment variables substituted
-
-        Raises:
-        ValueError: If environment variable is not set
-        """
-        from tasktree.substitution import substitute_environment
-
-        return substitute_environment(text)
 
     def _get_all_inputs(self, task: Task, args_dict: dict[str, Any] | None = None) -> list[str]:
         """
