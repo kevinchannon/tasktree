@@ -181,7 +181,13 @@ Both assumptions confirmed (2026-07-03):
   (`executor._substitute_builtin_in_runner`) covers more fields than this plan
   originally listed — see slice 1's expanded field list.
 
-### Slice 1 — unify rendering onto Jinja
+### Slice 1 — unify rendering onto Jinja ✅ done
+Completed 2026-07-03: all runner/interpreter fields render through
+`Executor._render_runner_field` (Jinja with the env+tt `build_runner_config`
+context); the executor's regex wrappers are deleted. Every field has parity
+coverage and an `arg.*`-rejection test; reference-gate verdicts recorded per
+increment. Original scope follows.
+
 Move runner field substitution off the old regex path
 (`executor._substitute_builtin_in_runner`, which chains
 `_substitute_builtin` for `tt.*` and `_substitute_env` for `env.*`) onto
