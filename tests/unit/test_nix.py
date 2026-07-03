@@ -3,12 +3,13 @@ Tests for the Nix integration module.
 """
 
 import json
+import os
 import subprocess
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from tasktree.nix import NixError, NixManager
+from tasktree.nix import NixError, NixManager, merge_devshell_path
 from tasktree.parser import NixRunner
 
 
@@ -145,6 +146,33 @@ class TestRealiseEnv(unittest.TestCase):
         with self.assertRaises(NixError) as ctx:
             self.manager.realise_env(self.runner, self.process_runner)
         self.assertIn("invalid JSON", str(ctx.exception))
+
+
+class TestMergeDevshellPath(unittest.TestCase):
+    """
+    Tests for merge_devshell_path: the devShell PATH must shadow, not replace,
+    the host PATH so host tools (tt itself) stay reachable.
+    """
+
+    def test_host_path_appended_to_devshell_path(self):
+        merged = merge_devshell_path(
+            {"PATH": "/nix/store/abc/bin", "FOO": "bar"}, "/usr/bin:/bin"
+        )
+        self.assertEqual(merged["PATH"], f"/nix/store/abc/bin{os.pathsep}/usr/bin:/bin")
+        self.assertEqual(merged["FOO"], "bar")
+
+    def test_no_host_path_leaves_devshell_path_alone(self):
+        merged = merge_devshell_path({"PATH": "/nix/store/abc/bin"}, None)
+        self.assertEqual(merged["PATH"], "/nix/store/abc/bin")
+
+    def test_devshell_without_path_is_unchanged(self):
+        merged = merge_devshell_path({"FOO": "bar"}, "/usr/bin")
+        self.assertEqual(merged, {"FOO": "bar"})
+
+    def test_input_dict_is_not_mutated(self):
+        devshell_env = {"PATH": "/nix/store/abc/bin"}
+        merge_devshell_path(devshell_env, "/usr/bin")
+        self.assertEqual(devshell_env["PATH"], "/nix/store/abc/bin")
 
 
 if __name__ == "__main__":

@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch, call
 from helpers.logging import logger_stub
 from tasktree.executor import Executor
 from tasktree.interpreter import Interpreter
-from tasktree.parser import DockerRunner, HostRunner, Recipe, Runner, Task, parse_recipe
+from tasktree.parser import DockerRunner, HostRunner, NixRunner, Recipe, Runner, Task, parse_recipe
 from tasktree.process_runner import ProcessRunner, TaskOutputTypes, make_process_runner
 from tasktree.state import StateManager, TaskState
 
@@ -519,6 +519,15 @@ class TestResolveInterpreter(unittest.TestCase):
         ex = self._make_executor(runners={"r": runner}, default_runner="r")
         task = Task(name="t", cmd="echo")
         self.assertEqual(ex._resolve_interpreter(task), container_default_interpreter())
+
+    def test_nix_runner_without_interpreter_defaults_to_bash(self):
+        from tasktree.parser import nix_default_interpreter
+
+        runner = NixRunner(name="r", flake=".")  # nix, no interpreter
+        ex = self._make_executor(runners={"r": runner}, default_runner="r")
+        task = Task(name="t", cmd="echo")
+        self.assertEqual(ex._resolve_interpreter(task), nix_default_interpreter())
+        self.assertEqual(ex._resolve_interpreter(task).cmd, "bash")
 
 
 class TestResolveEnvironment(unittest.TestCase):
@@ -1672,6 +1681,73 @@ echo "line3" >> output.txt"""
             self.assertIn("line1", content)
             self.assertIn("line2", content)
             self.assertIn("line3", content)
+
+
+class TestNixTaskExecution(unittest.TestCase):
+    """
+    Test that a task on a Nix runner gets the realised devShell environment
+    merged into its process environment (host execution path).
+    """
+
+    @unittest.skipIf(platform.system() == "Windows", "Nix has no Windows support")
+    @patch("tasktree.nix.NixManager.realise_env")
+    def test_devshell_env_reaches_task(self, mock_realise):
+        mock_realise.return_value = {
+            "TT_NIX_FIXTURE_VAR": "from-the-flake",
+            "PATH": "/nix/store/fake/bin",
+        }
+
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            runner = NixRunner(name="nix", flake=".")
+            tasks = {
+                "probe": Task(
+                    name="probe",
+                    cmd='echo "$TT_NIX_FIXTURE_VAR" > probe.txt; echo "$PATH" >> probe.txt',
+                    runner="nix",
+                )
+            }
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+                runners={"nix": runner},
+            )
+            executor = Executor(
+                recipe, StateManager(project_root), logger_stub, make_process_runner
+            )
+
+            executor.execute_task("probe", TaskOutputTypes.ALL)
+
+            fixture_var, child_path = (
+                (project_root / "probe.txt").read_text().splitlines()
+            )
+            self.assertEqual(fixture_var, "from-the-flake")
+            # devShell PATH entries first, host PATH still reachable (nested
+            # tt calls must keep working under a Nix runner)
+            self.assertTrue(child_path.startswith("/nix/store/fake/bin"))
+            self.assertIn(os.environ["PATH"], child_path)
+            mock_realise.assert_called_once()
+
+    @unittest.skipIf(platform.system() == "Windows", "Nix has no Windows support")
+    @patch("tasktree.nix.NixManager.realise_env")
+    def test_host_runner_does_not_realise_nix_env(self, mock_realise):
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            tasks = {"plain": Task(name="plain", cmd="echo ok > ok.txt")}
+            recipe = Recipe(
+                tasks=tasks,
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+            executor = Executor(
+                recipe, StateManager(project_root), logger_stub, make_process_runner
+            )
+
+            executor.execute_task("plain", TaskOutputTypes.ALL)
+
+            self.assertTrue((project_root / "ok.txt").exists())
+            mock_realise.assert_not_called()
 
 
 class TestRunnerResolution(unittest.TestCase):

@@ -60,6 +60,15 @@ def container_default_interpreter() -> Interpreter:
     return Interpreter(cmd="sh")
 
 
+def nix_default_interpreter() -> Interpreter:
+    """The interpreter used by a Nix runner that declares no interpreter.
+
+    devShells conventionally assume a bash-like environment, so Nix runners
+    default to ``bash`` regardless of platform.
+    """
+    return Interpreter(cmd="bash")
+
+
 @dataclass
 class DockerArgs:
     """

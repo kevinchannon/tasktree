@@ -8,6 +8,7 @@ devShell's environment merged in.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -30,6 +31,22 @@ class NixError(Exception):
     """
 
     pass
+
+
+def merge_devshell_path(
+    devshell_env: dict[str, str], host_path: str | None
+) -> dict[str, str]:
+    """
+    Return the devShell environment with the host PATH appended to the
+    devShell's own. The devShell PATH contains only nix-store entries, so
+    replacing the host PATH outright would make host tools - including tt
+    itself, which nested tasks invoke - unreachable. devShell entries come
+    first so its pinned toolchain shadows any host equivalents.
+    """
+    merged = dict(devshell_env)
+    if host_path and merged.get("PATH"):
+        merged["PATH"] = merged["PATH"] + os.pathsep + host_path
+    return merged
 
 
 def _exported_variables(print_dev_env_payload: dict) -> dict[str, str]:

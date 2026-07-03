@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from tasktree import docker as docker_module
+from tasktree import nix as nix_module
 from tasktree.config import ConfigError
 from tasktree.freshness import FreshnessProbe, HostProbe, RunnerProbe
 from tasktree.graph import (
@@ -25,7 +26,7 @@ from tasktree.graph import (
 )
 from tasktree.hasher import hash_args, hash_task, make_cache_key
 from tasktree.logging import Logger, LogLevel
-from tasktree.parser import DockerArgs, Recipe, Task, Runner, HostRunner, ContainerisedRunner, platform_default_interpreter, container_default_interpreter
+from tasktree.parser import DockerArgs, Recipe, Task, Runner, HostRunner, ContainerisedRunner, NixRunner, platform_default_interpreter, container_default_interpreter, nix_default_interpreter
 from tasktree.interpreter import Interpreter
 from tasktree.process_runner import ProcessRunner, TaskOutputTypes
 from tasktree.state import StateManager, TaskState
@@ -153,6 +154,7 @@ class Executor:
         self.logger = logger
         self._process_runner_factory = process_runner_factory
         self.docker_manager = docker_module.DockerManager(recipe.project_root, logger)
+        self.nix_manager = nix_module.NixManager(recipe.project_root, logger)
 
     @staticmethod
     def _has_regular_args(task: Task) -> bool:
@@ -298,6 +300,7 @@ class Executor:
         self,
         exported_env_vars: dict[str, str] | None = None,
         call_chain: str | None = None,
+        extra_env: dict[str, str] | None = None,
     ) -> dict[str, str]:
         """
         Prepare environment with exported arguments and call chain.
@@ -305,6 +308,8 @@ class Executor:
         Args:
         exported_env_vars: Exported arguments to set as environment variables
         call_chain: TT_CALL_CHAIN value for recursion detection
+        extra_env: Runner-provided environment layered over the host
+            environment; exported args and the call chain still win
 
         Returns:
         Environment dict with exported args and call chain merged
@@ -313,6 +318,8 @@ class Executor:
         ValueError: If an exported arg attempts to override a protected environment variable
         """
         env = os.environ.copy()
+        if extra_env:
+            env.update(extra_env)
         if exported_env_vars:
             # Check for protected environment variable overrides
             for key in exported_env_vars:
@@ -539,6 +546,10 @@ class Executor:
             # A Docker runner with no interpreter defaults to sh (always
             # present in a container).
             interpreter = container_default_interpreter()
+        elif isinstance(runner, NixRunner):
+            # A Nix runner with no interpreter defaults to bash (devShells
+            # conventionally assume a bash-like environment).
+            interpreter = nix_default_interpreter()
         else:
             interpreter = session().interpreter or platform_default_interpreter()
 
@@ -1108,6 +1119,14 @@ class Executor:
             # Shell execution path - either local or inside an existing container.
             # The interpreter (and its preamble) is resolved the same way in both
             # cases; a nested-in-container task uses its runner's interpreter.
+            # A Nix runner stays on this path: it only adds the realised
+            # devShell environment, it provides no isolation.
+            extra_env = None
+            if env and isinstance(env, NixRunner):
+                devshell_env = self.nix_manager.realise_env(env, process_runner)
+                extra_env = nix_module.merge_devshell_path(
+                    devshell_env, os.environ.get("PATH")
+                )
             self._run_command_as_script(
                 cmd,
                 working_dir,
@@ -1116,6 +1135,7 @@ class Executor:
                 process_runner,
                 exported_env_vars,
                 updated_chain,
+                extra_env=extra_env,
             )
 
         # Reload state from disk to capture any updates from nested tt calls
@@ -1170,6 +1190,7 @@ class Executor:
         process_runner: ProcessRunner,
         exported_env_vars: dict[str, str] | None = None,
         call_chain: str | None = None,
+        extra_env: dict[str, str] | None = None,
     ) -> None:
         """
         Execute a command via temporary script file (unified execution path).
@@ -1190,12 +1211,14 @@ class Executor:
         process_runner: ProcessRunner instance to use for subprocess execution
         exported_env_vars: Exported arguments to set as environment variables
         call_chain: TT_CALL_CHAIN value for recursion detection
+        extra_env: Runner-provided environment (e.g. a realised Nix devShell)
+            layered between the host environment and the exported args
 
         Raises:
         ExecutionError: If command execution fails
         """
         # Prepare environment with exported args and call chain
-        env = self._prepare_env_with_exports(exported_env_vars, call_chain)
+        env = self._prepare_env_with_exports(exported_env_vars, call_chain, extra_env)
 
         # Create temporary script using context manager. The interpreter is passed
         # explicitly in the subprocess call, so no shebang is needed. The script
