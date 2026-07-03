@@ -2749,6 +2749,81 @@ class TestExecutorProcessRunner(unittest.TestCase):
             with self.assertRaises(ValueError):
                 executor._substitute_builtin_in_runner(runner, builtin_vars)
 
+    def test_substitute_runner_fields_rejects_arg_reference_in_run_args(self):
+        """
+        Test that an {{ arg.* }} reference in docker run args is an error.
+
+        Runners are shared across tasks, so per-task values are not available
+        in runner fields (they were previously left in place, unsubstituted).
+        """
+        from tasktree.parser import DockerArgs
+
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+
+            recipe = Recipe(
+                tasks={},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+            executor = Executor(
+                recipe, state_manager, logger_stub, make_process_runner
+            )
+
+            runner = DockerRunner(
+                name="test",
+                dockerfile="Dockerfile",
+                context=".",
+                args=DockerArgs(run=["--memory={{ arg.mem }}"]),
+            )
+
+            builtin_vars = {
+                "project_root": str(project_root),
+                "task_name": "test",
+            }
+
+            with self.assertRaises(ValueError):
+                executor._substitute_builtin_in_runner(runner, builtin_vars)
+
+    def test_substitute_runner_fields_rejects_arg_reference_in_preamble(self):
+        """
+        Test that an {{ arg.* }} reference in an interpreter preamble is an error.
+
+        Runners are shared across tasks, so per-task values are not available
+        in runner fields (they were previously left in place, unsubstituted).
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+
+            recipe = Recipe(
+                tasks={},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+            executor = Executor(
+                recipe, state_manager, logger_stub, make_process_runner
+            )
+
+            runner = DockerRunner(
+                name="test",
+                dockerfile="Dockerfile",
+                context=".",
+                interpreter=Interpreter(
+                    cmd="bash",
+                    preamble="export MODE={{ arg.mode }}\n",
+                ),
+            )
+
+            builtin_vars = {
+                "project_root": str(project_root),
+                "task_name": "test",
+            }
+
+            with self.assertRaises(ValueError):
+                executor._substitute_builtin_in_runner(runner, builtin_vars)
+
 
 class TestGetSessionDefaultRunner(unittest.TestCase):
     """

@@ -1340,7 +1340,7 @@ class Executor:
         )
 
         def subst(s: str) -> str:
-            return self._substitute_env(self._substitute_builtin(s, builtin_vars))
+            return self._render_runner_field(s, builtin_vars)
 
         # Substitute in docker build args
         substituted_build_args = [subst(arg) for arg in env.args.build]
