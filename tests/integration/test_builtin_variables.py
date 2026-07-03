@@ -316,11 +316,11 @@ class TestBuiltinVariables(unittest.TestCase):
             "PROJECT_PATH should contain the resolved project root",
         )
 
-        self.assertIn("TASK_NAME_VAR", env_vars, "TASK_NAME_VAR should be present")
-        self.assertEqual(
-            env_vars["TASK_NAME_VAR"],
-            "docker-test",
-            "TASK_NAME_VAR should contain the task name",
+        self.assertIn("USER_NAME_VAR", env_vars, "USER_NAME_VAR should be present")
+        self.assertNotIn(
+            "{{",
+            env_vars["USER_NAME_VAR"],
+            "USER_NAME_VAR should not contain template strings",
         )
 
     @unittest.skipIf(

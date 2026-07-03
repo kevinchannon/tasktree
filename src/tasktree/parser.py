@@ -2085,6 +2085,8 @@ def build_recipe_runner(
     and validating Dockerfile/context paths on disk (config runners defer
     path validation to execution time).
     """
+    check_runner_template_refs(config, f"Runner '{name}'")
+
     # Parse the optional interpreter (inline definition or {use: name}).
     interpreter_value = config.get("interpreter")
     runner_interpreter = (

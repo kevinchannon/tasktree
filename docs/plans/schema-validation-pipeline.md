@@ -157,6 +157,11 @@ land):
   e.g. broken mount paths). Arrives field-by-field as slice 1 migrates each
   field onto Jinja's strict renderer (generic "undefined variable" wording);
   slice 3 makes it a parse-time check with an explanatory message.
+- per-task `tt.*` builtins (`task_name`, `working_dir`, `timestamp`,
+  `timestamp_unix`) in runner or interpreter fields are rejected at parse time
+  (slice 3, decision 4; v1.3.2 rendered them per task at execution — only the
+  four global builtins `project_root`/`recipe_dir`/`user_home`/`user_name`
+  remain valid there)
 - broken-but-unreachable tasks are tolerated when invoking a specific task
   (slices 5/6; v1.3.2 errors on any parse-time-invalid task anywhere)
 
