@@ -199,7 +199,13 @@ context for runner fields carries only `env` and `tt` (`var.*` was already
 folded in at parse time; `arg.*`/`dep.*`/`self.*` are forbidden per decision
 4). Independently valuable and a prerequisite for one-mechanism rendering.
 
-### Slice 2 — the reference walker
+### Slice 2 — the reference walker ✅ done
+Completed 2026-07-03: `collect_template_refs` and `expand_variable_refs` live
+in `src/tasktree/template_refs.py` with unit tests in
+`tests/unit/test_template_refs.py`. Regex-based extraction as planned; dict
+keys are walked too (over-matching bias). Reference gate: exempt — new
+internals, no v1.3.2 counterpart. Original scope follows.
+
 Build `collect_template_refs` (decision 6) plus the variable-definition
 transitive closure. Purely additive — nothing calls it yet. Unit tests cover
 all prefixes, nested dicts/lists, Jinja expressions (`{{ var.a if flag else
