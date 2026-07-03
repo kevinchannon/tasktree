@@ -1315,10 +1315,10 @@ class Executor:
             else []
         )
 
-        # Substitute in env_vars values (builtin vars first, then env vars)
+        # Substitute in env_vars values
         substituted_env_vars = (
             {
-                key: self._substitute_env(self._substitute_builtin(value, builtin_vars))
+                key: self._render_runner_field(value, builtin_vars)
                 for key, value in env.env_vars.items()
             }
             if env.env_vars

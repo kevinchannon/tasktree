@@ -2509,6 +2509,92 @@ class TestExecutorProcessRunner(unittest.TestCase):
             with self.assertRaises(ValueError):
                 executor._substitute_builtin_in_runner(runner, builtin_vars)
 
+    def test_substitute_runner_fields_substitutes_env_vars(self):
+        """
+        Test that _substitute_builtin_in_runner substitutes builtin and env variables in env_vars values.
+        """
+        os.environ["API_TOKEN"] = "secret123"
+
+        try:
+            with TemporaryDirectory() as tmpdir:
+                project_root = Path(tmpdir)
+                state_manager = StateManager(project_root)
+
+                recipe = Recipe(
+                    tasks={},
+                    project_root=project_root,
+                    recipe_path=project_root / "tasktree.yaml",
+                )
+                executor = Executor(
+                    recipe, state_manager, logger_stub, make_process_runner
+                )
+
+                runner = DockerRunner(
+                    name="test",
+                    dockerfile="Dockerfile",
+                    context=".",
+                    env_vars={
+                        "PROJECT_DIR": "{{ tt.project_root }}",
+                        "TOKEN": "{{ env.API_TOKEN }}",
+                        "PLAIN": "unchanged",
+                    },
+                )
+
+                builtin_vars = {
+                    "project_root": str(project_root),
+                    "task_name": "test",
+                }
+
+                substituted_runner = executor._substitute_builtin_in_runner(
+                    runner, builtin_vars
+                )
+
+                self.assertEqual(
+                    substituted_runner.env_vars,
+                    {
+                        "PROJECT_DIR": str(project_root),
+                        "TOKEN": "secret123",
+                        "PLAIN": "unchanged",
+                    },
+                )
+        finally:
+            del os.environ["API_TOKEN"]
+
+    def test_substitute_runner_fields_rejects_arg_reference_in_env_vars(self):
+        """
+        Test that an {{ arg.* }} reference in a runner env_vars value is an error.
+
+        Runners are shared across tasks, so per-task values are not available
+        in runner fields (they were previously left in place, unsubstituted).
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+
+            recipe = Recipe(
+                tasks={},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+            executor = Executor(
+                recipe, state_manager, logger_stub, make_process_runner
+            )
+
+            runner = DockerRunner(
+                name="test",
+                dockerfile="Dockerfile",
+                context=".",
+                env_vars={"MODE": "{{ arg.mode }}"},
+            )
+
+            builtin_vars = {
+                "project_root": str(project_root),
+                "task_name": "test",
+            }
+
+            with self.assertRaises(ValueError):
+                executor._substitute_builtin_in_runner(runner, builtin_vars)
+
 
 class TestGetSessionDefaultRunner(unittest.TestCase):
     """
