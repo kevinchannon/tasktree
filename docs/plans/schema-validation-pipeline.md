@@ -152,9 +152,11 @@ land):
 - env-var changes trigger re-runs (slice 7; v1.3.2 never re-runs on env change)
 - validation error wording is new (slices 6/8)
 - one-time full re-run after the hash format change (slice 7)
-- `arg.*`/`dep.*`/`self.*`/per-task `tt.*` templates in runner or interpreter
-  fields are rejected with an error (slice 3; v1.3.2 silently left most of
-  these unsubstituted)
+- `arg.*`/`dep.*`/`self.*` templates in runner or interpreter fields are
+  rejected with an error (v1.3.2 silently left these unsubstituted, producing
+  e.g. broken mount paths). Arrives field-by-field as slice 1 migrates each
+  field onto Jinja's strict renderer (generic "undefined variable" wording);
+  slice 3 makes it a parse-time check with an explanatory message.
 - broken-but-unreachable tasks are tolerated when invoking a specific task
   (slices 5/6; v1.3.2 errors on any parse-time-invalid task anywhere)
 

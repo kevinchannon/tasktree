@@ -2427,6 +2427,88 @@ class TestExecutorProcessRunner(unittest.TestCase):
             del os.environ["BUILD_DIR"]
             del os.environ["CUSTOM_SHELL"]
 
+    def test_substitute_runner_fields_substitutes_volumes(self):
+        """
+        Test that _substitute_builtin_in_runner substitutes builtin and env variables in volumes.
+        """
+        os.environ["VOLUME_SRC"] = "/host/src"
+
+        try:
+            with TemporaryDirectory() as tmpdir:
+                project_root = Path(tmpdir)
+                state_manager = StateManager(project_root)
+
+                recipe = Recipe(
+                    tasks={},
+                    project_root=project_root,
+                    recipe_path=project_root / "tasktree.yaml",
+                )
+                executor = Executor(
+                    recipe, state_manager, logger_stub, make_process_runner
+                )
+
+                runner = DockerRunner(
+                    name="test",
+                    dockerfile="Dockerfile",
+                    context=".",
+                    volumes=[
+                        "{{ tt.project_root }}/data:/data",
+                        "{{ env.VOLUME_SRC }}:/src:ro",
+                    ],
+                )
+
+                builtin_vars = {
+                    "project_root": str(project_root),
+                    "task_name": "test",
+                }
+
+                substituted_runner = executor._substitute_builtin_in_runner(
+                    runner, builtin_vars
+                )
+
+                self.assertEqual(
+                    substituted_runner.volumes,
+                    [f"{project_root}/data:/data", "/host/src:/src:ro"],
+                )
+        finally:
+            del os.environ["VOLUME_SRC"]
+
+    def test_substitute_runner_fields_rejects_arg_reference_in_volumes(self):
+        """
+        Test that an {{ arg.* }} reference in a runner volume is an error.
+
+        Runners are shared across tasks, so per-task values are not available
+        in runner fields (they were previously left in place, unsubstituted,
+        which silently produced a broken mount path).
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+
+            recipe = Recipe(
+                tasks={},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+            executor = Executor(
+                recipe, state_manager, logger_stub, make_process_runner
+            )
+
+            runner = DockerRunner(
+                name="test",
+                dockerfile="Dockerfile",
+                context=".",
+                volumes=["{{ arg.mount }}:/data"],
+            )
+
+            builtin_vars = {
+                "project_root": str(project_root),
+                "task_name": "test",
+            }
+
+            with self.assertRaises(ValueError):
+                executor._substitute_builtin_in_runner(runner, builtin_vars)
+
 
 class TestGetSessionDefaultRunner(unittest.TestCase):
     """

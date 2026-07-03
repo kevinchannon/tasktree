@@ -1308,12 +1308,9 @@ class Executor:
         """
         from dataclasses import replace
 
-        # Substitute in volumes (builtin vars first, then env vars)
+        # Substitute in volumes
         substituted_volumes = (
-            [
-                self._substitute_env(self._substitute_builtin(vol, builtin_vars))
-                for vol in env.volumes
-            ]
+            [self._render_runner_field(vol, builtin_vars) for vol in env.volumes]
             if env.volumes
             else []
         )
@@ -1537,6 +1534,30 @@ class Executor:
             builtins=builtin_vars,
         )
         return render(text, config, task_name=task_name)
+
+    @staticmethod
+    def _render_runner_field(text: str, builtin_vars: dict[str, str]) -> str:
+        """
+        Render a runner or interpreter field against the runner context.
+
+        Only ``env.*`` and ``tt.*`` are available (see ``build_runner_config``);
+        per-task namespaces fail the render because runners are shared across
+        tasks.
+
+        Args:
+        text: Field text containing {{ ... }} placeholders
+        builtin_vars: Built-in variable values (the tt namespace)
+
+        Returns:
+        The rendered field text
+
+        Raises:
+        ValueError: If a placeholder cannot be resolved or the template is malformed
+        """
+        from tasktree.rendering import render
+        from tasktree.task_config import build_runner_config
+
+        return render(text, build_runner_config(builtins=builtin_vars))
 
     @staticmethod
     def _substitute_builtin(text: str, builtin_vars: dict[str, str]) -> str:
