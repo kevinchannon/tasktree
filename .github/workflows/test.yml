@@ -33,6 +33,12 @@ jobs:
       if: runner.os == 'Linux'
       run: docker pull alpine:latest
 
+    # Enables nix-command/flakes out of the box. Nix has no Windows support,
+    # so the Windows leg skips the Nix E2E tests via their skipUnless guard.
+    - name: Install Nix (for E2E Nix tests)
+      if: runner.os != 'Windows'
+      uses: DeterminateSystems/nix-installer-action@main
+
     - name: Run unit tests
       run: uv run pytest tests/unit/ --tb=short
 
@@ -41,7 +47,13 @@ jobs:
 
     - name: Run E2E Docker tests
       if: runner.os == 'Linux'
-      run: uv run pytest tests/e2e/ --tb=short
+      run: uv run pytest tests/e2e/ --ignore=tests/e2e/test_nix_runner.py --tb=short
+
+    # Separate step so a Nix evaluation failure is not lost in the general
+    # E2E output; also the only E2E coverage on the macOS legs.
+    - name: Run E2E Nix tests
+      if: runner.os != 'Windows'
+      run: uv run pytest tests/e2e/test_nix_runner.py --tb=short
 
     - name: Test CLI commands
       run: uv run tt --help
