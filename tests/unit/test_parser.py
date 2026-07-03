@@ -5583,5 +5583,60 @@ tasks:
             self.assertEqual(recipe.default_interpreter, "")
 
 
+class TestRunnerTemplateRefsCheck(unittest.TestCase):
+    """Direct tests of the per-task-reference restriction for runner defs."""
+
+    def test_accepts_allowed_namespaces(self):
+        from tasktree.parser import check_runner_template_refs
+
+        config = {
+            "volumes": ["{{ tt.project_root }}:/workspace"],
+            "env_vars": {"HOME_DIR": "{{ tt.user_home }}", "MODE": "{{ env.MODE }}"},
+            "working_dir": "{{ var.build_dir }}",
+        }
+        check_runner_template_refs(config, "Runner 'docker'")  # Must not raise
+
+    def test_rejects_arg_reference(self):
+        from tasktree.parser import check_runner_template_refs
+
+        config = {"volumes": ["{{ arg.mount }}:/data"]}
+        with self.assertRaises(ValueError) as ctx:
+            check_runner_template_refs(config, "Runner 'docker'")
+        self.assertIn("Runner 'docker'", str(ctx.exception))
+        self.assertIn("arg.mount", str(ctx.exception))
+        self.assertIn("shared across tasks", str(ctx.exception))
+
+    def test_rejects_dep_and_self_references(self):
+        from tasktree.parser import check_runner_template_refs
+
+        config = {
+            "dockerfile": "{{ dep.build.outputs.dockerfile }}",
+            "context": "{{ self.inputs.ctx }}",
+        }
+        with self.assertRaises(ValueError) as ctx:
+            check_runner_template_refs(config, "Runner 'docker'")
+        self.assertIn("dep.build.outputs.dockerfile", str(ctx.exception))
+        self.assertIn("self.inputs.ctx", str(ctx.exception))
+
+    def test_rejects_per_task_tt_builtins(self):
+        from tasktree.parser import check_runner_template_refs
+
+        for name in ("task_name", "working_dir", "timestamp", "timestamp_unix"):
+            config = {"env_vars": {"X": f"{{{{ tt.{name} }}}}"}}
+            with self.assertRaises(ValueError, msg=f"tt.{name} not rejected") as ctx:
+                check_runner_template_refs(config, "Runner 'docker'")
+            self.assertIn(f"tt.{name}", str(ctx.exception))
+
+    def test_error_lists_allowed_alternatives(self):
+        from tasktree.parser import check_runner_template_refs
+
+        with self.assertRaises(ValueError) as ctx:
+            check_runner_template_refs({"ports": ["{{ arg.port }}:80"]}, "Runner 'r'")
+        message = str(ctx.exception)
+        for allowed in ("var.*", "env.*", "tt.project_root", "tt.recipe_dir",
+                        "tt.user_home", "tt.user_name"):
+            self.assertIn(allowed, message)
+
+
 if __name__ == "__main__":
     unittest.main()

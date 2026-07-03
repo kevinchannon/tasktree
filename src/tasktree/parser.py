@@ -2030,6 +2030,50 @@ def _parse_runners_from_data(
     return runners, default_runner, interpreters, default_interpreter
 
 
+# Runners and interpreters are shared across tasks and render once, before any
+# task runs, so only task-independent template namespaces may appear in their
+# definitions (see docs/plans/schema-validation-pipeline.md, decision 4).
+_RUNNER_ALLOWED_TT_NAMES = frozenset(
+    {"project_root", "recipe_dir", "user_home", "user_name"}
+)
+_RUNNER_FORBIDDEN_PREFIXES = ("arg", "dep", "self")
+
+
+def check_runner_template_refs(subtree: Any, where: str) -> None:
+    """
+    Reject per-task template references in a runner/interpreter definition.
+
+    Args:
+    subtree: The raw definition dict (or any node of it) to check
+    where: Prefix for the error message, e.g. "Runner 'docker'"
+
+    Raises:
+    ValueError: If the definition references a per-task namespace (arg, dep,
+    self) or a tt builtin outside the global four
+    """
+    from tasktree.template_refs import collect_template_refs
+
+    refs = collect_template_refs(subtree)
+    offenders = [
+        f"{prefix}.{name}"
+        for prefix in _RUNNER_FORBIDDEN_PREFIXES
+        for name in sorted(refs[prefix])
+    ]
+    offenders += [
+        f"tt.{name}"
+        for name in sorted(refs["tt"])
+        if name not in _RUNNER_ALLOWED_TT_NAMES
+    ]
+    if offenders:
+        allowed_tt = ", ".join(f"tt.{name}" for name in sorted(_RUNNER_ALLOWED_TT_NAMES))
+        raise ValueError(
+            f"{where}: {', '.join(offenders)} cannot be used in a runner or "
+            f"interpreter definition. Runners are shared across tasks and are "
+            f"rendered once, before any task runs, so per-task values are not "
+            f"available here. Allowed: var.*, env.*, {allowed_tt}."
+        )
+
+
 def build_recipe_runner(
     name: str,
     config: dict[str, Any],
