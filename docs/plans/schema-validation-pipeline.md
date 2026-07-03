@@ -218,7 +218,24 @@ var.b }}`), and closure/cycle behaviour. Start with regex extraction
 (over-matching is safe); a Jinja-AST upgrade can come later if fidelity needs
 it.
 
-### Slice 3 — runner variable-class restriction
+### Slice 3 — runner variable-class restriction ✅ done
+Completed 2026-07-03: `check_runner_template_refs` in `parser.py` (uses the
+slice-2 walker), called from `build_recipe_runner` (section + inline task
+runners, including their `interpreter` fields) and
+`_parse_inline_interpreter` (interpreters section + task-level inline
+interpreters). Allowed `tt.*` names are exactly the four global builtins, so
+`tt.timestamp`/`tt.timestamp_unix` are rejected alongside
+`task_name`/`working_dir`. Behaviour tests live in
+`tests/unit/test_runner_template_restriction.py` (self-contained for the
+reference gate); gate verdicts: all six rejection tests fail on v1.3.2 with
+"ValueError not raised" (recipes silently accepted — matches the
+expected-divergences entries), both acceptance tests pass there. The
+`builtin_vars_runner_volumes` fixture swapped its `tt.task_name` env var for
+`tt.user_name`. Note: machine-config runners (`config.py` →
+`runner_from_config`) are not covered — recipe-parse scope only; their
+forbidden refs still fail at render via slice 1's strict Jinja. Original
+scope follows.
+
 Parse-time check (uses the walker) rejecting forbidden prefixes in runner and
 interpreter subtrees, with the "runners are shared across tasks" explanation
 in the error.
