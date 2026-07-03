@@ -1332,11 +1332,9 @@ class Executor:
             else []
         )
 
-        # Substitute in working_dir (builtin vars first, then env vars)
+        # Substitute in working_dir
         substituted_working_dir = (
-            self._substitute_env(
-                self._substitute_builtin(env.working_dir, builtin_vars)
-            )
+            self._render_runner_field(env.working_dir, builtin_vars)
             if env.working_dir
             else ""
         )
