@@ -62,5 +62,41 @@ class TestCollectFromStrings(unittest.TestCase):
             self.assertEqual(refs["var"], set(), f"unexpected refs for {node!r}")
 
 
+class TestCollectFromSubtrees(unittest.TestCase):
+    def test_walks_list_items(self):
+        refs = collect_template_refs(["{{ var.a }}", "{{ var.b }}", 7])
+        self.assertEqual(refs["var"], {"a", "b"})
+
+    def test_walks_dict_values(self):
+        refs = collect_template_refs({"cmd": "echo {{ var.a }}", "count": 3})
+        self.assertEqual(refs["var"], {"a"})
+
+    def test_walks_dict_keys(self):
+        refs = collect_template_refs({"{{ var.key_name }}": "value"})
+        self.assertEqual(refs["var"], {"key_name"})
+
+    def test_walks_task_shaped_subtree(self):
+        task = {
+            "desc": "build {{ var.project }}",
+            "deps": [{"compile": {"mode": "{{ arg.mode }}"}}],
+            "inputs": ["src/**/*.py", {"config": "{{ env.CONFIG_PATH }}"}],
+            "outputs": [{"bin": "dist/{{ var.version }}/app"}],
+            "working_dir": "{{ tt.project_root }}/build",
+            "cmd": "cp {{ dep.compile.outputs.obj }} {{ self.outputs.bin }}",
+        }
+        refs = collect_template_refs(task)
+        self.assertEqual(refs["var"], {"project", "version"})
+        self.assertEqual(refs["arg"], {"mode"})
+        self.assertEqual(refs["env"], {"CONFIG_PATH"})
+        self.assertEqual(refs["tt"], {"project_root"})
+        self.assertEqual(refs["dep"], {"compile.outputs.obj"})
+        self.assertEqual(refs["self"], {"outputs.bin"})
+
+    def test_empty_containers_yield_nothing(self):
+        for node in ({}, []):
+            refs = collect_template_refs(node)
+            self.assertEqual(refs["var"], set(), f"unexpected refs for {node!r}")
+
+
 if __name__ == "__main__":
     unittest.main()

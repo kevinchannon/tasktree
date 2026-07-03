@@ -39,13 +39,23 @@ def collect_template_refs(node: Any) -> dict[str, set[str]]:
     ``build.outputs.bin`` under ``dep``).
     """
     refs: dict[str, set[str]] = {prefix: set() for prefix in TEMPLATE_PREFIXES}
-    _extract_from_string(node, refs)
+    _walk(node, refs)
     return refs
 
 
-def _extract_from_string(text: Any, refs: dict[str, set[str]]) -> None:
-    if not isinstance(text, str):
-        return
+def _walk(node: Any, refs: dict[str, set[str]]) -> None:
+    if isinstance(node, str):
+        _extract_from_string(node, refs)
+    elif isinstance(node, dict):
+        for key, value in node.items():
+            _walk(key, refs)
+            _walk(value, refs)
+    elif isinstance(node, (list, tuple)):
+        for item in node:
+            _walk(item, refs)
+
+
+def _extract_from_string(text: str, refs: dict[str, set[str]]) -> None:
     for block in _TEMPLATE_BLOCK.findall(text):
         for match in _REFERENCE.finditer(block):
             refs[match.group(1)].add(match.group(2))
