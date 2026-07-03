@@ -1837,6 +1837,7 @@ def _parse_inline_interpreter(value: str | dict[str, Any], context: str) -> Inte
 
     A bare string is shorthand for ``{cmd: <string>}``.
     """
+    check_runner_template_refs(value, context)
     if isinstance(value, str):
         value = {"cmd": value}
     allowed = {"cmd", "ext", "preamble"}
@@ -2068,9 +2069,10 @@ def check_runner_template_refs(subtree: Any, where: str) -> None:
         allowed_tt = ", ".join(f"tt.{name}" for name in sorted(_RUNNER_ALLOWED_TT_NAMES))
         raise ValueError(
             f"{where}: {', '.join(offenders)} cannot be used in a runner or "
-            f"interpreter definition. Runners are shared across tasks and are "
-            f"rendered once, before any task runs, so per-task values are not "
-            f"available here. Allowed: var.*, env.*, {allowed_tt}."
+            f"interpreter definition. Runners and interpreters are shared "
+            f"across tasks and are rendered once, before any task runs, so "
+            f"per-task values are not available here. "
+            f"Allowed: var.*, env.*, {allowed_tt}."
         )
 
 

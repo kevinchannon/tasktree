@@ -108,6 +108,53 @@ tasks:
 """)
         self.assertIn("arg.mount", str(ctx.exception))
 
+    def test_arg_in_interpreters_section_rejected(self):
+        with self.assertRaises(ValueError) as ctx:
+            _parse("""
+interpreters:
+  py:
+    cmd: python3
+    preamble: |
+      MODE = "{{ arg.mode }}"
+tasks:
+  build:
+    cmd: echo build
+""")
+        message = str(ctx.exception)
+        self.assertIn("Interpreter 'py'", message)
+        self.assertIn("arg.mode", message)
+        self.assertIn("shared across tasks", message)
+
+    def test_per_task_tt_in_task_inline_interpreter_rejected(self):
+        with self.assertRaises(ValueError) as ctx:
+            _parse("""
+tasks:
+  build:
+    interpreter:
+      cmd: bash
+      preamble: 'echo "running {{ tt.task_name }}"'
+    cmd: echo build
+""")
+        message = str(ctx.exception)
+        self.assertIn("Task 'build'", message)
+        self.assertIn("tt.task_name", message)
+
+    def test_allowed_refs_in_interpreter_accepted(self):
+        _parse("""
+interpreters:
+  py:
+    cmd: "{{ var.python_bin }}"
+    preamble: |
+      MODE = "{{ env.MODE }}"
+      ROOT = "{{ tt.project_root }}"
+variables:
+  python_bin: python3
+tasks:
+  build:
+    interpreter: { use: py }
+    cmd: print("build")
+""")  # Must not raise
+
     def test_allowed_refs_in_runner_accepted(self):
         with TemporaryDirectory() as tmpdir:
             docker_dir = Path(tmpdir) / "docker"
