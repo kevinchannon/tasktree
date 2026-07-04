@@ -78,6 +78,7 @@ def _merge_file(
     merged_tasks: dict[str, Any] = {}
     merged_runners: dict[str, Any] = {}
     merged_variables: dict[str, Any] = {}
+    merged_interpreters: dict[str, Any] = {}
 
     # The 'as' names of this file's own imports, for dependency rewriting:
     # a dotted dep whose root segment is one of these is a local reference
@@ -134,6 +135,10 @@ def _merge_file(
         if isinstance(child_variables, dict):
             merged_variables.update(child_variables)
 
+        child_interpreters = child.get("interpreters")
+        if isinstance(child_interpreters, dict):
+            merged_interpreters.update(child_interpreters)
+
     local_tasks = data.get("tasks") or {}
     if namespace:
         local_tasks = _namespace_var_refs(local_tasks, namespace)
@@ -159,7 +164,9 @@ def _merge_file(
             # Imported 'default' declarations are dropped: only the root
             # file's default runner applies to the merged recipe.
             local_runners = {
-                f"{namespace}.{name}": _namespace_var_refs(config, namespace)
+                f"{namespace}.{name}": _namespace_interpreter_use(
+                    _namespace_var_refs(config, namespace), namespace
+                )
                 for name, config in local_runners.items()
                 if name != "default"
             }
@@ -184,7 +191,49 @@ def _merge_file(
         if local_variables is None:
             data["variables"] = merged_variables
 
+    # Imported interpreters are merged (namespaced) so that imported pinned
+    # runners' 'use:' references stay resolvable in the merged tree. The old
+    # object path resolved those references during the import and then threw
+    # the imported interpreters away. Task-level interpreter names are NOT
+    # namespaced - they resolve against the root registry, as before.
+    local_interpreters = data.get("interpreters")
+    if isinstance(local_interpreters, dict):
+        if namespace:
+            local_interpreters = {
+                f"{namespace}.{name}": _namespace_var_refs(value, namespace)
+                for name, value in local_interpreters.items()
+                if name != "default"
+            }
+        merged_interpreters.update(local_interpreters)
+        data["interpreters"] = merged_interpreters
+    elif merged_interpreters:
+        if local_interpreters is None:
+            data["interpreters"] = merged_interpreters
+
     return data
+
+
+def _namespace_interpreter_use(config: Any, namespace: str) -> Any:
+    """
+    Prefix a runner definition's interpreter {use: name} reference.
+
+    A runner in an imported file resolves 'use:' against that file's own
+    interpreters section, whose names gain the namespace prefix on merge -
+    so the reference must gain it too. String shorthands and inline
+    definitions name no interpreter and pass through.
+    """
+    if not isinstance(config, dict):
+        return config
+    interpreter = config.get("interpreter")
+    if isinstance(interpreter, dict) and isinstance(interpreter.get("use"), str):
+        return {
+            **config,
+            "interpreter": {
+                **interpreter,
+                "use": f"{namespace}.{interpreter['use']}",
+            },
+        }
+    return config
 
 
 def _namespace_var_refs(node: Any, namespace: str) -> Any:

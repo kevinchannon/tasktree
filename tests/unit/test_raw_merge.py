@@ -708,5 +708,135 @@ class TestVariableMerging(RawMergeTestCase):
         self.assertEqual(merged["tasks"]["build"]["cmd"], "make {{ var.version }}")
 
 
+class TestInterpreterMerging(RawMergeTestCase):
+    def test_imported_interpreters_are_namespaced_and_default_dropped(self):
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: build.yaml\n"
+            "    as: build\n"
+            "interpreters:\n"
+            "  default: sh\n"
+            "  sh: bash\n",
+        )
+        self.write(
+            "build.yaml",
+            "interpreters:\n"
+            "  default: py\n"
+            "  py:\n"
+            "    cmd: python3\n"
+            "    ext: .py\n",
+        )
+        merged = merge_recipe(recipe)
+        self.assertEqual(
+            merged["interpreters"],
+            {
+                "default": "sh",
+                "sh": "bash",
+                "build.py": {"cmd": "python3", "ext": ".py"},
+            },
+        )
+
+    def test_imported_runner_use_ref_is_rewritten(self):
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: build.yaml\n"
+            "    as: build\n",
+        )
+        self.write(
+            "build.yaml",
+            "interpreters:\n"
+            "  py:\n"
+            "    cmd: python3\n"
+            "runners:\n"
+            "  special:\n"
+            "    interpreter:\n"
+            "      use: py\n"
+            "tasks:\n"
+            "  compile:\n"
+            "    cmd: make\n"
+            "    runner: special\n"
+            "    pin_runner: true\n",
+        )
+        merged = merge_recipe(recipe)
+        self.assertEqual(
+            merged["runners"]["build.special"]["interpreter"],
+            {"use": "build.py"},
+        )
+        self.assertIn("build.py", merged["interpreters"])
+
+    def test_imported_task_interpreter_name_is_not_prefixed(self):
+        # Task-level interpreter names resolve against the root registry
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: build.yaml\n"
+            "    as: build\n"
+            "interpreters:\n"
+            "  py:\n"
+            "    cmd: python3\n",
+        )
+        self.write(
+            "build.yaml",
+            "tasks:\n"
+            "  compile:\n"
+            "    cmd: print('hi')\n"
+            "    interpreter: py\n",
+        )
+        merged = merge_recipe(recipe)
+        self.assertEqual(merged["tasks"]["build.compile"]["interpreter"], "py")
+
+    def test_inline_task_runner_use_ref_is_not_rewritten(self):
+        # Inline task runner defs are materialised against the root
+        # registry, so their use: refs must stay unprefixed
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: build.yaml\n"
+            "    as: build\n"
+            "interpreters:\n"
+            "  py:\n"
+            "    cmd: python3\n",
+        )
+        self.write(
+            "build.yaml",
+            "tasks:\n"
+            "  compile:\n"
+            "    cmd: print('hi')\n"
+            "    runner:\n"
+            "      interpreter:\n"
+            "        use: py\n",
+        )
+        merged = merge_recipe(recipe)
+        self.assertEqual(
+            merged["tasks"]["build.compile"]["runner"],
+            {"interpreter": {"use": "py"}},
+        )
+
+    def test_string_interpreter_shorthand_passes_through(self):
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: build.yaml\n"
+            "    as: build\n",
+        )
+        self.write(
+            "build.yaml",
+            "runners:\n"
+            "  special:\n"
+            "    interpreter: bash\n"
+            "tasks:\n"
+            "  compile:\n"
+            "    cmd: make\n"
+            "    runner: special\n"
+            "    pin_runner: true\n",
+        )
+        merged = merge_recipe(recipe)
+        self.assertEqual(
+            merged["runners"]["build.special"], {"interpreter": "bash"}
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
