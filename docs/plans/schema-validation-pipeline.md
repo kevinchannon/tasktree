@@ -297,14 +297,46 @@ been engaged).
   against the **root** registry (left unprefixed). New tolerance: imported
   interpreters are now present (namespaced) in the merged tree instead of
   being discarded after runner construction.
-- **Next: the cutover, runners first.** Point `parse_recipe` at
-  `merge_recipe` output for the runners/interpreters sections (build via
-  `_parse_runners_from_data` on the merged tree; `build_recipe_runner` is
-  the seam), then variables, then tasks; delete `_parse_file` /
-  `_parse_file_with_env` remnants last. Behaviour-level tests written from
-  here on must run through the reference gate (§4). Watch
-  `Recipe._original_yaml_data` (used as variable-evaluation context) and
-  `_materialise_inline_definitions` ordering when cutting tasks over.
+**Progress (2026-07-04, session 2): runners, interpreters and variables are
+cut over.** `_parse_file_with_env` now takes runners/interpreters (via
+`_parse_runners_from_data` on the merged tree) and `raw_variables` straight
+from `merge_recipe_files`; deferred name errors come from the merge
+(`MergedRecipe.name_errors`, collected where local names are still visible
+pre-namespacing — `local_name_error` lives in raw_merge, parser aliases it).
+`_parse_file` now collects Task objects only (`ParsedFileResult` reduced to
+`tasks`); deleted: `_extract_and_validate_runners`,
+`_extract_and_validate_variables`, `_rewrite_runner_variable_references`,
+`_rewrite_variable_references_in_raw_value`. Full pyramid green after each
+cutover. Gate run for the runners cutover
+(`tests/unit/test_runner_merge_cutover.py`, self-contained): 5 parity tests
+pass on v1.3.2; the tolerance test fails there as intended (new
+expected-divergences entry above). Variables cutover judged zero-divergence
+(variable specs are strings/flat dicts, where the merge rewrite and the old
+per-field rewrite coincide) — no new behaviour tests, existing suite is the
+parity net.
+
+**Next: the tasks cutover** — build Task objects from `merged.data["tasks"]`
+and delete `_parse_file` entirely. Known work items:
+- `Task.source_file` is user-visible (`tt --show` prints "Source: …"), so
+  `MergedRecipe` must carry provenance (task name → source file) collected
+  during the merge.
+- The per-file top-level-keys validation (unknown keys / "tasks:" hint,
+  with file path in the message) lives in `_parse_file` and must move into
+  `_merge_file` verbatim until slice 6/8 replaces it with the schema.
+- Local task-name validation (dots) **raises immediately** in the old path
+  (unlike runners/variables which defer) — replicate as a raise during the
+  merge's local-task processing.
+- Task construction from the merged tree skips the transforms (deps,
+  runner prefix, blanket, var rewriting) — they're already applied; keep
+  the type/shape checks ("must be a dictionary", "missing required 'cmd'",
+  runner/interpreter field type checks) and
+  `_check_case_sensitive_arg_collisions`.
+- Divergence to gate-test when this lands: the merge's generic var-ref
+  walk rewrites imported dep-argument templates and inline definitions
+  (v1.3.2 left them pointing at root scope). Also
+  `Recipe._original_yaml_data` (eval-variable default-interpreter context)
+  can then become `merged.data`, and `evaluate_variables`' substitution
+  into Task objects needs re-checking against the merged content.
 
 Original scope follows.
 Restructure `parser.py` so imports merge into one raw dict **before** any
