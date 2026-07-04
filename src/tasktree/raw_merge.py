@@ -184,6 +184,8 @@ def _merge_file(
         if isinstance(child_interpreters, dict):
             merged_interpreters.update(child_interpreters)
 
+    _validate_top_level_keys(data, file_path)
+
     local_tasks = data.get("tasks") or {}
     if namespace:
         local_tasks = _namespace_var_refs(local_tasks, namespace)
@@ -265,6 +267,52 @@ def _merge_file(
             data["interpreters"] = merged_interpreters
 
     return data
+
+
+def _validate_top_level_keys(data: dict[str, Any], file_path: Path) -> None:
+    """
+    Reject unknown top-level keys in one file, with a 'tasks:' hint when the
+    file looks like task definitions written at the root level.
+
+    Runs per file during the merge (the merged tree can't be checked - it no
+    longer knows which file an offending key came from). Wording matches the
+    old object path until slice 6/8 replaces this with the schema.
+    """
+    valid_top_level_keys = {"imports", "runners", "interpreters", "tasks", "variables"}
+
+    # Check if tasks key is missing when there appear to be task definitions
+    # at root level, BEFORE checking for unknown keys, for the better message
+    if "tasks" not in data and data:
+        potential_tasks = [
+            k
+            for k, v in data.items()
+            if isinstance(v, dict) and k not in valid_top_level_keys
+        ]
+
+        if potential_tasks:
+            raise ValueError(
+                f"Invalid recipe format in {file_path}\n\n"
+                f"Task definitions must be under a top-level 'tasks:' key.\n\n"
+                f"Found these keys at root level: {', '.join(potential_tasks)}\n\n"
+                f"Did you mean:\n\n"
+                f"tasks:\n"
+                + "\n".join(f"  {k}:" for k in potential_tasks)
+                + "\n    cmd: ...\n\n"
+                f"Valid top-level keys are: {', '.join(sorted(valid_top_level_keys))}"
+            )
+
+    invalid_keys = set(data.keys()) - valid_top_level_keys
+    if invalid_keys:
+        raise ValueError(
+            f"Invalid recipe format in {file_path}\n\n"
+            f"Unknown top-level keys: {', '.join(sorted(invalid_keys))}\n\n"
+            f"Valid top-level keys are:\n"
+            f"  - imports      (for importing task files)\n"
+            f"  - runners      (for runner configuration)\n"
+            f"  - interpreters (for interpreter definitions)\n"
+            f"  - variables    (for variable definitions)\n"
+            f"  - tasks        (for task definitions)"
+        )
 
 
 def _record_name_errors(

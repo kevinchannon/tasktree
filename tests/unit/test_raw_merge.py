@@ -842,6 +842,64 @@ class TestInterpreterMerging(RawMergeTestCase):
         )
 
 
+class TestTopLevelKeyValidation(RawMergeTestCase):
+    def test_unknown_top_level_key_raises(self):
+        recipe = self.write(
+            "tt.yaml",
+            "bogus_section: 42\n"
+            "tasks:\n"
+            "  build:\n"
+            "    cmd: make\n",
+        )
+        with self.assertRaises(ValueError) as cm:
+            merge_recipe(recipe)
+        message = str(cm.exception)
+        self.assertIn("Unknown top-level keys: bogus_section", message)
+        self.assertIn(str(recipe), message)
+
+    def test_root_level_task_definitions_get_tasks_hint(self):
+        recipe = self.write(
+            "tt.yaml",
+            "build:\n"
+            "  cmd: make\n",
+        )
+        with self.assertRaises(ValueError) as cm:
+            merge_recipe(recipe)
+        message = str(cm.exception)
+        self.assertIn("Task definitions must be under a top-level 'tasks:' key", message)
+        self.assertIn("build", message)
+        self.assertIn(str(recipe), message)
+
+    def test_unknown_key_in_imported_file_names_that_file(self):
+        child = self.write(
+            "child.yaml",
+            "wrong: {a: 1}\n"
+            "tasks:\n"
+            "  t:\n"
+            "    cmd: true\n",
+        )
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: child.yaml\n"
+            "    as: sub\n",
+        )
+        with self.assertRaises(ValueError) as cm:
+            merge_recipe(recipe)
+        self.assertIn(str(child), str(cm.exception))
+
+    def test_file_with_only_imports_is_valid(self):
+        self.write("child.yaml", "tasks:\n  t:\n    cmd: true\n")
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: child.yaml\n"
+            "    as: sub\n",
+        )
+        merged = merge_recipe(recipe)
+        self.assertIn("sub.t", merged["tasks"])
+
+
 class TestTaskProvenance(RawMergeTestCase):
     def test_root_tasks_map_to_root_file(self):
         recipe = self.write(
