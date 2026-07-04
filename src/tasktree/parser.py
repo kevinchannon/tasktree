@@ -21,6 +21,7 @@ from tasktree.logging import Logger
 from tasktree.types import get_click_type
 from tasktree.process_runner import TaskOutputTypes
 from tasktree.interpreter import Interpreter, InterpreterError
+from tasktree.raw_merge import CircularImportError
 
 
 # Regex patterns for variable references
@@ -29,14 +30,6 @@ VAR_REFERENCE_REWRITE_PATTERN = re.compile(r"(\{\{\s*var\.)([^\s}]+)(\s*}})")
 
 # Pattern for extracting variable names from references (single capture group)
 VAR_REFERENCE_EXTRACT_PATTERN = re.compile(r"\{\{\s*var\s*\.\s*([^\s}]+)\s*}}")
-
-
-class CircularImportError(Exception):
-    """
-    Raised when a circular import is detected.
-    """
-
-    pass
 
 
 def platform_default_interpreter() -> Interpreter:
