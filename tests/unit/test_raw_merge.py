@@ -838,5 +838,102 @@ class TestInterpreterMerging(RawMergeTestCase):
         )
 
 
+class TestParityWithObjectPath(RawMergeTestCase):
+    """
+    Cross-check: the merged raw dict must agree with what the existing
+    object-building path (parse_recipe) constructs, on a recipe exercising
+    nested imports, run_in, pinning and variables together. This is the
+    safety net for the section-by-section cutover.
+    """
+
+    def build_fixture(self) -> Path:
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: build.yaml\n"
+            "    as: build\n"
+            "    run_in: docker\n"
+            "runners:\n"
+            "  default: docker\n"
+            "  docker:\n"
+            "    interpreter: bash\n"
+            "variables:\n"
+            "  root_var: hello\n"
+            "tasks:\n"
+            "  all:\n"
+            "    deps: [build.link]\n"
+            "    cmd: echo {{ var.root_var }}\n",
+        )
+        self.write(
+            "build.yaml",
+            "imports:\n"
+            "  - file: common.yaml\n"
+            "    as: common\n"
+            "runners:\n"
+            "  special:\n"
+            "    interpreter: bash\n"
+            "variables:\n"
+            "  mode: release\n"
+            "tasks:\n"
+            "  compile:\n"
+            "    deps: [common.setup]\n"
+            "    cmd: make {{ var.mode }}\n"
+            "    runner: special\n"
+            "    pin_runner: true\n"
+            "  link:\n"
+            "    deps: [compile]\n"
+            "    cmd: ld\n",
+        )
+        self.write(
+            "common.yaml",
+            "variables:\n"
+            "  prefix: /opt\n"
+            "tasks:\n"
+            "  setup:\n"
+            "    cmd: mkdir -p {{ var.prefix }}\n",
+        )
+        return recipe
+
+    def test_task_names_match_parse_recipe(self):
+        from tasktree.parser import parse_recipe
+
+        recipe_path = self.build_fixture()
+        merged = merge_recipe(recipe_path)
+        recipe = parse_recipe(recipe_path)
+        self.assertEqual(set(merged["tasks"]), set(recipe.tasks))
+
+    def test_runner_names_match_parse_recipe(self):
+        from tasktree.parser import parse_recipe
+
+        recipe_path = self.build_fixture()
+        merged = merge_recipe(recipe_path)
+        recipe = parse_recipe(recipe_path)
+        merged_runner_names = set(merged["runners"]) - {"default"}
+        self.assertEqual(merged_runner_names, set(recipe.runners))
+        self.assertEqual(merged["runners"]["default"], recipe.default_runner)
+
+    def test_variable_names_match_parse_recipe(self):
+        from tasktree.parser import parse_recipe
+
+        recipe_path = self.build_fixture()
+        merged = merge_recipe(recipe_path)
+        recipe = parse_recipe(recipe_path)
+        self.assertEqual(set(merged["variables"]), set(recipe.raw_variables))
+
+    def test_task_fields_match_parse_recipe(self):
+        from tasktree.parser import parse_recipe
+
+        recipe_path = self.build_fixture()
+        merged = merge_recipe(recipe_path)
+        recipe = parse_recipe(recipe_path)
+        for name, task in recipe.tasks.items():
+            merged_task = merged["tasks"][name]
+            self.assertEqual(merged_task.get("deps", []), task.deps, name)
+            self.assertEqual(merged_task.get("runner", ""), task.runner, name)
+            self.assertEqual(
+                merged_task.get("pin_runner", False), task.pin_runner, name
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
