@@ -2087,6 +2087,12 @@ def build_recipe_runner(
     and validating Dockerfile/context paths on disk (config runners defer
     path validation to execution time).
     """
+    # This walk covers the whole raw config, including any inline
+    # 'interpreter' subtree, which _parse_inline_interpreter will check again.
+    # The overlap is intentional: the inner check is what protects
+    # interpreters defined outside a runner (the interpreters section and
+    # task-level overrides), and skipping the key here to avoid a re-walk
+    # would tie this function to that call graph for no measurable saving.
     check_runner_template_refs(config, f"Runner '{name}'")
 
     # Parse the optional interpreter (inline definition or {use: name}).

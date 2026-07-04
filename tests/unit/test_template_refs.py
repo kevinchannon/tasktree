@@ -43,6 +43,14 @@ class TestCollectFromStrings(unittest.TestCase):
         self.assertEqual(refs["var"], {"a", "b"})
         self.assertEqual(refs["arg"], {"flag"})
 
+    def test_positional_input_reference_keeps_index(self):
+        refs = collect_template_refs("cat {{ self.inputs.0 }} {{ self.inputs.1 }}")
+        self.assertEqual(refs["self"], {"inputs.0", "inputs.1"})
+
+    def test_positional_dep_output_reference_keeps_index(self):
+        refs = collect_template_refs("{{ dep.build.outputs.0 }}")
+        self.assertEqual(refs["dep"], {"build.outputs.0"})
+
     def test_namespaced_variable_name(self):
         refs = collect_template_refs("{{ var.build.version }}")
         self.assertEqual(refs["var"], {"build.version"})

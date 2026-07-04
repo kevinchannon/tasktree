@@ -260,8 +260,10 @@ class TestBuiltinVariables(unittest.TestCase):
 
         executor = Executor(recipe, state, logger_stub, fake_proc_runner_factory)
 
-        # Still need to mock subprocess.run because it's used to docker inspect
-        with patch("tasktree.process_runner.subprocess.run", side_effect=mock_run):
+        # Still need to mock subprocess.run because it's used to docker inspect.
+        # Pin the login name so USER_NAME_VAR can be asserted exactly.
+        with patch("tasktree.process_runner.subprocess.run", side_effect=mock_run), \
+                patch("os.getlogin", return_value="tt-test-user"):
             # Execute task
             executor.execute_task("docker-test", TaskOutputTypes.ALL)
 
@@ -317,10 +319,10 @@ class TestBuiltinVariables(unittest.TestCase):
         )
 
         self.assertIn("USER_NAME_VAR", env_vars, "USER_NAME_VAR should be present")
-        self.assertNotIn(
-            "{{",
+        self.assertEqual(
             env_vars["USER_NAME_VAR"],
-            "USER_NAME_VAR should not contain template strings",
+            "tt-test-user",
+            "USER_NAME_VAR should contain the substituted user name",
         )
 
     @unittest.skipIf(
