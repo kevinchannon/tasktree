@@ -842,6 +842,62 @@ class TestInterpreterMerging(RawMergeTestCase):
         )
 
 
+class TestTaskProvenance(RawMergeTestCase):
+    def test_root_tasks_map_to_root_file(self):
+        recipe = self.write(
+            "tt.yaml",
+            "tasks:\n"
+            "  build:\n"
+            "    cmd: make\n",
+        )
+        merged = merge_recipe_files(recipe)
+        self.assertEqual(merged.task_sources, {"build": str(recipe)})
+
+    def test_imported_tasks_map_to_their_file(self):
+        child = self.write(
+            "sub/child.yaml",
+            "tasks:\n"
+            "  compile:\n"
+            "    cmd: cc\n",
+        )
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: sub/child.yaml\n"
+            "    as: sub\n"
+            "tasks:\n"
+            "  build:\n"
+            "    cmd: make\n",
+        )
+        merged = merge_recipe_files(recipe)
+        self.assertEqual(
+            merged.task_sources,
+            {"build": str(recipe), "sub.compile": str(child)},
+        )
+
+    def test_nested_import_tasks_map_to_leaf_file(self):
+        leaf = self.write(
+            "a/b/leaf.yaml",
+            "tasks:\n"
+            "  deep:\n"
+            "    cmd: true\n",
+        )
+        self.write(
+            "a/mid.yaml",
+            "imports:\n"
+            "  - file: b/leaf.yaml\n"
+            "    as: inner\n",
+        )
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: a/mid.yaml\n"
+            "    as: outer\n",
+        )
+        merged = merge_recipe_files(recipe)
+        self.assertEqual(merged.task_sources, {"outer.inner.deep": str(leaf)})
+
+
 class TestNameErrorCollection(RawMergeTestCase):
     def test_clean_recipe_has_no_name_errors(self):
         recipe = self.write(

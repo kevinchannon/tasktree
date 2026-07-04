@@ -46,6 +46,9 @@ class MergedRecipe:
     # Keyed by the item's merged (namespaced) name; surfaced later, only if
     # the item turns out to be reachable
     name_errors: dict[str, str] = field(default_factory=dict)
+    # Merged task name -> path of the file that defined it (user-visible
+    # via Task.source_file / tt --show)
+    task_sources: dict[str, str] = field(default_factory=dict)
 
 
 def merge_recipe_files(recipe_path: Path) -> MergedRecipe:
@@ -69,10 +72,15 @@ def merge_recipe_files(recipe_path: Path) -> MergedRecipe:
     CircularImportError: If a circular import is detected
     """
     name_errors: dict[str, str] = {}
+    task_sources: dict[str, str] = {}
     data = _merge_file(
-        recipe_path, namespace=None, import_stack=[], name_errors=name_errors
+        recipe_path,
+        namespace=None,
+        import_stack=[],
+        name_errors=name_errors,
+        task_sources=task_sources,
     )
-    return MergedRecipe(data=data, name_errors=name_errors)
+    return MergedRecipe(data=data, name_errors=name_errors, task_sources=task_sources)
 
 
 def merge_recipe(recipe_path: Path) -> dict[str, Any]:
@@ -87,6 +95,7 @@ def _merge_file(
     blanket_runner: str = "",
     *,
     name_errors: dict[str, str],
+    task_sources: dict[str, str],
 ) -> dict[str, Any]:
     """
     Load one file and fold its imports in, applying namespace transforms.
@@ -141,6 +150,7 @@ def _merge_file(
             import_stack,
             import_spec.get("run_in", ""),
             name_errors=name_errors,
+            task_sources=task_sources,
         )
         merged_tasks.update(child.get("tasks") or {})
 
@@ -188,6 +198,8 @@ def _merge_file(
         local_tasks = {
             f"{namespace}.{name}": task for name, task in local_tasks.items()
         }
+    for name in local_tasks:
+        task_sources[name] = str(file_path)
     merged_tasks.update(local_tasks)
 
     if merged_tasks or "tasks" in data:
