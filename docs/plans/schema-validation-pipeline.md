@@ -187,6 +187,11 @@ land):
   remain valid there)
 - broken-but-unreachable tasks are tolerated when invoking a specific task
   (slices 5/6; v1.3.2 errors on any parse-time-invalid task anywhere)
+- broken non-pinned imported runners are tolerated (slice 4 runners cutover;
+  v1.3.2 eagerly built every imported file's runners — validating configs,
+  Dockerfile paths, template restrictions — then discarded the non-pinned
+  ones. The merged tree never contains them, so they are never built. A
+  task referencing one still errors at reachability, as before.)
 
 ## 5. Slices
 

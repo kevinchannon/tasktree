@@ -25,6 +25,7 @@ from tasktree.raw_merge import (
     CircularImportError,
     VAR_REFERENCE_REWRITE_PATTERN,
     local_name_error,
+    merge_recipe_files,
 )
 
 
@@ -78,11 +79,11 @@ class DockerArgs:
 @dataclass
 class ParsedFileResult:
     """
-    Result of parsing a single YAML file, including tasks, runners, and raw variables.
+    Result of parsing a single YAML file: tasks and raw variables (runners
+    and interpreters are built from the raw-dict merge, not this recursion).
     """
 
     tasks: dict[str, Any] = field(default_factory=dict)
-    runners: dict[str, Any] = field(default_factory=dict)
     raw_variables: dict[str, Any] = field(default_factory=dict)
     name_errors: dict[str, str] = field(default_factory=dict)
 
@@ -1015,31 +1016,6 @@ def _rewrite_task_variable_references(task: "Task", namespace: str) -> None:
     # Rebuild internal maps after modifying inputs/outputs
     task.__post_init__()
 
-
-def _rewrite_runner_variable_references(runner: "Runner", namespace: str) -> None:
-    """
-    Rewrite {{ var.X }} references in all fields of a runner to {{ var.namespace.X }}.
-    Modifies the runner in place.
-    """
-    assert namespace, "namespace must not be empty"
-    if runner.interpreter is not None:
-        runner.interpreter = replace(
-            runner.interpreter,
-            cmd=_rewrite_variable_references(runner.interpreter.cmd, namespace),
-            preamble=_rewrite_variable_references(runner.interpreter.preamble, namespace),
-        )
-    runner.working_dir = _rewrite_variable_references(runner.working_dir, namespace)
-    if isinstance(runner, ContainerisedRunner):
-        runner.volumes = [_rewrite_variable_references(v, namespace) for v in runner.volumes]
-        runner.ports = [_rewrite_variable_references(p, namespace) for p in runner.ports]
-        runner.env_vars = {
-            k: _rewrite_variable_references(v, namespace) for k, v in runner.env_vars.items()
-        }
-        runner.args.build = [_rewrite_variable_references(a, namespace) for a in runner.args.build]
-        runner.args.run = [_rewrite_variable_references(a, namespace) for a in runner.args.run]
-    if isinstance(runner, DockerRunner):
-        runner.dockerfile = _rewrite_variable_references(runner.dockerfile, namespace)
-        runner.context = _rewrite_variable_references(runner.context, namespace)
 
 
 def _infer_variable_type(value: Any) -> str:
@@ -2346,37 +2322,6 @@ def _extract_and_validate_variables(
     return raw_variables, name_errors
 
 
-def _extract_and_validate_runners(
-    data: dict[str, Any] | None, project_root: Path
-) -> tuple[dict[str, Runner], str, dict[str, Interpreter], str, dict[str, str]]:
-    """
-    Extract runners and interpreters from YAML data and validate their names.
-
-    Args:
-        data: Parsed YAML data
-        project_root: Root directory of the project
-
-    Returns:
-        Tuple of (runners, default_runner_name, interpreters,
-        default_interpreter_name, name_errors)
-    """
-    name_errors: dict[str, str] = {}
-    runners, default_runner, interpreters, default_interpreter = _parse_runners_from_data(
-        data, project_root
-    )
-
-    for runner_name in runners:
-        error = _validate_local_item_name(runner_name, "Runner")
-        if error:
-            name_errors[runner_name] = error
-
-    for interpreter_name in interpreters:
-        error = _validate_local_item_name(interpreter_name, "Interpreter")
-        if error:
-            name_errors[interpreter_name] = error
-
-    return runners, default_runner, interpreters, default_interpreter, name_errors
-
 
 def _parse_file_with_env(
     file_path: Path,
@@ -2411,7 +2356,8 @@ def _parse_file_with_env(
     raw_variables: dict[str, Any] = {}
     yaml_data: dict[str, Any] = {}
 
-    # Only parse runners and variables from the root file (namespace is None)
+    # Only parse variables from the root file here (namespace is None);
+    # runners and interpreters come from the merged raw tree below.
     if namespace is None:
         with open(file_path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
@@ -2421,14 +2367,17 @@ def _parse_file_with_env(
         raw_variables, var_errors = _extract_and_validate_variables(data)
         name_errors.update(var_errors)
 
-        # Extract and validate runners and interpreters
-        runners, default_runner, interpreters, default_interpreter, runner_errors = (
-            _extract_and_validate_runners(data, project_root)
+        # Runners and interpreters are built from the merged raw dict:
+        # imported definitions arrive already namespaced, with run_in /
+        # pinned-runner selection applied as dict transforms. Name errors
+        # (dots in local names) were collected during the merge.
+        merged = merge_recipe_files(file_path)
+        runners, default_runner, interpreters, default_interpreter = (
+            _parse_runners_from_data(merged.data, project_root)
         )
-        name_errors.update(runner_errors)
+        name_errors.update(merged.name_errors)
 
-    # Merge runners and variables from imported files
-    runners.update(parsed.runners)
+    # Merge variables from imported files
     raw_variables.update(parsed.raw_variables)
 
     return tasks, runners, interpreters, default_runner, default_interpreter, raw_variables, yaml_data, name_errors
@@ -2793,11 +2742,8 @@ def _parse_file(
         data = {}
 
     tasks: dict[str, Task] = {}
-    runners: dict[str, Runner] = {}
     raw_variables: dict[str, Any] = {}
     name_errors: dict[str, str] = {}
-    # TODO: Understand why this is not used.
-    # file_dir = file_path.parent
 
     # Default working directory is the project root (where tt is invoked)
     # NOT the directory where the tasks file is located
@@ -2838,39 +2784,9 @@ def _parse_file(
 
             tasks.update(nested_result.tasks)
 
-            # Selective runner import: Only import runners referenced by pinned tasks
-            #
-            # Rationale: This allows root files to provide blanket runner overrides
-            # for non-pinned imported tasks without namespace pollution. Tasks with
-            # pin_runner=true explicitly opt-in to bringing their runners along.
-            # Non-pinned tasks will use the blanket runner specified in run_in import option.
-            #
-            # Example:
-            #   imports:
-            #     - file: build.yaml
-            #       as: build
-            #       run_in: docker  # Blanket override for non-pinned tasks
-            #
-            # If build.yaml has:
-            #   - task1 with runner: shell, pin_runner: true  -> Uses build.shell (imported)
-            #   - task2 with no runner                        -> Uses docker (blanket override)
-            pinned_runner_names = {
-                task.runner
-                for task in nested_result.tasks.values()
-                if task.pin_runner and task.runner
-            }
-            # Selective import of runners (Step 3.2)
-            # Import only runners that are referenced by pinned tasks.
-            # Note: Runners in nested_result are already namespaced by the recursive parse,
-            # so we don't add another namespace prefix here.
-            # Example: runner "shell" in build.yaml is already "build.shell" in nested_result
-            runners_to_import = {
-                name: runner
-                for name, runner in nested_result.runners.items()
-                if name in pinned_runner_names
-            }
-            runners.update(runners_to_import)
-
+            # Runner selection/namespacing for imports is handled by the
+            # raw-dict merge (raw_merge.py); only tasks and variables are
+            # still collected through this recursion.
             raw_variables.update(nested_result.raw_variables)
             name_errors.update(nested_result.name_errors)
 
@@ -3051,19 +2967,10 @@ def _parse_file(
 
         tasks[full_name] = task
 
-    # Parse runners and variables from imported files (namespace is set) and apply namespace prefix
-    # Root file runners/variables are handled by _parse_file_with_env, not here
+    # Parse variables from imported files (namespace is set) and apply namespace prefix
+    # Root file variables are handled by _parse_file_with_env, not here;
+    # runners/interpreters for all files come from the raw-dict merge.
     if namespace:
-        local_runners, _, _, _ = _parse_runners_from_data(data, project_root)
-        for runner_name, runner in local_runners.items():
-            full_runner_name = f"{namespace}.{runner_name}"
-            error = _validate_local_item_name(runner_name, "Runner")
-            if error:
-                name_errors[full_runner_name] = error
-            runner.name = full_runner_name
-            _rewrite_runner_variable_references(runner, namespace)
-            runners[full_runner_name] = runner
-
         local_vars = data.get("variables", {})
         if isinstance(local_vars, dict):
             for var_name, var_value in local_vars.items():
@@ -3078,7 +2985,7 @@ def _parse_file(
     # Remove current file from stack
     import_stack.pop()
 
-    return ParsedFileResult(tasks=tasks, runners=runners, raw_variables=raw_variables, name_errors=name_errors)
+    return ParsedFileResult(tasks=tasks, raw_variables=raw_variables, name_errors=name_errors)
 
 
 def _check_case_sensitive_arg_collisions(args: list[str], task_name: str) -> None:
