@@ -550,5 +550,163 @@ class TestImportedRunners(RawMergeTestCase):
         self.assertNotIn("build.unused", merged["runners"])
 
 
+class TestVariableMerging(RawMergeTestCase):
+    def test_imported_variable_keys_are_namespaced(self):
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: build.yaml\n"
+            "    as: build\n"
+            "variables:\n"
+            "  local_var: root\n",
+        )
+        self.write("build.yaml", "variables:\n  version: 1.2.3\n")
+        merged = merge_recipe(recipe)
+        self.assertEqual(
+            merged["variables"],
+            {"local_var": "root", "build.version": "1.2.3"},
+        )
+
+    def test_var_refs_in_imported_cmd_are_namespaced(self):
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: build.yaml\n"
+            "    as: build\n",
+        )
+        self.write(
+            "build.yaml",
+            "variables:\n"
+            "  version: 1.2.3\n"
+            "tasks:\n"
+            "  compile:\n"
+            "    cmd: make VERSION={{ var.version }}\n",
+        )
+        merged = merge_recipe(recipe)
+        self.assertEqual(
+            merged["tasks"]["build.compile"]["cmd"],
+            "make VERSION={{ var.build.version }}",
+        )
+
+    def test_var_refs_in_imported_variable_values_are_namespaced(self):
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: build.yaml\n"
+            "    as: build\n",
+        )
+        self.write(
+            "build.yaml",
+            "variables:\n"
+            "  base: /opt\n"
+            "  full: '{{ var.base }}/bin'\n"
+            "  from_env:\n"
+            "    env: BUILD_DIR\n"
+            "    default: '{{ var.base }}/build'\n",
+        )
+        merged = merge_recipe(recipe)
+        self.assertEqual(merged["variables"]["build.full"], "{{ var.build.base }}/bin")
+        self.assertEqual(
+            merged["variables"]["build.from_env"],
+            {"env": "BUILD_DIR", "default": "{{ var.build.base }}/build"},
+        )
+
+    def test_var_refs_in_parameterized_dep_args_are_namespaced(self):
+        # Broader than the old object path, which never rewrote dep args
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: build.yaml\n"
+            "    as: build\n",
+        )
+        self.write(
+            "build.yaml",
+            "variables:\n"
+            "  mode: release\n"
+            "tasks:\n"
+            "  compile:\n"
+            "    cmd: make {{ arg.mode }}\n"
+            "    args:\n"
+            "      - mode\n"
+            "  link:\n"
+            "    deps:\n"
+            "      - compile:\n"
+            "          mode: '{{ var.mode }}'\n"
+            "    cmd: ld\n",
+        )
+        merged = merge_recipe(recipe)
+        self.assertEqual(
+            merged["tasks"]["build.link"]["deps"],
+            [{"build.compile": {"mode": "{{ var.build.mode }}"}}],
+        )
+
+    def test_var_refs_in_imported_pinned_runner_are_namespaced(self):
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: build.yaml\n"
+            "    as: build\n",
+        )
+        self.write(
+            "build.yaml",
+            "variables:\n"
+            "  cache: /tmp/cache\n"
+            "runners:\n"
+            "  special:\n"
+            "    interpreter: bash\n"
+            "    volumes:\n"
+            "      - '{{ var.cache }}:/cache'\n"
+            "tasks:\n"
+            "  compile:\n"
+            "    cmd: make\n"
+            "    runner: special\n"
+            "    pin_runner: true\n",
+        )
+        merged = merge_recipe(recipe)
+        self.assertEqual(
+            merged["runners"]["build.special"]["volumes"],
+            ["{{ var.build.cache }}:/cache"],
+        )
+
+    def test_nested_import_vars_get_full_chain(self):
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: a.yaml\n"
+            "    as: a\n",
+        )
+        self.write(
+            "a.yaml",
+            "imports:\n"
+            "  - file: b.yaml\n"
+            "    as: b\n",
+        )
+        self.write(
+            "b.yaml",
+            "variables:\n"
+            "  deep: x\n"
+            "tasks:\n"
+            "  t:\n"
+            "    cmd: echo {{ var.deep }}\n",
+        )
+        merged = merge_recipe(recipe)
+        self.assertEqual(merged["variables"], {"a.b.deep": "x"})
+        self.assertEqual(
+            merged["tasks"]["a.b.t"]["cmd"], "echo {{ var.a.b.deep }}"
+        )
+
+    def test_root_var_refs_are_untouched(self):
+        recipe = self.write(
+            "tt.yaml",
+            "variables:\n"
+            "  version: 1.2.3\n"
+            "tasks:\n"
+            "  build:\n"
+            "    cmd: make {{ var.version }}\n",
+        )
+        merged = merge_recipe(recipe)
+        self.assertEqual(merged["tasks"]["build"]["cmd"], "make {{ var.version }}")
+
+
 if __name__ == "__main__":
     unittest.main()
