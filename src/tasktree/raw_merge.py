@@ -187,6 +187,14 @@ def _merge_file(
     _validate_top_level_keys(data, file_path)
 
     local_tasks = data.get("tasks") or {}
+    if isinstance(local_tasks, dict):
+        # Unlike runner/variable/interpreter names (deferred until the item
+        # proves reachable), an invalid task name raises immediately -
+        # parity with the old object path.
+        for name in local_tasks:
+            error = local_name_error(name, "Task")
+            if error:
+                raise ValueError(error)
     if namespace:
         local_tasks = _namespace_var_refs(local_tasks, namespace)
         for task in local_tasks.values():

@@ -900,6 +900,53 @@ class TestTopLevelKeyValidation(RawMergeTestCase):
         self.assertIn("sub.t", merged["tasks"])
 
 
+class TestLocalTaskNameValidation(RawMergeTestCase):
+    """Task names raise during the merge (runners/variables defer instead)."""
+
+    def test_root_task_name_with_dots_raises(self):
+        recipe = self.write(
+            "tt.yaml",
+            "tasks:\n"
+            "  build.release:\n"
+            "    cmd: make\n",
+        )
+        with self.assertRaises(ValueError) as cm:
+            merge_recipe(recipe)
+        self.assertEqual(
+            str(cm.exception),
+            "Task name 'build.release' must not contain dots "
+            "(reserved for import namespacing)",
+        )
+
+    def test_imported_task_name_with_dots_raises(self):
+        self.write(
+            "child.yaml",
+            "tasks:\n"
+            "  a.b:\n"
+            "    cmd: true\n",
+        )
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: child.yaml\n"
+            "    as: sub\n",
+        )
+        with self.assertRaises(ValueError) as cm:
+            merge_recipe(recipe)
+        self.assertIn("Task name 'a.b' must not contain dots", str(cm.exception))
+
+    def test_empty_task_name_raises(self):
+        recipe = self.write(
+            "tt.yaml",
+            "tasks:\n"
+            "  '':\n"
+            "    cmd: true\n",
+        )
+        with self.assertRaises(ValueError) as cm:
+            merge_recipe(recipe)
+        self.assertEqual(str(cm.exception), "Task name must not be empty")
+
+
 class TestTaskProvenance(RawMergeTestCase):
     def test_root_tasks_map_to_root_file(self):
         recipe = self.write(
