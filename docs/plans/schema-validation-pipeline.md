@@ -263,7 +263,45 @@ Parse-time check (uses the walker) rejecting forbidden prefixes in runner and
 interpreter subtrees, with the "runners are shared across tasks" explanation
 in the error.
 
-### Slice 4 — raw-dict merge phase *(the big one)*
+### Slice 4 — raw-dict merge phase *(the big one)* — in progress
+**Progress (2026-07-04, session 1):** the merge module is built and fully
+unit-tested; no cutover yet (parse_recipe still runs the old object path
+untouched, so nothing user-observable changed and the reference gate has not
+been engaged).
+
+- `src/tasktree/raw_merge.py` provides `merge_recipe(recipe_path) -> dict`:
+  recursive import merge with circular/missing-file errors (message parity),
+  task/runner/variable/interpreter namespacing, dep rewriting (incl. the
+  local-import-namespace rule for dotted deps), task runner-name prefixing,
+  `run_in` blanket, selective pinned-runner import, imported `default:` keys
+  dropped, `imports` key consumed. Tests: `tests/unit/test_raw_merge.py`
+  (47 tests), including a parity cross-check class against `parse_recipe`
+  on a nested-import fixture — extend that class if cutover surfaces
+  disagreements.
+- `CircularImportError` and `VAR_REFERENCE_REWRITE_PATTERN` moved to
+  `raw_merge.py`; `parser.py` imports them (import direction chosen so the
+  eventual `parser -> raw_merge` dependency has no cycle).
+- Var-ref namespacing is a **generic tree walk over values** (broader than
+  the old enumerated field list): dep argument templates and inline
+  runner/interpreter defs in imported files now get rewritten too. Add to
+  expected divergences when the tasks cutover lands.
+- Interpreter semantics preserved from the old path (verified in code):
+  imported *runners* resolve `use:` against their own file's interpreters
+  (merge rewrites the ref and keeps the namespaced interpreter); imported
+  *tasks*' named interpreters and inline task-runner `use:` refs resolve
+  against the **root** registry (left unprefixed). New tolerance: imported
+  interpreters are now present (namespaced) in the merged tree instead of
+  being discarded after runner construction.
+- **Next: the cutover, runners first.** Point `parse_recipe` at
+  `merge_recipe` output for the runners/interpreters sections (build via
+  `_parse_runners_from_data` on the merged tree; `build_recipe_runner` is
+  the seam), then variables, then tasks; delete `_parse_file` /
+  `_parse_file_with_env` remnants last. Behaviour-level tests written from
+  here on must run through the reference gate (§4). Watch
+  `Recipe._original_yaml_data` (used as variable-evaluation context) and
+  `_materialise_inline_definitions` ordering when cutting tasks over.
+
+Original scope follows.
 Restructure `parser.py` so imports merge into one raw dict **before** any
 `Task`/`Runner` object is constructed (today `_parse_file_with_env` recursively
 builds objects with validation interleaved, and only the main file's raw dict
