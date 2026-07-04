@@ -23,8 +23,7 @@ from tasktree.process_runner import TaskOutputTypes
 from tasktree.interpreter import Interpreter, InterpreterError
 from tasktree.raw_merge import (
     CircularImportError,
-    VAR_REFERENCE_REWRITE_PATTERN,
-    local_name_error,
+    MergedRecipe,
     merge_recipe_files,
 )
 
@@ -74,17 +73,6 @@ class DockerArgs:
 
     build: list[str] = field(default_factory=list)  # Arguments for 'docker build'
     run: list[str] = field(default_factory=list)  # Arguments for 'docker run'
-
-
-@dataclass
-class ParsedFileResult:
-    """
-    Result of parsing a single YAML file: the Task objects (everything else
-    - runners, interpreters, variables - is built from the raw-dict merge,
-    not this recursion).
-    """
-
-    tasks: dict[str, Any] = field(default_factory=dict)
 
 
 CONTAINERISED_RUNNER_TYPE = "containerised"
@@ -885,106 +873,6 @@ def find_recipe_file(start_dir: Path | None = None) -> Path | None:
     return None
 
 
-
-
-
-# Local-name validation lives in raw_merge (the merge is where local names
-# are still visible pre-namespacing); this alias keeps parser call sites.
-_validate_local_item_name = local_name_error
-
-
-def _rewrite_variable_references(text: str, namespace: str) -> str:
-    """
-    Rewrite {{ var.X }} references in text to {{ var.namespace.X }}.
-
-    Args:
-    text: Text containing {{ var.* }} placeholders
-    namespace: Namespace prefix to prepend to variable names
-
-    Returns:
-    Text with variable references rewritten
-    """
-    assert namespace, "namespace must not be empty"
-    return VAR_REFERENCE_REWRITE_PATTERN.sub(
-        rf"\g<1>{namespace}.\2\3",
-        text,
-    )
-
-
-def _rewrite_io_variable_references(
-    items: list[str | dict[str, str]], namespace: str
-) -> list[str | dict[str, str]]:
-    """
-    Rewrite {{ var.X }} references in a list of inputs or outputs.
-
-    Items can be strings (anonymous) or single-key dicts (named).
-    """
-    assert namespace, "namespace must not be empty"
-    rewritten = []
-    for item in items:
-        if isinstance(item, str):
-            rewritten.append(_rewrite_variable_references(item, namespace))
-        elif isinstance(item, dict):
-            rewritten.append(
-                {k: _rewrite_variable_references(v, namespace) if isinstance(v, str) else v
-                 for k, v in item.items()}
-            )
-        else:
-            rewritten.append(item)
-    return rewritten
-
-
-def _rewrite_args_variable_references(
-    args: list[str | dict[str, Any]], namespace: str
-) -> list[str | dict[str, Any]]:
-    """
-    Rewrite {{ var.X }} references in a list of argument specs.
-
-    Args can be strings or single-key dicts with nested config dicts.
-    """
-    assert namespace, "namespace must not be empty"
-    rewritten = []
-    for arg in args:
-        if isinstance(arg, str):
-            rewritten.append(_rewrite_variable_references(arg, namespace))
-        elif isinstance(arg, dict):
-            rewritten_arg = {}
-            for arg_name, config in arg.items():
-                if isinstance(config, dict):
-                    rewritten_config = {}
-                    for key, val in config.items():
-                        if isinstance(val, str):
-                            rewritten_config[key] = _rewrite_variable_references(val, namespace)
-                        elif isinstance(val, list) and key == "choices":
-                            rewritten_config[key] = [
-                                _rewrite_variable_references(c, namespace) if isinstance(c, str) else c
-                                for c in val
-                            ]
-                        else:
-                            rewritten_config[key] = val
-                    rewritten_arg[arg_name] = rewritten_config
-                else:
-                    rewritten_arg[arg_name] = config
-            rewritten.append(rewritten_arg)
-        else:
-            rewritten.append(arg)
-    return rewritten
-
-
-def _rewrite_task_variable_references(task: "Task", namespace: str) -> None:
-    """
-    Rewrite {{ var.X }} references in all fields of a task to {{ var.namespace.X }}.
-    Modifies the task in place.
-    """
-    assert namespace, "namespace must not be empty"
-    task.cmd = _rewrite_variable_references(task.cmd, namespace)
-    task.desc = _rewrite_variable_references(task.desc, namespace)
-    task.working_dir = _rewrite_variable_references(task.working_dir, namespace)
-    task.inputs = _rewrite_io_variable_references(task.inputs, namespace)
-    task.outputs = _rewrite_io_variable_references(task.outputs, namespace)
-    task.args = _rewrite_args_variable_references(task.args, namespace)
-    # Rebuild internal maps after modifying inputs/outputs
-    task.__post_init__()
 
 
 
@@ -2269,56 +2157,125 @@ def nix_runner_from_config(
 
 def _parse_file_with_env(
     file_path: Path,
-    namespace: str | None,
     project_root: Path,
-    import_stack: list[Path] | None = None,
 ) -> tuple[dict[str, Task], dict[str, Runner], dict[str, Interpreter], str, str, dict[str, Any], dict[str, Any], dict[str, str]]:
     """
-    Parse file and extract tasks, runners, interpreters, and variables.
+    Parse a recipe file and extract tasks, runners, interpreters, and variables.
+
+    Everything is built from the raw-dict merge: imported definitions arrive
+    already namespaced, with run_in / pinned-runner selection, dep rewriting
+    and var-reference rewriting applied as dict transforms. Name errors
+    (dots in local names) are collected during the merge.
 
     Args:
-    file_path: Path to YAML file
-    namespace: Optional namespace prefix for tasks
+    file_path: Path to the root YAML file
     project_root: Root directory of the project
-    import_stack: Stack of files being imported (for circular detection)
 
     Returns:
     Tuple of (tasks, runners, interpreters, default_runner_name,
     default_interpreter_name, raw_variables, YAML_data, name_errors)
     Note: Variables are NOT evaluated here - they're stored as raw specs for lazy evaluation
     """
-    # Parse tasks normally
-    parsed = _parse_file(file_path, namespace, project_root, import_stack)
-    tasks = parsed.tasks
-    name_errors: dict[str, str] = {}
+    # The root file's raw dict is kept for eval-variable context
+    # (default runner's interpreter lookup)
+    with open(file_path, "r", encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+        yaml_data = data or {}
 
-    runners: dict[str, Runner] = {}
-    interpreters: dict[str, Interpreter] = {}
-    default_runner = ""
-    default_interpreter = ""
-    raw_variables: dict[str, Any] = {}
-    yaml_data: dict[str, Any] = {}
-
-    if namespace is None:
-        # The root file's raw dict is kept for eval-variable context
-        # (default runner's interpreter lookup)
-        with open(file_path, "r", encoding="utf-8") as f:
-            data = yaml.safe_load(f)
-            yaml_data = data or {}
-
-        # Runners, interpreters and variables are taken from the merged raw
-        # dict: imported definitions arrive already namespaced, with
-        # run_in / pinned-runner selection and var-reference rewriting
-        # applied as dict transforms. Name errors (dots in local names)
-        # were collected during the merge.
-        merged = merge_recipe_files(file_path)
-        runners, default_runner, interpreters, default_interpreter = (
-            _parse_runners_from_data(merged.data, project_root)
-        )
-        raw_variables = merged.data.get("variables") or {}
-        name_errors.update(merged.name_errors)
+    merged = merge_recipe_files(file_path)
+    tasks = _build_tasks_from_merged(merged)
+    runners, default_runner, interpreters, default_interpreter = (
+        _parse_runners_from_data(merged.data, project_root)
+    )
+    raw_variables = merged.data.get("variables") or {}
+    name_errors = dict(merged.name_errors)
 
     return tasks, runners, interpreters, default_runner, default_interpreter, raw_variables, yaml_data, name_errors
+
+
+def _build_tasks_from_merged(merged: MergedRecipe) -> dict[str, Task]:
+    """
+    Construct Task objects from the merged raw tree.
+
+    The merge has already applied every cross-file transform (namespacing,
+    dep rewriting, run_in blankets, runner-name prefixing, var-reference
+    rewriting) and validated task names, so this only shape-checks each
+    definition and builds the object.
+    """
+    tasks: dict[str, Task] = {}
+    tasks_data = merged.data.get("tasks") or {}
+
+    for task_name, task_data in tasks_data.items():
+        if not isinstance(task_data, dict):
+            raise ValueError(f"Task '{task_name}' must be a dictionary")
+
+        if "cmd" not in task_data:
+            raise ValueError(f"Task '{task_name}' missing required 'cmd' field")
+
+        deps = task_data.get("deps", [])
+        if isinstance(deps, str):
+            deps = [deps]
+
+        # The task's runner is either the name of a runner (already
+        # namespaced for imported tasks) or an inline definition dict
+        # (materialised into a named runner in parse_recipe, once the
+        # interpreters registry exists).
+        runner_value = task_data.get("runner", "")
+        runner_def = None
+        if isinstance(runner_value, dict):
+            runner = ""
+            runner_def = runner_value
+        elif isinstance(runner_value, str):
+            runner = runner_value
+        else:
+            raise ValueError(
+                f"Task '{task_name}': 'runner' must be a runner name or an "
+                f"inline runner definition mapping"
+            )
+
+        # Task interpreter is the NAME of an interpreter from the 'interpreters'
+        # section (existence validated post-parse, see _validate_task_interpreter_refs)
+        # or an inline definition dict (materialised in parse_recipe).
+        interpreter_value = task_data.get("interpreter", "")
+        interpreter_def = None
+        if isinstance(interpreter_value, dict):
+            interpreter = ""
+            interpreter_def = interpreter_value
+        elif isinstance(interpreter_value, str):
+            interpreter = interpreter_value
+        else:
+            raise ValueError(
+                f"Task '{task_name}': 'interpreter' must be an interpreter name "
+                f"or an inline interpreter definition mapping"
+            )
+
+        task = Task(
+            name=task_name,
+            cmd=task_data["cmd"],
+            desc=task_data.get("desc", ""),
+            deps=deps,
+            inputs=task_data.get("inputs", []),
+            outputs=task_data.get("outputs", []),
+            # Default working directory is the project root (where tt is
+            # invoked), NOT the directory of the file defining the task
+            working_dir=task_data.get("working_dir", "."),
+            args=task_data.get("args", []),
+            source_file=merged.task_sources.get(task_name, ""),
+            runner=runner,
+            runner_def=runner_def,
+            interpreter=interpreter,
+            interpreter_def=interpreter_def,
+            private=task_data.get("private", False),
+            pin_runner=task_data.get("pin_runner", False),
+            task_output=task_data.get("task_output", None),
+        )
+
+        if task.args:
+            _check_case_sensitive_arg_collisions(task.args, task_name)
+
+        tasks[task_name] = task
+
+    return tasks
 
 
 def collect_reachable_tasks(tasks: dict[str, Task], root_task: str) -> set[str]:
@@ -2558,7 +2515,7 @@ def parse_recipe(
     # Parse main file - it will recursively handle all imports
     # Variables are NOT evaluated here (lazy evaluation)
     tasks, runners, interpreters, default_runner, default_interpreter, raw_variables, yaml_data, name_errors = _parse_file_with_env(
-        recipe_path, namespace=None, project_root=project_root
+        recipe_path, project_root=project_root
     )
 
     _materialise_inline_definitions(tasks, runners, interpreters, project_root)
@@ -2633,277 +2590,6 @@ def _validate_task_interpreter_refs(recipe: Recipe) -> None:
                 f"Task '{task.name}': unknown interpreter '{task.interpreter}'. "
                 f"Defined interpreters: {known}"
             )
-
-
-def _parse_file(
-    file_path: Path,
-    namespace: str | None,
-    project_root: Path,
-    import_stack: list[Path] | None = None,
-    blanket_runner: str = "",
-) -> ParsedFileResult:
-    """
-    Parse a single YAML file and return tasks, recursively processing imports.
-
-    Args:
-    file_path: Path to YAML file
-    namespace: Optional namespace prefix for tasks
-    project_root: Root directory of the project
-    import_stack: Stack of files being imported (for circular detection)
-    blanket_runner: Optional runner name to apply to all non-pinned tasks in this file
-
-    Returns:
-    ParsedFileResult containing tasks, runners, and raw variables
-
-    Raises:
-    CircularImportError: If a circular import is detected
-    FileNotFoundError: If an imported file doesn't exist
-    ValueError: If task structure is invalid
-    """
-    # Initialize import stack if not provided
-    if import_stack is None:
-        import_stack = []
-
-    # Detect circular imports
-    if file_path in import_stack:
-        chain = " → ".join(str(f.name) for f in import_stack + [file_path])
-        raise CircularImportError(f"Circular import detected: {chain}")
-
-    # Add current file to stack
-    import_stack.append(file_path)
-
-    # Load YAML (explicit UTF-8 encoding to handle Unicode on Windows where default is cp1252)
-    with open(file_path, "r", encoding="utf-8") as f:
-        data = yaml.safe_load(f)
-
-    if data is None:
-        data = {}
-
-    tasks: dict[str, Task] = {}
-
-    # Default working directory is the project root (where tt is invoked)
-    # NOT the directory where the tasks file is located
-    default_working_dir = "."
-
-    # Track local import namespaces for dependency rewriting
-    local_import_namespaces: set[str] = set()
-
-    # Process nested imports FIRST
-    imports = data.get("imports", [])
-    if imports:
-        for import_spec in imports:
-            child_file = import_spec["file"]
-            child_namespace = import_spec["as"]
-            child_run_in = import_spec.get("run_in", "")
-
-            # Track this namespace as a local import
-            local_import_namespaces.add(child_namespace)
-
-            # Build full namespace chain
-            full_namespace = (
-                f"{namespace}.{child_namespace}" if namespace else child_namespace
-            )
-
-            # Resolve import path relative to current file's directory
-            child_path = file_path.parent / child_file
-            if not child_path.exists():
-                raise FileNotFoundError(f"Import file not found: {child_path}")
-
-            # Recursively process with namespace chain and import stack
-            nested_result = _parse_file(
-                child_path,
-                full_namespace,
-                project_root,
-                import_stack.copy(),  # Pass copy to avoid shared mutation
-                child_run_in,  # Pass blanket runner to imported file
-            )
-
-            # Only tasks are still collected through this recursion;
-            # runners, interpreters and variables come from the raw-dict
-            # merge (raw_merge.py).
-            tasks.update(nested_result.tasks)
-
-    # Validate top-level keys (only these sections are allowed)
-    valid_top_level_keys = {"imports", "runners", "interpreters", "tasks", "variables"}
-
-    # Check if tasks key is missing when there appear to be task definitions at root
-    # Do this BEFORE checking for unknown keys, to provide better error message
-    if "tasks" not in data and data:
-        # Check if there are potential task definitions at root level
-        potential_tasks = [
-            k
-            for k, v in data.items()
-            if isinstance(v, dict) and k not in valid_top_level_keys
-        ]
-
-        if potential_tasks:
-            raise ValueError(
-                f"Invalid recipe format in {file_path}\n\n"
-                f"Task definitions must be under a top-level 'tasks:' key.\n\n"
-                f"Found these keys at root level: {', '.join(potential_tasks)}\n\n"
-                f"Did you mean:\n\n"
-                f"tasks:\n"
-                + "\n".join(f"  {k}:" for k in potential_tasks)
-                + "\n    cmd: ...\n\n"
-                f"Valid top-level keys are: {', '.join(sorted(valid_top_level_keys))}"
-            )
-
-    # Now check for other invalid top-level keys (non-dict values)
-    invalid_keys = set(data.keys()) - valid_top_level_keys
-    if invalid_keys:
-        raise ValueError(
-            f"Invalid recipe format in {file_path}\n\n"
-            f"Unknown top-level keys: {', '.join(sorted(invalid_keys))}\n\n"
-            f"Valid top-level keys are:\n"
-            f"  - imports      (for importing task files)\n"
-            f"  - runners      (for runner configuration)\n"
-            f"  - interpreters (for interpreter definitions)\n"
-            f"  - variables    (for variable definitions)\n"
-            f"  - tasks        (for task definitions)"
-        )
-
-    # Extract tasks from "tasks" key
-    tasks_data = data.get("tasks", {})
-    if tasks_data is None:
-        tasks_data = {}
-
-    # Process local tasks
-    for task_name, task_data in tasks_data.items():
-        if not isinstance(task_data, dict):
-            raise ValueError(f"Task '{task_name}' must be a dictionary")
-
-        task_name_error = _validate_local_item_name(task_name, "Task")
-        if task_name_error:
-            raise ValueError(task_name_error)
-
-        if "cmd" not in task_data:
-            raise ValueError(f"Task '{task_name}' missing required 'cmd' field")
-
-        # Apply namespace if provided
-        full_name = f"{namespace}.{task_name}" if namespace else task_name
-
-        # Set working directory
-        working_dir = task_data.get("working_dir", default_working_dir)
-
-        # Rewrite dependencies with namespace
-        deps = task_data.get("deps", [])
-        if isinstance(deps, str):
-            deps = [deps]
-        if namespace:
-            # Rewrite dependencies: only prefix if it's a local reference
-            # A dependency is local if:
-            # 1. It has no dots (simple name like "init")
-            # 2. It starts with a local import namespace (like "base.setup" when "base" is imported)
-            rewritten_deps = []
-            for dep in deps:
-                if isinstance(dep, str):
-                    # Simple string dependency
-                    if "." not in dep:
-                        # Simple name - always prefix
-                        rewritten_deps.append(f"{namespace}.{dep}")
-                    else:
-                        # Check if it starts with a local import namespace
-                        dep_root = dep.split(".", 1)[0]
-                        if dep_root in local_import_namespaces:
-                            # Local import reference - prefix it
-                            rewritten_deps.append(f"{namespace}.{dep}")
-                        else:
-                            # External reference - keep as-is
-                            rewritten_deps.append(dep)
-                elif isinstance(dep, dict):
-                    # Dict dependency with args - rewrite the task name key
-                    rewritten_dep = {}
-                    for t_name, args in dep.items():
-                        if "." not in t_name:
-                            # Simple name - prefix it
-                            rewritten_dep[f"{namespace}.{t_name}"] = args
-                        else:
-                            # Check if it starts with a local import namespace
-                            dep_root = t_name.split(".", 1)[0]
-                            if dep_root in local_import_namespaces:
-                                # Local import reference - prefix it
-                                rewritten_dep[f"{namespace}.{t_name}"] = args
-                            else:
-                                # External reference - keep as-is
-                                rewritten_dep[t_name] = args
-                    rewritten_deps.append(rewritten_dep)
-                else:
-                    # Unknown type - keep as-is
-                    rewritten_deps.append(dep)
-            deps = rewritten_deps
-
-        # The task's runner is either the name of a runner (namespaced for
-        # imported tasks) or an inline definition dict (materialised into a
-        # named runner in parse_recipe, once the interpreters registry exists).
-        runner_value = task_data.get("runner", "")
-        runner_def = None
-        if isinstance(runner_value, dict):
-            runner = ""
-            runner_def = runner_value
-        elif isinstance(runner_value, str):
-            runner = runner_value
-            if namespace and runner:
-                runner = f"{namespace}.{runner}"
-        else:
-            raise ValueError(
-                f"Task '{task_name}': 'runner' must be a runner name or an "
-                f"inline runner definition mapping"
-            )
-
-        # Task interpreter is the NAME of an interpreter from the 'interpreters'
-        # section (existence validated post-parse, see _validate_interpreter_refs)
-        # or an inline definition dict (materialised in parse_recipe).
-        interpreter_value = task_data.get("interpreter", "")
-        interpreter_def = None
-        if isinstance(interpreter_value, dict):
-            interpreter = ""
-            interpreter_def = interpreter_value
-        elif isinstance(interpreter_value, str):
-            interpreter = interpreter_value
-        else:
-            raise ValueError(
-                f"Task '{task_name}': 'interpreter' must be an interpreter name "
-                f"or an inline interpreter definition mapping"
-            )
-
-        task = Task(
-            name=full_name,
-            cmd=task_data["cmd"],
-            desc=task_data.get("desc", ""),
-            deps=deps,
-            inputs=task_data.get("inputs", []),
-            outputs=task_data.get("outputs", []),
-            working_dir=working_dir,
-            args=task_data.get("args", []),
-            source_file=str(file_path),
-            runner=runner,
-            runner_def=runner_def,
-            interpreter=interpreter,
-            interpreter_def=interpreter_def,
-            private=task_data.get("private", False),
-            pin_runner=task_data.get("pin_runner", False),
-            task_output=task_data.get("task_output", None),
-        )
-
-        # Apply blanket runner to non-pinned tasks from imports (an inline
-        # runner definition counts as an explicit task-level runner)
-        if blanket_runner and not task.pin_runner and not task.runner and task.runner_def is None:
-            task.runner = blanket_runner
-
-        # Rewrite {{ var.* }} references in imported tasks
-        if namespace:
-            _rewrite_task_variable_references(task, namespace)
-
-        # Check for case-sensitive argument collisions
-        if task.args:
-            _check_case_sensitive_arg_collisions(task.args, full_name)
-
-        tasks[full_name] = task
-
-    # Remove current file from stack
-    import_stack.pop()
-
-    return ParsedFileResult(tasks=tasks)
 
 
 def _check_case_sensitive_arg_collisions(args: list[str], task_name: str) -> None:
