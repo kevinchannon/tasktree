@@ -63,7 +63,13 @@ def _merge_file(
     data = _load_yaml(file_path)
     import_stack = import_stack + [file_path]
 
-    for import_spec in data.pop("imports", None) or []:
+    # Imported tasks merge in first; local tasks would win a key collision,
+    # though namespacing makes one impossible (imported keys always contain
+    # a dot, local names never do).
+    merged_tasks: dict[str, Any] = {}
+
+    imports = data.pop("imports", None) or []
+    for import_spec in imports:
         child_file = import_spec["file"]
         child_namespace = import_spec["as"]
 
@@ -76,7 +82,18 @@ def _merge_file(
         if not child_path.exists():
             raise FileNotFoundError(f"Import file not found: {child_path}")
 
-        _merge_file(child_path, full_namespace, import_stack)
+        child = _merge_file(child_path, full_namespace, import_stack)
+        merged_tasks.update(child.get("tasks") or {})
+
+    local_tasks = data.get("tasks") or {}
+    if namespace:
+        local_tasks = {
+            f"{namespace}.{name}": task for name, task in local_tasks.items()
+        }
+    merged_tasks.update(local_tasks)
+
+    if merged_tasks or "tasks" in data:
+        data["tasks"] = merged_tasks
 
     return data
 

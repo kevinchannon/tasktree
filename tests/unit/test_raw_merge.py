@@ -136,5 +136,102 @@ class TestImportErrors(RawMergeTestCase):
         self.assertNotIn("imports", merged)
 
 
+class TestTaskMerging(RawMergeTestCase):
+    def test_imported_tasks_are_namespaced(self):
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: build.yaml\n"
+            "    as: build\n"
+            "tasks:\n"
+            "  local:\n"
+            "    cmd: echo local\n",
+        )
+        self.write(
+            "build.yaml",
+            "tasks:\n"
+            "  compile:\n"
+            "    cmd: make\n",
+        )
+        merged = merge_recipe(recipe)
+        self.assertEqual(
+            merged["tasks"],
+            {
+                "build.compile": {"cmd": "make"},
+                "local": {"cmd": "echo local"},
+            },
+        )
+
+    def test_nested_imports_get_full_namespace_chain(self):
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: a.yaml\n"
+            "    as: a\n",
+        )
+        self.write(
+            "a.yaml",
+            "imports:\n"
+            "  - file: b.yaml\n"
+            "    as: b\n"
+            "tasks:\n"
+            "  mid:\n"
+            "    cmd: echo mid\n",
+        )
+        self.write(
+            "b.yaml",
+            "tasks:\n"
+            "  deep:\n"
+            "    cmd: echo deep\n",
+        )
+        merged = merge_recipe(recipe)
+        self.assertEqual(
+            set(merged["tasks"]),
+            {"a.mid", "a.b.deep"},
+        )
+
+    def test_root_without_tasks_gains_imported_tasks(self):
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: build.yaml\n"
+            "    as: build\n",
+        )
+        self.write("build.yaml", "tasks:\n  compile:\n    cmd: make\n")
+        merged = merge_recipe(recipe)
+        self.assertEqual(merged["tasks"], {"build.compile": {"cmd": "make"}})
+
+    def test_import_without_tasks_section_is_harmless(self):
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: vars.yaml\n"
+            "    as: v\n"
+            "tasks:\n"
+            "  local:\n"
+            "    cmd: echo\n",
+        )
+        self.write("vars.yaml", "variables:\n  x: 1\n")
+        merged = merge_recipe(recipe)
+        self.assertEqual(merged["tasks"], {"local": {"cmd": "echo"}})
+
+    def test_multiple_imports_all_merge(self):
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: one.yaml\n"
+            "    as: one\n"
+            "  - file: two.yaml\n"
+            "    as: two\n",
+        )
+        self.write("one.yaml", "tasks:\n  t:\n    cmd: echo 1\n")
+        self.write("two.yaml", "tasks:\n  t:\n    cmd: echo 2\n")
+        merged = merge_recipe(recipe)
+        self.assertEqual(
+            merged["tasks"],
+            {"one.t": {"cmd": "echo 1"}, "two.t": {"cmd": "echo 2"}},
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
