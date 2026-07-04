@@ -431,5 +431,124 @@ class TestRunnerTransforms(RawMergeTestCase):
         self.assertNotIn("runner", merged["tasks"]["a.b.deep"])
 
 
+class TestImportedRunners(RawMergeTestCase):
+    PINNED_IMPORT = (
+        "runners:\n"
+        "  special:\n"
+        "    interpreter: bash\n"
+        "  unused:\n"
+        "    interpreter: sh\n"
+        "tasks:\n"
+        "  compile:\n"
+        "    cmd: make\n"
+        "    runner: special\n"
+        "    pin_runner: true\n"
+        "  other:\n"
+        "    cmd: echo\n"
+        "    runner: unused\n"
+    )
+
+    def test_only_pinned_task_runners_are_imported(self):
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: build.yaml\n"
+            "    as: build\n",
+        )
+        self.write("build.yaml", self.PINNED_IMPORT)
+        merged = merge_recipe(recipe)
+        self.assertEqual(
+            merged["runners"], {"build.special": {"interpreter": "bash"}}
+        )
+
+    def test_imported_default_declaration_is_dropped(self):
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: build.yaml\n"
+            "    as: build\n"
+            "runners:\n"
+            "  default: shell\n"
+            "  shell:\n"
+            "    interpreter: bash\n",
+        )
+        self.write(
+            "build.yaml",
+            "runners:\n"
+            "  default: special\n"
+            "  special:\n"
+            "    interpreter: bash\n"
+            "tasks:\n"
+            "  compile:\n"
+            "    cmd: make\n"
+            "    runner: special\n"
+            "    pin_runner: true\n",
+        )
+        merged = merge_recipe(recipe)
+        self.assertEqual(
+            merged["runners"],
+            {
+                "default": "shell",
+                "shell": {"interpreter": "bash"},
+                "build.special": {"interpreter": "bash"},
+            },
+        )
+
+    def test_grandchild_pinned_runner_survives_to_root(self):
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: a.yaml\n"
+            "    as: a\n",
+        )
+        self.write(
+            "a.yaml",
+            "imports:\n"
+            "  - file: b.yaml\n"
+            "    as: b\n",
+        )
+        self.write(
+            "b.yaml",
+            "runners:\n"
+            "  deep_runner:\n"
+            "    interpreter: bash\n"
+            "tasks:\n"
+            "  deep:\n"
+            "    cmd: echo\n"
+            "    runner: deep_runner\n"
+            "    pin_runner: true\n",
+        )
+        merged = merge_recipe(recipe)
+        self.assertEqual(
+            merged["runners"], {"a.b.deep_runner": {"interpreter": "bash"}}
+        )
+
+    def test_import_without_runners_leaves_root_section_alone(self):
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: build.yaml\n"
+            "    as: build\n"
+            "runners:\n"
+            "  shell:\n"
+            "    interpreter: bash\n",
+        )
+        self.write("build.yaml", "tasks:\n  t:\n    cmd: echo\n")
+        merged = merge_recipe(recipe)
+        self.assertEqual(merged["runners"], {"shell": {"interpreter": "bash"}})
+
+    def test_root_without_runners_gains_imported_pinned_runner(self):
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: build.yaml\n"
+            "    as: build\n",
+        )
+        self.write("build.yaml", self.PINNED_IMPORT)
+        merged = merge_recipe(recipe)
+        self.assertIn("build.special", merged["runners"])
+        self.assertNotIn("build.unused", merged["runners"])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -71,6 +71,7 @@ def _merge_file(
     # though namespacing makes one impossible (imported keys always contain
     # a dot, local names never do).
     merged_tasks: dict[str, Any] = {}
+    merged_runners: dict[str, Any] = {}
 
     # The 'as' names of this file's own imports, for dependency rewriting:
     # a dotted dep whose root segment is one of these is a local reference
@@ -101,6 +102,28 @@ def _merge_file(
         )
         merged_tasks.update(child.get("tasks") or {})
 
+        # Selective runner import: only runners referenced by pinned tasks
+        # come along. Non-pinned imported tasks are expected to use the
+        # run_in blanket (or the root default); pinning is the explicit
+        # opt-in that brings a task's own runner with it.
+        pinned_runner_names = {
+            task["runner"]
+            for task in (child.get("tasks") or {}).values()
+            if isinstance(task, dict)
+            and task.get("pin_runner")
+            and isinstance(task.get("runner"), str)
+            and task["runner"]
+        }
+        child_runners = child.get("runners")
+        if isinstance(child_runners, dict):
+            merged_runners.update(
+                {
+                    name: config
+                    for name, config in child_runners.items()
+                    if name in pinned_runner_names
+                }
+            )
+
     local_tasks = data.get("tasks") or {}
     if namespace:
         for task in local_tasks.values():
@@ -118,6 +141,24 @@ def _merge_file(
 
     if merged_tasks or "tasks" in data:
         data["tasks"] = merged_tasks
+
+    local_runners = data.get("runners")
+    if isinstance(local_runners, dict):
+        if namespace:
+            # Imported 'default' declarations are dropped: only the root
+            # file's default runner applies to the merged recipe.
+            local_runners = {
+                f"{namespace}.{name}": config
+                for name, config in local_runners.items()
+                if name != "default"
+            }
+        merged_runners.update(local_runners)
+        data["runners"] = merged_runners
+    elif merged_runners:
+        # No usable local section; a null/missing one gains the imported
+        # runners, anything else is left for validation to reject.
+        if local_runners is None:
+            data["runners"] = merged_runners
 
     return data
 
