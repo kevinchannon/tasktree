@@ -233,5 +233,101 @@ class TestTaskMerging(RawMergeTestCase):
         )
 
 
+class TestDepRewriting(RawMergeTestCase):
+    def merged_task(self, imported_yaml: str, task_key: str) -> dict:
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: build.yaml\n"
+            "    as: build\n",
+        )
+        self.write("build.yaml", imported_yaml)
+        return merge_recipe(recipe)["tasks"][task_key]
+
+    def test_simple_dep_gets_namespace_prefix(self):
+        task = self.merged_task(
+            "tasks:\n"
+            "  compile:\n"
+            "    cmd: make\n"
+            "  link:\n"
+            "    deps: [compile]\n"
+            "    cmd: ld\n",
+            "build.link",
+        )
+        self.assertEqual(task["deps"], ["build.compile"])
+
+    def test_string_deps_value_is_normalised_and_prefixed(self):
+        task = self.merged_task(
+            "tasks:\n"
+            "  compile:\n"
+            "    cmd: make\n"
+            "  link:\n"
+            "    deps: compile\n"
+            "    cmd: ld\n",
+            "build.link",
+        )
+        self.assertEqual(task["deps"], ["build.compile"])
+
+    def test_external_dotted_dep_is_kept_absolute(self):
+        task = self.merged_task(
+            "tasks:\n"
+            "  link:\n"
+            "    deps: [other.setup]\n"
+            "    cmd: ld\n",
+            "build.link",
+        )
+        self.assertEqual(task["deps"], ["other.setup"])
+
+    def test_parameterized_dep_name_is_rewritten_args_preserved(self):
+        task = self.merged_task(
+            "tasks:\n"
+            "  compile:\n"
+            "    cmd: make {{ arg.mode }}\n"
+            "    args:\n"
+            "      - mode\n"
+            "  link:\n"
+            "    deps:\n"
+            "      - compile:\n"
+            "          mode: release\n"
+            "    cmd: ld\n",
+            "build.link",
+        )
+        self.assertEqual(task["deps"], [{"build.compile": {"mode": "release"}}])
+
+    def test_dep_on_own_import_gets_full_chain(self):
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: a.yaml\n"
+            "    as: a\n",
+        )
+        self.write(
+            "a.yaml",
+            "imports:\n"
+            "  - file: b.yaml\n"
+            "    as: b\n"
+            "tasks:\n"
+            "  mid:\n"
+            "    deps: [b.deep]\n"
+            "    cmd: echo\n",
+        )
+        self.write("b.yaml", "tasks:\n  deep:\n    cmd: echo\n")
+        merged = merge_recipe(recipe)
+        self.assertEqual(merged["tasks"]["a.mid"]["deps"], ["a.b.deep"])
+
+    def test_root_file_deps_are_untouched(self):
+        recipe = self.write(
+            "tt.yaml",
+            "tasks:\n"
+            "  compile:\n"
+            "    cmd: make\n"
+            "  link:\n"
+            "    deps: [compile]\n"
+            "    cmd: ld\n",
+        )
+        merged = merge_recipe(recipe)
+        self.assertEqual(merged["tasks"]["link"]["deps"], ["compile"])
+
+
 if __name__ == "__main__":
     unittest.main()

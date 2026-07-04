@@ -68,10 +68,17 @@ def _merge_file(
     # a dot, local names never do).
     merged_tasks: dict[str, Any] = {}
 
+    # The 'as' names of this file's own imports, for dependency rewriting:
+    # a dotted dep whose root segment is one of these is a local reference
+    # (gets this file's namespace prefix); any other dotted dep is an
+    # absolute reference into another part of the tree and stays as-is.
+    local_import_namespaces: set[str] = set()
+
     imports = data.pop("imports", None) or []
     for import_spec in imports:
         child_file = import_spec["file"]
         child_namespace = import_spec["as"]
+        local_import_namespaces.add(child_namespace)
 
         full_namespace = (
             f"{namespace}.{child_namespace}" if namespace else child_namespace
@@ -87,6 +94,11 @@ def _merge_file(
 
     local_tasks = data.get("tasks") or {}
     if namespace:
+        for task in local_tasks.values():
+            if isinstance(task, dict) and "deps" in task:
+                task["deps"] = _rewrite_deps(
+                    task["deps"], namespace, local_import_namespaces
+                )
         local_tasks = {
             f"{namespace}.{name}": task for name, task in local_tasks.items()
         }
@@ -96,6 +108,42 @@ def _merge_file(
         data["tasks"] = merged_tasks
 
     return data
+
+
+def _rewrite_deps(
+    deps: Any, namespace: str, local_import_namespaces: set[str]
+) -> Any:
+    """Namespace the dependency names of one imported task."""
+    if isinstance(deps, str):
+        deps = [deps]
+    if not isinstance(deps, list):
+        return deps
+    rewritten: list[Any] = []
+    for dep in deps:
+        if isinstance(dep, str):
+            rewritten.append(
+                _rewrite_dep_name(dep, namespace, local_import_namespaces)
+            )
+        elif isinstance(dep, dict):
+            # Parameterized dep: {task-name: args} - rewrite the name only
+            rewritten.append(
+                {
+                    _rewrite_dep_name(name, namespace, local_import_namespaces): args
+                    for name, args in dep.items()
+                }
+            )
+        else:
+            rewritten.append(dep)
+    return rewritten
+
+
+def _rewrite_dep_name(
+    name: str, namespace: str, local_import_namespaces: set[str]
+) -> str:
+    root_segment = name.split(".", 1)[0]
+    if "." not in name or root_segment in local_import_namespaces:
+        return f"{namespace}.{name}"
+    return name
 
 
 def _load_yaml(file_path: Path) -> dict[str, Any]:
