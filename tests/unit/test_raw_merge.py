@@ -4,7 +4,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tasktree.raw_merge import CircularImportError, merge_recipe
+from tasktree.raw_merge import (
+    CircularImportError,
+    merge_recipe,
+    merge_recipe_files,
+)
 
 
 class RawMergeTestCase(unittest.TestCase):
@@ -836,6 +840,104 @@ class TestInterpreterMerging(RawMergeTestCase):
         self.assertEqual(
             merged["runners"]["build.special"], {"interpreter": "bash"}
         )
+
+
+class TestNameErrorCollection(RawMergeTestCase):
+    def test_clean_recipe_has_no_name_errors(self):
+        recipe = self.write(
+            "tt.yaml",
+            "runners:\n"
+            "  shell:\n"
+            "    interpreter: bash\n"
+            "variables:\n"
+            "  ok: yes\n"
+            "tasks:\n"
+            "  t:\n"
+            "    cmd: echo\n",
+        )
+        self.assertEqual(merge_recipe_files(recipe).name_errors, {})
+
+    def test_root_runner_with_dots_gets_deferred_error(self):
+        recipe = self.write(
+            "tt.yaml",
+            "runners:\n"
+            "  bad.name:\n"
+            "    interpreter: bash\n",
+        )
+        errors = merge_recipe_files(recipe).name_errors
+        self.assertEqual(
+            errors,
+            {
+                "bad.name": "Runner name 'bad.name' must not contain dots "
+                "(reserved for import namespacing)"
+            },
+        )
+
+    def test_imported_runner_error_is_keyed_by_merged_name(self):
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: build.yaml\n"
+            "    as: build\n",
+        )
+        self.write(
+            "build.yaml",
+            "runners:\n"
+            "  bad.name:\n"
+            "    interpreter: bash\n",
+        )
+        errors = merge_recipe_files(recipe).name_errors
+        self.assertIn("build.bad.name", errors)
+        self.assertIn("'bad.name'", errors["build.bad.name"])
+
+    def test_imported_variable_error_is_keyed_by_merged_name(self):
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: build.yaml\n"
+            "    as: build\n",
+        )
+        self.write("build.yaml", "variables:\n  bad.var: x\n")
+        errors = merge_recipe_files(recipe).name_errors
+        self.assertIn("build.bad.var", errors)
+        self.assertIn("'bad.var'", errors["build.bad.var"])
+
+    def test_unimported_runner_still_gets_name_error(self):
+        # Selective import drops non-pinned runners from the tree, but a
+        # non-pinned task can still name one - the deferred error must
+        # exist for the reachability check to find
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: build.yaml\n"
+            "    as: build\n",
+        )
+        self.write(
+            "build.yaml",
+            "runners:\n"
+            "  bad.name:\n"
+            "    interpreter: bash\n"
+            "tasks:\n"
+            "  t:\n"
+            "    cmd: echo\n"
+            "    runner: bad.name\n",
+        )
+        merged = merge_recipe_files(recipe)
+        self.assertNotIn("build.bad.name", merged.data.get("runners", {}))
+        self.assertIn("build.bad.name", merged.name_errors)
+
+    def test_default_keys_are_not_name_validated(self):
+        recipe = self.write(
+            "tt.yaml",
+            "runners:\n"
+            "  default: shell\n"
+            "  shell:\n"
+            "    interpreter: bash\n"
+            "interpreters:\n"
+            "  default: sh\n"
+            "  sh: bash\n",
+        )
+        self.assertEqual(merge_recipe_files(recipe).name_errors, {})
 
 
 class TestParityWithObjectPath(RawMergeTestCase):

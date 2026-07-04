@@ -10,6 +10,7 @@ time.
 """
 
 import re
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -28,24 +29,55 @@ class CircularImportError(Exception):
     pass
 
 
-def merge_recipe(recipe_path: Path) -> dict[str, Any]:
+def local_name_error(name: str, kind: str) -> str | None:
+    """Return an error message if a local item name is invalid, None otherwise."""
+    if not name:
+        return f"{kind} name must not be empty"
+    if "." in name:
+        return f"{kind} name '{name}' must not contain dots (reserved for import namespacing)"
+    return None
+
+
+@dataclass
+class MergedRecipe:
+    """A merged raw recipe tree plus deferred name-validation errors."""
+
+    data: dict[str, Any]
+    # Keyed by the item's merged (namespaced) name; surfaced later, only if
+    # the item turns out to be reachable
+    name_errors: dict[str, str] = field(default_factory=dict)
+
+
+def merge_recipe_files(recipe_path: Path) -> MergedRecipe:
     """
     Merge a recipe file and its imports into a single raw dict.
 
     The 'imports' key is consumed by the merge and never appears in the
-    result (its presence downstream would indicate a merge bug).
+    result (its presence downstream would indicate a merge bug). Invalid
+    local names (dots, empty) for runners/interpreters/variables are not
+    raised here but recorded as deferred name errors, keyed by merged name.
 
     Args:
     recipe_path: Path to the main recipe file
 
     Returns:
-    The merged raw recipe dict (empty dict for an empty file)
+    MergedRecipe with the merged tree (empty dict for an empty file) and
+    any deferred name errors
 
     Raises:
     FileNotFoundError: If an imported file doesn't exist
     CircularImportError: If a circular import is detected
     """
-    return _merge_file(recipe_path, namespace=None, import_stack=[])
+    name_errors: dict[str, str] = {}
+    data = _merge_file(
+        recipe_path, namespace=None, import_stack=[], name_errors=name_errors
+    )
+    return MergedRecipe(data=data, name_errors=name_errors)
+
+
+def merge_recipe(recipe_path: Path) -> dict[str, Any]:
+    """The merged tree only - see merge_recipe_files."""
+    return merge_recipe_files(recipe_path).data
 
 
 def _merge_file(
@@ -53,6 +85,8 @@ def _merge_file(
     namespace: str | None,
     import_stack: list[Path],
     blanket_runner: str = "",
+    *,
+    name_errors: dict[str, str],
 ) -> dict[str, Any]:
     """
     Load one file and fold its imports in, applying namespace transforms.
@@ -106,6 +140,7 @@ def _merge_file(
             full_namespace,
             import_stack,
             import_spec.get("run_in", ""),
+            name_errors=name_errors,
         )
         merged_tasks.update(child.get("tasks") or {})
 
@@ -160,6 +195,9 @@ def _merge_file(
 
     local_runners = data.get("runners")
     if isinstance(local_runners, dict):
+        _record_name_errors(
+            local_runners, "Runner", namespace, name_errors, skip={"default"}
+        )
         if namespace:
             # Imported 'default' declarations are dropped: only the root
             # file's default runner applies to the merged recipe.
@@ -180,6 +218,7 @@ def _merge_file(
 
     local_variables = data.get("variables")
     if isinstance(local_variables, dict):
+        _record_name_errors(local_variables, "Variable", namespace, name_errors)
         if namespace:
             local_variables = {
                 f"{namespace}.{name}": _namespace_var_refs(value, namespace)
@@ -198,6 +237,9 @@ def _merge_file(
     # namespaced - they resolve against the root registry, as before.
     local_interpreters = data.get("interpreters")
     if isinstance(local_interpreters, dict):
+        _record_name_errors(
+            local_interpreters, "Interpreter", namespace, name_errors, skip={"default"}
+        )
         if namespace:
             local_interpreters = {
                 f"{namespace}.{name}": _namespace_var_refs(value, namespace)
@@ -211,6 +253,29 @@ def _merge_file(
             data["interpreters"] = merged_interpreters
 
     return data
+
+
+def _record_name_errors(
+    section: dict[str, Any],
+    kind: str,
+    namespace: str | None,
+    name_errors: dict[str, str],
+    skip: frozenset[str] | set[str] = frozenset(),
+) -> None:
+    """
+    Record deferred errors for invalid local names in one file's section.
+
+    Errors are keyed by the merged (namespaced) name so reachability checks
+    can look them up later; the message names the local (pre-namespace)
+    item, matching the object path's wording.
+    """
+    for name in section:
+        if name in skip:
+            continue
+        error = local_name_error(name, kind)
+        if error:
+            merged_name = f"{namespace}.{name}" if namespace else name
+            name_errors[merged_name] = error
 
 
 def _namespace_interpreter_use(config: Any, namespace: str) -> Any:

@@ -21,7 +21,11 @@ from tasktree.logging import Logger
 from tasktree.types import get_click_type
 from tasktree.process_runner import TaskOutputTypes
 from tasktree.interpreter import Interpreter, InterpreterError
-from tasktree.raw_merge import CircularImportError, VAR_REFERENCE_REWRITE_PATTERN
+from tasktree.raw_merge import (
+    CircularImportError,
+    VAR_REFERENCE_REWRITE_PATTERN,
+    local_name_error,
+)
 
 
 # Pattern for extracting variable names from references (single capture group)
@@ -884,13 +888,9 @@ def find_recipe_file(start_dir: Path | None = None) -> Path | None:
 
 
 
-def _validate_local_item_name(name: str, kind: str) -> str | None:
-    """Return an error message if the local name is invalid, None otherwise."""
-    if not name:
-        return f"{kind} name must not be empty"
-    if "." in name:
-        return f"{kind} name '{name}' must not contain dots (reserved for import namespacing)"
-    return None
+# Local-name validation lives in raw_merge (the merge is where local names
+# are still visible pre-namespacing); this alias keeps parser call sites.
+_validate_local_item_name = local_name_error
 
 
 def _rewrite_variable_references(text: str, namespace: str) -> str:
