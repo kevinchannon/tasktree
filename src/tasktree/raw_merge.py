@@ -47,6 +47,7 @@ def _merge_file(
     file_path: Path,
     namespace: str | None,
     import_stack: list[Path],
+    blanket_runner: str = "",
 ) -> dict[str, Any]:
     """
     Load one file and fold its imports in, applying namespace transforms.
@@ -55,6 +56,9 @@ def _merge_file(
     file_path: Path to the YAML file
     namespace: Full namespace chain for this file (None for the root file)
     import_stack: Files currently being imported (for circular detection)
+    blanket_runner: run_in override to apply to this file's own non-pinned,
+    runnerless tasks (does not cascade into this file's imports - each
+    import spec carries its own run_in)
     """
     if file_path in import_stack:
         chain = " → ".join(str(f.name) for f in import_stack + [file_path])
@@ -89,16 +93,24 @@ def _merge_file(
         if not child_path.exists():
             raise FileNotFoundError(f"Import file not found: {child_path}")
 
-        child = _merge_file(child_path, full_namespace, import_stack)
+        child = _merge_file(
+            child_path,
+            full_namespace,
+            import_stack,
+            import_spec.get("run_in", ""),
+        )
         merged_tasks.update(child.get("tasks") or {})
 
     local_tasks = data.get("tasks") or {}
     if namespace:
         for task in local_tasks.values():
-            if isinstance(task, dict) and "deps" in task:
+            if not isinstance(task, dict):
+                continue
+            if "deps" in task:
                 task["deps"] = _rewrite_deps(
                     task["deps"], namespace, local_import_namespaces
                 )
+            _apply_runner_transforms(task, namespace, blanket_runner)
         local_tasks = {
             f"{namespace}.{name}": task for name, task in local_tasks.items()
         }
@@ -135,6 +147,28 @@ def _rewrite_deps(
         else:
             rewritten.append(dep)
     return rewritten
+
+
+def _apply_runner_transforms(
+    task: dict[str, Any], namespace: str, blanket_runner: str
+) -> None:
+    """
+    Namespace an imported task's runner name and apply the run_in blanket.
+
+    A named runner is always prefixed (runner names in an imported file can
+    only refer to that file's own runners). Inline definition dicts pass
+    through untouched. The blanket applies only to non-pinned tasks with no
+    runner at all - a name or an inline definition both count as explicit.
+    """
+    runner_value = task.get("runner", "")
+    if not isinstance(runner_value, str):
+        # Inline definition dicts pass through; invalid values are left for
+        # validation to reject rather than being masked by the blanket
+        return
+    if runner_value:
+        task["runner"] = f"{namespace}.{runner_value}"
+    elif blanket_runner and not task.get("pin_runner"):
+        task["runner"] = blanket_runner
 
 
 def _rewrite_dep_name(

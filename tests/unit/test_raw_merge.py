@@ -329,5 +329,107 @@ class TestDepRewriting(RawMergeTestCase):
         self.assertEqual(merged["tasks"]["link"]["deps"], ["compile"])
 
 
+class TestRunnerTransforms(RawMergeTestCase):
+    def merged_task(
+        self, imported_yaml: str, task_key: str, run_in: str = ""
+    ) -> dict:
+        run_in_line = f"    run_in: {run_in}\n" if run_in else ""
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: build.yaml\n"
+            "    as: build\n" + run_in_line,
+        )
+        self.write("build.yaml", imported_yaml)
+        return merge_recipe(recipe)["tasks"][task_key]
+
+    def test_imported_task_runner_name_is_prefixed(self):
+        task = self.merged_task(
+            "tasks:\n"
+            "  compile:\n"
+            "    cmd: make\n"
+            "    runner: docker\n",
+            "build.compile",
+        )
+        self.assertEqual(task["runner"], "build.docker")
+
+    def test_inline_runner_definition_is_untouched(self):
+        task = self.merged_task(
+            "tasks:\n"
+            "  compile:\n"
+            "    cmd: make\n"
+            "    runner:\n"
+            "      interpreter: bash\n",
+            "build.compile",
+        )
+        self.assertEqual(task["runner"], {"interpreter": "bash"})
+
+    def test_run_in_applies_to_runnerless_task(self):
+        task = self.merged_task(
+            "tasks:\n"
+            "  compile:\n"
+            "    cmd: make\n",
+            "build.compile",
+            run_in="docker",
+        )
+        self.assertEqual(task["runner"], "docker")
+
+    def test_run_in_does_not_override_named_runner(self):
+        task = self.merged_task(
+            "tasks:\n"
+            "  compile:\n"
+            "    cmd: make\n"
+            "    runner: shell\n",
+            "build.compile",
+            run_in="docker",
+        )
+        self.assertEqual(task["runner"], "build.shell")
+
+    def test_run_in_does_not_apply_to_pinned_task(self):
+        task = self.merged_task(
+            "tasks:\n"
+            "  compile:\n"
+            "    cmd: make\n"
+            "    pin_runner: true\n",
+            "build.compile",
+            run_in="docker",
+        )
+        self.assertNotIn("runner", task)
+
+    def test_run_in_does_not_override_inline_runner(self):
+        task = self.merged_task(
+            "tasks:\n"
+            "  compile:\n"
+            "    cmd: make\n"
+            "    runner:\n"
+            "      interpreter: bash\n",
+            "build.compile",
+            run_in="docker",
+        )
+        self.assertEqual(task["runner"], {"interpreter": "bash"})
+
+    def test_run_in_does_not_cascade_to_nested_imports(self):
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: a.yaml\n"
+            "    as: a\n"
+            "    run_in: docker\n",
+        )
+        self.write(
+            "a.yaml",
+            "imports:\n"
+            "  - file: b.yaml\n"
+            "    as: b\n"
+            "tasks:\n"
+            "  mid:\n"
+            "    cmd: echo\n",
+        )
+        self.write("b.yaml", "tasks:\n  deep:\n    cmd: echo\n")
+        merged = merge_recipe(recipe)
+        self.assertEqual(merged["tasks"]["a.mid"]["runner"], "docker")
+        self.assertNotIn("runner", merged["tasks"]["a.b.deep"])
+
+
 if __name__ == "__main__":
     unittest.main()
