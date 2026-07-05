@@ -1,7 +1,7 @@
 # Implementation plan: runtime schema validation pipeline
 
-> **Status:** in progress — slices 0–3 done (see per-slice notes), next is
-> slice 4. Branch `schema-validation-pipeline`, pushed to origin.
+> **Status:** in progress — slices 0–4 done (see per-slice notes), next is
+> slice 5. Branch `schema-validation-pipeline`, pushed to origin.
 > **Tracking issue:** [#43](https://github.com/kevinchannon/tasktree/issues/43).
 > This document is self-contained: it is written so a fresh contributor (human or
 > Claude) can implement the feature without the conversation that produced it.
@@ -274,7 +274,7 @@ Parse-time check (uses the walker) rejecting forbidden prefixes in runner and
 interpreter subtrees, with the "runners are shared across tasks" explanation
 in the error.
 
-### Slice 4 — raw-dict merge phase *(the big one)* — in progress
+### Slice 4 — raw-dict merge phase *(the big one)* ✅ done
 **Progress (2026-07-04, session 1):** the merge module is built and fully
 unit-tested; no cutover yet (parse_recipe still runs the old object path
 untouched, so nothing user-observable changed and the reference gate has not
@@ -321,28 +321,28 @@ expected-divergences entry above). Variables cutover judged zero-divergence
 per-field rewrite coincide) — no new behaviour tests, existing suite is the
 parity net.
 
-**Next: the tasks cutover** — build Task objects from `merged.data["tasks"]`
-and delete `_parse_file` entirely. Known work items:
-- `Task.source_file` is user-visible (`tt --show` prints "Source: …"), so
-  `MergedRecipe` must carry provenance (task name → source file) collected
-  during the merge.
-- The per-file top-level-keys validation (unknown keys / "tasks:" hint,
-  with file path in the message) lives in `_parse_file` and must move into
-  `_merge_file` verbatim until slice 6/8 replaces it with the schema.
-- Local task-name validation (dots) **raises immediately** in the old path
-  (unlike runners/variables which defer) — replicate as a raise during the
-  merge's local-task processing.
-- Task construction from the merged tree skips the transforms (deps,
-  runner prefix, blanket, var rewriting) — they're already applied; keep
-  the type/shape checks ("must be a dictionary", "missing required 'cmd'",
-  runner/interpreter field type checks) and
-  `_check_case_sensitive_arg_collisions`.
-- Divergence to gate-test when this lands: the merge's generic var-ref
-  walk rewrites imported dep-argument templates and inline definitions
-  (v1.3.2 left them pointing at root scope). Also
-  `Recipe._original_yaml_data` (eval-variable default-interpreter context)
-  can then become `merged.data`, and `evaluate_variables`' substitution
-  into Task objects needs re-checking against the merged content.
+**Progress (2026-07-05, session 3): tasks cut over — slice complete.**
+`parse_recipe` now builds everything from one `merge_recipe_files` call:
+`_build_tasks_from_merged` constructs Task objects from
+`merged.data["tasks"]` (shape checks and
+`_check_case_sensitive_arg_collisions` only — all cross-file transforms
+are the merge's). Deleted: `_parse_file`, `_parse_file_with_env`,
+`ParsedFileResult`, the per-field var-reference rewrite helpers, and
+parser.py's direct YAML read (`import yaml` gone). Supporting merge work:
+`MergedRecipe.task_sources` provenance (feeds `Task.source_file`),
+per-file top-level-keys validation moved verbatim into `_merge_file`
+(children validated before importer, matching old recursion order), and
+local task names raise during the merge (runners/variables still defer).
+`Recipe._original_yaml_data` is now `merged.data` — `_eval_interpreter`
+only reads the runners/interpreters sections, whose root `default:` keys
+survive the merge; imported interpreters became resolvable there as a
+side benefit. Gate (`tests/unit/test_task_merge_cutover.py`,
+self-contained): 3 parity tests pass on v1.3.2; the 2 divergence tests
+(imported dep-argument templates, inline runner definitions — see
+expected-divergences entry) fail there as intended. Full pyramid green.
+Note for later: `TestParityWithObjectPath` in `test_raw_merge.py` is now
+tautological (parse_recipe is merge-based) — repurpose or drop when
+slice 5 touches that file.
 
 Original scope follows.
 Restructure `parser.py` so imports merge into one raw dict **before** any
