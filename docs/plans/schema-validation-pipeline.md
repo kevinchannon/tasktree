@@ -187,6 +187,12 @@ land):
   remain valid there)
 - broken-but-unreachable tasks are tolerated when invoking a specific task
   (slices 5/6; v1.3.2 errors on any parse-time-invalid task anywhere)
+- var-references in imported dep-argument templates and inline
+  runner/interpreter definitions resolve in the imported file's scope
+  (slice 4 tasks cutover; the merge's generic var-ref walk rewrites every
+  string in an imported task, where v1.3.2 rewrote only an enumerated field
+  list and left these pointing at root scope — gate verdicts recorded in
+  `tests/unit/test_task_merge_cutover.py`)
 - broken non-pinned imported runners are tolerated (slice 4 runners cutover;
   v1.3.2 eagerly built every imported file's runners — validating configs,
   Dockerfile paths, template restrictions — then discarded the non-pinned
