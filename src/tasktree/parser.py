@@ -15,7 +15,6 @@ from collections.abc import KeysView
 from typing import Any, Optional
 
 import typer
-import yaml
 
 from tasktree.logging import Logger
 from tasktree.types import get_click_type
@@ -2155,44 +2154,6 @@ def nix_runner_from_config(
     )
 
 
-def _parse_file_with_env(
-    file_path: Path,
-    project_root: Path,
-) -> tuple[dict[str, Task], dict[str, Runner], dict[str, Interpreter], str, str, dict[str, Any], dict[str, Any], dict[str, str]]:
-    """
-    Parse a recipe file and extract tasks, runners, interpreters, and variables.
-
-    Everything is built from the raw-dict merge: imported definitions arrive
-    already namespaced, with run_in / pinned-runner selection, dep rewriting
-    and var-reference rewriting applied as dict transforms. Name errors
-    (dots in local names) are collected during the merge.
-
-    Args:
-    file_path: Path to the root YAML file
-    project_root: Root directory of the project
-
-    Returns:
-    Tuple of (tasks, runners, interpreters, default_runner_name,
-    default_interpreter_name, raw_variables, YAML_data, name_errors)
-    Note: Variables are NOT evaluated here - they're stored as raw specs for lazy evaluation
-    """
-    # The root file's raw dict is kept for eval-variable context
-    # (default runner's interpreter lookup)
-    with open(file_path, "r", encoding="utf-8") as f:
-        data = yaml.safe_load(f)
-        yaml_data = data or {}
-
-    merged = merge_recipe_files(file_path)
-    tasks = _build_tasks_from_merged(merged)
-    runners, default_runner, interpreters, default_interpreter = (
-        _parse_runners_from_data(merged.data, project_root)
-    )
-    raw_variables = merged.data.get("variables") or {}
-    name_errors = dict(merged.name_errors)
-
-    return tasks, runners, interpreters, default_runner, default_interpreter, raw_variables, yaml_data, name_errors
-
-
 def _build_tasks_from_merged(merged: MergedRecipe) -> dict[str, Task]:
     """
     Construct Task objects from the merged raw tree.
@@ -2512,10 +2473,14 @@ def parse_recipe(
     if project_root is None:
         project_root = recipe_path.parent
 
-    # Parse main file - it will recursively handle all imports
-    # Variables are NOT evaluated here (lazy evaluation)
-    tasks, runners, interpreters, default_runner, default_interpreter, raw_variables, yaml_data, name_errors = _parse_file_with_env(
-        recipe_path, project_root=project_root
+    # Everything is built from the raw-dict merge: imported definitions
+    # arrive already namespaced, with run_in / pinned-runner selection, dep
+    # rewriting and var-reference rewriting applied as dict transforms.
+    # Variables are NOT evaluated here (lazy evaluation).
+    merged = merge_recipe_files(recipe_path)
+    tasks = _build_tasks_from_merged(merged)
+    runners, default_runner, interpreters, default_interpreter = (
+        _parse_runners_from_data(merged.data, project_root)
     )
 
     _materialise_inline_definitions(tasks, runners, interpreters, project_root)
@@ -2530,11 +2495,14 @@ def parse_recipe(
         default_runner=default_runner,
         default_interpreter=default_interpreter,
         variables={},  # Empty initially (deprecated field)
-        raw_variables=raw_variables,
+        raw_variables=merged.data.get("variables") or {},
         evaluated_variables={},  # Empty initially
         _variables_evaluated=False,
-        _original_yaml_data=yaml_data,
-        _name_errors=name_errors,
+        # The merged tree serves as the eval-variable context (default
+        # runner's interpreter lookup); its root 'default:' keys survive
+        # the merge, and imported interpreters are resolvable in it
+        _original_yaml_data=merged.data,
+        _name_errors=dict(merged.name_errors),
     )
 
     # Validate that task-level interpreter names reference defined interpreters.
