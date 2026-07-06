@@ -451,6 +451,10 @@ class Recipe:
     _name_errors: dict[str, str] = field(
         default_factory=dict
     )  # Deferred name validation errors (checked when items are reachable)
+    defined_task_names: frozenset[str] = frozenset()
+    # Every task name in the merged recipe, captured before any pruning.
+    # State pruning uses this to tell a deleted task's stale entry from
+    # the entry of a task that simply wasn't part of this run.
 
     def get_task(self, name: str) -> Task | None:
         """
@@ -2503,6 +2507,7 @@ def parse_recipe(
         # the merge, and imported interpreters are resolvable in it
         _original_yaml_data=merged.data,
         _name_errors=dict(merged.name_errors),
+        defined_task_names=frozenset(tasks),
     )
 
     # Validate that task-level interpreter names reference defined interpreters.

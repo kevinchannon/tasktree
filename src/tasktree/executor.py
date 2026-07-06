@@ -1932,7 +1932,12 @@ class Executor:
             input_state[f"_runner_image_fp_{env_name}"] = fingerprint
 
         output_state = self._output_files_to_modified_times(task, process_runner)
-        new_state = TaskState(last_run=time.time(), input_state=input_state, output_state=output_state)
+        new_state = TaskState(
+            last_run=time.time(),
+            input_state=input_state,
+            output_state=output_state,
+            task_name=task.name,
+        )
         self.state.set(cache_key, new_state)
         self.state.save()
 

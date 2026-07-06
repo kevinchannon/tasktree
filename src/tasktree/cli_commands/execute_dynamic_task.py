@@ -132,7 +132,11 @@ def execute_dynamic_task(
 
         valid_hashes.add(task_hash)
 
-    state.prune(valid_hashes)
+    state.prune(
+        valid_hashes,
+        defined_task_names=recipe.defined_task_names,
+        reachable_task_names={name for name, _ in execution_order},
+    )
     state.save()
     try:
         executor.execute_task(

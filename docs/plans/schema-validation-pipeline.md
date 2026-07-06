@@ -187,6 +187,14 @@ land):
   remain valid there)
 - broken-but-unreachable tasks are tolerated when invoking a specific task
   (slices 5/6; v1.3.2 errors on any parse-time-invalid task anywhere)
+- state entries carry their task's name, and targeted runs no longer prune
+  the state of tasks that merely weren't invoked (slice 5 prerequisite;
+  fixes a v1.3.2 bug where any un-invoked task using variables was hashed
+  with its templates unsubstituted and its state thrashed on every run of
+  another task — gate verdicts in `tests/integration/test_state_pruning.py`.
+  Entries written by older versions carry no name and are pruned under the
+  old hash-only rule once, i.e. a one-time re-run of un-invoked var-using
+  tasks after upgrade)
 - var-references in imported dep-argument templates and inline
   runner/interpreter definitions resolve in the imported file's scope
   (slice 4 tasks cutover; the merge's generic var-ref walk rewrites every
