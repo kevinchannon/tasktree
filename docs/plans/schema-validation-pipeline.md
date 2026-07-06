@@ -186,7 +186,10 @@ land):
   four global builtins `project_root`/`recipe_dir`/`user_home`/`user_name`
   remain valid there)
 - broken-but-unreachable tasks are tolerated when invoking a specific task
-  (slices 5/6; v1.3.2 errors on any parse-time-invalid task anywhere)
+  (slices 5/6; v1.3.2 errors on any parse-time-invalid task anywhere —
+  landed in slice 5, gate verdicts in
+  `tests/integration/test_unreachable_task_tolerance.py`; `--list`/
+  `--show`/`--tree` still validate the whole file)
 - state entries carry their task's name, and targeted runs no longer prune
   the state of tasks that merely weren't invoked (slice 5 prerequisite;
   fixes a v1.3.2 bug where any un-invoked task using variables was hashed

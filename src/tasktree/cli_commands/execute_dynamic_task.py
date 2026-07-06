@@ -50,8 +50,12 @@ def execute_dynamic_task(
     task_name = args[0]
     task_args = args[1:]
 
-    # Pass task_name as root_task for lazy variable evaluation
-    recipe = get_recipe(logger, tasks_file, root_task=task_name)
+    # Pass task_name as root_task for lazy variable evaluation; task
+    # invocation prunes the recipe to the reachable set, tolerating
+    # defects in tasks this run doesn't touch
+    recipe = get_recipe(
+        logger, tasks_file, root_task=task_name, prune_unreachable=True
+    )
     if recipe is None:
         logger.error(
             "[red]No recipe file found (tasktree.yaml, tasktree.yml, tt.yaml, or *.tasks)[/red]",

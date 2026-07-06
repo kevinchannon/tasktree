@@ -2182,6 +2182,52 @@ tasks:
             self.assertIsNone(recipe.get_runner("bare-env").interpreter)
 
 
+class TestTaskPruning(unittest.TestCase):
+    """
+    parse_recipe(prune_unreachable=True) prunes to the invoked task's
+    reachable set before Task construction.
+    """
+
+    RECIPE = """
+tasks:
+  top:
+    deps: [mid]
+    cmd: echo top
+  mid:
+    cmd: echo mid
+  stray:
+    cmd: echo stray
+"""
+
+    def parse(self, **kwargs):
+        recipe_path = self.root / "tasktree.yaml"
+        recipe_path.write_text(self.RECIPE)
+        return parse_recipe(recipe_path, **kwargs)
+
+    def setUp(self):
+        self._tmp = TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.root = Path(self._tmp.name)
+
+    def test_pruning_keeps_only_reachable_tasks(self):
+        recipe = self.parse(root_task="top", prune_unreachable=True)
+        self.assertEqual(set(recipe.tasks), {"top", "mid"})
+
+    def test_defined_task_names_still_cover_pruned_tasks(self):
+        recipe = self.parse(root_task="top", prune_unreachable=True)
+        self.assertEqual(
+            recipe.defined_task_names, frozenset({"top", "mid", "stray"})
+        )
+
+    def test_missing_root_task_skips_pruning(self):
+        recipe = self.parse(root_task="no-such-task", prune_unreachable=True)
+        self.assertEqual(set(recipe.tasks), {"top", "mid", "stray"})
+
+    def test_root_task_without_flag_does_not_prune(self):
+        recipe = self.parse(root_task="top")
+        self.assertEqual(set(recipe.tasks), {"top", "mid", "stray"})
+
+
 class TestTasksFieldValidation(unittest.TestCase):
     """
     Tests for validating that tasks must be under 'tasks:' key.

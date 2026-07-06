@@ -23,6 +23,7 @@ from tasktree.interpreter import Interpreter, InterpreterError
 from tasktree.raw_merge import (
     CircularImportError,
     MergedRecipe,
+    collect_reachable_task_names,
     merge_recipe_files,
 )
 
@@ -2444,7 +2445,10 @@ def collect_reachable_variables(
 
 
 def parse_recipe(
-    recipe_path: Path, project_root: Path | None = None, root_task: str | None = None
+    recipe_path: Path,
+    project_root: Path | None = None,
+    root_task: str | None = None,
+    prune_unreachable: bool = False,
 ) -> Recipe:
     """
     Parse a recipe file and handle imports recursively.
@@ -2460,6 +2464,11 @@ def parse_recipe(
     root_task: Optional root task for lazy variable evaluation. If provided, only variables
     used by tasks reachable from root_task will be evaluated (optimization).
     If None, all variables will be evaluated (for --list command compatibility).
+    prune_unreachable: If True (task invocation), tasks not reachable from
+    root_task are dropped before construction, so their defects are
+    tolerated. Listing/showing paths leave this False and validate the
+    whole file. No-op when root_task is missing from the recipe (the CLI
+    reports unknown tasks itself, against the full task list).
 
     Returns:
     Recipe object with all tasks (including recursively imported tasks) and evaluated variables
@@ -2482,6 +2491,22 @@ def parse_recipe(
     # rewriting and var-reference rewriting applied as dict transforms.
     # Variables are NOT evaluated here (lazy evaluation).
     merged = merge_recipe_files(recipe_path)
+
+    tasks_data = merged.data.get("tasks") or {}
+    defined_task_names = (
+        frozenset(tasks_data) if isinstance(tasks_data, dict) else frozenset()
+    )
+    if (
+        prune_unreachable
+        and root_task
+        and isinstance(tasks_data, dict)
+        and root_task in tasks_data
+    ):
+        reachable = collect_reachable_task_names(tasks_data, root_task)
+        merged.data["tasks"] = {
+            name: task for name, task in tasks_data.items() if name in reachable
+        }
+
     tasks = _build_tasks_from_merged(merged)
     runners, default_runner, interpreters, default_interpreter = (
         _parse_runners_from_data(merged.data, project_root)
@@ -2507,7 +2532,7 @@ def parse_recipe(
         # the merge, and imported interpreters are resolvable in it
         _original_yaml_data=merged.data,
         _name_errors=dict(merged.name_errors),
-        defined_task_names=frozenset(tasks),
+        defined_task_names=defined_task_names,
     )
 
     # Validate that task-level interpreter names reference defined interpreters.
@@ -3169,7 +3194,10 @@ def _parse_named_dependency_args(
 
 
 def get_recipe(
-    logger: Logger, recipe_file: Optional[str] = None, root_task: Optional[str] = None
+    logger: Logger,
+    recipe_file: Optional[str] = None,
+    root_task: Optional[str] = None,
+    prune_unreachable: bool = False,
 ) -> Optional[Recipe]:
     """
     Get parsed recipe or None if not found.
@@ -3179,6 +3207,8 @@ def get_recipe(
     recipe_file: Optional path to recipe file. If not provided, searches for recipe file.
     root_task: Optional root task for lazy variable evaluation. If provided, only variables
     reachable from this task will be evaluated (performance optimization).
+    prune_unreachable: Drop tasks unreachable from root_task before
+    construction (task invocation only - see parse_recipe).
     """
     if recipe_file:
         recipe_path = Path(recipe_file)
@@ -3200,7 +3230,7 @@ def get_recipe(
         project_root = None
 
     try:
-        return parse_recipe(recipe_path, project_root, root_task)
+        return parse_recipe(recipe_path, project_root, root_task, prune_unreachable)
     except Exception as e:
         logger.error(f"[red]Error parsing recipe: {e}[/red]")
         raise typer.Exit(1)
