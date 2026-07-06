@@ -277,6 +277,51 @@ def _merge_file(
     return data
 
 
+def collect_reachable_task_names(tasks_data: dict[str, Any], root: str) -> set[str]:
+    """
+    Collect the task names reachable from root via deps, on the raw dict.
+
+    Runs on unvalidated data (pruning happens before validation), so it is
+    deliberately tolerant: a non-dict task is a leaf, deps of unexpected
+    shape contribute nothing, and nonexistent dep names stay in the result
+    so graph construction can report them. Shape errors surface later, from
+    task construction or the dependency graph - never from here.
+
+    Args:
+    tasks_data: The merged tree's 'tasks' section
+    root: Name of the invoked task (caller checks it exists)
+
+    Returns:
+    Set of reachable task names, including root and any missing dep names
+    """
+    reachable: set[str] = set()
+    queue = [root]
+
+    while queue:
+        name = queue.pop()
+        if name in reachable:
+            continue
+        reachable.add(name)
+        task_data = tasks_data.get(name)
+        if not isinstance(task_data, dict):
+            continue
+
+        deps = task_data.get("deps", [])
+        if isinstance(deps, str):
+            deps = [deps]
+        if not isinstance(deps, list):
+            continue
+        for dep in deps:
+            if isinstance(dep, str):
+                queue.append(dep)
+            elif isinstance(dep, dict) and len(dep) == 1:
+                dep_name = next(iter(dep))
+                if isinstance(dep_name, str):
+                    queue.append(dep_name)
+
+    return reachable
+
+
 def _validate_top_level_keys(data: dict[str, Any], file_path: Path) -> None:
     """
     Reject unknown top-level keys in one file, with a 'tasks:' hint when the

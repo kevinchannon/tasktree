@@ -6,6 +6,7 @@ from pathlib import Path
 
 from tasktree.raw_merge import (
     CircularImportError,
+    collect_reachable_task_names,
     merge_recipe,
     merge_recipe_files,
 )
@@ -839,6 +840,67 @@ class TestInterpreterMerging(RawMergeTestCase):
         merged = merge_recipe(recipe)
         self.assertEqual(
             merged["runners"]["build.special"], {"interpreter": "bash"}
+        )
+
+
+class TestReachability(unittest.TestCase):
+    """Reachability over the merged raw tasks dict (no Task objects)."""
+
+    def test_root_alone_is_reachable(self):
+        tasks = {"a": {"cmd": "x"}, "b": {"cmd": "y"}}
+        self.assertEqual(collect_reachable_task_names(tasks, "a"), {"a"})
+
+    def test_transitive_deps_are_reachable(self):
+        tasks = {
+            "a": {"cmd": "x", "deps": ["b"]},
+            "b": {"cmd": "y", "deps": ["c"]},
+            "c": {"cmd": "z"},
+            "d": {"cmd": "unreached"},
+        }
+        self.assertEqual(
+            collect_reachable_task_names(tasks, "a"), {"a", "b", "c"}
+        )
+
+    def test_string_deps_shorthand(self):
+        tasks = {"a": {"cmd": "x", "deps": "b"}, "b": {"cmd": "y"}}
+        self.assertEqual(collect_reachable_task_names(tasks, "a"), {"a", "b"})
+
+    def test_parameterized_dict_dep(self):
+        tasks = {
+            "a": {"cmd": "x", "deps": [{"b": {"flag": 1}}]},
+            "b": {"cmd": "y"},
+        }
+        self.assertEqual(collect_reachable_task_names(tasks, "a"), {"a", "b"})
+
+    def test_dependency_cycle_terminates(self):
+        tasks = {
+            "a": {"cmd": "x", "deps": ["b"]},
+            "b": {"cmd": "y", "deps": ["a"]},
+        }
+        self.assertEqual(collect_reachable_task_names(tasks, "a"), {"a", "b"})
+
+    def test_missing_dep_is_kept_for_later_error(self):
+        # Tolerance parity with the object-based traversal: a nonexistent
+        # dep name stays in the set; graph construction reports it.
+        tasks = {"a": {"cmd": "x", "deps": ["ghost"]}}
+        self.assertEqual(
+            collect_reachable_task_names(tasks, "a"), {"a", "ghost"}
+        )
+
+    def test_malformed_task_and_deps_are_tolerated(self):
+        # Shape problems are deferred: a non-dict task is a leaf, non-list
+        # deps and multi-key dep dicts contribute nothing. Construction and
+        # graph building keep their existing errors for surviving tasks.
+        tasks = {
+            "a": {"cmd": "x", "deps": ["broken", "odd", "multi"]},
+            "broken": "not-a-dict",
+            "odd": {"cmd": "y", "deps": 42},
+            "multi": {"cmd": "z", "deps": [{"p": [], "q": []}]},
+            "p": {"cmd": "unreached"},
+        }
+        self.assertEqual(
+            collect_reachable_task_names(tasks, "a"),
+            {"a", "broken", "odd", "multi"},
         )
 
 
