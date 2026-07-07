@@ -204,6 +204,14 @@ land):
   string in an imported task, where v1.3.2 rewrote only an enumerated field
   list and left these pointing at root scope — gate verdicts recorded in
   `tests/unit/test_task_merge_cutover.py`)
+- variable discovery is walker-based and over-matches (slice 5): every
+  string in a reachable task's definition and its referenced runners'
+  definitions is scanned, so variables v1.3.2's enumerated field list
+  missed are now evaluated. Notably fixes a v1.3.2 bug where a variable
+  referenced only by a non-Docker runner field (e.g. an inline host
+  runner's working_dir) was never evaluated under lazy parsing and
+  invocation failed with "Variable not defined" — gate verdicts in
+  `tests/unit/test_variable_reachability.py`
 - broken-but-unreferenced runners and interpreters are tolerated when
   invoking a specific task (slice 5; v1.3.2 built and validated every
   definition. The default runner/interpreter and CLI --runner/--interpreter

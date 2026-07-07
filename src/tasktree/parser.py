@@ -28,6 +28,7 @@ from tasktree.raw_merge import (
     prune_unreferenced_interpreters,
     prune_unreferenced_runners,
 )
+from tasktree.template_refs import collect_template_refs
 
 
 # Pattern for extracting variable names from references (single capture group)
@@ -518,22 +519,17 @@ class Recipe:
         if self._variables_evaluated:
             return  # Already evaluated, skip (idempotent)
 
-        # Determine which variables to evaluate
-        if root_task:
-            # Lazy path: only evaluate reachable variables
-            # If root_task doesn't exist, fall back to eager evaluation
-            # (CLI will provide its own "Task not found" error)
-            try:
-                reachable_tasks = collect_reachable_tasks(self.tasks, root_task)
-                variables_to_eval = collect_reachable_variables(
-                    self.tasks, self.runners, reachable_tasks
-                )
-            except ValueError:
-                # Root task not found - fall back to eager evaluation
-                # This allows the recipe to be parsed even with invalid task names
-                # so the CLI can provide its own error message
-                reachable_tasks = self.tasks.keys()
-                variables_to_eval = set(self.raw_variables.keys())
+        # Determine which variables to evaluate. Reachability and reference
+        # discovery both run on the merged raw tree (which task invocation
+        # has already pruned; --show/--tree parse unpruned but still
+        # evaluate lazily). If root_task doesn't exist, fall back to eager
+        # evaluation (CLI will provide its own "Task not found" error).
+        tasks_data = self._original_yaml_data.get("tasks") or {}
+        if root_task and isinstance(tasks_data, dict) and root_task in tasks_data:
+            reachable_tasks = collect_reachable_task_names(tasks_data, root_task)
+            variables_to_eval = _collect_referenced_variable_names(
+                self._original_yaml_data, reachable_tasks
+            )
         else:
             # Eager path: evaluate all variables (for --list command)
             reachable_tasks = self.tasks.keys()
@@ -2246,204 +2242,46 @@ def _build_tasks_from_merged(merged: MergedRecipe) -> dict[str, Task]:
     return tasks
 
 
-def collect_reachable_tasks(tasks: dict[str, Task], root_task: str) -> set[str]:
-    """
-    Collect all tasks reachable from the root task via dependencies.
-
-    Uses BFS to traverse the dependency graph and collect all task names
-    that could potentially be executed when running the root task.
-
-    Args:
-    tasks: Dictionary mapping task names to Task objects
-    root_task: Name of the root task to start traversal from
-
-    Returns:
-    Set of task names reachable from root_task (includes root_task itself)
-
-    Raises:
-    ValueError: If root_task doesn't exist
-
-    Example:
-    >>> tasks = {"a": Task("a", deps=["b"]), "b": Task("b", deps=[]), "c": Task("c", deps=[])}
-    >>> collect_reachable_tasks(tasks, "a")
-    {"a", "b"}
-    """
-    if root_task not in tasks:
-        raise ValueError(f"Root task '{root_task}' not found in recipe")
-
-    reachable = set()
-    queue = [root_task]
-
-    while queue:
-        task_name = queue.pop(0)
-
-        if task_name in reachable:
-            continue  # Already processed
-
-        reachable.add(task_name)
-
-        # Get task and process its dependencies
-        task = tasks.get(task_name)
-        if task is None:
-            # Task not found - will be caught during graph construction
-            continue
-
-        # Add dependency task names to queue
-        for dep_spec in task.deps:
-            # Extract task name from dependency specification
-            if isinstance(dep_spec, str):
-                dep_name = dep_spec
-            elif isinstance(dep_spec, dict) and len(dep_spec) == 1:
-                dep_name = next(iter(dep_spec.keys()))
-            else:
-                # Invalid format - will be caught during graph construction
-                continue
-
-            if dep_name not in reachable:
-                queue.append(dep_name)
-
-    return reachable
-
-
-def collect_reachable_variables(
-    tasks: dict[str, Task],
-    runners: dict[str, Runner],
-    reachable_task_names: set[str],
+def _collect_referenced_variable_names(
+    data: dict[str, Any], reachable_task_names: Iterable[str]
 ) -> set[str]:
     """
-    Extract variable names used by reachable tasks.
+    Discover the {{ var.* }} names the reachable subtree references.
 
-    Searches for {{ var.* }} placeholders in task and runner definitions to determine
-    which variables are actually needed for execution.
-
-    Args:
-    tasks: Dictionary mapping task names to Task objects
-    runners: Dictionary mapping runner names to Runner objects
-    reachable_task_names: Set of task names that will be executed
-
-    Returns:
-    Set of variable names referenced by reachable tasks
-
-    Example:
-    >>> task = Task("build", cmd="echo {{ var.version }}")
-    >>> collect_reachable_variables({"build": task}, {"build"})
-    {"version"}
+    Uses the generic template-reference walker over the merged raw tree:
+    every string in a reachable task's definition (inline runner and
+    interpreter definitions included) plus the definitions of the runners
+    those tasks reference (and the default runner). Deliberately biased
+    toward over-matching - evaluating an extra variable is harmless,
+    missing one breaks rendering.
     """
-    import re
+    tasks_data = data.get("tasks")
+    if not isinstance(tasks_data, dict):
+        return set()
+    task_nodes = [
+        tasks_data[name] for name in reachable_task_names if name in tasks_data
+    ]
+    nodes: list[Any] = list(task_nodes)
 
-    variables = set()
+    referenced_runners = {
+        task["runner"]
+        for task in task_nodes
+        if isinstance(task, dict)
+        and isinstance(task.get("runner"), str)
+        and task["runner"]
+    }
+    runners_data = data.get("runners")
+    if isinstance(runners_data, dict):
+        default_name = runners_data.get("default")
+        if isinstance(default_name, str):
+            referenced_runners.add(default_name)
+        nodes.extend(
+            config
+            for name, config in runners_data.items()
+            if name != "default" and name in referenced_runners
+        )
 
-    for task_name in reachable_task_names:
-        task = tasks.get(task_name)
-        if task is None:
-            continue
-
-        # Search in command
-        if task.cmd:
-            for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(task.cmd):
-                variables.add(match.group(1))
-
-        # Search in description
-        if task.desc:
-            for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(task.desc):
-                variables.add(match.group(1))
-
-        # Search in working_dir
-        if task.working_dir:
-            for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(task.working_dir):
-                variables.add(match.group(1))
-
-        # Search in inputs
-        if task.inputs:
-            for input_pattern in task.inputs:
-                if isinstance(input_pattern, str):
-                    for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(input_pattern):
-                        variables.add(match.group(1))
-                elif isinstance(input_pattern, dict):
-                    # Named input - check the path value
-                    for input_path in input_pattern.values():
-                        if isinstance(input_path, str):
-                            for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(input_path):
-                                variables.add(match.group(1))
-
-        # Search in outputs
-        if task.outputs:
-            for output_pattern in task.outputs:
-                if isinstance(output_pattern, str):
-                    for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(output_pattern):
-                        variables.add(match.group(1))
-                elif isinstance(output_pattern, dict):
-                    # Named output - check the path value
-                    for output_path in output_pattern.values():
-                        if isinstance(output_path, str):
-                            for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(output_path):
-                                variables.add(match.group(1))
-
-        # Search in argument defaults
-        if task.args:
-            for arg_spec in task.args:
-                if isinstance(arg_spec, dict):
-                    for arg_dict in arg_spec.values():
-                        if isinstance(arg_dict, dict) and "default" in arg_dict:
-                            default = arg_dict["default"]
-                            if isinstance(default, str):
-                                for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(default):
-                                    variables.add(match.group(1))
-
-        # Search in dependency argument templates
-        if task.deps:
-            for dep_spec in task.deps:
-                if isinstance(dep_spec, dict):
-                    for arg_spec in dep_spec.values():
-                        # Positional args (list)
-                        if isinstance(arg_spec, list):
-                            for val in arg_spec:
-                                if isinstance(val, str):
-                                    for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(val):
-                                        variables.add(match.group(1))
-                        # Named args (dict)
-                        elif isinstance(arg_spec, dict):
-                            for val in arg_spec.values():
-                                if isinstance(val, str):
-                                    for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(val):
-                                        variables.add(match.group(1))
-
-        if task.runner:
-            if task.runner in runners:
-                env = runners[task.runner]
-
-                if isinstance(env, DockerRunner) and env.dockerfile:
-                    for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(env.dockerfile):
-                        variables.add(match.group(1))
-
-                    if env.context != "":
-                        for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(env.context):
-                            variables.add(match.group(1))
-
-                    if 0 != len(env.volumes):
-                        for v in env.volumes:
-                            for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(v):
-                                variables.add(match.group(1))
-
-                    if 0 != len(env.ports):
-                        for p in env.ports:
-                            for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(p):
-                                variables.add(match.group(1))
-
-                    if 0 != len(env.env_vars):
-                        for k, v in env.env_vars.items():
-                            for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(v):
-                                variables.add(match.group(1))
-
-                    if env.working_dir != "":
-                        for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(env.working_dir):
-                            variables.add(match.group(1))
-
-                    for arg in env.args.build + env.args.run:
-                        for match in VAR_REFERENCE_EXTRACT_PATTERN.finditer(arg):
-                            variables.add(match.group(1))
-
-    return variables
+    return collect_template_refs(nodes)["var"]
 
 
 def parse_recipe(
