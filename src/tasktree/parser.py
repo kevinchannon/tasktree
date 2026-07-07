@@ -12,7 +12,7 @@ import tempfile
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from collections.abc import KeysView
-from typing import Any, Optional
+from typing import Any, Iterable, Optional
 
 import typer
 
@@ -25,6 +25,8 @@ from tasktree.raw_merge import (
     MergedRecipe,
     collect_reachable_task_names,
     merge_recipe_files,
+    prune_unreferenced_interpreters,
+    prune_unreferenced_runners,
 )
 
 
@@ -2449,6 +2451,8 @@ def parse_recipe(
     project_root: Path | None = None,
     root_task: str | None = None,
     prune_unreachable: bool = False,
+    keep_runners: Iterable[str] = (),
+    keep_interpreters: Iterable[str] = (),
 ) -> Recipe:
     """
     Parse a recipe file and handle imports recursively.
@@ -2466,9 +2470,13 @@ def parse_recipe(
     If None, all variables will be evaluated (for --list command compatibility).
     prune_unreachable: If True (task invocation), tasks not reachable from
     root_task are dropped before construction, so their defects are
-    tolerated. Listing/showing paths leave this False and validate the
-    whole file. No-op when root_task is missing from the recipe (the CLI
-    reports unknown tasks itself, against the full task list).
+    tolerated - and runners/interpreters nothing surviving references are
+    dropped likewise. Listing/showing paths leave this False and validate
+    the whole file. No-op when root_task is missing from the recipe (the
+    CLI reports unknown tasks itself, against the full task list).
+    keep_runners: Runner names pruning must retain (CLI --runner override)
+    keep_interpreters: Interpreter names pruning must retain (CLI
+    --interpreter override)
 
     Returns:
     Recipe object with all tasks (including recursively imported tasks) and evaluated variables
@@ -2506,6 +2514,10 @@ def parse_recipe(
         merged.data["tasks"] = {
             name: task for name, task in tasks_data.items() if name in reachable
         }
+        # Runner pruning first: only surviving runners contribute
+        # interpreter references
+        prune_unreferenced_runners(merged.data, keep=keep_runners)
+        prune_unreferenced_interpreters(merged.data, keep=keep_interpreters)
 
     tasks = _build_tasks_from_merged(merged)
     runners, default_runner, interpreters, default_interpreter = (
@@ -3198,6 +3210,8 @@ def get_recipe(
     recipe_file: Optional[str] = None,
     root_task: Optional[str] = None,
     prune_unreachable: bool = False,
+    keep_runners: Iterable[str] = (),
+    keep_interpreters: Iterable[str] = (),
 ) -> Optional[Recipe]:
     """
     Get parsed recipe or None if not found.
@@ -3207,8 +3221,12 @@ def get_recipe(
     recipe_file: Optional path to recipe file. If not provided, searches for recipe file.
     root_task: Optional root task for lazy variable evaluation. If provided, only variables
     reachable from this task will be evaluated (performance optimization).
-    prune_unreachable: Drop tasks unreachable from root_task before
-    construction (task invocation only - see parse_recipe).
+    prune_unreachable: Drop tasks unreachable from root_task, and
+    unreferenced runners/interpreters, before construction (task
+    invocation only - see parse_recipe).
+    keep_runners: Runner names pruning must retain (CLI --runner override)
+    keep_interpreters: Interpreter names pruning must retain (CLI
+    --interpreter override)
     """
     if recipe_file:
         recipe_path = Path(recipe_file)
@@ -3230,7 +3248,14 @@ def get_recipe(
         project_root = None
 
     try:
-        return parse_recipe(recipe_path, project_root, root_task, prune_unreachable)
+        return parse_recipe(
+            recipe_path,
+            project_root,
+            root_task,
+            prune_unreachable,
+            keep_runners=keep_runners,
+            keep_interpreters=keep_interpreters,
+        )
     except Exception as e:
         logger.error(f"[red]Error parsing recipe: {e}[/red]")
         raise typer.Exit(1)

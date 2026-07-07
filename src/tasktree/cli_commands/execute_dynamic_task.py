@@ -54,7 +54,13 @@ def execute_dynamic_task(
     # invocation prunes the recipe to the reachable set, tolerating
     # defects in tasks this run doesn't touch
     recipe = get_recipe(
-        logger, tasks_file, root_task=task_name, prune_unreachable=True
+        logger,
+        tasks_file,
+        root_task=task_name,
+        prune_unreachable=True,
+        # Override names must survive pruning even when no task references them
+        keep_runners=(runner,) if runner else (),
+        keep_interpreters=(interpreter,) if interpreter else (),
     )
     if recipe is None:
         logger.error(

@@ -12,7 +12,7 @@ time.
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 import yaml
 
@@ -320,6 +320,93 @@ def collect_reachable_task_names(tasks_data: dict[str, Any], root: str) -> set[s
                     queue.append(dep_name)
 
     return reachable
+
+
+def prune_unreferenced_runners(data: dict[str, Any], keep: Iterable[str]) -> None:
+    """
+    Drop runners no surviving task references, in place.
+
+    Called after task pruning, so defects in runners this run cannot touch
+    are tolerated. The 'default' declaration and its target always survive,
+    as do the names in keep (CLI --runner override). Malformed sections are
+    left untouched for validation to reject.
+
+    Args:
+    data: The merged tree (mutated)
+    keep: Runner names to retain regardless of references
+    """
+    runners = data.get("runners")
+    if not isinstance(runners, dict):
+        return
+
+    referenced = set(keep)
+    default_name = runners.get("default")
+    if isinstance(default_name, str):
+        referenced.add(default_name)
+    tasks = data.get("tasks")
+    if isinstance(tasks, dict):
+        for task in tasks.values():
+            if isinstance(task, dict) and isinstance(task.get("runner"), str):
+                referenced.add(task["runner"])
+
+    data["runners"] = {
+        name: config
+        for name, config in runners.items()
+        if name == "default" or name in referenced
+    }
+
+
+def prune_unreferenced_interpreters(
+    data: dict[str, Any], keep: Iterable[str]
+) -> None:
+    """
+    Drop interpreters no surviving task or runner references, in place.
+
+    References come from task 'interpreter' names, {use: name} forms in
+    task-level interpreters and in runner definitions (section or inline),
+    the 'default' declaration, and keep (CLI --interpreter override). Run
+    this after prune_unreferenced_runners so only surviving runners
+    contribute references.
+
+    Args:
+    data: The merged tree (mutated)
+    keep: Interpreter names to retain regardless of references
+    """
+    interpreters = data.get("interpreters")
+    if not isinstance(interpreters, dict):
+        return
+
+    referenced = set(keep)
+    default_name = interpreters.get("default")
+    if isinstance(default_name, str):
+        referenced.add(default_name)
+
+    def add_interpreter_ref(value: Any) -> None:
+        if isinstance(value, str):
+            referenced.add(value)
+        elif isinstance(value, dict) and isinstance(value.get("use"), str):
+            referenced.add(value["use"])
+
+    tasks = data.get("tasks")
+    if isinstance(tasks, dict):
+        for task in tasks.values():
+            if not isinstance(task, dict):
+                continue
+            add_interpreter_ref(task.get("interpreter"))
+            inline_runner = task.get("runner")
+            if isinstance(inline_runner, dict):
+                add_interpreter_ref(inline_runner.get("interpreter"))
+    runners = data.get("runners")
+    if isinstance(runners, dict):
+        for config in runners.values():
+            if isinstance(config, dict):
+                add_interpreter_ref(config.get("interpreter"))
+
+    data["interpreters"] = {
+        name: config
+        for name, config in interpreters.items()
+        if name == "default" or name in referenced
+    }
 
 
 def _validate_top_level_keys(data: dict[str, Any], file_path: Path) -> None:

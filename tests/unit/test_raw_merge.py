@@ -9,6 +9,8 @@ from tasktree.raw_merge import (
     collect_reachable_task_names,
     merge_recipe,
     merge_recipe_files,
+    prune_unreferenced_interpreters,
+    prune_unreferenced_runners,
 )
 
 
@@ -902,6 +904,86 @@ class TestReachability(unittest.TestCase):
             collect_reachable_task_names(tasks, "a"),
             {"a", "broken", "odd", "multi"},
         )
+
+
+class TestRunnerPruning(unittest.TestCase):
+    def test_unreferenced_runner_is_pruned(self):
+        data = {
+            "tasks": {"a": {"cmd": "x", "runner": "used"}},
+            "runners": {"used": {"interpreter": "bash"}, "unused": {"bogus": 1}},
+        }
+        prune_unreferenced_runners(data, keep=())
+        self.assertEqual(set(data["runners"]), {"used"})
+
+    def test_default_runner_and_declaration_survive(self):
+        data = {
+            "tasks": {"a": {"cmd": "x"}},
+            "runners": {"default": "fallback", "fallback": {}, "unused": {}},
+        }
+        prune_unreferenced_runners(data, keep=())
+        self.assertEqual(set(data["runners"]), {"default", "fallback"})
+
+    def test_keep_hint_protects_cli_override_runner(self):
+        data = {
+            "tasks": {"a": {"cmd": "x"}},
+            "runners": {"cli-choice": {}, "unused": {}},
+        }
+        prune_unreferenced_runners(data, keep=("cli-choice",))
+        self.assertEqual(set(data["runners"]), {"cli-choice"})
+
+    def test_malformed_sections_are_left_alone(self):
+        data = {"tasks": {"a": "not-a-dict"}, "runners": "bogus"}
+        prune_unreferenced_runners(data, keep=())
+        self.assertEqual(data["runners"], "bogus")
+
+
+class TestInterpreterPruning(unittest.TestCase):
+    def test_unreferenced_interpreter_is_pruned(self):
+        data = {
+            "tasks": {"a": {"cmd": "x", "interpreter": "used"}},
+            "interpreters": {"used": {"cmd": "bash"}, "unused": {"cmd": 42}},
+        }
+        prune_unreferenced_interpreters(data, keep=())
+        self.assertEqual(set(data["interpreters"]), {"used"})
+
+    def test_default_declaration_and_target_survive(self):
+        data = {
+            "tasks": {"a": {"cmd": "x"}},
+            "interpreters": {"default": "py", "py": {"cmd": "python3"}, "unused": {}},
+        }
+        prune_unreferenced_interpreters(data, keep=())
+        self.assertEqual(set(data["interpreters"]), {"default", "py"})
+
+    def test_use_refs_from_runners_and_inline_defs_survive(self):
+        data = {
+            "tasks": {
+                "a": {
+                    "cmd": "x",
+                    "runner": {"interpreter": {"use": "from-inline-runner"}},
+                },
+                "b": {"cmd": "y", "interpreter": {"use": "from-task"}},
+            },
+            "runners": {"r": {"interpreter": {"use": "from-runner"}}},
+            "interpreters": {
+                "from-inline-runner": {"cmd": "a"},
+                "from-task": {"cmd": "b"},
+                "from-runner": {"cmd": "c"},
+                "unused": {"cmd": "d"},
+            },
+        }
+        prune_unreferenced_interpreters(data, keep=())
+        self.assertEqual(
+            set(data["interpreters"]),
+            {"from-inline-runner", "from-task", "from-runner"},
+        )
+
+    def test_keep_hint_protects_cli_override_interpreter(self):
+        data = {
+            "tasks": {"a": {"cmd": "x"}},
+            "interpreters": {"cli-choice": {"cmd": "z"}, "unused": {"cmd": "w"}},
+        }
+        prune_unreferenced_interpreters(data, keep=("cli-choice",))
+        self.assertEqual(set(data["interpreters"]), {"cli-choice"})
 
 
 class TestTopLevelKeyValidation(RawMergeTestCase):
