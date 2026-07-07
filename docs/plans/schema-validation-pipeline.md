@@ -1,7 +1,7 @@
 # Implementation plan: runtime schema validation pipeline
 
-> **Status:** in progress — slices 0–4 done (see per-slice notes), next is
-> slice 5. Branch `schema-validation-pipeline`, pushed to origin.
+> **Status:** in progress — slices 0–5 done (see per-slice notes), next is
+> slice 6. Branch `schema-validation-pipeline`, pushed to origin.
 > **Tracking issue:** [#43](https://github.com/kevinchannon/tasktree/issues/43).
 > This document is self-contained: it is written so a fresh contributor (human or
 > Claude) can implement the feature without the conversation that produced it.
@@ -407,7 +407,50 @@ uses it.
   paths on disk. The merge phase must carry it along like the other kinds
   (the §1/§2 prose predates it and only discusses host/containerised).
 
-### Slice 5 — reachability + pruning over raw dicts
+### Slice 5 — reachability + pruning over raw dicts ✅ done
+Completed 2026-07-07 (session 4). What landed, in order:
+
+- **Name-aware state pruning first** (discovered prerequisite, not in the
+  original plan): `.tasktree-state` entries are hash-keyed with no task
+  name, and `execute_dynamic_task` pruned state against the hashes of
+  `recipe.tasks` — pruning tasks at parse would therefore have wiped
+  un-invoked tasks' state on every targeted run. Worse, this thrash
+  *already existed* in v1.3.2 for un-invoked tasks using variables (hashed
+  with templates unsubstituted). Entries now carry `task_name`; the prune
+  rule is: task gone from the recipe → removed, task in this run with a
+  stale hash → removed, defined-but-not-invoked → kept, legacy nameless
+  entries → old hash-only rule (one-time re-run for those after upgrade).
+  `Recipe.defined_task_names` carries the pre-pruning universe. Gate:
+  `tests/integration/test_state_pruning.py`.
+- **Task pruning**: `parse_recipe(prune_unreachable=True)` — opt-in from
+  `execute_dynamic_task` only — drops tasks unreachable from the root task
+  (raw-dict traversal `collect_reachable_task_names` in `raw_merge.py`,
+  same tolerance as the old object traversal: shape problems and missing
+  deps defer to construction/graph errors). **Plan correction:** `--show`/
+  `--tree` DO pass a root task (for lazy variable evaluation, incl. on
+  v1.3.2), so pruning keys off the explicit flag, not off root_task —
+  decision 2's "--list/--show/--tree have no root task" was wrong in that
+  detail; its intent (those paths validate the whole file) holds. Gate:
+  `tests/integration/test_unreachable_task_tolerance.py`.
+- **Runner/interpreter pruning**: `prune_unreferenced_runners` /
+  `prune_unreferenced_interpreters` (raw_merge) run after task pruning;
+  `default` declarations + targets and `{use:}` refs from survivors are
+  kept, and the CLI `--runner`/`--interpreter` override names thread
+  through `get_recipe`/`parse_recipe` as keep-hints (an override naming an
+  otherwise-unreferenced definition must survive — parity-tested).
+- **Variable reachability via the slice-2 walker**: `evaluate_variables`
+  computes the reachable set on the merged raw tree and discovers `var.*`
+  refs with `collect_template_refs` over reachable task subtrees + their
+  referenced runners (+ default). The object-based
+  `collect_reachable_tasks`/`collect_reachable_variables` (enumerated
+  field list) are deleted. Over-matching fixed a v1.3.2 bug (see
+  expected-divergences). Gate: `tests/unit/test_variable_reachability.py`.
+
+Note for slice 6: the eval-variable context `_original_yaml_data` is the
+*pruned* merged tree on invocation paths — post-prune schema validation
+can run on exactly that dict. Full pyramid green at slice end.
+
+Original scope follows.
 Reimplement reachability over the merged dict (today `collect_reachable_tasks`
 walks constructed `Task` objects): `deps` including parameterized syntax, with
 the decision-2 defensive shape checks. Extend pruning to runners/interpreters

@@ -1245,12 +1245,13 @@ class TestNameErrorCollection(RawMergeTestCase):
         self.assertEqual(merge_recipe_files(recipe).name_errors, {})
 
 
-class TestParityWithObjectPath(RawMergeTestCase):
+class TestParseRecipeMirrorsMergedTree(RawMergeTestCase):
     """
-    Cross-check: the merged raw dict must agree with what the existing
-    object-building path (parse_recipe) constructs, on a recipe exercising
-    nested imports, run_in, pinning and variables together. This is the
-    safety net for the section-by-section cutover.
+    parse_recipe now builds on the merge, so this is no longer a parity
+    check between two paths (its original slice-4 cutover role). It stays
+    as a consistency check: the Recipe's Task objects and registries must
+    faithfully reflect the merged dict - construction must not drop,
+    rename or transform anything the merge already settled.
     """
 
     def build_fixture(self) -> Path:
