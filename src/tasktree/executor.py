@@ -268,6 +268,17 @@ class Executor:
             )
         builtin_vars["user_name"] = user_name
 
+        # {{ tt.uid }} / {{ tt.gid }} - Host numeric UID/GID (POSIX only)
+        # Used to match a containerised runner's --user mapping to a passwd
+        # entry baked into the image. Omitted on Windows (where os.getuid/
+        # os.getgid don't exist) rather than raised here eagerly, since these
+        # variables are collected for every task regardless of whether it
+        # references them; referencing them on Windows hits the substitution
+        # engine's "Built-in variable not defined" error instead.
+        if platform.system() != "Windows":
+            builtin_vars["uid"] = str(os.getuid())
+            builtin_vars["gid"] = str(os.getgid())
+
         return builtin_vars
 
     def _collect_builtin_variables(

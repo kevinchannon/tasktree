@@ -5,6 +5,7 @@ import platform
 import tempfile
 import time
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, patch, call
@@ -3216,6 +3217,51 @@ tasks:
 
             self.assertIn("nonexistent_runner", str(context.exception))
             self.assertIn("invalid runner", str(context.exception))
+
+
+class TestBuiltinUidGidVariables(unittest.TestCase):
+    """
+    Tests for the {{ tt.uid }} / {{ tt.gid }} built-in variables.
+    """
+
+    def _collect(self):
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+            task = Task(name="build", cmd="echo hi")
+            recipe = Recipe(
+                tasks={"build": task},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
+            return executor._collect_early_builtin_variables(
+                task, datetime.now(timezone.utc)
+            )
+
+    @unittest.skipIf(platform.system() == "Windows", "POSIX-only: os.getuid/getgid")
+    def test_uid_gid_present_on_posix(self):
+        """
+        Test that tt.uid / tt.gid resolve to the host's numeric UID/GID on POSIX.
+        """
+        builtin_vars = self._collect()
+
+        self.assertEqual(builtin_vars["uid"], str(os.getuid()))
+        self.assertEqual(builtin_vars["gid"], str(os.getgid()))
+
+    @patch("platform.system")
+    def test_uid_gid_omitted_on_windows(self, mock_system):
+        """
+        Test that tt.uid / tt.gid are omitted on Windows, so referencing them
+        hits the substitution engine's "Built-in variable not defined" error
+        instead of raising during collection (which would break every task).
+        """
+        mock_system.return_value = "Windows"
+
+        builtin_vars = self._collect()
+
+        self.assertNotIn("uid", builtin_vars)
+        self.assertNotIn("gid", builtin_vars)
 
 
 if __name__ == "__main__":
