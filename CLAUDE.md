@@ -282,6 +282,43 @@ Full Docker support with:
 - Build arguments separate from shell arguments
 - Environment variable injection
 
+**UID/GID mapping maps ownership, not identity.** By default (`run_as_root: false`),
+the container runs as `--user <host uid>:<host gid>`, which is enough for files
+created in mounted volumes to be owned by the host user — the UID need not exist
+in the image for that. It is *not* enough for the mapped user to resolve its own
+identity: unless the image's passwd file has an entry for that numeric UID, `id`,
+`whoami`, `getpwuid()` all fail and `$HOME` falls back to `/` (unwritable), which
+breaks anything that caches under `$HOME` (`pip`, `npm`, `cargo`, `git config
+--global`, ...). `run_as_root: true` "fixes" this by discarding the ownership
+guarantee entirely — prefer giving the image a matching passwd entry instead.
+
+The `{{ tt.uid }}` / `{{ tt.gid }}` built-in variables (host numeric UID/GID,
+POSIX only — referencing them on Windows raises the substitution engine's
+"Built-in variable not defined" error) exist to wire the host's UID/GID into a
+runner's `dockerfile` build via `args.build`, so the project's own Dockerfile can
+create a matching user. A `getent` guard makes this safe even when the image
+already ships that UID (e.g. `ubuntu` at 1000 in `ubuntu:24.04`) — do not
+redefine an existing entry, just use it:
+```dockerfile
+ARG UID=1000
+ARG GID=1000
+RUN set -eu; \
+    if ! getent passwd "$UID" >/dev/null; then \
+        getent group "$GID" >/dev/null || groupadd -g "$GID" runner; \
+        useradd -u "$UID" -g "$GID" -m -s /bin/bash runner; \
+    fi
+```
+```yaml
+runners:
+  e2e:
+    type: containerised
+    engine: docker
+    dockerfile: tests/e2e-tests.dockerfile
+    args:
+      build: ["--build-arg", "UID={{ tt.uid }}", "--build-arg", "GID={{ tt.gid }}"]
+```
+(Alpine-based images: `adduser -u "$UID" -D runner` instead of `useradd`/`groupadd`.)
+
 ### Runner Override for Imported Tasks
 When importing task files, the importing file can control which runner imported tasks use:
 
