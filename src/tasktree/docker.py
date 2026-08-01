@@ -235,8 +235,13 @@ class DockerManager:
         flags: list[str] = []
 
         # Run as the current host user unless disabled or on Windows, so files
-        # created in mounted volumes are owned by the host user (numeric mapping;
-        # the user need not exist in the container).
+        # created in mounted volumes are owned by the host user. Numeric
+        # mapping is sufficient for that ownership guarantee alone: the UID
+        # need not exist in the container's passwd file. It is NOT sufficient
+        # for identity -- `id`, `whoami`, `getpwuid()` and `$HOME` all require
+        # a matching passwd entry, which the image must provide (see {{ tt.uid
+        # }} / {{ tt.gid }} in executor.py for wiring a host-matching entry
+        # into the image via a build arg).
         if not env.run_as_root and self._should_add_user_flag():
             flags.extend(["--user", f"{os.getuid()}:{os.getgid()}"])
 
