@@ -1,0 +1,5 @@
+tasks:
+  test-vars:
+    cmd: |
+      echo "uid={{ tt.uid }}" > {{ tt.project_root }}/output.txt
+      echo "gid={{ tt.gid }}" >> {{ tt.project_root }}/output.txt

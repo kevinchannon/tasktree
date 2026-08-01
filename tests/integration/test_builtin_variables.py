@@ -85,6 +85,29 @@ class TestBuiltinVariables(unittest.TestCase):
         # Verify we got some username (could be from os.getlogin() or env var)
         self.assertTrue(len(lines["user_name"]) > 0)
 
+    @unittest.skipIf(os.name == "nt", "POSIX-only: os.getuid/getgid")
+    def test_uid_gid_builtin_variables_in_command(self):
+        """
+        Test that tt.uid / tt.gid resolve to the host's numeric UID/GID.
+        """
+        copy_fixture_files("builtin_vars_uid_gid", Path(self.test_dir))
+
+        recipe = parse_recipe(self.recipe_file)
+        state = StateManager(recipe.project_root)
+        state.load()
+        executor = Executor(recipe, state, logger_stub, make_process_runner)
+        executor.execute_task("test-vars", TaskOutputTypes.ALL)
+
+        output_file = Path(self.test_dir) / "output.txt"
+        output = output_file.read_text()
+        lines = {
+            line.split("=", 1)[0]: line.split("=", 1)[1]
+            for line in output.strip().split("\n")
+        }
+
+        self.assertEqual(lines["uid"], str(os.getuid()))
+        self.assertEqual(lines["gid"], str(os.getgid()))
+
     def test_timestamp_consistency_within_task(self):
         """
         Test that timestamp is consistent throughout a single task execution.
@@ -321,6 +344,55 @@ class TestBuiltinVariables(unittest.TestCase):
             "docker-test",
             "TASK_NAME_VAR should contain the task name",
         )
+
+    @unittest.skipIf(os.name == "nt", "POSIX-only: os.getuid/getgid")
+    def test_uid_gid_builtin_variables_in_docker_build_args(self):
+        """
+        Test that tt.uid / tt.gid substitute in a runner's args.build, the
+        build-arg-plumbing use case for baking a matching passwd entry into a
+        containerised runner's image.
+        """
+
+        from unittest.mock import patch, Mock
+
+        copy_fixture_files("builtin_vars_uid_gid_build_args", Path(self.test_dir))
+
+        recipe = parse_recipe(self.recipe_file)
+        state = StateManager(recipe.project_root)
+        state.load()
+
+        docker_build_command = None
+
+        def mock_run(*args, **kwargs):
+            nonlocal docker_build_command
+            cmd = args[0] if args else kwargs.get("args", [])
+            if isinstance(cmd, list) and "build" in cmd:
+                docker_build_command = cmd
+            if isinstance(cmd, list) and "inspect" in cmd:
+                result = Mock()
+                result.stdout = "sha256:test123\\n"
+                result.returncode = 0
+                return result
+            result = Mock()
+            result.returncode = 0
+            return result
+
+        process_runner_spy = MagicMock(spec=ProcessRunner)
+        process_runner_spy.run.side_effect = mock_run
+
+        fake_proc_runner_factory = MagicMock()
+        fake_proc_runner_factory.return_value = process_runner_spy
+
+        executor = Executor(recipe, state, logger_stub, fake_proc_runner_factory)
+
+        with patch("tasktree.process_runner.subprocess.run", side_effect=mock_run):
+            executor.execute_task("docker-test", TaskOutputTypes.ALL)
+
+        self.assertIsNotNone(
+            docker_build_command, "Docker build command should have been captured"
+        )
+        self.assertIn(f"UID={os.getuid()}", docker_build_command)
+        self.assertIn(f"GID={os.getgid()}", docker_build_command)
 
     def test_env_vars_in_runner_fields(self):
         """
