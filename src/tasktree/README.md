@@ -582,6 +582,93 @@ TaskTree writes the task `cmd` to a temporary script file and executes `interpre
 - **Unix/macOS**: bash
 - **Windows**: cmd
 
+### Containerised Runners (Docker)
+
+A runner can execute tasks inside a Docker container instead of on the host. Declare `type: containerised` and `engine: docker` (currently the only supported engine) alongside the Docker-specific fields:
+
+```yaml
+runners:
+  builder:
+    type: containerised
+    engine: docker
+    dockerfile: docker/builder.Dockerfile
+    context: docker                              # optional; defaults to the Dockerfile's directory
+    args:
+      build: ["--build-arg", "VERSION=1.2.3"]    # extra args for 'docker build'
+      run: ["--network", "host"]                  # extra args for 'docker run'
+    volumes:
+      - ~/.cargo:/root/.cargo                     # host:container; '~' expands to the host home dir
+      - ./cache:/cache:ro                          # relative host paths resolve against the project root
+    ports:
+      - "8080:8080"
+    env_vars:
+      RUST_LOG: debug
+    run_as_root: false                            # default; see "User mapping" below
+
+tasks:
+  build:
+    runner: builder
+    cmd: cargo build --release
+```
+
+**Fields:**
+
+| Field | Meaning |
+|-------|---------|
+| `type` | Must be `containerised` for a Docker runner. |
+| `engine` | Must be `docker` (the only supported engine today). |
+| `dockerfile` | Path to the Dockerfile, relative to the project root. Required. |
+| `context` | Build context directory, relative to the project root. Defaults to the Dockerfile's own directory. |
+| `args.build` | Extra arguments appended to `docker build`. |
+| `args.run` | Extra arguments appended to `docker run`. |
+| `volumes` | Additional bind mounts, `host_path:container_path[:ro]`. Relative host paths resolve against the project root; `~` expands to the host home directory. |
+| `ports` | Port mappings, passed straight through to `docker run -p`. |
+| `env_vars` | Environment variables injected into the container with `-e`. |
+| `run_as_root` | Skip user mapping and run as root in the container (see "User mapping" below). Default `false`. |
+
+All of these fields (plus `working_dir`) go through the same template substitution as the rest of a recipe, so `{{ var.* }}`, `{{ arg.* }}` and `{{ env.* }}` all work inside them.
+
+**Image build and caching.** The image is tagged `tt-env-<runner-name>` and built once per `tt` invocation; subsequent tasks that share a runner reuse the already-built image within that run. Across invocations, freshness is Docker's own build cache — `tt` always runs `docker build` and leaves layer caching to Docker.
+
+**Automatic project mount.** The project root is always bind-mounted into the container at its own resolved host path, so relative paths in a task's `cmd` behave the same on the host and in the container. This is skipped if a `volumes` entry already maps the project root itself.
+
+**User mapping.** Unless `run_as_root: true`, containers run with `--user <host-uid>:<host-gid>` (skipped on Windows, where Docker Desktop handles this itself), so files created in mounted volumes — including the state file — end up owned by the host user rather than root. This is a *numeric* mapping only: Docker does not require that UID to exist inside the image, and by default it usually won't.
+
+> **Gotcha: `id`/`whoami`/`$HOME` inside the container.** Because the mapped UID typically has no matching `/etc/passwd` entry in the image, anything that resolves the current user's identity breaks: `id -un` and `whoami` fail with `cannot find name for user ID <uid>`, and `$HOME` falls back to `/`, which the mapped user can't write to. This trips up anything that caches under `$HOME` — `pip`, `npm`, `cargo`, `git config --global`, and similar.
+>
+> The fix belongs in the image: give the Dockerfile a passwd entry for the expected UID, guarded so it's a no-op when the base image already ships that UID (as `ubuntu`, `node` and `postgres` images commonly do at UID 1000):
+>
+> ```dockerfile
+> ARG UID=1000
+> ARG GID=1000
+> RUN set -eu; \
+>     if ! getent passwd "$UID" >/dev/null; then \
+>         getent group "$GID" >/dev/null || groupadd -g "$GID" runner; \
+>         useradd -u "$UID" -g "$GID" -m -s /bin/bash runner; \
+>     fi
+> # Alpine base images: adduser -u "$UID" -D runner
+> ```
+>
+> Pass the host's actual UID/GID through as build args using an `eval` variable (see [Evaluating Commands in Variables](#evaluating-commands-in-variables)):
+>
+> ```yaml
+> variables:
+>   host_uid: { eval: "id -u" }
+>   host_gid: { eval: "id -g" }
+>
+> runners:
+>   builder:
+>     type: containerised
+>     engine: docker
+>     dockerfile: docker/builder.Dockerfile
+>     args:
+>       build: ["--build-arg", "UID={{ var.host_uid }}", "--build-arg", "GID={{ var.host_gid }}"]
+> ```
+>
+> `run_as_root: true` also "fixes" this, but at the cost of the ownership guarantee `--user` exists to provide — prefer the Dockerfile fix above and keep `run_as_root` for cases that genuinely need root.
+
+For Docker-in-Docker limits, the internal `TT_CONTAINERIZED_RUNNER` variable, and how the state file is mounted inside containers, see [Nested Task Invocations](#nested-task-invocations).
+
 ### Nix Runners (flake devShells)
 
 A `type: nix` runner executes tasks inside the environment of a [Nix flake](https://nixos.org/manual/nix/stable/command-ref/new-cli/nix3-flake.html) devShell. The devShell provides a pinned, reproducible toolchain; the task itself runs as a normal host process with that toolchain merged into its environment:

@@ -176,15 +176,15 @@ A task runs if:
 
 ### Docker Integration
 
-> **⚠️ Not ready for release**: Docker runner support is under active development and is not yet ready for end users. Do not document or expose this feature in user-facing documentation.
-
 - Builds images from Dockerfiles
-- Mounts state file at `/tasktree-internal/.tasktree-state`
-- User mapping (run as host UID:GID by default)
+- Mounts the project root (including the state file) into the container
+- User mapping (run as host UID:GID by default; numeric only, see the identity gotcha below)
 - Volume mounts and port mappings
 - Build arguments and environment variables
 - Nested task invocations with runner compatibility checks
 - Cross-platform support: Linux and Windows containers with appropriate script execution (`.sh`, `.bat`, `.ps1`)
+
+See [Containerised Runners (Docker)](src/tasktree/README.md#containerised-runners-docker) in the user guide for full field documentation, image build/caching behaviour, and the UID-mapping identity gotcha (`id`/`whoami`/`$HOME` breaking inside the container).
 
 ### Template Substitution
 
