@@ -255,7 +255,7 @@ class Executor:
             builtin_vars["user_home"] = str(user_home)
         except Exception as e:
             raise ExecutionError(
-                f"Failed to get user home directory for {{ tt.user_home }}: {e}"
+                f"Failed to get user home directory for {{{{ tt.user_home }}}}: {e}"
             )
 
         # {{ tt.user_name }} - Current username (with fallback)
