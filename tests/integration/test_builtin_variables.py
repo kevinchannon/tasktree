@@ -348,6 +348,60 @@ class TestBuiltinVariables(unittest.TestCase):
         self.assertEqual(lines["uid"], str(os.getuid()))
         self.assertEqual(lines["gid"], str(os.getgid()))
 
+    def test_uid_in_task_command_is_undefined_on_windows(self):
+        """
+        Test that a task command referencing tt.uid on Windows fails loudly
+        rather than rendering an empty value. This is the end-user side of the
+        omission documented in src/tasktree/README.md.
+
+        Task commands render through the template engine, so the failure names
+        the undefined attribute and the task, not the substitution engine's
+        "Built-in variable ... is not defined" message - that one belongs to the
+        runner-field path (see test_uid_in_runner_volume_is_undefined_on_windows).
+        """
+
+        from unittest.mock import patch
+
+        copy_fixture_files("builtin_vars_uid_gid", Path(self.test_dir))
+
+        recipe = parse_recipe(self.recipe_file)
+        state = StateManager(recipe.project_root)
+        state.load()
+        executor = Executor(recipe, state, logger_stub, make_process_runner)
+
+        with patch("tasktree.executor.platform.system", return_value="Windows"):
+            with self.assertRaises(ValueError) as cm:
+                executor.execute_task("test-vars", TaskOutputTypes.ALL)
+
+        self.assertIn("Undefined variable in task 'test-vars'", str(cm.exception))
+        self.assertIn("uid", str(cm.exception))
+        self.assertFalse((Path(self.test_dir) / "output.txt").exists())
+
+    def test_uid_in_runner_volume_is_undefined_on_windows(self):
+        """
+        Test that tt.uid in a runner field on Windows raises the substitution
+        engine's "Built-in variable ... is not defined" error, which is the
+        error src/tasktree/README.md documents for the omitted variables.
+        """
+
+        from unittest.mock import patch
+
+        copy_fixture_files("builtin_vars_uid_gid_runner_field", Path(self.test_dir))
+
+        recipe = parse_recipe(self.recipe_file)
+        state = StateManager(recipe.project_root)
+        state.load()
+        executor = Executor(recipe, state, logger_stub, make_process_runner)
+
+        with patch("tasktree.executor.platform.system", return_value="Windows"):
+            with self.assertRaises(ValueError) as cm:
+                executor.execute_task("docker-test", TaskOutputTypes.ALL)
+
+        # NB: the message renders single braces - the f-string that builds it
+        # escapes '{{' down to '{'. Asserting the text as emitted, not as intended.
+        self.assertIn("Built-in variable '{ tt.uid }' is not defined", str(cm.exception))
+        self.assertNotIn("uid", str(cm.exception).split("Available")[1])
+
     @unittest.skipIf(
         platform.system() == "Windows", "tt.uid/tt.gid are not defined on Windows"
     )

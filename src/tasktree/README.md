@@ -2143,7 +2143,7 @@ tasks:
 - **Working directory**: `{{ tt.working_dir }}` reflects the task's `working_dir` setting, or the project root if not specified
 - **Recipe vs Project**: `{{ tt.recipe_dir }}` points to where the recipe file is located, while `{{ tt.project_root }}` points to where the `.tasktree-state` file is (usually the same, but can differ)
 - **Username fallback**: If `os.getlogin()` fails, `{{ tt.user_name }}` falls back to `$USER` or `$USERNAME` environment variables, or `"unknown"` if neither is set
-- **`{{ tt.uid }}` / `{{ tt.gid }}` are POSIX only**: `os.getuid()`/`os.getgid()` don't exist on Windows, so these variables are not defined there — referencing them fails with the usual "built-in variable not defined" error. They exist primarily to pass the host UID/GID as Docker build args; see [Containerised Runners (Docker)](#containerised-runners-docker)
+- **`{{ tt.uid }}` / `{{ tt.gid }}` are POSIX only**: `os.getuid()`/`os.getgid()` don't exist on Windows, so these variables are not defined there — referencing them fails rather than rendering an empty value. In a runner field that surfaces as the usual "built-in variable not defined" error; in a task `cmd` it surfaces as the template engine's undefined-variable error for the task. They exist primarily to pass the host UID/GID as Docker build args; see [Containerised Runners (Docker)](#containerised-runners-docker)
 
 ## File Imports
 

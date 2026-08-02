@@ -1,0 +1,13 @@
+runners:
+  test-runner:
+    type: containerised
+    engine: docker
+    dockerfile: docker/Dockerfile
+    context: .
+    volumes:
+      - "/host/cache:/cache/{{ tt.uid }}"
+
+tasks:
+  docker-test:
+    runner: test-runner
+    cmd: echo "Testing tt.uid in a runner field"
