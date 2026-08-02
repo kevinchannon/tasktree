@@ -78,12 +78,8 @@
               "description": "Simple string value"
             },
             {
-              "type": "integer",
-              "description": "Integer value"
-            },
-            {
               "type": "number",
-              "description": "Floating-point number value"
+              "description": "Numeric value (integer or floating-point)"
             },
             {
               "type": "boolean",

@@ -88,5 +88,31 @@ class TestRunnerSchema(unittest.TestCase):
             _validate(_runner_recipe({"type": "virtualised"}))
 
 
+class TestVariableSchema(unittest.TestCase):
+    """
+    Tests for the variables section: the scalar forms tt accepts as a
+    variable's value, and the env/read/eval reference forms.
+    """
+
+    def test_string_value_valid(self):
+        _validate({"variables": {"greeting": "hello"}})
+
+    def test_integer_value_valid(self):
+        _validate({"variables": {"port": 8080}})
+
+    def test_float_value_valid(self):
+        _validate({"variables": {"ratio": 1.5}})
+
+    def test_boolean_value_valid(self):
+        _validate({"variables": {"enabled": True}})
+
+    def test_env_reference_valid(self):
+        _validate({"variables": {"home": {"env": "HOME", "default": "/root"}}})
+
+    def test_list_value_invalid(self):
+        with self.assertRaises(jsonschema.ValidationError):
+            _validate({"variables": {"parts": ["a", "b"]}})
+
+
 if __name__ == "__main__":
     unittest.main()
