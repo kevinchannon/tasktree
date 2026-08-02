@@ -1,0 +1,22 @@
+runners:
+  test-runner:
+    type: containerised
+    engine: docker
+    dockerfile: docker/Dockerfile
+    context: .
+    args:
+      build:
+        - "--build-arg"
+        - "UID={{ tt.uid }}"
+        - "--build-arg"
+        - "GID={{ tt.gid }}"
+
+tasks:
+  test-vars:
+    cmd: |
+      echo "uid={{ tt.uid }}" > {{ tt.project_root }}/output.txt
+      echo "gid={{ tt.gid }}" >> {{ tt.project_root }}/output.txt
+
+  docker-test:
+    runner: test-runner
+    cmd: echo "Testing tt.uid/tt.gid in docker build args"
