@@ -58,7 +58,7 @@ class TestLSPCompletionIntegration(unittest.TestCase):
         result = completion_handler(completion_params)
 
         # Verify completions
-        self.assertEqual(len(result.items), 8)
+        self.assertEqual(len(result.items), 10)
         var_names = {item.label for item in result.items}
         expected = {
             "project_root",
@@ -69,6 +69,8 @@ class TestLSPCompletionIntegration(unittest.TestCase):
             "timestamp_unix",
             "user_home",
             "user_name",
+            "uid",
+            "gid",
         }
         self.assertEqual(var_names, expected)
 

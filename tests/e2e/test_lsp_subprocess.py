@@ -160,8 +160,8 @@ class TestLSPSubprocess(unittest.TestCase):
             self.assertIn("result", completion_response)
             result = completion_response["result"]
 
-            # Should get 8 built-in variables
-            self.assertEqual(len(result["items"]), 8)
+            # Should get 10 built-in variables
+            self.assertEqual(len(result["items"]), 10)
             var_names = {item["label"] for item in result["items"]}
             expected = {
                 "project_root",
@@ -172,6 +172,8 @@ class TestLSPSubprocess(unittest.TestCase):
                 "timestamp_unix",
                 "user_home",
                 "user_name",
+                "uid",
+                "gid",
             }
             self.assertEqual(var_names, expected)
 
