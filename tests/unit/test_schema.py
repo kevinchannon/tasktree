@@ -124,6 +124,45 @@ class TestVariableSchema(unittest.TestCase):
             _validate({"variables": {"parts": ["a", "b"]}})
 
 
+class TestTypedFieldsRejectTemplates(unittest.TestCase):
+    """
+    Typed (non-string) fields keep their native type in the schema.
+
+    A template there has never worked: the parser rejects each of these too,
+    on this branch and on v1.3.2, because they are consumed before any
+    rendering happens. Keeping the schema narrow means a typo like
+    'min: fivee' still fails.
+    """
+
+    def _arg_recipe(self, config: dict) -> dict:
+        return {"tasks": {"t": {"cmd": "echo hi", "args": [{"n": config}]}}}
+
+    def test_arg_min_template_invalid(self):
+        with self.assertRaises(jsonschema.ValidationError):
+            _validate(self._arg_recipe({"type": "int", "min": "{{ var.lo }}"}))
+
+    def test_arg_type_template_invalid(self):
+        with self.assertRaises(jsonschema.ValidationError):
+            _validate(self._arg_recipe({"type": "{{ var.t }}"}))
+
+    def test_run_as_root_template_invalid(self):
+        with self.assertRaises(jsonschema.ValidationError):
+            _validate(
+                _runner_recipe(
+                    {
+                        "type": "containerised",
+                        "engine": "docker",
+                        "dockerfile": "Dockerfile",
+                        "run_as_root": "{{ var.f }}",
+                    }
+                )
+            )
+
+    def test_interpreter_ext_template_invalid(self):
+        with self.assertRaises(jsonschema.ValidationError):
+            _validate({"interpreters": {"py": {"cmd": "python3", "ext": "{{ var.e }}"}}})
+
+
 def _recipe_fixtures() -> dict[str, dict]:
     """
     Every parseable recipe under tests/fixtures, keyed by its path relative to
