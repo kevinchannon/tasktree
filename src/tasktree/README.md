@@ -582,6 +582,90 @@ TaskTree writes the task `cmd` to a temporary script file and executes `interpre
 - **Unix/macOS**: bash
 - **Windows**: cmd
 
+### Containerised Runners (Docker)
+
+A `type: containerised` runner with `engine: docker` builds an image from a Dockerfile and runs the task inside a container from that image:
+
+```yaml
+runners:
+  build-env:
+    type: containerised
+    engine: docker
+    dockerfile: docker/Dockerfile
+    context: docker              # Build context; defaults to the Dockerfile's directory
+    args:
+      build: ["--build-arg", "VERSION={{ env.VERSION }}"]  # Passed to `docker build`
+      run: ["--memory=2g"]                                  # Passed to `docker run`
+    volumes:
+      - "{{ tt.project_root }}/cache:/cache"
+    ports:
+      - "8080:8080"
+    env_vars:
+      RUST_LOG: debug
+    run_as_root: false           # See "User mapping" below
+
+tasks:
+  build:
+    runner: build-env
+    cmd: cargo build --release
+```
+
+| Field | Meaning |
+|-------|---------|
+| `dockerfile` | Path to the Dockerfile, relative to the project root. |
+| `context` | Build context directory. Defaults to the Dockerfile's parent directory if omitted. |
+| `args.build` | Extra arguments inserted into `docker build` (e.g. `--build-arg`, `--no-cache`). |
+| `args.run` | Extra arguments inserted into `docker run` (e.g. `--memory`, `--network`). |
+| `volumes` | Additional `-v host:container[:ro]` mounts, beyond the automatic project-root mount described below. |
+| `ports` | `-p host:container` port mappings. |
+| `env_vars` | Environment variables injected into the container with `-e`. |
+| `run_as_root` | If `true`, skip user mapping and run as root in the container (see below). Defaults to `false`. |
+
+**Image build and caching.** TaskTree builds each runner's image at most once per invocation, tagged `tt-env-<runner-name>`. Layer caching is entirely Docker's — TaskTree does not track image freshness itself beyond that one-build-per-run behaviour, so a Dockerfile or build-arg change takes effect on the next `docker build` the same way it would from the command line.
+
+**Automatic project-root mount.** Unless a `volumes` entry already covers it, TaskTree automatically mounts the project root into the container at its own resolved path (e.g. `/home/me/project:/home/me/project`), so relative paths in commands, inputs, and outputs behave the same on the host and in the container.
+
+**User mapping and container identity.** By default (`run_as_root: false`), TaskTree runs the container with `--user <host-uid>:<host-gid>` so that files created in mounted volumes end up owned by the host user rather than root. This is a *numeric* UID:GID mapping — Docker does not require that UID to exist in the image's `passwd` database for file ownership to work.
+
+Identity resolution is a different story: if the image has no `passwd` entry for that UID, commands like `id -un`, `whoami`, or anything relying on `$HOME` (`pip`, `npm`, `cargo`, `git config --global`, ...) will fail or misbehave, because `$HOME` falls back to `/`, which the mapped user cannot write to:
+
+```console
+$ docker run --rm --user 501:20 python:3.12-slim sh -c 'id; echo HOME=$HOME'
+uid=501 gid=20(dialout) groups=20(dialout)
+HOME=/
+```
+
+The fix belongs in the image, not in TaskTree: give the Dockerfile a build-arg-driven user creation step, guarded so it's skipped when the base image already ships that UID (e.g. `ubuntu`, `node`, `postgres` images commonly ship UID 1000):
+
+```dockerfile
+ARG UID=1000
+ARG GID=1000
+RUN set -eu; \
+    if ! getent passwd "$UID" >/dev/null; then \
+        getent group "$GID" >/dev/null || groupadd -g "$GID" runner; \
+        useradd -u "$UID" -g "$GID" -m -s /bin/bash runner; \
+    fi
+# Alpine base images: use adduser/addgroup instead of useradd/groupadd:
+#   addgroup -g "$GID" runner 2>/dev/null || true
+#   adduser -u "$UID" -G runner -D -s /bin/sh runner
+```
+
+Wire the host's UID/GID into the build with the `{{ tt.uid }}` / `{{ tt.gid }}` built-in variables (POSIX only — see [Built-in Variables](#built-in-variables)):
+
+```yaml
+runners:
+  build-env:
+    type: containerised
+    engine: docker
+    dockerfile: docker/Dockerfile
+    args:
+      build: ["--build-arg", "UID={{ tt.uid }}", "--build-arg", "GID={{ tt.gid }}"]
+```
+
+Once the image has a matching `passwd` entry, `id`, `whoami`, and `$HOME` all resolve correctly without giving up the ownership guarantee `run_as_root: false` provides. Reach for `run_as_root: true` only if you specifically need the container to run as root — it disables user mapping entirely, so files it creates in mounted volumes end up owned by root on the host.
+
+**Nested invocations.** See [Nested Task Invocations](#nested-task-invocations) for how `tt` inside a container detects and handles Docker-in-Docker (`TT_CONTAINERIZED_RUNNER`).
+
 ### Nix Runners (flake devShells)
 
 A `type: nix` runner executes tasks inside the environment of a [Nix flake](https://nixos.org/manual/nix/stable/command-ref/new-cli/nix3-flake.html) devShell. The devShell provides a pinned, reproducible toolchain; the task itself runs as a normal host process with that toolchain merged into its environment:
@@ -2004,6 +2088,8 @@ Task Tree provides system-provided variables that tasks can reference using `{{ 
 | `{{ tt.timestamp_unix }}` | Unix epoch timestamp when task started | `1703772645` |
 | `{{ tt.user_home }}` | Current user's home directory (cross-platform) | `/home/user` or `C:\Users\user` |
 | `{{ tt.user_name }}` | Current username | `alice` |
+| `{{ tt.uid }}` | Host numeric user ID (POSIX only) | `501` |
+| `{{ tt.gid }}` | Host numeric group ID (POSIX only) | `20` |
 
 ### Usage Examples
 
@@ -2057,6 +2143,7 @@ tasks:
 - **Working directory**: `{{ tt.working_dir }}` reflects the task's `working_dir` setting, or the project root if not specified
 - **Recipe vs Project**: `{{ tt.recipe_dir }}` points to where the recipe file is located, while `{{ tt.project_root }}` points to where the `.tasktree-state` file is (usually the same, but can differ)
 - **Username fallback**: If `os.getlogin()` fails, `{{ tt.user_name }}` falls back to `$USER` or `$USERNAME` environment variables, or `"unknown"` if neither is set
+- **`{{ tt.uid }}` / `{{ tt.gid }}` are POSIX only**: `os.getuid()`/`os.getgid()` don't exist on Windows, so these variables are not defined there — referencing them fails with the usual "built-in variable not defined" error. They exist primarily to pass the host UID/GID as Docker build args; see [Containerised Runners (Docker)](#containerised-runners-docker)
 
 ## File Imports
 
