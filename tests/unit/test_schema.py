@@ -7,8 +7,18 @@ import unittest
 from pathlib import Path
 
 import jsonschema
+import yaml
 
-SCHEMA_PATH = Path(__file__).parents[2] / "schema" / "tasktree-schema.json"
+REPO_ROOT = Path(__file__).parents[2]
+SCHEMA_PATH = REPO_ROOT / "schema" / "tasktree-schema.json"
+FIXTURE_ROOT = REPO_ROOT / "tests" / "fixtures"
+
+# Fixtures the schema is *meant* to reject, with the reason. Everything else
+# under tests/fixtures must validate: the schema may never be stricter than
+# the recipes tt actually runs.
+INTENTIONALLY_INVALID = {
+    "e2e_task_name_with_dot/tasktree.yaml": "dotted task names are reserved for namespacing",
+}
 
 
 def _validate(recipe: dict) -> None:
@@ -112,6 +122,51 @@ class TestVariableSchema(unittest.TestCase):
     def test_list_value_invalid(self):
         with self.assertRaises(jsonschema.ValidationError):
             _validate({"variables": {"parts": ["a", "b"]}})
+
+
+def _recipe_fixtures() -> dict[str, dict]:
+    """
+    Every parseable recipe under tests/fixtures, keyed by its path relative to
+    the fixture root.
+    """
+    recipes = {}
+    for path in sorted(FIXTURE_ROOT.rglob("*")):
+        if path.suffix not in {".yaml", ".yml", ".tasks"} or not path.is_file():
+            continue
+        try:
+            data = yaml.safe_load(path.read_text())
+        except yaml.YAMLError:
+            continue  # fixtures for tt's own YAML-error handling
+        if isinstance(data, dict):
+            recipes[str(path.relative_to(FIXTURE_ROOT))] = data
+    return recipes
+
+
+class TestFixtureCorpus(unittest.TestCase):
+    """
+    The whole fixture corpus validated against the schema. This is the net
+    that catches the schema drifting stricter than the parser: every recipe
+    here is one tt is expected to handle.
+    """
+
+    def test_every_fixture_recipe_validates(self):
+        schema = json.loads(SCHEMA_PATH.read_text())
+        validator = jsonschema.Draft7Validator(schema)
+
+        rejected = {}
+        for name, recipe in _recipe_fixtures().items():
+            error = jsonschema.exceptions.best_match(validator.iter_errors(recipe))
+            if error is not None:
+                rejected[name] = error.message
+
+        self.assertEqual(
+            sorted(rejected),
+            sorted(INTENTIONALLY_INVALID),
+            f"unexpected schema rejections: {rejected}",
+        )
+
+    def test_corpus_is_not_empty(self):
+        self.assertGreater(len(_recipe_fixtures()), 100)
 
 
 if __name__ == "__main__":
