@@ -390,7 +390,8 @@ class TestBuiltinVariables(unittest.TestCase):
 
         executor = Executor(recipe, state, logger_stub, fake_proc_runner_factory)
 
-        with patch("tasktree.process_runner.subprocess.run", side_effect=mock_run):
+        # tasktree.docker is where the intercepted docker inspect/build calls live
+        with patch("tasktree.docker.subprocess.run", side_effect=mock_run):
             executor.execute_task("docker-test", TaskOutputTypes.ALL)
 
         self.assertIsNotNone(
