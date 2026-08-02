@@ -39,7 +39,8 @@ tasks:
       if [[ "{{ arg.sync | lower }}" != "false" ]]; then
         uv sync --extra dev
       fi
-      PYTHONPATH=tests uv run pytest tests/{{ arg.suite }}
+      # -s: pytest's capture temp file cannot live on a bind-mounted host /tmp
+      PYTHONPATH=tests uv run --extra dev pytest -s tests/{{ arg.suite }}
 
   unit-test:
     desc: "Run unit tests"
