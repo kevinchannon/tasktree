@@ -2,7 +2,6 @@ runners:
   default_runner:
     interpreter:
       cmd: bash
-    default: true
 imports:
   - file: build.yaml
     as: build
