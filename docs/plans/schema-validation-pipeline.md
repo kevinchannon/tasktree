@@ -1,7 +1,11 @@
 # Implementation plan: runtime schema validation pipeline
 
-> **Status:** in progress — slices 0–5 done (see per-slice notes), next is
-> slice 6. Branch `schema-validation-pipeline`, pushed to origin.
+> **Status:** in progress — slices 0–5 done plus slice 6 part 1 (see per-slice
+> notes); next is slice 6 part 2 (the merged-tree schema generator). Branch
+> `schema-validation-pipeline`; local commits are ahead of the pushed branch
+> (a rebase onto newer `main` plus slice-6 work), so the next push is a
+> force-push and [PR #212](https://github.com/kevinchannon/tasktree/pull/212)
+> is stale until then.
 > **Tracking issue:** [#43](https://github.com/kevinchannon/tasktree/issues/43).
 > This document is self-contained: it is written so a fresh contributor (human or
 > Claude) can implement the feature without the conversation that produced it.
@@ -278,6 +282,13 @@ var.b }}`), and closure/cycle behaviour. Start with regex extraction
 it.
 
 ### Slice 3 — runner variable-class restriction ✅ done
+**Amended 2026-08-02:** `tt.uid`/`tt.gid` (added on `main` after this branch
+was cut) joined the allowed set — they are host-global, resolved once per run
+like `tt.user_name`, and the restriction was rejecting the canonical Docker
+user-mapping recipe. Surfaced as four rebase-collision failures in
+`tests/integration/test_builtin_variables.py`; one of those tests also pinned
+the pre-slice-1 regex wording and now asserts the Jinja renderer's message.
+
 Completed 2026-07-03: `check_runner_template_refs` in `parser.py` (uses the
 slice-2 walker), called from `build_recipe_runner` (section + inline task
 runners, including their `interpreter` fields) and
@@ -459,8 +470,53 @@ skip pruning.
 
 ### Slice 6 — schema wiring
 Three parts, in order:
-1. Loosen the typed-templatable fields in `schema/tasktree-schema.json` per
-   decision 1.
+1. ✅ **Part 1 done (2026-08-02): the file schema now accepts everything the
+   parser does.** Decision 1 assumed the loosening would be
+   "native type OR a `{{…}}` string" for `min`/`max`, `ports`, docker build
+   `args` and friends. **Correction: no such field exists.** Probing the
+   parser (both this branch and v1.3.2) shows every typed field rejects
+   templates outright, because each is consumed before any rendering:
+   `min`/`max` (type-inferred as `str` → "does not match value types"),
+   arg `type`, runner `type`/`engine`, `run_as_root`, interpreter `ext`
+   (dot check). `ports`/`volumes`/docker `args` are already `string` in both
+   schema and parser, so templates there always validated. The schema was
+   therefore left narrow (`tests/unit/test_schema.py::
+   TestTypedFieldsRejectTemplates` pins this, so nobody "implements
+   decision 1" and loosens it below the parser).
+
+   What the audit *did* find, and what landed:
+   - **Bug:** `variables` listed `integer` and `number` as separate `oneOf`
+     branches, so every integer value matched both and failed — `port: 8080`
+     was rejected outright (4 fixtures hit it). Redundant branch removed.
+   - A runner fixture carried a stray `default: true` key (silently ignored
+     by the parser, rightly rejected by `additionalProperties: false`);
+     dropped so it doesn't break when validation runs at parse time.
+   - **Corpus test** (`TestFixtureCorpus`): all 355 recipes under
+     `tests/fixtures` validate, bar an explicit allowlist of intentional
+     negatives (currently just the dotted-task-name fixture). This is the
+     regression net for parts 2–3 — verified it bites (an artificially
+     stricter variables schema turns 1 rejection into 26).
+
+   **Prospective divergences for part 3** — cases where the schema is
+   *stricter* than the parser, so wiring validation turns them into new
+   errors. Each is a silent-failure trap today and rejecting them is the
+   point of the schema, but they need expected-divergences entries when
+   part 3 lands: `desc: 42` and non-string `ports`/`volumes`/`env_vars`
+   values (all TypeError'd in v1.3.2's regex path; slice 1's Jinja renderer
+   passes non-strings through, so the branch currently tolerates them),
+   and template strings in `private`/`pin_runner`/`task_output` (parsed
+   today, never rendered — `private: "{{ var.f }}"` is simply always
+   truthy). Note `task_output` is not converted to `TaskOutputTypes` at
+   parse either (`parser.py`, `task_data.get("task_output")`) — worth a
+   look while wiring part 3.
+
+   Reference-gate verdict: the new schema tests pass on v1.3.2 except
+   `test_integer_value_valid` (same schema bug there — an intended fix).
+   The corpus test isn't gate-meaningful: v1.3.2 has a different fixture
+   set and the schema file isn't consumed by `tt` at runtime in either
+   version. **The reference worktree at `~/repos/tasktree-ref` had been
+   deleted; recreated at `36de66d` (detached) — `git worktree prune` then
+   `git worktree add … 36de66d --detach` if it goes missing again.**
 2. The merged-tree schema generator per decision 3, with its pattern-count
    regression test.
 3. Wire `jsonschema.validate()` in post-prune (promote `jsonschema` from the
