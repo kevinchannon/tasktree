@@ -214,7 +214,7 @@ def substitute_builtin_variables(text: str, builtin_vars: dict[str, str]) -> str
 
         if name not in builtin_vars:
             raise ValueError(
-                f"Built-in variable '{{ tt.{name} }}' is not defined. "
+                f"Built-in variable '{{{{ tt.{name} }}}}' is not defined. "
                 f"Available built-in variables: {', '.join(sorted(builtin_vars.keys()))}"
             )
 

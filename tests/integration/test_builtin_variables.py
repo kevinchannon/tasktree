@@ -397,9 +397,10 @@ class TestBuiltinVariables(unittest.TestCase):
             with self.assertRaises(ValueError) as cm:
                 executor.execute_task("docker-test", TaskOutputTypes.ALL)
 
-        # NB: the message renders single braces - the f-string that builds it
-        # escapes '{{' down to '{'. Asserting the text as emitted, not as intended.
-        self.assertIn("Built-in variable '{ tt.uid }' is not defined", str(cm.exception))
+        # The message quotes the placeholder in the template syntax the user wrote
+        self.assertIn(
+            "Built-in variable '{{ tt.uid }}' is not defined", str(cm.exception)
+        )
         self.assertNotIn("uid", str(cm.exception).split("Available")[1])
 
     @unittest.skipIf(
