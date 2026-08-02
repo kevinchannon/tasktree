@@ -1860,7 +1860,7 @@ def _parse_runners_from_data(
 # task runs, so only task-independent template namespaces may appear in their
 # definitions (see docs/plans/schema-validation-pipeline.md, decision 4).
 _RUNNER_ALLOWED_TT_NAMES = frozenset(
-    {"project_root", "recipe_dir", "user_home", "user_name"}
+    {"project_root", "recipe_dir", "user_home", "user_name", "uid", "gid"}
 )
 _RUNNER_FORBIDDEN_PREFIXES = ("arg", "dep", "self")
 
@@ -1875,7 +1875,7 @@ def check_runner_template_refs(subtree: Any, where: str) -> None:
 
     Raises:
     ValueError: If the definition references a per-task namespace (arg, dep,
-    self) or a tt builtin outside the global four
+    self) or a tt builtin that is not host-global
     """
     from tasktree.template_refs import collect_template_refs
 
