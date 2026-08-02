@@ -11,4 +11,6 @@ BUILTIN_VARIABLES = [
     "timestamp_unix",  # Unix epoch timestamp when task started
     "user_home",  # Current user's home directory (cross-platform)
     "user_name",  # Current username
+    "uid",  # Host numeric user ID (POSIX only)
+    "gid",  # Host numeric group ID (POSIX only)
 ]

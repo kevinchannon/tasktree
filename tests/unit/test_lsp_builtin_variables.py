@@ -22,12 +22,14 @@ class TestBuiltinVariables(unittest.TestCase):
             "timestamp_unix",
             "user_home",
             "user_name",
+            "uid",
+            "gid",
         ]
         self.assertEqual(set(BUILTIN_VARIABLES), set(expected))
 
     def test_builtin_variables_count(self):
-        """Test that we have exactly 8 built-in variables."""
-        self.assertEqual(len(BUILTIN_VARIABLES), 8)
+        """Test that we have exactly 10 built-in variables."""
+        self.assertEqual(len(BUILTIN_VARIABLES), 10)
 
     def test_builtin_variables_are_strings(self):
         """Test that all built-in variables are strings."""
