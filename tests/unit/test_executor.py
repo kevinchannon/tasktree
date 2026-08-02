@@ -5,6 +5,7 @@ import platform
 import tempfile
 import time
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, patch, call
@@ -1506,6 +1507,61 @@ class TestExecutorPrivateMethods(unittest.TestCase):
             changed = executor._check_inputs_changed(task, cached_state, ["bin/*"])
 
             self.assertIn("bin/exe1", changed)
+
+
+class TestUidGidBuiltinVariables(unittest.TestCase):
+    """
+    Tests for the {{ tt.uid }} / {{ tt.gid }} built-in variables.
+    """
+
+    def _make_executor(self, project_root):
+        tasks = {"test": Task(name="test", cmd="echo hi")}
+        recipe = Recipe(
+            tasks=tasks,
+            project_root=project_root,
+            recipe_path=project_root / "tasktree.yaml",
+        )
+        state_manager = StateManager(project_root)
+        return Executor(recipe, state_manager, logger_stub, make_process_runner)
+
+    @unittest.skipIf(
+        platform.system() == "Windows", "os.getuid/os.getgid do not exist on Windows"
+    )
+    def test_uid_and_gid_render_host_values(self):
+        """
+        Test that tt.uid/tt.gid render the host's numeric UID/GID on POSIX.
+        """
+
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            executor = self._make_executor(project_root)
+            task = executor.recipe.tasks["test"]
+
+            builtin_vars = executor._collect_early_builtin_variables(
+                task, datetime.now(timezone.utc)
+            )
+
+            self.assertEqual(builtin_vars["uid"], str(os.getuid()))
+            self.assertEqual(builtin_vars["gid"], str(os.getgid()))
+
+    def test_uid_and_gid_omitted_on_windows(self):
+        """
+        Test that tt.uid/tt.gid are omitted on Windows (where os.getuid/os.getgid
+        don't exist), rather than raising or rendering an empty value.
+        """
+
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            executor = self._make_executor(project_root)
+            task = executor.recipe.tasks["test"]
+
+            with patch("tasktree.executor.platform.system", return_value="Windows"):
+                builtin_vars = executor._collect_early_builtin_variables(
+                    task, datetime.now(timezone.utc)
+                )
+
+            self.assertNotIn("uid", builtin_vars)
+            self.assertNotIn("gid", builtin_vars)
 
 
 class TestOnlyMode(unittest.TestCase):
