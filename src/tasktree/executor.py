@@ -255,7 +255,7 @@ class Executor:
             builtin_vars["user_home"] = str(user_home)
         except Exception as e:
             raise ExecutionError(
-                f"Failed to get user home directory for {{ tt.user_home }}: {e}"
+                f"Failed to get user home directory for {{{{ tt.user_home }}}}: {e}"
             )
 
         # {{ tt.user_name }} - Current username (with fallback)
@@ -267,6 +267,16 @@ class Executor:
                 os.environ.get("USER") or os.environ.get("USERNAME") or "unknown"
             )
         builtin_vars["user_name"] = user_name
+
+        # {{ tt.uid }} / {{ tt.gid }} - Host numeric UID/GID, for matching a
+        # containerised runner's --user mapping to a passwd entry in the image.
+        # Not defined on Windows, where os.getuid()/os.getgid() don't exist;
+        # referencing them there hits the substitution engine's usual
+        # "not defined" error rather than a platform-specific one, since these
+        # keys are collected unconditionally on every task run.
+        if platform.system() != "Windows":
+            builtin_vars["uid"] = str(os.getuid())
+            builtin_vars["gid"] = str(os.getgid())
 
         return builtin_vars
 

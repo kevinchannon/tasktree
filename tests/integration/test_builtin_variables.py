@@ -1,6 +1,7 @@
 """Integration tests for built-in variables feature."""
 
 import os
+import platform
 import tempfile
 import unittest
 from pathlib import Path
@@ -321,6 +322,140 @@ class TestBuiltinVariables(unittest.TestCase):
             "docker-test",
             "TASK_NAME_VAR should contain the task name",
         )
+
+    @unittest.skipIf(
+        platform.system() == "Windows", "tt.uid/tt.gid are not defined on Windows"
+    )
+    def test_uid_and_gid_in_task_command(self):
+        """
+        Test that tt.uid/tt.gid substitute to the host's numeric UID/GID in a task command.
+        """
+
+        copy_fixture_files("builtin_vars_uid_gid", Path(self.test_dir))
+
+        recipe = parse_recipe(self.recipe_file)
+        state = StateManager(recipe.project_root)
+        state.load()
+        executor = Executor(recipe, state, logger_stub, make_process_runner)
+        executor.execute_task("test-vars", TaskOutputTypes.ALL)
+
+        output = (Path(self.test_dir) / "output.txt").read_text()
+        lines = {
+            line.split("=", 1)[0]: line.split("=", 1)[1]
+            for line in output.strip().split("\n")
+        }
+
+        self.assertEqual(lines["uid"], str(os.getuid()))
+        self.assertEqual(lines["gid"], str(os.getgid()))
+
+    def test_uid_in_task_command_is_undefined_on_windows(self):
+        """
+        Test that a task command referencing tt.uid on Windows fails loudly
+        rather than rendering an empty value. This is the end-user side of the
+        omission documented in src/tasktree/README.md.
+
+        Task commands render through the template engine, so the failure names
+        the undefined attribute and the task, not the substitution engine's
+        "Built-in variable ... is not defined" message - that one belongs to the
+        runner-field path (see test_uid_in_runner_volume_is_undefined_on_windows).
+        """
+
+        from unittest.mock import patch
+
+        copy_fixture_files("builtin_vars_uid_gid", Path(self.test_dir))
+
+        recipe = parse_recipe(self.recipe_file)
+        state = StateManager(recipe.project_root)
+        state.load()
+        executor = Executor(recipe, state, logger_stub, make_process_runner)
+
+        with patch("tasktree.executor.platform.system", return_value="Windows"):
+            with self.assertRaises(ValueError) as cm:
+                executor.execute_task("test-vars", TaskOutputTypes.ALL)
+
+        self.assertIn("Undefined variable in task 'test-vars'", str(cm.exception))
+        self.assertIn("uid", str(cm.exception))
+        self.assertFalse((Path(self.test_dir) / "output.txt").exists())
+
+    def test_uid_in_runner_volume_is_undefined_on_windows(self):
+        """
+        Test that tt.uid in a runner field on Windows raises the substitution
+        engine's "Built-in variable ... is not defined" error, which is the
+        error src/tasktree/README.md documents for the omitted variables.
+        """
+
+        from unittest.mock import patch
+
+        copy_fixture_files("builtin_vars_uid_gid_runner_field", Path(self.test_dir))
+
+        recipe = parse_recipe(self.recipe_file)
+        state = StateManager(recipe.project_root)
+        state.load()
+        executor = Executor(recipe, state, logger_stub, make_process_runner)
+
+        with patch("tasktree.executor.platform.system", return_value="Windows"):
+            with self.assertRaises(ValueError) as cm:
+                executor.execute_task("docker-test", TaskOutputTypes.ALL)
+
+        # The message quotes the placeholder in the template syntax the user wrote
+        self.assertIn(
+            "Built-in variable '{{ tt.uid }}' is not defined", str(cm.exception)
+        )
+        self.assertNotIn("uid", str(cm.exception).split("Available")[1])
+
+    @unittest.skipIf(
+        platform.system() == "Windows", "tt.uid/tt.gid are not defined on Windows"
+    )
+    def test_uid_and_gid_in_runner_build_args(self):
+        """
+        Test that tt.uid/tt.gid substitute into a containerised runner's args.build,
+        the build-arg wiring used to give a container image a passwd entry matching
+        the host's mapped UID.
+        """
+
+        from unittest.mock import patch, Mock
+
+        copy_fixture_files("builtin_vars_uid_gid", Path(self.test_dir))
+
+        recipe = parse_recipe(self.recipe_file)
+        state = StateManager(recipe.project_root)
+        state.load()
+
+        docker_build_command = None
+
+        def mock_run(*args, **kwargs):
+            nonlocal docker_build_command
+            cmd = args[0] if args else kwargs.get("args", [])
+            if isinstance(cmd, list) and "build" in cmd:
+                docker_build_command = cmd
+            if isinstance(cmd, list) and "inspect" in cmd:
+                result = Mock()
+                result.stdout = "sha256:test123\\n"
+                result.returncode = 0
+                return result
+            result = Mock()
+            result.returncode = 0
+            return result
+
+        process_runner_spy = MagicMock(spec=ProcessRunner)
+        process_runner_spy.run.side_effect = mock_run
+
+        fake_proc_runner_factory = MagicMock()
+        fake_proc_runner_factory.return_value = process_runner_spy
+
+        executor = Executor(recipe, state, logger_stub, fake_proc_runner_factory)
+
+        # tasktree.docker is where the intercepted docker inspect/build calls live
+        with patch("tasktree.docker.subprocess.run", side_effect=mock_run):
+            executor.execute_task("docker-test", TaskOutputTypes.ALL)
+
+        self.assertIsNotNone(
+            docker_build_command, "Docker build command should have been captured"
+        )
+        self.assertIn(f"UID={os.getuid()}", docker_build_command)
+        self.assertIn(f"GID={os.getgid()}", docker_build_command)
+        for arg in docker_build_command:
+            self.assertNotIn("{{ tt.", arg)
 
     def test_env_vars_in_runner_fields(self):
         """

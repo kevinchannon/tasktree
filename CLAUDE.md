@@ -207,6 +207,8 @@ Tasks have access to these built-in template variables:
 - `{{ tt.timestamp_unix }}`: Unix timestamp
 - `{{ tt.user_home }}`: User's home directory
 - `{{ tt.user_name }}`: Current username
+- `{{ tt.uid }}`: Host numeric user ID (POSIX only)
+- `{{ tt.gid }}`: Host numeric group ID (POSIX only)
 
 ## Key Features
 
@@ -390,7 +392,7 @@ When adding a new completion prefix (e.g., `env.*`, `dep.*`, `self.*`):
 **Implemented:**
 - ✅ Server lifecycle (initialize, shutdown, exit)
 - ✅ Document management (textDocument/didOpen, textDocument/didChange)
-- ✅ `tt.*` completion - Built-in variables (8 variables from executor.py)
+- ✅ `tt.*` completion - Built-in variables (10 variables from executor.py)
 - ✅ `var.*` completion - User-defined variables (from variables section)
 - ✅ `arg.*` completion - Task arguments (context-aware, scoped to current task)
 - ✅ `env.*` completion - Environment variables (from current process env, sorted alphabetically, no scoping)

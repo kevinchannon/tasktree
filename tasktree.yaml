@@ -1,22 +1,28 @@
 # yaml-language-server: $schema=schema/tasktree-schema.json
-runners:
+interpreters:
   default: bash-strict
   bash-strict:
-    interpreter:
-      cmd: bash
-      preamble: set -euo pipefail
+    cmd: bash
+    preamble: set -euo pipefail
+
+runners:
   tt-test:
     type: containerised
     engine: docker
     dockerfile: Dockerfile
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - /tmp:/host_tmp
+      # Mounted at the same path on both sides so that temp dirs created by the
+      # e2e tests resolve identically for the host docker daemon we talk to.
+      - /tmp:/tmp
+      # Give the container its own venv, so host and container stop tearing down
+      # and rebuilding each other's .venv on every switch.
+      - .venv-docker:{{ tt.project_root }}/.venv
     args:
       run: ["--group-add", "0"]
     env_vars:
-      HOME: /host_tmp
-      TMPDIR: /host_tmp
+      HOME: /tmp
+      TMPDIR: /tmp
 
 tasks:
   dev-setup:
@@ -39,7 +45,8 @@ tasks:
       if [[ "{{ arg.sync | lower }}" != "false" ]]; then
         uv sync --extra dev
       fi
-      PYTHONPATH=tests uv run pytest tests/{{ arg.suite }}
+      # -s: pytest's capture temp file cannot live on a bind-mounted host /tmp
+      PYTHONPATH=tests uv run --extra dev pytest -s tests/{{ arg.suite }}
 
   unit-test:
     desc: "Run unit tests"
@@ -110,6 +117,6 @@ tasks:
   clean:
     desc: Remove build artifacts and cache files
     cmd: |
-      rm -rf dist/ build/ *.egg-info .venv
+      rm -rf dist/ build/ *.egg-info .venv .venv-docker
       rm -rf .pytest_cache
       find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true

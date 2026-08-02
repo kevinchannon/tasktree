@@ -214,7 +214,7 @@ def substitute_builtin_variables(text: str, builtin_vars: dict[str, str]) -> str
 
         if name not in builtin_vars:
             raise ValueError(
-                f"Built-in variable '{{ tt.{name} }}' is not defined. "
+                f"Built-in variable '{{{{ tt.{name} }}}}' is not defined. "
                 f"Available built-in variables: {', '.join(sorted(builtin_vars.keys()))}"
             )
 
@@ -260,25 +260,25 @@ def substitute_dependency_args(
 
         if prefix == "var":
             raise ValueError(
-                f"Task '{parent_task_name}': dependency argument contains {{ var.{name} }}\n"
+                f"Task '{parent_task_name}': dependency argument contains {{{{ var.{name} }}}}\n"
                 f"Template: {template_value}\n\n"
-                f"Variables ({{ var.* }}) are not allowed in dependency arguments.\n"
+                f"Variables ({{{{ var.* }}}}) are not allowed in dependency arguments.\n"
                 f"Variables are substituted at parse time, use them directly in task definitions.\n"
-                f"In dependency arguments, only {{ arg.* }} templates are supported."
+                f"In dependency arguments, only {{{{ arg.* }}}} templates are supported."
             )
         elif prefix == "env":
             raise ValueError(
-                f"Task '{parent_task_name}': dependency argument contains {{ env.{name} }}\n"
+                f"Task '{parent_task_name}': dependency argument contains {{{{ env.{name} }}}}\n"
                 f"Template: {template_value}\n\n"
-                f"Environment variables ({{ env.* }}) are not allowed in dependency arguments.\n"
-                f"In dependency arguments, only {{ arg.* }} templates are supported."
+                f"Environment variables ({{{{ env.* }}}}) are not allowed in dependency arguments.\n"
+                f"In dependency arguments, only {{{{ arg.* }}}} templates are supported."
             )
         elif prefix == "tt":
             raise ValueError(
-                f"Task '{parent_task_name}': dependency argument contains {{ tt.{name} }}\n"
+                f"Task '{parent_task_name}': dependency argument contains {{{{ tt.{name} }}}}\n"
                 f"Template: {template_value}\n\n"
-                f"Built-in variables ({{ tt.* }}) are not allowed in dependency arguments.\n"
-                f"In dependency arguments, only {{ arg.* }} templates are supported."
+                f"Built-in variables ({{{{ tt.* }}}}) are not allowed in dependency arguments.\n"
+                f"In dependency arguments, only {{{{ arg.* }}}} templates are supported."
             )
 
     # Substitute {{ arg.* }} using parent's arguments
