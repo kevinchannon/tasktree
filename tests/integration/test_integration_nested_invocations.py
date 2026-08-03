@@ -364,6 +364,7 @@ class TestDockerNestedInvocations(unittest.TestCase):
             # Find project source directory for mounting
             test_file_dir = Path(__file__).parent.parent.parent
             src_dir = test_file_dir / "src"
+            schema_dir = test_file_dir / "schema"
 
             # Create simple Dockerfile
             dockerfile = project_root / "Dockerfile"
@@ -387,6 +388,7 @@ runners:
     volumes:
       - ".:/workspace"
       - "{src_dir}:/app/src:ro"
+      - "{schema_dir}:/app/schema:ro"
 
 tasks:
   child:
@@ -435,6 +437,7 @@ tasks:
             # Find project source directory for mounting
             test_file_dir = Path(__file__).parent.parent.parent
             src_dir = test_file_dir / "src"
+            schema_dir = test_file_dir / "schema"
 
             # Create two Dockerfiles
             dockerfile_build = project_root / "Dockerfile.build"
@@ -466,6 +469,7 @@ runners:
     volumes:
       - ".:/workspace"
       - "{src_dir}:/app/src:ro"
+      - "{schema_dir}:/app/schema:ro"
 
   test:
     type: containerised
@@ -477,6 +481,7 @@ runners:
     volumes:
       - ".:/workspace"
       - "{src_dir}:/app/src:ro"
+      - "{schema_dir}:/app/schema:ro"
 
 tasks:
   child:
@@ -513,6 +518,7 @@ tasks:
             # Find project source directory for mounting
             test_file_dir = Path(__file__).parent.parent.parent
             src_dir = test_file_dir / "src"
+            schema_dir = test_file_dir / "schema"
 
             dockerfile = project_root / "Dockerfile"
             dockerfile.write_text("""
@@ -535,6 +541,7 @@ runners:
     volumes:
       - ".:/workspace"
       - "{src_dir}:/app/src:ro"
+      - "{schema_dir}:/app/schema:ro"
 
   lint:
     interpreter:
@@ -582,6 +589,7 @@ tasks:
             # Find project source directory for mounting
             test_file_dir = Path(__file__).parent.parent.parent
             src_dir = test_file_dir / "src"
+            schema_dir = test_file_dir / "schema"
 
             dockerfile = project_root / "Dockerfile"
             dockerfile.write_text("""
@@ -604,6 +612,7 @@ runners:
     volumes:
       - ".:/workspace"
       - "{src_dir}:/app/src:ro"
+      - "{schema_dir}:/app/schema:ro"
 
 tasks:
   docker-child:
@@ -646,6 +655,7 @@ tasks:
             # Find project source directory for mounting
             test_file_dir = Path(__file__).parent.parent.parent
             src_dir = test_file_dir / "src"
+            schema_dir = test_file_dir / "schema"
 
             dockerfile = project_root / "Dockerfile"
             dockerfile.write_text("""
@@ -668,6 +678,7 @@ runners:
     volumes:
       - ".:/workspace"
       - "{src_dir}:/app/src:ro"
+      - "{schema_dir}:/app/schema:ro"
 
 tasks:
   docker-task:
@@ -706,6 +717,7 @@ tasks:
             # Find project source directory for mounting
             test_file_dir = Path(__file__).parent.parent.parent
             src_dir = test_file_dir / "src"
+            schema_dir = test_file_dir / "schema"
 
             dockerfile = project_root / "Dockerfile"
             dockerfile.write_text("""
@@ -728,6 +740,7 @@ runners:
     volumes:
       - ".:/workspace"
       - "{src_dir}:/app/src:ro"
+      - "{schema_dir}:/app/schema:ro"
 
 tasks:
   child1:

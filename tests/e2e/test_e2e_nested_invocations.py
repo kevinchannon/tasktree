@@ -214,6 +214,7 @@ class TestDockerNestedInvocationsE2E(unittest.TestCase):
             # Find project source directory for mounting
             test_file_dir = Path(__file__).parent.parent.parent
             src_dir = test_file_dir / "src"
+            schema_dir = test_file_dir / "schema"
 
             # Create Dockerfile
             (project_root / "Dockerfile").write_text("""
@@ -236,6 +237,7 @@ runners:
     volumes:
       - ".:/workspace"
       - "{src_dir}:/app/src:ro"
+      - "{schema_dir}:/app/schema:ro"
 
 tasks:
   child:
@@ -282,6 +284,7 @@ tasks:
             # Find project source directory for mounting
             test_file_dir = Path(__file__).parent.parent.parent
             src_dir = test_file_dir / "src"
+            schema_dir = test_file_dir / "schema"
 
             # Create two Dockerfiles
             (project_root / "Dockerfile.build").write_text("""
@@ -311,6 +314,7 @@ runners:
     volumes:
       - ".:/workspace"
       - "{src_dir}:/app/src:ro"
+      - "{schema_dir}:/app/schema:ro"
 
   test:
     type: containerised
@@ -322,6 +326,7 @@ runners:
     volumes:
       - ".:/workspace"
       - "{src_dir}:/app/src:ro"
+      - "{schema_dir}:/app/schema:ro"
 
 tasks:
   child:
@@ -353,6 +358,7 @@ tasks:
             # Find project source directory for mounting
             test_file_dir = Path(__file__).parent.parent.parent
             src_dir = test_file_dir / "src"
+            schema_dir = test_file_dir / "schema"
 
             # Create Dockerfile
             (project_root / "Dockerfile").write_text("""
@@ -375,6 +381,7 @@ runners:
     volumes:
       - ".:/workspace"
       - "{src_dir}:/app/src:ro"
+      - "{schema_dir}:/app/schema:ro"
 
   lint:
     interpreter:
