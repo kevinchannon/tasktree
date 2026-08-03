@@ -39,7 +39,22 @@ def merged_tree_schema(file_schema: dict[str, Any]) -> dict[str, Any]:
     """
     schema = copy.deepcopy(file_schema)
     _rewrite_name_patterns(schema)
+    _forbid_imports(schema)
     return schema
+
+
+def _forbid_imports(schema: dict[str, Any]) -> None:
+    """
+    Drop 'imports' from the schema, in place.
+
+    The merge consumes every import, so a surviving 'imports' key is a merge
+    bug rather than a recipe error. Removing the property is enough to reject
+    it: the top level is additionalProperties: false.
+    """
+    schema.get("properties", {}).pop("imports", None)
+    schema["anyOf"] = [
+        branch for branch in schema.get("anyOf", []) if branch != {"required": ["imports"]}
+    ]
 
 
 def _rewrite_name_patterns(node: Any) -> None:

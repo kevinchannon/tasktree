@@ -73,6 +73,35 @@ class TestNamespacedNames(unittest.TestCase):
             _validate_file({"tasks": {"build.compile": {"cmd": "make"}}})
 
 
+class TestImportsAreConsumed(unittest.TestCase):
+    """
+    The merge consumes 'imports'; one surviving in the tree means the merge
+    left work undone, so the merged-tree schema rejects the key outright.
+    """
+
+    def test_imports_key_invalid(self):
+        with self.assertRaises(jsonschema.ValidationError):
+            _validate_merged(
+                {
+                    "imports": [{"file": "build.tasks", "as": "build"}],
+                    "tasks": {"compile": {"cmd": "make"}},
+                }
+            )
+
+    def test_file_schema_still_accepts_imports(self):
+        _validate_file(
+            {
+                "imports": [{"file": "build.tasks", "as": "build"}],
+                "tasks": {"compile": {"cmd": "make"}},
+            }
+        )
+
+    def test_imports_only_tree_invalid(self):
+        """A merged tree can never consist solely of imports."""
+        with self.assertRaises(jsonschema.ValidationError):
+            _validate_merged({"imports": [{"file": "build.tasks", "as": "build"}]})
+
+
 class TestTransformCoverage(unittest.TestCase):
     """
     Guards against the file schema growing a name-keyed section the transform
