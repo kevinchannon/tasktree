@@ -8,10 +8,14 @@ import unittest
 from pathlib import Path
 
 import jsonschema
+import yaml
 
+from tasktree.raw_merge import CircularImportError, merge_recipe_files
 from tasktree.recipe_schema import merged_tree_schema
 
-SCHEMA_PATH = Path(__file__).parents[2] / "schema" / "tasktree-schema.json"
+REPO_ROOT = Path(__file__).parents[2]
+SCHEMA_PATH = REPO_ROOT / "schema" / "tasktree-schema.json"
+FIXTURE_ROOT = REPO_ROOT / "tests" / "fixtures"
 
 
 def _file_schema() -> dict:
@@ -100,6 +104,68 @@ class TestImportsAreConsumed(unittest.TestCase):
         """A merged tree can never consist solely of imports."""
         with self.assertRaises(jsonschema.ValidationError):
             _validate_merged({"imports": [{"file": "build.tasks", "as": "build"}]})
+
+
+class TestRealMergedTrees(unittest.TestCase):
+    """
+    The generated schema checked against what the merge actually produces.
+
+    Every fixture project that imports something is merged and validated, so
+    a namespacing rule the transform doesn't cover shows up here rather than
+    when validation goes live at parse time.
+    """
+
+    def test_merged_fixture_trees_validate(self):
+        validator = jsonschema.Draft7Validator(merged_tree_schema(_file_schema()))
+
+        checked = 0
+        for recipe_path in _importing_fixture_recipes():
+            try:
+                merged = merge_recipe_files(recipe_path).data
+            except (ValueError, CircularImportError, FileNotFoundError):
+                continue  # fixtures for tt's own merge-error handling
+            error = jsonschema.exceptions.best_match(validator.iter_errors(merged))
+            self.assertIsNone(
+                error,
+                f"{recipe_path} merged to a tree the schema rejects: {error}",
+            )
+            checked += 1
+
+        self.assertGreater(checked, 20, "fixture discovery found almost nothing")
+
+
+def _importing_fixture_recipes() -> list[Path]:
+    """
+    Root recipes of fixture projects that use imports and whose files are all
+    valid on their own -- the merge's job is to preserve that validity, not to
+    rescue a broken file.
+    """
+    file_validator = jsonschema.Draft7Validator(_file_schema())
+    roots = []
+    for path in sorted(FIXTURE_ROOT.rglob("*")):
+        if path.name not in {"tasktree.yaml", "tt.yaml"} or not path.is_file():
+            continue
+        recipes = _project_recipes(path.parent)
+        if recipes is None or not any("imports" in r for r in recipes):
+            continue
+        if all(not list(file_validator.iter_errors(r)) for r in recipes):
+            roots.append(path)
+    return roots
+
+
+def _project_recipes(project_dir: Path) -> list[dict] | None:
+    """Every parseable recipe in a fixture project, or None if any is malformed."""
+    recipes = []
+    for path in sorted(project_dir.rglob("*")):
+        if path.suffix not in {".yaml", ".yml", ".tasks"} or not path.is_file():
+            continue
+        try:
+            data = yaml.safe_load(path.read_text())
+        except yaml.YAMLError:
+            return None
+        if isinstance(data, dict):
+            recipes.append(data)
+    return recipes
 
 
 class TestTransformCoverage(unittest.TestCase):
