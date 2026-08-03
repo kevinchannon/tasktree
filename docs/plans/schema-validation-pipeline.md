@@ -1,11 +1,10 @@
 # Implementation plan: runtime schema validation pipeline
 
-> **Status:** in progress — slices 0–5 done plus slice 6 part 1 (see per-slice
-> notes); next is slice 6 part 2 (the merged-tree schema generator). Branch
-> `schema-validation-pipeline`; local commits are ahead of the pushed branch
-> (a rebase onto newer `main` plus slice-6 work), so the next push is a
-> force-push and [PR #212](https://github.com/kevinchannon/tasktree/pull/212)
-> is stale until then.
+> **Status:** in progress — slices 0–5 done plus slice 6 parts 1 and 2 (see
+> per-slice notes); next is slice 6 part 3 (wire `jsonschema` post-prune).
+> Branch `schema-validation-pipeline`, force-pushed 2026-08-02 after a rebase
+> onto newer `main`; [PR #212](https://github.com/kevinchannon/tasktree/pull/212)
+> tracks it.
 > **Tracking issue:** [#43](https://github.com/kevinchannon/tasktree/issues/43).
 > This document is self-contained: it is written so a fresh contributor (human or
 > Claude) can implement the feature without the conversation that produced it.
@@ -517,8 +516,32 @@ Three parts, in order:
    version. **The reference worktree at `~/repos/tasktree-ref` had been
    deleted; recreated at `36de66d` (detached) — `git worktree prune` then
    `git worktree add … 36de66d --detach` if it goes missing again.**
-2. The merged-tree schema generator per decision 3, with its pattern-count
-   regression test.
+2. ✅ **Part 2 done (2026-08-03):** `src/tasktree/recipe_schema.py` holds
+   `merged_tree_schema(file_schema)` — deep-copies, rewrites every
+   `patternProperties` name pattern to its namespaced form, and drops
+   `imports` (plus its `anyOf` branch; top-level `additionalProperties:
+   false` does the rejecting). An unrecognised name pattern **raises**
+   rather than passing through, so a new name-keyed section can't silently
+   reject imported definitions. Tests in `tests/unit/test_merged_schema.py`:
+   the plan's pattern-count regression test (4 name-keyed sections: tasks,
+   variables, runners, interpreters), plus — the load-bearing one — every
+   fixture project that uses imports is merged and validated against the
+   generated schema (28 merge cleanly, all 28 pass; without the rewrite all
+   28 fail).
+
+   **Schema packaging (Kevin's call, asked because it is user-visible):**
+   the file stays at `schema/tasktree-schema.json` so the raw-GitHub URL in
+   the READMEs keeps resolving; `[tool.hatch.build.targets.wheel.force-include]`
+   copies it to `tasktree/schema/` in the wheel. `schema_candidates()`
+   prefers the packaged copy and falls back to the authored one, so source
+   checkouts work unchanged. `tests/e2e/test_packaging.py` builds the wheel
+   and looks inside — without it the force-include could rot invisibly,
+   since the fallback keeps every other test green.
+
+   **Landmine cleared:** a tracked `__init__.py` at the repo root made the
+   checkout directory importable as `tasktree` (the directory is named
+   `tasktree`), and pytest's rootdir insertion let it shadow `src/tasktree`
+   for tests in package-rooted directories. Deleted; full pyramid green.
 3. Wire `jsonschema.validate()` in post-prune (promote `jsonschema` from the
    `dev` extra to a runtime dependency), additively — no manual checks removed
    yet — behind the friendly error formatter.
