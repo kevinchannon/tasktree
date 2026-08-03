@@ -88,6 +88,7 @@ def merged_tree_schema(file_schema: dict[str, Any]) -> dict[str, Any]:
     schema = copy.deepcopy(file_schema)
     _rewrite_name_patterns(schema)
     _forbid_imports(schema)
+    _allow_empty_tree(schema)
     return schema
 
 
@@ -100,9 +101,17 @@ def _forbid_imports(schema: dict[str, Any]) -> None:
     it: the top level is additionalProperties: false.
     """
     schema.get("properties", {}).pop("imports", None)
-    schema["anyOf"] = [
-        branch for branch in schema.get("anyOf", []) if branch != {"required": ["imports"]}
-    ]
+
+
+def _allow_empty_tree(schema: dict[str, Any]) -> None:
+    """
+    Drop the "at least one section" requirement, in place.
+
+    An empty recipe is valid to tt, and the file schema's requirement is
+    editor guidance for someone writing a file from scratch -- not something
+    a merged tree has to satisfy.
+    """
+    schema.pop("anyOf", None)
 
 
 def _rewrite_name_patterns(node: Any) -> None:

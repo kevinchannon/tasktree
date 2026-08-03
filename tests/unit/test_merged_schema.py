@@ -140,6 +140,22 @@ class TestImportsAreConsumed(unittest.TestCase):
             _validate_merged({"imports": [{"file": "build.tasks", "as": "build"}]})
 
 
+class TestEmptyTree(unittest.TestCase):
+    """
+    An empty recipe file is valid to tt -- and a file whose only content was
+    'imports' merges to a tree with no sections at all once the imported
+    definitions land under their namespaces.
+    """
+
+    def test_empty_tree_valid(self):
+        _validate_merged({})
+
+    def test_file_schema_still_wants_a_section(self):
+        """Editors should nudge an author writing a file from scratch."""
+        with self.assertRaises(jsonschema.ValidationError):
+            _validate_file({})
+
+
 class TestRealMergedTrees(unittest.TestCase):
     """
     The generated schema checked against what the merge actually produces.
