@@ -13,7 +13,10 @@ import copy
 import json
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from jsonschema import ValidationError
 
 SCHEMA_FILENAME = "tasktree-schema.json"
 
@@ -112,6 +115,94 @@ def _allow_empty_tree(schema: dict[str, Any]) -> None:
     a merged tree has to satisfy.
     """
     schema.pop("anyOf", None)
+
+
+def schema_error_message(error: "ValidationError", recipe_path: Path) -> str:
+    """
+    Render a schema validation failure as something a recipe author can act on.
+
+    jsonschema's own message dumps the failing subschema, which for a recipe
+    means pages of JSON. This keeps the part that identifies the problem and
+    says where it is in the recipe's own terms.
+
+    Args:
+    error: The validation error, ideally from jsonschema's best_match
+    recipe_path: Path of the recipe being validated, for the message
+
+    Returns:
+    A one-or-two-line message naming the file, the location and the problem
+    """
+    location = _recipe_location(error)
+    where = f"{recipe_path}: {location}" if location else str(recipe_path)
+    return f"{where}: {_plain_reason(error)}"
+
+
+def _recipe_location(error: "ValidationError") -> str:
+    """
+    Describe where the error is, the way the recipe is written: dotted for
+    mapping keys, indexed for list entries, bracketed for names that already
+    contain dots ('tasks[\'build.release\']').
+    """
+    location = ""
+    for part in error.absolute_path:
+        if isinstance(part, int):
+            location += f"[{part}]"
+        elif "." in part:
+            location += f"['{part}']"
+        else:
+            location += f".{part}" if location else part
+    return location
+
+
+def _plain_reason(error: "ValidationError") -> str:
+    """
+    The reason a value was rejected, without schema internals.
+
+    Two constructs need rewording; the rest of jsonschema's messages are
+    already plain enough ("'cmd' is a required property").
+    """
+    if error.validator in {"oneOf", "anyOf"}:
+        return _accepted_forms_reason(error)
+    if error.validator == "not":
+        return _wrong_kind_reason(error)
+    return error.message
+
+
+def _accepted_forms_reason(error: "ValidationError") -> str:
+    """
+    Reword "is not valid under any of the given schemas", which jsonschema
+    follows with every branch's full JSON.
+
+    The branch descriptions are the useful part -- and the *enclosing*
+    schema's description must not be used instead, since for a name-keyed
+    section it describes the key rather than the value.
+    """
+    branches = error.schema.get(error.validator, []) if isinstance(error.schema, dict) else []
+    forms = [
+        branch["description"]
+        for branch in branches
+        if isinstance(branch, dict) and branch.get("description")
+    ]
+    if forms:
+        return f"{error.instance!r} is not valid here. Expected one of: {'; '.join(forms)}"
+    return f"{error.instance!r} is not one of the accepted forms here"
+
+
+def _wrong_kind_reason(error: "ValidationError") -> str:
+    """
+    Reword "should not be valid under {'required': [...]}".
+
+    The schema uses 'not: {required: [...]}' only to keep a runner kind's
+    fields off the other kinds, so the failure always means the author put a
+    field on a runner whose 'type' doesn't have it.
+    """
+    negated = error.validator_value if isinstance(error.validator_value, dict) else {}
+    forbidden = negated.get("required", [])
+    named = ", ".join(f"'{key}'" for key in forbidden)
+    return (
+        f"{named} is not valid for this runner's type. Set 'type' (and "
+        f"'engine' for containerised runners) to a kind that supports it."
+    )
 
 
 def _rewrite_name_patterns(node: Any) -> None:
