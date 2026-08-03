@@ -21,12 +21,17 @@ if TYPE_CHECKING:
 SCHEMA_FILENAME = "tasktree-schema.json"
 
 # Name-keyed sections use these patterns to forbid dots in locally-defined
-# names. After merging, dots are how a namespace is spelled, so each pattern
-# gains dotted continuations. Every patternProperties key in the file schema
-# must appear here -- see _rewrite_name_patterns.
+# names. In a merged tree dots are how a namespace is spelled, and names are
+# not the schema's business at all: the merge reports a bad local name against
+# the file that defined it, and does so lazily, so a name nothing references
+# never breaks a run. The rewritten patterns therefore accept any name and
+# exist only to route each value to its schema -- except that 'default' must
+# keep failing to match, since there it declares the default runner or
+# interpreter rather than naming one. Every patternProperties key in the file
+# schema must appear here -- see _rewrite_name_patterns.
 _NAMESPACED_NAME_PATTERNS = {
-    r"^[^.]+$": r"^[^.]+(\.[^.]+)*$",
-    r"^(?!default$)[^.]+$": r"^(?!default$)[^.]+(\.[^.]+)*$",
+    r"^[^.]+$": r"^.*$",
+    r"^(?!default$)[^.]+$": r"^(?!default$).*$",
 }
 
 

@@ -110,6 +110,15 @@ class TestNamespacedNames(unittest.TestCase):
         with self.assertRaises(jsonschema.ValidationError):
             _validate_file({"tasks": {"build.compile": {"cmd": "make"}}})
 
+    def test_names_the_merge_reports_lazily_are_left_alone(self):
+        """
+        An empty name is invalid, but the merge records it against the file
+        that defined it and only complains if something references it. The
+        schema must not turn that into a hard parse failure.
+        """
+        _validate_merged({"variables": {"": "hello"}})
+        _validate_merged({"tasks": {"": {"cmd": "make"}}})
+
 
 class TestImportsAreConsumed(unittest.TestCase):
     """
@@ -242,8 +251,8 @@ class TestTransformCoverage(unittest.TestCase):
 
 
 _EXPECTED_MERGED_PATTERNS = {
-    r"^[^.]+(\.[^.]+)*$",
-    r"^(?!default$)[^.]+(\.[^.]+)*$",
+    r"^.*$",
+    r"^(?!default$).*$",
 }
 
 # tasks, variables, runners, interpreters
