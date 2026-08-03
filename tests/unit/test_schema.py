@@ -167,6 +167,9 @@ def _recipe_fixtures() -> dict[str, dict]:
     """
     Every parseable recipe under tests/fixtures, keyed by its path relative to
     the fixture root.
+
+    Keys are posix-style on every platform, so the allowlist above reads the
+    same way whichever separator the OS uses.
     """
     recipes = {}
     for path in sorted(FIXTURE_ROOT.rglob("*")):
@@ -177,7 +180,7 @@ def _recipe_fixtures() -> dict[str, dict]:
         except yaml.YAMLError:
             continue  # fixtures for tt's own YAML-error handling
         if isinstance(data, dict):
-            recipes[str(path.relative_to(FIXTURE_ROOT))] = data
+            recipes[path.relative_to(FIXTURE_ROOT).as_posix()] = data
     return recipes
 
 
@@ -206,6 +209,15 @@ class TestFixtureCorpus(unittest.TestCase):
 
     def test_corpus_is_not_empty(self):
         self.assertGreater(len(_recipe_fixtures()), 100)
+
+    def test_fixture_keys_use_posix_separators(self):
+        """
+        Fixtures live in subdirectories, so a native-separator key would not
+        match the allowlist on Windows.
+        """
+        nested = [name for name in _recipe_fixtures() if "/" in name]
+        self.assertEqual(len(nested), len(_recipe_fixtures()))
+        self.assertFalse([name for name in _recipe_fixtures() if "\\" in name])
 
 
 if __name__ == "__main__":
