@@ -52,7 +52,7 @@ class TaskCutoverTestCase(unittest.TestCase):
             "      - msg: {default: nothing}\n"
             "  consumer:\n"
             "    deps:\n"
-            "      - worker: 'msg={{ var.greeting }}'\n"
+            "      - worker: {msg: '{{ var.greeting }}'}\n"
             "    cmd: echo consuming\n"
             "  boxed:\n"
             "    cmd: pwd\n"
@@ -97,7 +97,7 @@ class TestImportedTaskVarRefDivergence(TaskCutoverTestCase):
         recipe_obj = parse_recipe(recipe)
         self.assertEqual(
             recipe_obj.tasks["sub.consumer"].deps,
-            [{"sub.worker": "msg={{ var.sub.greeting }}"}],
+            [{"sub.worker": {"msg": "{{ var.sub.greeting }}"}}],
         )
 
     def test_var_refs_in_imported_inline_runner_resolve_to_imported_scope(self):
