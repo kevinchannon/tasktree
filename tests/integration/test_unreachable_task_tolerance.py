@@ -10,6 +10,7 @@ section 4.
 """
 
 import os
+import platform
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -17,6 +18,18 @@ from tempfile import TemporaryDirectory
 from typer.testing import CliRunner
 
 from tasktree.cli import app
+
+
+def interpreter_yaml(indent: str) -> str:
+    """
+    An inline interpreter definition that can actually run a task here.
+
+    These tests execute the task they invoke, so naming 'bash' would make
+    them a test of whether bash is installed.
+    """
+    if platform.system() == "Windows":
+        return f"{indent}cmd: cmd.exe /c\n{indent}ext: .bat\n"
+    return f"{indent}cmd: bash\n"
 
 
 BROKEN_UNREACHABLE_RECIPE = """
@@ -120,8 +133,7 @@ class TestOverridesAndUsedDefinitionsStillWork(ToleranceTestCase):
         self.write_recipe(
             "runners:\n"
             "  spare:\n"
-            "    interpreter: bash\n"
-            "tasks:\n"
+            "    interpreter:\n" + interpreter_yaml("      ") + "tasks:\n"
             "  good:\n"
             "    cmd: echo good\n"
         )
@@ -141,9 +153,7 @@ class TestOverridesAndUsedDefinitionsStillWork(ToleranceTestCase):
     def test_interpreter_override_by_otherwise_unused_interpreter_works(self):
         self.write_recipe(
             "interpreters:\n"
-            "  spare:\n"
-            "    cmd: bash\n"
-            "tasks:\n"
+            "  spare:\n" + interpreter_yaml("    ") + "tasks:\n"
             "  good:\n"
             "    cmd: echo good\n"
         )
