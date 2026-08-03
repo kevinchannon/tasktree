@@ -2388,12 +2388,42 @@ def parse_recipe(
     # Validate that task-level interpreter names reference defined interpreters.
     _validate_task_interpreter_refs(recipe)
 
+    _schema_validate(merged.data, recipe_path)
+
     # Trigger lazy variable evaluation
     # If root_task is provided: evaluate only reachable variables
     # If root_task is None: evaluate all variables (for --list)
     recipe.evaluate_variables(root_task)
 
     return recipe
+
+
+def _schema_validate(merged_data: dict, recipe_path: Path) -> None:
+    """
+    Check the merged tree against the recipe schema.
+
+    Runs on the pruned tree, so defects in tasks this invocation never
+    reaches stay tolerated, and before variables are evaluated, so no
+    'eval:' command runs on the strength of a structurally broken recipe.
+
+    Hand-written checks still run first and keep their own wording; the
+    schema is what catches the structural mistakes none of them look for.
+
+    Raises:
+    ValueError: If the merged tree does not match the schema
+    """
+    import jsonschema
+
+    from tasktree.recipe_schema import (
+        load_file_schema,
+        merged_tree_schema,
+        schema_error_message,
+    )
+
+    validator = jsonschema.Draft7Validator(merged_tree_schema(load_file_schema()))
+    error = jsonschema.exceptions.best_match(validator.iter_errors(merged_data))
+    if error is not None:
+        raise ValueError(schema_error_message(error, recipe_path))
 
 
 def _materialise_inline_definitions(

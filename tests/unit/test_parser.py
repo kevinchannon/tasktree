@@ -2589,7 +2589,7 @@ tasks:
                 parse_recipe(recipe_path)
 
             error_msg = str(cm.exception)
-            self.assertIn("found invalid keys", error_msg.lower())
+            self.assertIn("variables.my_var", error_msg)
             self.assertIn("foo", error_msg)
 
     def test_parse_env_variable_invalid_name_empty(self):
@@ -2611,7 +2611,7 @@ tasks:
                 parse_recipe(recipe_path)
 
             error_msg = str(cm.exception)
-            self.assertIn("Invalid environment variable reference", error_msg)
+            self.assertIn("variables.my_var.env", error_msg)
 
     def test_parse_env_variable_invalid_name_format(self):
         """
@@ -2632,7 +2632,7 @@ tasks:
                 parse_recipe(recipe_path)
 
             error_msg = str(cm.exception)
-            self.assertIn("Invalid environment variable name", error_msg)
+            self.assertIn("variables.my_var.env", error_msg)
             self.assertIn("INVALID NAME", error_msg)
 
     def test_parse_multiple_env_variables(self):
@@ -3279,8 +3279,8 @@ tasks:
             with self.assertRaises(ValueError) as ctx:
                 parse_recipe(recipe_path)
 
-            self.assertIn("Invalid file read reference", str(ctx.exception))
-            self.assertIn("extra keys", str(ctx.exception).lower())
+            self.assertIn("variables.data", str(ctx.exception))
+            self.assertIn("not valid here", str(ctx.exception).lower())
 
     def test_file_read_invalid_syntax_empty_path(self):
         """
@@ -3300,8 +3300,8 @@ tasks:
             with self.assertRaises(ValueError) as ctx:
                 parse_recipe(recipe_path)
 
-            self.assertIn("Invalid file read reference", str(ctx.exception))
-            self.assertIn("non-empty string", str(ctx.exception))
+            self.assertIn("variables.data", str(ctx.exception))
+            self.assertIn("not of type 'string'", str(ctx.exception))
 
     def test_file_read_mixed_with_env_and_regular(self):
         """
@@ -3560,7 +3560,7 @@ tasks:
             with self.assertRaises(ValueError) as cm:
                 parse_recipe(recipe_path)
             error_msg = str(cm.exception)
-            self.assertIn("Invalid eval reference", error_msg)
+            self.assertIn("variables.bad", error_msg)
             self.assertIn("bad", error_msg)
 
     def test_eval_validation_extra_keys(self):
@@ -3581,8 +3581,8 @@ tasks:
             with self.assertRaises(ValueError) as cm:
                 parse_recipe(recipe_path)
             error_msg = str(cm.exception)
-            self.assertIn("Invalid eval reference", error_msg)
-            self.assertIn("extra keys", error_msg)
+            self.assertIn("variables.bad", error_msg)
+            self.assertIn("not valid here", error_msg)
             self.assertIn("timeout", error_msg)
 
     def test_eval_validation_non_string_command(self):
@@ -3603,8 +3603,8 @@ tasks:
             with self.assertRaises(ValueError) as cm:
                 parse_recipe(recipe_path)
             error_msg = str(cm.exception)
-            self.assertIn("Invalid eval reference", error_msg)
-            self.assertIn("must be a non-empty string", error_msg)
+            self.assertIn("variables.bad", error_msg)
+            self.assertIn("not of type 'string'", error_msg)
 
     def test_eval_uses_default_runner(self):
         """
