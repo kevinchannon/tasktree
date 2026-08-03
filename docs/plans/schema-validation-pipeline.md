@@ -1,10 +1,10 @@
 # Implementation plan: runtime schema validation pipeline
 
-> **Status:** in progress — slices 0–5 done plus slice 6 parts 1 and 2 (see
-> per-slice notes); next is slice 6 part 3 (wire `jsonschema` post-prune).
-> Branch `schema-validation-pipeline`, force-pushed 2026-08-02 after a rebase
-> onto newer `main`; [PR #212](https://github.com/kevinchannon/tasktree/pull/212)
-> tracks it.
+> **Status:** in progress — **slices 0–6 done**; next is slice 7 (the hash
+> change). The branch is mergeable from here: the schema validates recipes at
+> runtime alongside the not-yet-retired manual checks, and slice 8 can trail.
+> Branch `schema-validation-pipeline`;
+> [PR #212](https://github.com/kevinchannon/tasktree/pull/212) tracks it.
 > **Tracking issue:** [#43](https://github.com/kevinchannon/tasktree/issues/43).
 > This document is self-contained: it is written so a fresh contributor (human or
 > Claude) can implement the feature without the conversation that produced it.
@@ -221,6 +221,23 @@ land):
   override names always survive pruning; `--list`/`--show`/`--tree` still
   validate everything — gate verdicts in
   `tests/integration/test_unreachable_task_tolerance.py`)
+- structurally invalid recipes are rejected at parse by the schema (slice 6
+  part 3). What this newly catches, all of which v1.3.2 accepted silently:
+  misspelled or unknown fields on tasks, runners and interpreters (neither
+  the parser nor the runner builders have a key whitelist, so `outpts:` or a
+  runner keyed `shell:` was ignored and the task quietly did the wrong
+  thing); wrong scalar types (`desc: 42`, non-string `ports`/`volumes`/
+  `env_vars` entries); template strings in fields that are never rendered
+  (`private`, `pin_runner`, `task_output`); and parameterized dep arguments
+  that are neither a list nor a mapping (v1.3.2 accepted these at parse and
+  failed at invocation). Gate verdicts in
+  `tests/integration/test_schema_validation.py`, where the new rejections
+  fail on v1.3.2 with "ValueError not raised"
+- variable-definition form errors (`{env:…}`/`{read:…}`/`{eval:…}` with
+  extra keys, a missing or non-string value, or a malformed env-var name)
+  report the schema's wording and location instead of the hand-written
+  message, because those checks run inside variable evaluation and the
+  schema now precedes it (slice 6 part 3)
 - broken non-pinned imported runners are tolerated (slice 4 runners cutover;
   v1.3.2 eagerly built every imported file's runners — validating configs,
   Dockerfile paths, template restrictions — then discarded the non-pinned
@@ -542,9 +559,58 @@ Three parts, in order:
    checkout directory importable as `tasktree` (the directory is named
    `tasktree`), and pytest's rootdir insertion let it shadow `src/tasktree`
    for tests in package-rooted directories. Deleted; full pyramid green.
-3. Wire `jsonschema.validate()` in post-prune (promote `jsonschema` from the
-   `dev` extra to a runtime dependency), additively — no manual checks removed
-   yet — behind the friendly error formatter.
+3. ✅ **Part 3 done (2026-08-03):** `_schema_validate` in `parser.py` checks
+   the merged tree; `jsonschema` is a runtime dependency;
+   `schema_error_message` (recipe_schema.py) does the friendly formatting.
+
+   **Placement — plan correction.** The plan put validation immediately
+   post-prune, *before* object construction. Measured: that preempts 27
+   hand-written checks at once, breaking their pinned tests and doing
+   slice 8's migration in one lump — the opposite of additive. Validation
+   therefore runs **after** the hand-written checks and **before**
+   `recipe.evaluate_variables()`, which keeps every intent of the pipeline
+   order that matters: pruned tree (unreachable defects stay tolerated),
+   and nothing structural unvalidated before an `eval:` variable runs a
+   shell command. Slice 8 flips the order naturally as each manual check
+   is deleted.
+
+   Exception: the variable-form checks live *inside* variable evaluation,
+   so the schema does reach those recipes first — nine pinned tests in
+   `test_parser.py` moved to the new wording (they now assert the location,
+   e.g. `variables.my_var.env`). Those checks are already schema-covered,
+   so slice 8 can delete them first.
+
+   **The formatter earns its place**: jsonschema's raw message for a
+   missing `cmd` prints the entire task schema. `schema_error_message`
+   keeps the reason and locates it in recipe terms (`tasks.build.inputs[0]`,
+   `tasks['build.release']` when the name itself has dots), rewords `oneOf`
+   failures as the list of accepted forms, and turns `not: {required: [...]}`
+   — used only to keep one runner kind's fields off the others — into
+   "'dockerfile' is not valid for this runner's type".
+
+   **Name validity is deliberately *not* the schema's job** (this is a
+   correction to decision 3's "rewrite the name-key patterns"): the merge
+   already reports a bad local name lazily, so an unreferenced one never
+   breaks a run. Keeping the dotted patterns would have turned an empty
+   variable name from a deferred error into a hard parse failure. The
+   merged-tree patterns now accept any name, except that `default` must
+   still fail to match (it declares a default, not names one).
+
+   **Fallout worth knowing about:** the container-based nested-invocation
+   tests mount only `src/`, so a validating tt inside the container could
+   not find the schema at the repo root — they now mount the schema
+   directory too (an installed wheel carries its own copy). Two test
+   recipes were also using config that parses but does nothing: a
+   parameterized dep with a bare-string argument (rejected by
+   `parse_dependency_spec` the moment it is invoked) and a runner keyed
+   `shell:` instead of `interpreter:` (silently ignored, leaving the task
+   on the default interpreter).
+
+   Gate: `tests/integration/test_schema_validation.py` (self-contained).
+   On v1.3.2 five new-rejection tests fail with exactly "ValueError not
+   raised"; the tolerance test errors on the slice-5 `prune_unreachable`
+   argument; four pass (valid recipes still parse, hand-written wording
+   unchanged, lazy name errors still lazy). Full pyramid green.
 
 ### Slice 7 — hash change
 Hash becomes unrendered templates + referenced `var.*`/`env.*` values via the
