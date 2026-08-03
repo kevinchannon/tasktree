@@ -33,6 +33,16 @@ tt-lsp = "tasktree.lsp.server:main"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.hatch.build.targets.wheel]
+packages = ["src/tasktree"]
+
+# The recipe schema is authored at the repo root, because the READMEs point
+# users' editors at its raw-GitHub URL and that must keep resolving. tasktree
+# also validates recipes against it at runtime, so the wheel carries a copy
+# inside the package (see recipe_schema.schema_candidates).
+[tool.hatch.build.targets.wheel.force-include]
+"schema/tasktree-schema.json" = "tasktree/schema/tasktree-schema.json"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]

@@ -6,10 +6,13 @@ recipe after imports have been merged away.
 import json
 import unittest
 from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 import jsonschema
 import yaml
 
+from tasktree import recipe_schema
 from tasktree.raw_merge import CircularImportError, merge_recipe_files
 from tasktree.recipe_schema import merged_tree_schema
 
@@ -28,6 +31,37 @@ def _validate_merged(tree: dict) -> None:
 
 def _validate_file(recipe: dict) -> None:
     jsonschema.validate(instance=recipe, schema=_file_schema())
+
+
+class TestSchemaLoading(unittest.TestCase):
+    """
+    Locating the schema file, which lives at the repo root in a checkout and
+    inside the package in an installed wheel.
+    """
+
+    def test_loads_the_authored_schema(self):
+        self.assertEqual(recipe_schema.load_file_schema(), _file_schema())
+
+    def test_source_checkout_resolves_to_the_authored_copy(self):
+        self.assertEqual(recipe_schema.schema_path(), SCHEMA_PATH)
+
+    def test_packaged_copy_wins_over_the_authored_one(self):
+        """An installed tasktree reads the copy the wheel carries."""
+        with TemporaryDirectory() as tmpdir:
+            packaged = Path(tmpdir) / "packaged" / SCHEMA_PATH.name
+            packaged.parent.mkdir()
+            packaged.write_text(SCHEMA_PATH.read_text())
+            with patch.object(
+                recipe_schema, "schema_candidates", lambda: (packaged, SCHEMA_PATH)
+            ):
+                self.assertEqual(recipe_schema.schema_path(), packaged)
+
+    def test_missing_schema_reports_where_it_looked(self):
+        missing = Path("/nonexistent/tasktree-schema.json")
+        with patch.object(recipe_schema, "schema_candidates", lambda: (missing,)):
+            with self.assertRaises(FileNotFoundError) as cm:
+                recipe_schema.schema_path()
+        self.assertIn(str(missing), str(cm.exception))
 
 
 class TestNamespacedNames(unittest.TestCase):

@@ -10,7 +10,12 @@ so the two cannot drift apart.
 """
 
 import copy
+import json
+from functools import lru_cache
+from pathlib import Path
 from typing import Any
+
+SCHEMA_FILENAME = "tasktree-schema.json"
 
 # Name-keyed sections use these patterns to forbid dots in locally-defined
 # names. After merging, dots are how a namespace is spelled, so each pattern
@@ -20,6 +25,49 @@ _NAMESPACED_NAME_PATTERNS = {
     r"^[^.]+$": r"^[^.]+(\.[^.]+)*$",
     r"^(?!default$)[^.]+$": r"^(?!default$)[^.]+(\.[^.]+)*$",
 }
+
+
+def schema_candidates() -> tuple[Path, ...]:
+    """
+    Where the recipe file schema may live, most-installed first.
+
+    The schema is authored at the repository root so the raw-GitHub URL in the
+    READMEs -- the one users point their editors at -- keeps working. The wheel
+    build force-includes it under the package (see pyproject.toml), which is
+    where an installed tasktree finds it; a source checkout falls back to the
+    authored copy.
+    """
+    return (
+        Path(__file__).parent / "schema" / SCHEMA_FILENAME,
+        Path(__file__).parents[2] / "schema" / SCHEMA_FILENAME,
+    )
+
+
+def schema_path() -> Path:
+    """
+    Locate the recipe file schema.
+
+    Raises:
+    FileNotFoundError: If no copy is present, which means a broken install
+    """
+    for candidate in schema_candidates():
+        if candidate.is_file():
+            return candidate
+    searched = ", ".join(str(path) for path in schema_candidates())
+    raise FileNotFoundError(
+        f"Recipe schema {SCHEMA_FILENAME} not found (looked in: {searched}). "
+        f"This tasktree installation is incomplete."
+    )
+
+
+@lru_cache(maxsize=1)
+def load_file_schema() -> dict[str, Any]:
+    """
+    Load the recipe file schema, which describes a single recipe file as the
+    user authors it. Cached: it is read on every parse and never changes
+    within a run.
+    """
+    return json.loads(schema_path().read_text())
 
 
 def merged_tree_schema(file_schema: dict[str, Any]) -> dict[str, Any]:
