@@ -370,7 +370,7 @@ class TestDockerNestedInvocations(unittest.TestCase):
             dockerfile.write_text("""
 FROM python:3.11-slim
 WORKDIR /workspace
-RUN pip install pyyaml jinja2 typer click rich colorama pathspec platformdirs
+RUN pip install pyyaml jinja2 typer click rich colorama pathspec platformdirs jsonschema
 ENV PYTHONPATH=/app/src
 """)
 
@@ -441,7 +441,7 @@ tasks:
             dockerfile_build.write_text("""
 FROM python:3.11-slim
 WORKDIR /workspace
-RUN pip install pyyaml jinja2 typer click rich colorama pathspec platformdirs
+RUN pip install pyyaml jinja2 typer click rich colorama pathspec platformdirs jsonschema
 ENV PYTHONPATH=/app/src
 """)
 
@@ -449,7 +449,7 @@ ENV PYTHONPATH=/app/src
             dockerfile_test.write_text("""
 FROM python:3.11-slim
 WORKDIR /workspace
-RUN pip install pyyaml jinja2 typer click rich colorama pathspec platformdirs
+RUN pip install pyyaml jinja2 typer click rich colorama pathspec platformdirs jsonschema
 ENV PYTHONPATH=/app/src
 """)
 
@@ -518,7 +518,7 @@ tasks:
             dockerfile.write_text("""
 FROM python:3.11-slim
 WORKDIR /workspace
-RUN pip install pyyaml jinja2 typer click rich colorama pathspec platformdirs
+RUN pip install pyyaml jinja2 typer click rich colorama pathspec platformdirs jsonschema
 ENV PYTHONPATH=/app/src
 """)
 
@@ -587,7 +587,7 @@ tasks:
             dockerfile.write_text("""
 FROM python:3.11-slim
 WORKDIR /workspace
-RUN pip install pyyaml jinja2 typer click rich colorama pathspec platformdirs
+RUN pip install pyyaml jinja2 typer click rich colorama pathspec platformdirs jsonschema
 ENV PYTHONPATH=/app/src
 """)
 
@@ -651,7 +651,7 @@ tasks:
             dockerfile.write_text("""
 FROM python:3.11-slim
 WORKDIR /workspace
-RUN pip install pyyaml jinja2 typer click rich colorama pathspec platformdirs
+RUN pip install pyyaml jinja2 typer click rich colorama pathspec platformdirs jsonschema
 ENV PYTHONPATH=/app/src
 """)
 
@@ -711,7 +711,7 @@ tasks:
             dockerfile.write_text("""
 FROM python:3.11-slim
 WORKDIR /workspace
-RUN pip install pyyaml jinja2 typer click rich colorama pathspec platformdirs
+RUN pip install pyyaml jinja2 typer click rich colorama pathspec platformdirs jsonschema
 ENV PYTHONPATH=/app/src
 """)
 

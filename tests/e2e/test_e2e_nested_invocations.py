@@ -219,7 +219,7 @@ class TestDockerNestedInvocationsE2E(unittest.TestCase):
             (project_root / "Dockerfile").write_text("""
 FROM python:3.11-slim
 WORKDIR /workspace
-RUN pip install pyyaml jinja2 typer click rich colorama pathspec platformdirs
+RUN pip install pyyaml jinja2 typer click rich colorama pathspec platformdirs jsonschema
 ENV PYTHONPATH=/app/src
 """)
 
@@ -287,14 +287,14 @@ tasks:
             (project_root / "Dockerfile.build").write_text("""
 FROM python:3.11-slim
 WORKDIR /workspace
-RUN pip install pyyaml jinja2 typer click rich colorama pathspec platformdirs
+RUN pip install pyyaml jinja2 typer click rich colorama pathspec platformdirs jsonschema
 ENV PYTHONPATH=/app/src
 """)
 
             (project_root / "Dockerfile.test").write_text("""
 FROM python:3.11-slim
 WORKDIR /workspace
-RUN pip install pyyaml jinja2 typer click rich colorama pathspec platformdirs
+RUN pip install pyyaml jinja2 typer click rich colorama pathspec platformdirs jsonschema
 ENV PYTHONPATH=/app/src
 """)
 
@@ -358,7 +358,7 @@ tasks:
             (project_root / "Dockerfile").write_text("""
 FROM python:3.11-slim
 WORKDIR /workspace
-RUN pip install pyyaml jinja2 typer click rich colorama pathspec platformdirs
+RUN pip install pyyaml jinja2 typer click rich colorama pathspec platformdirs jsonschema
 ENV PYTHONPATH=/app/src
 """)
 

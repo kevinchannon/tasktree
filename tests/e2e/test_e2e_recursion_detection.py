@@ -102,7 +102,7 @@ tasks:
                 """
 FROM python:3.11-slim
 WORKDIR /workspace
-RUN pip install pyyaml jinja2 typer click rich colorama pathspec platformdirs
+RUN pip install pyyaml jinja2 typer click rich colorama pathspec platformdirs jsonschema
 ENV PYTHONPATH=/app/src
 """
             )
