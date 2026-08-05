@@ -595,6 +595,58 @@ class TestVariableMerging(RawMergeTestCase):
             "make VERSION={{ var.build.version }}",
         )
 
+    def test_var_ref_inside_jinja_filter_is_not_namespaced(self):
+        # Known gap (PR #212 review): VAR_REFERENCE_REWRITE_PATTERN only
+        # rewrites a {{ var.X }} block whose *entire* content is the bare
+        # reference. "var.greeting" here is followed by "| upper" before the
+        # closing "}}", so the whole-block match fails and the reference is
+        # left pointing at the importer's own (unnamespaced) variable scope.
+        # This pins today's behaviour as a regression net for the fix.
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: build.yaml\n"
+            "    as: build\n",
+        )
+        self.write(
+            "build.yaml",
+            "variables:\n"
+            "  greeting: hello\n"
+            "tasks:\n"
+            "  hi:\n"
+            "    cmd: echo {{ var.greeting | upper }}\n",
+        )
+        merged = merge_recipe(recipe)
+        self.assertEqual(
+            merged["tasks"]["build.hi"]["cmd"], "echo {{ var.greeting | upper }}"
+        )
+
+    def test_var_refs_in_if_else_expression_are_not_namespaced(self):
+        # Same root cause as the filter case above, with two references in
+        # one block: neither "var.debug_flag" nor "var.release_flag" is the
+        # entire block content, so the whole-block regex matches neither.
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: build.yaml\n"
+            "    as: build\n",
+        )
+        self.write(
+            "build.yaml",
+            "variables:\n"
+            "  debug_flag: '-g'\n"
+            "  release_flag: '-O2'\n"
+            "  is_debug: 'true'\n"
+            "tasks:\n"
+            "  compile:\n"
+            "    cmd: \"gcc {{ var.debug_flag if var.is_debug == 'true' else var.release_flag }}\"\n",
+        )
+        merged = merge_recipe(recipe)
+        self.assertEqual(
+            merged["tasks"]["build.compile"]["cmd"],
+            "gcc {{ var.debug_flag if var.is_debug == 'true' else var.release_flag }}",
+        )
+
     def test_var_refs_in_imported_variable_values_are_namespaced(self):
         recipe = self.write(
             "tt.yaml",
