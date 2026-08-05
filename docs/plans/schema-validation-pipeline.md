@@ -625,8 +625,90 @@ the new wording as each goes. Only checks now covered by the schema are
 eligible; graph/lifecycle checks (§1) stay. This slice can trail after the
 branch merges.
 
+### Slice 9 — block-scan var-ref namespacing (planned, not started)
+**Problem** (found in PR #212 review, pinned as a known-gap regression net by
+`tests/unit/test_raw_merge.py::TestVariableMerging::
+test_var_ref_inside_jinja_filter_is_not_namespaced` and
+`::test_var_refs_in_if_else_expression_are_not_namespaced`):
+`raw_merge._namespace_var_refs` rewrites `{{ var.X }}` via
+`VAR_REFERENCE_REWRITE_PATTERN`, which only matches when the reference is the
+**entire content** of the template block (`^var\.NAME$` modulo whitespace and
+the `{{`/`}}` delimiters). A `var.*` reference used inside a larger Jinja
+expression in an imported file — a filter (`{{ var.greeting | upper }}`) or a
+conditional referencing two variables (`{{ var.a if var.flag else var.b }}`)
+— is not the whole block, so the regex finds no match and the reference is
+left pointing at the importer's own (unnamespaced, possibly nonexistent or
+wrong-scope) variable name. This is not a new regression: v1.3.2's
+enumerated-field rewrite was narrower still (didn't cover dep-argument
+templates or inline runner/interpreter defs at all, per the slice 4
+expected-divergences entry) and never handled expressions either — so fixing
+this closes a pre-existing shared gap rather than introducing a new
+divergence; no new expected-divergences entry is needed once it lands.
+
+**Fix — reuse the slice 2 walker instead of a second regex.**
+`template_refs.py` already solves "find every reference inside a `{{ ... }}`
+block, however it's nested in the expression" for `collect_template_refs`
+(`_TEMPLATE_BLOCK` finds each block, `_REFERENCE` finds every
+`prefix.name` inside it — the same two-step this pattern needs). Maintaining
+a second, weaker regex in `raw_merge.py` for namespacing is exactly the kind
+of drift the walker was built to prevent (three consumers already share it
+per its module docstring; namespacing becomes the fourth). Concretely:
+
+1. Add `rewrite_var_refs(node, namespace) -> Any` to `template_refs.py`,
+   next to `collect_template_refs`. Walks a raw subtree the same shape as
+   `_namespace_var_refs` does today (recurse into `dict`/`list`, act on
+   `str`, **values only** — keys are section/item names, never templates,
+   so key-walking would be wrong here even though `collect_template_refs`'s
+   own walk does cover keys for its own, different purpose).
+2. For each string, run `_TEMPLATE_BLOCK.sub(...)` so only text inside
+   `{{ ... }}` blocks is ever touched (plain text containing the substring
+   `"var."` outside a block must not change). Within each block, run
+   `_REFERENCE.sub(...)`, rewriting only the matches whose captured prefix
+   is `"var"` (`{name!r}` → `f"var.{namespace}.{name}"`) and leaving
+   `arg`/`env`/`tt`/`dep`/`self` matches in the same block untouched.
+3. Delete `VAR_REFERENCE_REWRITE_PATTERN` and `_namespace_var_refs` from
+   `raw_merge.py`; its four call sites (local task namespacing, runner
+   namespacing, variable-value namespacing, interpreter namespacing —
+   `raw_merge.py` lines ~199, ~228, ~246, ~267 as of this PR) call
+   `template_refs.rewrite_var_refs` instead.
+4. Known trade-off to accept explicitly, not silently: `_REFERENCE` permits
+   whitespace around the dot (`var . greeting`) where the old pattern didn't,
+   and the rewrite re-emits `prefix.namespace.name` without preserving any
+   such internal whitespace. Harmless (Jinja doesn't care), but worth one
+   sentence in the commit message so it doesn't read as an oversight.
+
+**Tests first, in `tests/unit/test_template_refs.py`** (mirrors that file's
+existing per-prefix/expression coverage for `collect_template_refs`):
+- `{{ var.greeting | upper }}` → `{{ var.build.greeting | upper }}`
+  (filter — the case this slice exists for).
+- `{{ var.a if tt.uid == 0 else var.b }}` → both `var.a` and `var.b` gain
+  the namespace and `tt.uid` is left alone — covers a mixed-prefix block,
+  where only the `var.*` matches must be rewritten.
+- `{{ var.a if var.flag else var.b }}` (all three references are `var.*`)
+  → all three gain the namespace — covers the plan's original if/else
+  example, where every reference in the block is in-scope.
+- Multiple independent blocks in one string (`"{{ var.a }}-{{ var.b }}"`)
+  both rewritten.
+- A block with no `var.*` reference (`{{ arg.x }}`) returned unchanged.
+- Plain text containing the literal substring `var.` outside any `{{ }}`
+  block left untouched.
+- Whole-block form (`{{ var.x }}`) still rewritten — parity with today's
+  behaviour, so this is a superset fix, not a rewrite.
+
+**Then flip the two regression tests added in this PR** (`test_raw_merge.py`)
+from asserting the current unnamespaced output to asserting the namespaced
+output, deleting their "known gap" comments — they become ordinary parity
+tests once the fix lands, same as
+`test_var_refs_in_imported_cmd_are_namespaced` already reads for the
+whole-block case.
+
+**Sizing**: one session — the walker and regexes already exist; this is
+mostly `rewrite_var_refs` plus its tests, then a mechanical swap at the four
+call sites with the full pyramid re-run after.
+
 ## 6. Rough sizing
 
 Slices 0–3 are each comfortably a single working session; slice 4 is several
 sessions and the main risk concentration; slices 5–7 are likely a session
-each; slice 8 is piecemeal filler for spare capacity in any session.
+each; slice 8 is piecemeal filler for spare capacity in any session; slice 9
+(planned) is a single session once picked up.
