@@ -1484,8 +1484,8 @@ class Executor:
                 "Other built-in variables like {{ tt.task_name }} or {{ tt.timestamp }} are allowed."
             )
 
-    @staticmethod
     def _render_field(
+        self,
         text: str,
         builtin_vars: dict[str, str],
         regular_args: dict[str, Any],
@@ -1516,6 +1516,7 @@ class Executor:
         from tasktree.task_config import build_task_config
 
         config = build_task_config(
+            variables=self.recipe.evaluated_variables,
             args=regular_args,
             exported_args=exported_args,
             builtins=builtin_vars,

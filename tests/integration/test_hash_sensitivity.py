@@ -178,6 +178,33 @@ class TestEnvChangesTriggerReruns(HashSensitivityTestCase):
         self.assert_ran(output, result)
 
 
+class TestExpressionReferencesCount(HashSensitivityTestCase):
+    """
+    A variable used inside a Jinja expression is a reference like any other:
+    it is not substituted into the command text, so the value in the hash is
+    the only thing that notices it changing.
+    """
+
+    def test_variable_used_in_an_expression_reruns_on_change(self):
+        def recipe(greeting: str) -> str:
+            return (
+                f"variables:\n  greeting: {greeting}\n"
+                "tasks:\n  build:\n    inputs: [src.txt]\n    outputs: [out.txt]\n"
+                "    cmd: echo {{ var.greeting | upper }} > out.txt\n"
+            )
+
+        self.write_recipe(recipe("hello"))
+        result, output = self.run_task()
+        self.assert_ran(output, result)
+
+        result, output = self.run_task()
+        self.assert_skipped(output, result)
+
+        self.write_recipe(recipe("goodbye"))
+        result, output = self.run_task()
+        self.assert_ran(output, result)
+
+
 class TestRunnerReferencesCount(HashSensitivityTestCase):
     """
     A task's environment is part of what it is, so an env var referenced by

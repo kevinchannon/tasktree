@@ -7,13 +7,11 @@ against its own variables. What these tests pin is the *scope* half of that:
 an imported reference inside a filter or conditional no longer silently
 resolves to a same-named variable in the importing file.
 
-Actually rendering such a reference is a separate, larger gap: var.* is
-substituted textually at parse time and the task render context carries no
-var namespace, so a var.* reference inside any Jinja expression fails --
-in imported and plain recipes alike, on this branch and on v1.3.2. Slice 7
-owns that, because making it work without the hash change would stop
-variable edits from triggering re-runs. Until then these tasks fail, and
-they must fail *loudly*, naming the namespaced variable.
+Rendering such a reference was a separate, larger gap -- var.* was
+substituted textually at parse time and the task render context carried no
+var namespace, so a reference inside any Jinja expression failed, in
+imported and plain recipes alike. Slice 7 closed it, once the hash counted
+referenced values so that variable edits still trigger re-runs.
 
 Self-contained (only v1.3.2-era symbols) so the file can be copied into the
 reference worktree for the gate run.
@@ -57,14 +55,14 @@ class ImportedExpressionTestCase(unittest.TestCase):
         return result, strip_ansi_codes(result.stdout)
 
 
-class TestImportedExpressionsDoNotLeakScope(ImportedExpressionTestCase):
+class TestImportedExpressionsResolveInTheirOwnScope(ImportedExpressionTestCase):
     """
     The dangerous case: the importing file defines a variable of the same
     name. An un-namespaced reference would quietly use the importer's value
     and produce a wrong result with no error at all.
     """
 
-    def test_filtered_reference_does_not_use_the_importers_variable(self):
+    def test_filtered_reference_uses_the_imported_variable(self):
         self.write(
             "tt.yaml",
             "variables:\n"
@@ -80,15 +78,12 @@ class TestImportedExpressionsDoNotLeakScope(ImportedExpressionTestCase):
             "    cmd: echo {{ var.greeting | upper }}\n",
         )
         result, output = self.run_task("build.hi")
+        self.assertEqual(result.exit_code, 0, output)
+        self.assertIn("IMPORTED-VALUE", output)
         self.assertNotIn("ROOT-VALUE", output)
-        self.assertNotEqual(result.exit_code, 0, output)
 
-    def test_reference_is_resolved_under_its_namespace_not_bare(self):
-        """
-        The lookup that fails must be the namespaced one. Before the fix the
-        reference stayed bare, so the failure named 'greeting' -- proof it
-        was being looked up in the importer's scope.
-        """
+    def test_conditional_reference_uses_the_imported_variables(self):
+        """Every reference in the expression resolves in the imported scope."""
         self.write(
             "tt.yaml",
             "imports:\n  - file: build.yaml\n    as: build\n",
@@ -96,15 +91,17 @@ class TestImportedExpressionsDoNotLeakScope(ImportedExpressionTestCase):
         self.write(
             "build.yaml",
             "variables:\n"
-            "  greeting: imported\n"
+            "  debug_flag: '-g'\n"
+            "  release_flag: '-O2'\n"
+            "  is_debug: 'true'\n"
             "tasks:\n"
             "  hi:\n"
-            "    cmd: echo {{ var.greeting | upper }}\n",
+            "    cmd: \"echo {{ var.debug_flag if var.is_debug == 'true' "
+            'else var.release_flag }}"\n',
         )
         result, output = self.run_task("build.hi")
-        self.assertNotEqual(result.exit_code, 0, output)
-        self.assertNotIn("attribute 'greeting'", output)
-        self.assertIn("attribute 'build'", output)
+        self.assertEqual(result.exit_code, 0, output)
+        self.assertIn("-g", output)
 
     def test_whole_block_reference_still_works(self):
         """Parity: the form that has always worked is unaffected."""
@@ -127,14 +124,12 @@ class TestImportedExpressionsDoNotLeakScope(ImportedExpressionTestCase):
         self.assertIn("imported-value", output)
 
 
-class TestPlainRecipesShareTheLimitation(ImportedExpressionTestCase):
+class TestPlainRecipesToo(ImportedExpressionTestCase):
     """
-    Imports are not what breaks expression references -- nothing supports
-    them yet. Pinning that here keeps the slice 9 fix from being blamed for
-    it, and gives slice 7 a test that flips when the capability lands.
+    Expression references work the same without any import in sight.
     """
 
-    def test_expression_reference_fails_without_any_import(self):
+    def test_expression_reference_renders_without_any_import(self):
         self.write(
             "tt.yaml",
             "variables:\n"
@@ -144,7 +139,8 @@ class TestPlainRecipesShareTheLimitation(ImportedExpressionTestCase):
             "    cmd: echo {{ var.greeting | upper }}\n",
         )
         result, output = self.run_task("hi")
-        self.assertNotEqual(result.exit_code, 0, output)
+        self.assertEqual(result.exit_code, 0, output)
+        self.assertIn("HELLO", output)
 
     def test_whole_block_reference_works_without_any_import(self):
         self.write(
