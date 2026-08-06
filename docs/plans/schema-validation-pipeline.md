@@ -1,7 +1,8 @@
 # Implementation plan: runtime schema validation pipeline
 
-> **Status:** in progress — **slices 0–6 done**; next is slice 7 (the hash
-> change). The branch is mergeable from here: the schema validates recipes at
+> **Status:** in progress — **slices 0–6 and 9 done**; next is slice 7 (the
+> hash change, which now also carries render-time `var.*` support — see its
+> entry). The branch is mergeable from here: the schema validates recipes at
 > runtime alongside the not-yet-retired manual checks, and slice 8 can trail.
 > Branch `schema-validation-pipeline`;
 > [PR #212](https://github.com/kevinchannon/tasktree/pull/212) tracks it.
@@ -619,13 +620,79 @@ re-run; one env reference per rendered field type (cmd, working_dir,
 inputs/outputs, runner preamble/volumes/env_vars). Changelog notes the
 one-time state invalidation and the new env sensitivity.
 
+**Also lands here: `var.*` as a real render-time namespace** (discovered
+during slice 9, 2026-08-06). `var.*` is substituted *textually at parse
+time* and `build_task_config` is called from the executor without
+`variables=` at all, so the task render context has no `var` namespace.
+Consequence: **a `var.*` reference inside any Jinja expression fails to
+render** — `{{ var.greeting | upper }}` errors in a plain import-free
+recipe exactly as it does in an imported one, on this branch and on
+v1.3.2. Only whole-block references work, because those never reach Jinja.
+This is why slice 9's namespacing fix, though necessary, cannot make the
+PR #212 review's example work on its own.
+
+It belongs in this slice rather than earlier because enabling it alone
+would be a silent incremental-execution bug: the hash covers the `cmd`
+string, parse-time substitution bakes whole-block variable values into
+it, and an expression reference stays literal — so editing the variable
+would not change the hash and the task would not re-run. Decision 5's
+warning is exactly this hazard. Sequence within the slice: hash inputs
+first, then pass `variables=` at the executor's `build_task_config` call
+site.
+
+The namespace object needed is a small one, validated during slice 9 and
+then reverted as premature (recover it from that session if useful): a
+`_VarNamespace(dict)` in `task_config.py`, alongside the existing
+`_DepNamespace`/`_EnvNamespace`, whose `__missing__` resolves a dotted
+merged name a segment at a time — `var.build.greeting` looks up
+`build.greeting` in the flat evaluated-variable map, an intermediate
+segment that is only a prefix returns a namespace scoped to it, and an
+unknown name raises the existing "Variable 'x' is not defined" wording
+rather than Jinja's "'dict object' has no attribute". Keeping the value
+map flat this way also preserves `{{ var.name.upper() }}`, which a nested
+dict would break. Tests exist for the shape in
+`tests/integration/test_imported_jinja_expressions.py::
+TestPlainRecipesShareTheLimitation` — they assert today's failure and
+flip to asserting success when this lands.
+
 ### Slice 8 — retire hand-written checks *(long tail)*
 One manual structural check deleted per commit, its pinned tests updated to
 the new wording as each goes. Only checks now covered by the schema are
 eligible; graph/lifecycle checks (§1) stay. This slice can trail after the
 branch merges.
 
-### Slice 9 — block-scan var-ref namespacing (planned, not started)
+### Slice 9 — block-scan var-ref namespacing ✅ done (2026-08-06)
+Landed as planned below, with one correction that matters for reading the
+rest of this entry: **namespacing was only half the reported problem.** The
+PR #212 review's example still does not render, because `var.*` inside a
+Jinja expression is unsupported everywhere — see the addition to slice 7,
+which now owns that half. What slice 9 fixes is the *scope*: the reference
+is now rewritten to `var.<namespace>.<name>` wherever it sits in the
+expression, so it can never be resolved against the importing file's
+variables.
+
+The review's "or, worse, silently resolves to the wrong variable" case is
+**not reachable today** — with no `var` namespace in the render context,
+an un-namespaced reference errored rather than quietly using the
+importer's value. It becomes reachable the moment slice 7 makes `var` a
+render-time namespace, which is precisely why this fix had to land first.
+
+What landed: `rewrite_var_refs(node, namespace)` in `template_refs.py`
+(block-then-reference, `var.*` only, values not keys);
+`VAR_REFERENCE_REWRITE_PATTERN` and `_namespace_var_refs` deleted from
+`raw_merge.py`, its four call sites switched over. Tests:
+`tests/unit/test_template_refs.py::TestRewriteVarRefs` (filters,
+conditionals, mixed prefixes, multiple blocks, nested namespace chains,
+text outside blocks), the two known-gap tests in `test_raw_merge.py`
+flipped to parity, and `tests/integration/test_imported_jinja_expressions.py`
+for the end-to-end scope behaviour. Gate: that integration file's
+`test_reference_is_resolved_under_its_namespace_not_bare` fails on v1.3.2
+(the failure there names the bare `greeting`, proving the importer's scope
+was being used); the other four pass. Full pyramid green.
+
+**Original plan follows.**
+
+### Slice 9 — block-scan var-ref namespacing (as planned)
 **Problem** (found in PR #212 review, pinned as a known-gap regression net by
 `tests/unit/test_raw_merge.py::TestVariableMerging::
 test_var_ref_inside_jinja_filter_is_not_namespaced` and
