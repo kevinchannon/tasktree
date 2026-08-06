@@ -83,6 +83,50 @@ def expand_variable_refs(
     return expanded
 
 
+def rewrite_var_refs(node: Any, namespace: str) -> Any:
+    """
+    Prefix every ``var.*`` reference in a subtree with an import namespace.
+
+    Used by the merge to point an imported file's variable references at the
+    namespaced copies of its own variables: ``{{ var.greeting }}`` becomes
+    ``{{ var.build.greeting }}``. References are found the same way
+    ``collect_template_refs`` finds them -- block first, then every reference
+    inside it -- so one in a filter or a conditional is rewritten just like a
+    bare one, and a reference in another namespace (``arg``, ``env``, ``tt``,
+    ``dep``, ``self``) sharing the block is left alone.
+
+    Args:
+    node: Any node of a parsed-YAML tree (str, dict, list or scalar)
+    namespace: The import namespace to insert
+
+    Returns:
+    A rewritten copy; the input is not modified. Non-string scalars pass
+    through unchanged.
+    """
+    if isinstance(node, str):
+        return _TEMPLATE_BLOCK.sub(
+            lambda block: _namespace_block(block.group(0), namespace), node
+        )
+    if isinstance(node, list):
+        return [rewrite_var_refs(item, namespace) for item in node]
+    if isinstance(node, dict):
+        # Values only: keys are section and item names, never templates.
+        return {key: rewrite_var_refs(value, namespace) for key, value in node.items()}
+    return node
+
+
+def _namespace_block(block: str, namespace: str) -> str:
+    """Rewrite the var.* references inside one ``{{ ... }}`` block."""
+
+    def rewrite(match: re.Match) -> str:
+        prefix, name = match.group(1), match.group(2)
+        if prefix != "var":
+            return match.group(0)
+        return f"{prefix}.{namespace}.{name}"
+
+    return _REFERENCE.sub(rewrite, block)
+
+
 def _walk(node: Any, refs: dict[str, set[str]]) -> None:
     if isinstance(node, str):
         _extract_from_string(node, refs)

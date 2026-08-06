@@ -9,16 +9,13 @@ alongside the object-building path in parser.py; sections cut over one at a
 time.
 """
 
-import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable
 
 import yaml
 
-# Rewrites {{ var.X }} to {{ var.<namespace>.X }} (captures the surrounding
-# delimiters so the substitution can re-emit them)
-VAR_REFERENCE_REWRITE_PATTERN = re.compile(r"(\{\{\s*var\.)([^\s}]+)(\s*}})")
+from tasktree.template_refs import rewrite_var_refs
 
 
 class CircularImportError(Exception):
@@ -196,7 +193,7 @@ def _merge_file(
             if error:
                 raise ValueError(error)
     if namespace:
-        local_tasks = _namespace_var_refs(local_tasks, namespace)
+        local_tasks = rewrite_var_refs(local_tasks, namespace)
         for task in local_tasks.values():
             if not isinstance(task, dict):
                 continue
@@ -225,7 +222,7 @@ def _merge_file(
             # file's default runner applies to the merged recipe.
             local_runners = {
                 f"{namespace}.{name}": _namespace_interpreter_use(
-                    _namespace_var_refs(config, namespace), namespace
+                    rewrite_var_refs(config, namespace), namespace
                 )
                 for name, config in local_runners.items()
                 if name != "default"
@@ -243,7 +240,7 @@ def _merge_file(
         _record_name_errors(local_variables, "Variable", namespace, name_errors)
         if namespace:
             local_variables = {
-                f"{namespace}.{name}": _namespace_var_refs(value, namespace)
+                f"{namespace}.{name}": rewrite_var_refs(value, namespace)
                 for name, value in local_variables.items()
             }
         merged_variables.update(local_variables)
@@ -264,7 +261,7 @@ def _merge_file(
         )
         if namespace:
             local_interpreters = {
-                f"{namespace}.{name}": _namespace_var_refs(value, namespace)
+                f"{namespace}.{name}": rewrite_var_refs(value, namespace)
                 for name, value in local_interpreters.items()
                 if name != "default"
             }
@@ -499,30 +496,6 @@ def _namespace_interpreter_use(config: Any, namespace: str) -> Any:
             },
         }
     return config
-
-
-def _namespace_var_refs(node: Any, namespace: str) -> Any:
-    """
-    Rewrite {{ var.X }} to {{ var.<namespace>.X }} in every string of a tree.
-
-    Walks values only (dict keys are section/item names, never templates).
-    Deliberately broader than the old per-field rewrite in parser.py: any
-    string anywhere in an imported definition gets its variable references
-    namespaced, so fields the old path missed (dependency argument
-    templates, inline runner definitions) can't refer to the wrong scope.
-    """
-    if isinstance(node, str):
-        return VAR_REFERENCE_REWRITE_PATTERN.sub(
-            rf"\g<1>{namespace}.\2\3", node
-        )
-    if isinstance(node, list):
-        return [_namespace_var_refs(item, namespace) for item in node]
-    if isinstance(node, dict):
-        return {
-            key: _namespace_var_refs(value, namespace)
-            for key, value in node.items()
-        }
-    return node
 
 
 def _rewrite_deps(

@@ -6,6 +6,7 @@ from tasktree.template_refs import (
     TEMPLATE_PREFIXES,
     collect_template_refs,
     expand_variable_refs,
+    rewrite_var_refs,
 )
 
 
@@ -184,6 +185,90 @@ class TestExpandVariableRefs(unittest.TestCase):
         refs = collect_template_refs("{{ var.a }}")
         expand_variable_refs(refs, {"a": "{{ var.b }}"})
         self.assertEqual(refs["var"], {"a"})
+
+
+class TestRewriteVarRefs(unittest.TestCase):
+    """
+    Namespacing an imported file's variable references. Every var.* reference
+    inside a template block must be rewritten wherever it sits in the
+    expression, and nothing outside a block may be touched.
+    """
+
+    def test_whole_block_reference_rewritten(self):
+        self.assertEqual(
+            rewrite_var_refs("{{ var.greeting }}", "build"),
+            "{{ var.build.greeting }}",
+        )
+
+    def test_reference_with_filter_rewritten(self):
+        self.assertEqual(
+            rewrite_var_refs("echo {{ var.greeting | upper }}", "build"),
+            "echo {{ var.build.greeting | upper }}",
+        )
+
+    def test_both_branches_of_a_conditional_rewritten(self):
+        self.assertEqual(
+            rewrite_var_refs("{{ var.a if var.flag else var.b }}", "build"),
+            "{{ var.build.a if var.build.flag else var.build.b }}",
+        )
+
+    def test_other_prefixes_in_the_same_block_left_alone(self):
+        self.assertEqual(
+            rewrite_var_refs("{{ var.a if tt.uid == 0 else var.b }}", "build"),
+            "{{ var.build.a if tt.uid == 0 else var.build.b }}",
+        )
+
+    def test_multiple_blocks_in_one_string(self):
+        self.assertEqual(
+            rewrite_var_refs("{{ var.a }}-{{ var.b }}", "build"),
+            "{{ var.build.a }}-{{ var.build.b }}",
+        )
+
+    def test_block_without_a_var_reference_unchanged(self):
+        self.assertEqual(rewrite_var_refs("{{ arg.x }}", "build"), "{{ arg.x }}")
+
+    def test_text_outside_a_block_is_never_touched(self):
+        self.assertEqual(
+            rewrite_var_refs("see var.greeting in the docs", "build"),
+            "see var.greeting in the docs",
+        )
+
+    def test_dotted_reference_keeps_its_tail(self):
+        self.assertEqual(
+            rewrite_var_refs("{{ var.paths.root }}", "build"),
+            "{{ var.build.paths.root }}",
+        )
+
+    def test_nested_namespace_chain(self):
+        """Each import level namespaces again, building the full chain."""
+        once = rewrite_var_refs("{{ var.greeting | upper }}", "inner")
+        self.assertEqual(
+            rewrite_var_refs(once, "outer"),
+            "{{ var.outer.inner.greeting | upper }}",
+        )
+
+    def test_walks_dicts_and_lists(self):
+        node = {
+            "cmd": "echo {{ var.greeting | upper }}",
+            "deps": [{"other": {"msg": "{{ var.greeting }}"}}],
+        }
+        self.assertEqual(
+            rewrite_var_refs(node, "build"),
+            {
+                "cmd": "echo {{ var.build.greeting | upper }}",
+                "deps": [{"other": {"msg": "{{ var.build.greeting }}"}}],
+            },
+        )
+
+    def test_dict_keys_are_not_rewritten(self):
+        """Keys are section and item names, never templates."""
+        self.assertEqual(
+            rewrite_var_refs({"{{ var.a }}": "{{ var.a }}"}, "build"),
+            {"{{ var.a }}": "{{ var.build.a }}"},
+        )
+
+    def test_non_string_scalars_pass_through(self):
+        self.assertEqual(rewrite_var_refs({"port": 8080}, "build"), {"port": 8080})
 
 
 if __name__ == "__main__":

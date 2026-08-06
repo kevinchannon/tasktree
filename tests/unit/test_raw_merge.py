@@ -595,13 +595,9 @@ class TestVariableMerging(RawMergeTestCase):
             "make VERSION={{ var.build.version }}",
         )
 
-    def test_var_ref_inside_jinja_filter_is_not_namespaced(self):
-        # Known gap (PR #212 review): VAR_REFERENCE_REWRITE_PATTERN only
-        # rewrites a {{ var.X }} block whose *entire* content is the bare
-        # reference. "var.greeting" here is followed by "| upper" before the
-        # closing "}}", so the whole-block match fails and the reference is
-        # left pointing at the importer's own (unnamespaced) variable scope.
-        # This pins today's behaviour as a regression net for the fix.
+    def test_var_ref_inside_jinja_filter_is_namespaced(self):
+        # A reference is rewritten wherever it sits in the expression, not
+        # only when it is the whole block (PR #212 review, slice 9).
         recipe = self.write(
             "tt.yaml",
             "imports:\n"
@@ -618,13 +614,12 @@ class TestVariableMerging(RawMergeTestCase):
         )
         merged = merge_recipe(recipe)
         self.assertEqual(
-            merged["tasks"]["build.hi"]["cmd"], "echo {{ var.greeting | upper }}"
+            merged["tasks"]["build.hi"]["cmd"], "echo {{ var.build.greeting | upper }}"
         )
 
-    def test_var_refs_in_if_else_expression_are_not_namespaced(self):
-        # Same root cause as the filter case above, with two references in
-        # one block: neither "var.debug_flag" nor "var.release_flag" is the
-        # entire block content, so the whole-block regex matches neither.
+    def test_var_refs_in_if_else_expression_are_namespaced(self):
+        # Every var.* reference in the block, not just one: all three here
+        # belong to the imported file's scope.
         recipe = self.write(
             "tt.yaml",
             "imports:\n"
@@ -644,7 +639,8 @@ class TestVariableMerging(RawMergeTestCase):
         merged = merge_recipe(recipe)
         self.assertEqual(
             merged["tasks"]["build.compile"]["cmd"],
-            "gcc {{ var.debug_flag if var.is_debug == 'true' else var.release_flag }}",
+            "gcc {{ var.build.debug_flag if var.build.is_debug == 'true' "
+            "else var.build.release_flag }}",
         )
 
     def test_var_refs_in_imported_variable_values_are_namespaced(self):
