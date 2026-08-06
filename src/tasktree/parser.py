@@ -460,6 +460,52 @@ class Recipe:
     # State pruning uses this to tell a deleted task's stale entry from
     # the entry of a task that simply wasn't part of this run.
 
+    def referenced_values(self, task_name: str) -> dict[str, str]:
+        """
+        The resolved values behind a task's ``var.*`` and ``env.*`` references.
+
+        These go into the task hash (see the schema validation plan,
+        decision 5), so that a task re-runs when a value it depends on
+        changes, however that value was produced -- a literal edit, a
+        different ``eval:`` result, a changed environment variable. Only
+        *referenced* names count: an unrelated variable or environment
+        change must not re-run anything.
+
+        References are read from the raw merged tree rather than the built
+        Task, because variable references are substituted out of the Task at
+        parse time, and taken transitively, since one variable's definition
+        may reference another.
+
+        Args:
+        task_name: Name of the task, as it appears in the merged tree
+
+        Returns:
+        Mapping of qualified reference ('var.x', 'env.HOME') to its value,
+        omitting names that resolve to nothing (an unset environment
+        variable is absent here, so setting it later changes the hash)
+        """
+        from tasktree.template_refs import collect_template_refs, expand_variable_refs
+
+        raw_task = (self._original_yaml_data.get("tasks") or {}).get(task_name)
+        if raw_task is None:
+            return {}
+
+        refs = expand_variable_refs(collect_template_refs(raw_task), self.raw_variables)
+
+        values = {
+            f"var.{name}": self.evaluated_variables[name]
+            for name in sorted(refs["var"])
+            if name in self.evaluated_variables
+        }
+        values.update(
+            {
+                f"env.{name}": os.environ[name]
+                for name in sorted(refs["env"])
+                if name in os.environ
+            }
+        )
+        return values
+
     def get_task(self, name: str) -> Task | None:
         """
         Get task by name.

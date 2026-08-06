@@ -98,6 +98,7 @@ def hash_task(
     env: str = "",
     deps: list[str | dict[str, Any]] | None = None,
     interpreter: str = "",
+    referenced_values: dict[str, str] | None = None,
 ) -> str:
     """
     Hash task definition including dependencies.
@@ -110,6 +111,9 @@ def hash_task(
     env: Runner name
     deps: Dependency specifications (optional, for dependency hash)
     interpreter: Resolved interpreter identity (cmd/ext/preamble) as a string
+    referenced_values: Resolved values of the var.*/env.* references in the
+    task's definition, so a task re-runs when a value it depends on changes
+    even though its command text did not
 
     Returns:
     8-character hash of task definition
@@ -122,6 +126,11 @@ def hash_task(
         "env": env,
         "interpreter": interpreter,
     }
+
+    # Only when there is something to record, so tasks that reference no
+    # variables or environment keep the hash they already have
+    if referenced_values:
+        data["referenced_values"] = dict(sorted(referenced_values.items()))
 
     # Include dependency invocation signatures if provided
     if deps is not None:

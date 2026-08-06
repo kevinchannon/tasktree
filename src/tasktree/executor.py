@@ -624,15 +624,7 @@ class Executor:
         # Compute hashes (include effective environment and dependencies)
         resolved = self.resolve_environment(task)
         effective_env = resolved.runner_name
-        task_hash = hash_task(
-            task.cmd,
-            task.outputs,
-            task.working_dir,
-            task.args,
-            effective_env,
-            task.deps,
-            self._interpreter_identity(resolved.interpreter),
-        )
+        task_hash = self.task_hash(task, resolved)
         self.logger.trace(f"Task hash for '{task.name}': {task_hash}")
         args_hash = hash_args(args_dict) if args_dict else None
         if args_hash:
@@ -1957,8 +1949,27 @@ class Executor:
     def _cache_key(self, task: Task, args_dict: dict[str, Any]) -> str:
         """
         """
-        resolved = self.resolve_environment(task)
-        task_hash = hash_task(
+        task_hash = self.task_hash(task)
+        args_hash = hash_args(args_dict) if args_dict else None
+        return make_cache_key(task_hash, args_hash)
+
+    def task_hash(self, task: Task, resolved: "ResolvedEnvironment | None" = None) -> str:
+        """
+        Hash a task's definition, including the values behind its var.*/env.*
+        references.
+
+        Every caller must go through here. The freshness check, the cache key
+        and state pruning have to agree on the hash inputs to the letter: if
+        they don't, a task is looked up under one key, recorded under a
+        second, and pruned against a third, so it re-runs forever.
+
+        Args:
+        task: The task to hash
+        resolved: Its resolved runner/interpreter, if the caller already has
+        it (it is resolved here otherwise)
+        """
+        resolved = resolved if resolved is not None else self.resolve_environment(task)
+        return hash_task(
             task.cmd,
             task.outputs,
             task.working_dir,
@@ -1966,9 +1977,8 @@ class Executor:
             resolved.runner_name,
             task.deps,
             self._interpreter_identity(resolved.interpreter),
+            referenced_values=self.recipe.referenced_values(task.name),
         )
-        args_hash = hash_args(args_dict) if args_dict else None
-        return make_cache_key(task_hash, args_hash)
 
     def _input_files_to_modified_times(
         self,

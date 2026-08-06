@@ -13,7 +13,6 @@ from tasktree.graph import (
     resolve_dependency_output_references,
     resolve_self_references,
 )
-from tasktree.hasher import hash_task
 from tasktree.logging import Logger
 from tasktree.parser import get_recipe, parse_task_args
 from tasktree.process_runner import TaskOutputTypes, make_process_runner
@@ -127,20 +126,9 @@ def execute_dynamic_task(
 
     # Prune state based on tasks that will actually execute (with their specific arguments)
     # This ensures template-substituted dependencies are handled correctly
-    valid_hashes = set()
-    for _, task in recipe.tasks.items():
-        # Compute base task hash
-        task_hash = hash_task(
-            task.cmd,
-            task.outputs,
-            task.working_dir,
-            task.args,
-            executor._get_effective_runner_name(task),
-            task.deps,
-            executor._interpreter_identity(executor._resolve_interpreter(task)),
-        )
-
-        valid_hashes.add(task_hash)
+    # Through the executor, so pruning hashes tasks exactly as the freshness
+    # check and the cache key do
+    valid_hashes = {executor.task_hash(task) for task in recipe.tasks.values()}
 
     state.prune(
         valid_hashes,

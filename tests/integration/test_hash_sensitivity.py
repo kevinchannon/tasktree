@@ -136,6 +136,20 @@ class TestEnvChangesTriggerReruns(HashSensitivityTestCase):
     task which depends on an env var references it.
     """
 
+    def test_referenced_env_change_reruns(self):
+        self.write_recipe(
+            "tasks:\n  build:\n    inputs: [src.txt]\n    outputs: [out.txt]\n"
+            "    cmd: echo {{ env.TT_TARGET }} > out.txt\n"
+        )
+        result, output = self.run_task(env={"TT_TARGET": "dev"})
+        self.assert_ran(output, result)
+
+        result, output = self.run_task(env={"TT_TARGET": "dev"})
+        self.assert_skipped(output, result)
+
+        result, output = self.run_task(env={"TT_TARGET": "prod"})
+        self.assert_ran(output, result)
+
     def test_unreferenced_env_change_does_not_rerun(self):
         self.write_recipe(
             "tasks:\n  build:\n    inputs: [src.txt]\n    outputs: [out.txt]\n"
