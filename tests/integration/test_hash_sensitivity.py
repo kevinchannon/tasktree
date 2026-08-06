@@ -178,5 +178,53 @@ class TestEnvChangesTriggerReruns(HashSensitivityTestCase):
         self.assert_ran(output, result)
 
 
+class TestRunnerReferencesCount(HashSensitivityTestCase):
+    """
+    A task's environment is part of what it is, so an env var referenced by
+    the runner it runs in counts the same as one referenced by its command.
+    """
+
+    def test_env_referenced_by_the_runner_preamble_reruns(self):
+        self.write_recipe(
+            "runners:\n"
+            "  sh:\n"
+            "    interpreter:\n"
+            "      cmd: bash\n"
+            "      preamble: export BUILD_TAG={{ env.TT_TAG }}\n"
+            "tasks:\n  build:\n    inputs: [src.txt]\n    outputs: [out.txt]\n"
+            "    runner: sh\n"
+            "    cmd: echo hello > out.txt\n"
+        )
+        result, output = self.run_task(env={"TT_TAG": "one"})
+        self.assert_ran(output, result)
+
+        result, output = self.run_task(env={"TT_TAG": "one"})
+        self.assert_skipped(output, result)
+
+        result, output = self.run_task(env={"TT_TAG": "two"})
+        self.assert_ran(output, result)
+
+    def test_env_referenced_by_the_runner_working_dir_reruns(self):
+        (self.project_root / "one").mkdir()
+        (self.project_root / "two").mkdir()
+        self.write_recipe(
+            "runners:\n"
+            "  sh:\n"
+            "    interpreter: bash\n"
+            "    working_dir: '{{ env.TT_WHERE }}'\n"
+            "tasks:\n  build:\n    inputs: [src.txt]\n"
+            "    runner: sh\n"
+            "    cmd: echo hello\n"
+        )
+        result, output = self.run_task(env={"TT_WHERE": "one"})
+        self.assert_ran(output, result)
+
+        result, output = self.run_task(env={"TT_WHERE": "one"})
+        self.assert_skipped(output, result)
+
+        result, output = self.run_task(env={"TT_WHERE": "two"})
+        self.assert_ran(output, result)
+
+
 if __name__ == "__main__":
     unittest.main()

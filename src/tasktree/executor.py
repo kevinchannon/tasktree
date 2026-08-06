@@ -1977,7 +1977,9 @@ class Executor:
             resolved.runner_name,
             task.deps,
             self._interpreter_identity(resolved.interpreter),
-            referenced_values=self.recipe.referenced_values(task.name),
+            referenced_values=self.recipe.referenced_values(
+                task.name, resolved.runner_name
+            ),
         )
 
     def _input_files_to_modified_times(

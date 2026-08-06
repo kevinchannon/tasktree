@@ -460,7 +460,9 @@ class Recipe:
     # State pruning uses this to tell a deleted task's stale entry from
     # the entry of a task that simply wasn't part of this run.
 
-    def referenced_values(self, task_name: str) -> dict[str, str]:
+    def referenced_values(
+        self, task_name: str, runner_name: str = ""
+    ) -> dict[str, str]:
         """
         The resolved values behind a task's ``var.*`` and ``env.*`` references.
 
@@ -476,8 +478,13 @@ class Recipe:
         parse time, and taken transitively, since one variable's definition
         may reference another.
 
+        The runner the task resolves to is included: its fields are part of
+        how the task runs, so an env var referenced by a preamble or a
+        working_dir counts like one in the command.
+
         Args:
         task_name: Name of the task, as it appears in the merged tree
+        runner_name: Name of the runner the task resolves to, if any
 
         Returns:
         Mapping of qualified reference ('var.x', 'env.HOME') to its value,
@@ -490,7 +497,12 @@ class Recipe:
         if raw_task is None:
             return {}
 
-        refs = expand_variable_refs(collect_template_refs(raw_task), self.raw_variables)
+        subtrees: list[Any] = [raw_task]
+        raw_runner = (self._original_yaml_data.get("runners") or {}).get(runner_name)
+        if raw_runner is not None:
+            subtrees.append(raw_runner)
+
+        refs = expand_variable_refs(collect_template_refs(subtrees), self.raw_variables)
 
         values = {
             f"var.{name}": self.evaluated_variables[name]
