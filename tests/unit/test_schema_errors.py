@@ -23,6 +23,25 @@ def _message(tree: dict) -> str:
     return schema_error_message(error, RECIPE_PATH)
 
 
+class TestRemediationHints(unittest.TestCase):
+    """
+    Where a hand-written check used to teach the fix, the schema message
+    alone would be a step backwards, so the formatter carries the hint.
+    """
+
+    def test_args_as_a_mapping_says_how_to_write_a_list(self):
+        message = _message(
+            {"tasks": {"build": {"cmd": "make", "args": {"x": {"type": "int"}}}}}
+        )
+        self.assertIn("tasks.build.args", message)
+        self.assertIn("- x:", message)
+
+    def test_hint_is_specific_to_the_field(self):
+        """A wrong type elsewhere gets no args advice."""
+        message = _message({"tasks": {"build": {"cmd": "make", "inputs": 42}}})
+        self.assertNotIn("- x:", message)
+
+
 class TestErrorMessages(unittest.TestCase):
     """
     Every message names the file, points at the offending location in

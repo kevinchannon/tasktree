@@ -139,7 +139,30 @@ def schema_error_message(error: "ValidationError", recipe_path: Path) -> str:
     """
     location = _recipe_location(error)
     where = f"{recipe_path}: {location}" if location else str(recipe_path)
-    return f"{where}: {_plain_reason(error)}"
+    message = f"{where}: {_plain_reason(error)}"
+    hint = _remediation_hint(error)
+    return f"{message}\n{hint}" if hint else message
+
+
+def _remediation_hint(error: "ValidationError") -> str:
+    """
+    Tasktree-specific advice for mistakes the schema can only describe.
+
+    The schema knows `args` must be an array; it cannot know that writing it
+    as a mapping is the common slip, nor show the list form. Hand-written
+    checks used to carry advice like this, so it lives here as they retire.
+    """
+    path = list(error.absolute_path)
+    if path and path[-1] == "args" and error.validator == "type":
+        example = "name"
+        if isinstance(error.instance, dict) and error.instance:
+            example = str(next(iter(error.instance)))
+        return (
+            f"Arguments are a list, one entry per line:\n"
+            f"  args:\n"
+            f"    - {example}: {{ type: str }}"
+        )
+    return ""
 
 
 def _recipe_location(error: "ValidationError") -> str:
