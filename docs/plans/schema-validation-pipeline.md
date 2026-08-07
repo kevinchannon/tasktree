@@ -1,9 +1,10 @@
 # Implementation plan: runtime schema validation pipeline
 
-> **Status:** in progress — **slices 0–6 and 9 done**; next is slice 7 (the
-> hash change, which now also carries render-time `var.*` support — see its
-> entry). The branch is mergeable from here: the schema validates recipes at
-> runtime alongside the not-yet-retired manual checks, and slice 8 can trail.
+> **Status:** in progress — **slices 0–7 and 9 done**; only slice 8 (retiring
+> hand-written checks, explicitly a trailing long tail) remains, plus the
+> follow-up slice 10 that slice 7 identified. The branch is mergeable: the
+> schema validates recipes at runtime alongside the not-yet-retired manual
+> checks.
 > Branch `schema-validation-pipeline`;
 > [PR #212](https://github.com/kevinchannon/tasktree/pull/212) tracks it.
 > **Tracking issue:** [#43](https://github.com/kevinchannon/tasktree/issues/43).
@@ -239,6 +240,17 @@ land):
   report the schema's wording and location instead of the hand-written
   message, because those checks run inside variable evaluation and the
   schema now precedes it (slice 6 part 3)
+- a task re-runs when the value behind a `var.*`/`env.*` reference in its
+  definition — or in the runner it resolves to — changes (slice 7,
+  decision 5). v1.3.2 never re-ran on an environment change, and could not
+  notice a variable used inside a Jinja expression at all. Only referenced
+  names count; implicit environment inheritance still triggers nothing.
+  Gate verdicts in `tests/integration/test_hash_sensitivity.py`
+- `var.*` references render inside Jinja expressions — filters,
+  conditionals — in any recipe (slice 7). v1.3.2 supported only a
+  whole-block `{{ var.x }}`, since variables reached templates purely by
+  parse-time text substitution. Gate verdicts in
+  `tests/integration/test_imported_jinja_expressions.py`
 - broken non-pinned imported runners are tolerated (slice 4 runners cutover;
   v1.3.2 eagerly built every imported file's runners — validating configs,
   Dockerfile paths, template restrictions — then discarded the non-pinned
@@ -613,7 +625,56 @@ Three parts, in order:
    argument; four pass (valid recipes still parse, hand-written wording
    unchanged, lazy name errors still lazy). Full pyramid green.
 
-### Slice 7 — hash change
+### Slice 7 — hash change ✅ done (2026-08-06)
+Decision 5's *behaviour* is delivered; its literal "unrendered templates"
+form is not, and deliberately so — see "What is not done" below.
+
+What landed:
+- `Recipe.referenced_values(task_name, runner_name)` reads `var.*`/`env.*`
+  references off the **raw merged tree** (the built Task has had its
+  variable references substituted away) via `collect_template_refs`, takes
+  the transitive closure through variable definitions, and resolves them.
+  The resolved runner's own definition is walked too, so an env var in an
+  interpreter preamble, a `working_dir`, or a container's volumes/env_vars
+  counts like one in the command.
+- `hash_task(..., referenced_values=...)` folds them in, but only when
+  non-empty, so tasks referencing neither keep the hash they had and the
+  one-time re-run after upgrade is limited to tasks this concerns.
+- **`var.*` is now a real render-time namespace** (the slice-9 discovery):
+  `build_task_config` gets `variables=` at the executor's call site and
+  `_VarNamespace` resolves the dotted names imports produce a segment at a
+  time. This had to come *after* the hash change — an expression reference
+  is never substituted into the command text, so until referenced values
+  were hashed, editing such a variable would not have re-run the task.
+
+**A trap worth remembering:** a *third* `hash_task` call site existed in
+`cli_commands/execute_dynamic_task.py`, computing the hashes that state
+pruning validates against, from a duplicated argument list. Adding an
+input to the other two made it disagree, so every state entry was pruned
+on every run and tasks re-ran forever. All three now go through
+`Executor.task_hash`, the only place the inputs are listed. Any future
+hash input must be added there and nowhere else.
+
+**What is not done: parse-time variable substitution still stands.** The
+plan wanted the hash built from unrendered templates, which means deleting
+the substitution pass in `Recipe.evaluate_variables`. Probed: with it
+disabled only **two** unit tests fail, which looks safe and is not. A
+variable used in an *input pattern* (`inputs: ["{{ var.dir }}/*.txt"]`) is
+resolved by that pass before the pattern is matched against the
+filesystem; without it the task matches no files, looks permanently fresh,
+and silently stops re-running when its inputs change. No test caught it —
+`tests/integration/test_hash_sensitivity.py::TestVariablesInInputPatterns`
+now does, and should be treated as the gate for any attempt to remove the
+pass. Doing it properly means rendering inputs/outputs on the freshness
+path (pipeline step 8), which is its own slice, not a tail of this one.
+The hash contract does not depend on it: values are in the hash either
+way.
+
+Gate (`tests/integration/test_hash_sensitivity.py`, self-contained): on
+v1.3.2 four fail — the direct env reference, the two runner-field
+references, and the expression-referenced variable — and seven pass.
+
+**Original scope follows.**
 Hash becomes unrendered templates + referenced `var.*`/`env.*` values via the
 walker (decision 5). **Tests first**: variable change → re-run; env change →
 re-run; one env reference per rendered field type (cmd, working_dir,
@@ -772,6 +833,34 @@ whole-block case.
 **Sizing**: one session — the walker and regexes already exist; this is
 mostly `rewrite_var_refs` plus its tests, then a mechanical swap at the four
 call sites with the full pyramid re-run after.
+
+### Slice 10 — render tasks instead of substituting them (planned, not started)
+Identified during slice 7. `Recipe.evaluate_variables` still ends with a
+text-substitution pass that writes evaluated variable values into each
+reachable task's `cmd`, `desc`, `working_dir`, `inputs`, `outputs` and
+`args`, using an enumerated field list. Now that `var.*` renders through
+Jinja like every other namespace, that pass is redundant for anything that
+goes through rendering — and it is the last thing standing between the
+recipe pipeline and its §1 step 8 ("render tasks one-by-one in dependency
+order").
+
+**Do not simply delete it.** Probed during slice 7: disabling the pass
+fails only two unit tests, both of which merely assert that `task.cmd` is
+substituted at parse. What it hides is that *input and output patterns are
+matched against the filesystem without ever being rendered*, so
+`inputs: ["{{ var.dir }}/*.txt"]` matches nothing, the task looks
+permanently fresh, and it silently stops re-running when its inputs
+change. The gate for this slice is
+`tests/integration/test_hash_sensitivity.py::TestVariablesInInputPatterns`,
+which was written for exactly this reason.
+
+Sequence: render inputs/outputs on the freshness path first (both
+`_get_all_inputs` and the output-missing check), with tests for globs,
+named entries and inherited dependency inputs; then `working_dir` and the
+remaining fields; then delete the substitution pass and update the two
+unit tests. Worth doing — one mechanism instead of two, and `--show`
+gaining the option of displaying either form — but it is a freshness-path
+change, so it wants its own session and a full pyramid per increment.
 
 ## 6. Rough sizing
 
