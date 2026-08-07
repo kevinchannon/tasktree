@@ -171,6 +171,16 @@ in separate copies of a fixture directory.
   check), so templates under test belong in non-path-validated fields
   (volumes, env_vars, ports…). The clean divergence signature for a
   new-rejection test is exactly `AssertionError: ValueError not raised`.
+- **Never hardcode `bash` in a test that executes the task it invokes** —
+  on Windows CI it becomes a test of whether bash is installed. This has
+  broken CI three times (slices 5, 7). Use a platform-appropriate
+  interpreter (`cmd.exe /c` + `.bat` on Windows), as
+  `test_unreachable_task_tolerance.py` and `test_hash_sensitivity.py` now
+  each do via a local `interpreter_yaml` helper. The helper is duplicated
+  per file on purpose: gate files must stay self-contained to be copied
+  into the reference worktree. Note the local pyramid cannot catch this
+  class at all — nor Windows path-separator bugs — so both only surface in
+  CI after a push.
 - Restore with `git checkout -- . && git clean -fd` in `~/repos/tasktree-ref`
   and confirm `git status --porcelain` is empty before recording verdicts.
 

@@ -16,6 +16,7 @@ reference worktree for the gate run.
 """
 
 import os
+import platform
 import re
 import time
 import unittest
@@ -30,6 +31,27 @@ from tasktree.cli import app
 def strip_ansi_codes(text: str) -> str:
     ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
     return ansi_escape.sub("", text)
+
+
+def interpreter_yaml(indent: str, preamble: str = "") -> str:
+    """
+    An inline interpreter definition that can actually run a task here.
+
+    These tests execute the task they invoke, so naming 'bash' outright
+    would make them a test of whether bash is installed. Deliberately
+    duplicated from test_unreachable_task_tolerance rather than shared:
+    both files have to stay self-contained to be copied into the reference
+    worktree for the parity gate.
+    """
+    if platform.system() == "Windows":
+        lines = [f"{indent}cmd: cmd.exe /c", f"{indent}ext: .bat"]
+        if preamble:
+            lines.append(f"{indent}preamble: set {preamble}")
+    else:
+        lines = [f"{indent}cmd: bash"]
+        if preamble:
+            lines.append(f"{indent}preamble: export {preamble}")
+    return "\n".join(lines) + "\n"
 
 
 class HashSensitivityTestCase(unittest.TestCase):
@@ -255,9 +277,8 @@ class TestRunnerReferencesCount(HashSensitivityTestCase):
             "runners:\n"
             "  sh:\n"
             "    interpreter:\n"
-            "      cmd: bash\n"
-            "      preamble: export BUILD_TAG={{ env.TT_TAG }}\n"
-            "tasks:\n  build:\n    inputs: [src.txt]\n    outputs: [out.txt]\n"
+            + interpreter_yaml("      ", preamble="BUILD_TAG={{ env.TT_TAG }}")
+            + "tasks:\n  build:\n    inputs: [src.txt]\n    outputs: [out.txt]\n"
             "    runner: sh\n"
             "    cmd: echo hello > out.txt\n"
         )
@@ -276,8 +297,9 @@ class TestRunnerReferencesCount(HashSensitivityTestCase):
         self.write_recipe(
             "runners:\n"
             "  sh:\n"
-            "    interpreter: bash\n"
-            "    working_dir: '{{ env.TT_WHERE }}'\n"
+            "    interpreter:\n"
+            + interpreter_yaml("      ")
+            + "    working_dir: '{{ env.TT_WHERE }}'\n"
             "tasks:\n  build:\n    inputs: [src.txt]\n"
             "    runner: sh\n"
             "    cmd: echo hello\n"
