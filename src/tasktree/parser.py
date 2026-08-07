@@ -2231,8 +2231,6 @@ def _build_tasks_from_merged(merged: MergedRecipe) -> dict[str, Task]:
         if not isinstance(task_data, dict):
             raise ValueError(f"Task '{task_name}' must be a dictionary")
 
-        if "cmd" not in task_data:
-            raise ValueError(f"Task '{task_name}' missing required 'cmd' field")
 
         deps = task_data.get("deps", [])
         if isinstance(deps, str):
