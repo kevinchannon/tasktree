@@ -17,6 +17,7 @@ reference worktree for the gate run.
 
 import os
 import re
+import time
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -203,6 +204,44 @@ class TestExpressionReferencesCount(HashSensitivityTestCase):
         self.write_recipe(recipe("goodbye"))
         result, output = self.run_task()
         self.assert_ran(output, result)
+
+
+class TestVariablesInInputPatterns(HashSensitivityTestCase):
+    """
+    A variable in an input pattern has to be resolved before the pattern is
+    matched against the filesystem, or the task matches no files at all and
+    looks permanently fresh -- a silence, not an error. Nothing else in the
+    suite covers this.
+    """
+
+    def setUp(self):
+        super().setUp()
+        (self.project_root / "srcdir").mkdir()
+        (self.project_root / "srcdir" / "a.txt").write_text("one\n")
+        self.write_recipe(
+            "variables:\n  dir: srcdir\n"
+            "tasks:\n  build:\n"
+            '    inputs: ["{{ var.dir }}/*.txt"]\n'
+            "    outputs: [out.txt]\n"
+            "    cmd: cat {{ var.dir }}/*.txt > out.txt\n"
+        )
+
+    def test_change_to_a_matched_file_reruns(self):
+        result, output = self.run_task()
+        self.assert_ran(output, result)
+
+        result, output = self.run_task()
+        self.assert_skipped(output, result)
+
+        time.sleep(0.01)
+        (self.project_root / "srcdir" / "a.txt").write_text("two\n")
+        result, output = self.run_task()
+        self.assert_ran(output, result)
+
+    def test_pattern_actually_matched_something(self):
+        """A pattern matching nothing would skip for the wrong reason."""
+        self.run_task()
+        self.assertEqual((self.project_root / "out.txt").read_text(), "one\n")
 
 
 class TestRunnerReferencesCount(HashSensitivityTestCase):
