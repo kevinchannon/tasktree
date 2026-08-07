@@ -1856,7 +1856,8 @@ tasks:
 
             with self.assertRaises(ValueError) as cm:
                 parse_recipe(recipe_path)
-            self.assertIn("must be a dictionary", str(cm.exception))
+            self.assertIn("tasks.build", str(cm.exception))
+            self.assertIn("not of type 'object'", str(cm.exception))
 
     def test_parse_task_missing_cmd(self):
         """
@@ -1874,7 +1875,8 @@ tasks:
 
             with self.assertRaises(ValueError) as cm:
                 parse_recipe(recipe_path)
-            self.assertIn("missing required 'cmd' field", str(cm.exception))
+            self.assertIn("tasks.build", str(cm.exception))
+            self.assertIn("cmd", str(cm.exception))
 
     def test_task_name_cannot_contain_dots(self):
         """
@@ -2410,12 +2412,11 @@ tasks:
                 parse_recipe(recipe_path)
 
             error_msg = str(cm.exception)
-            self.assertIn("invalid 'args' syntax", error_msg)
-            self.assertIn("dictionary syntax", error_msg)
-            self.assertIn("list format", error_msg)
-            self.assertIn("with dashes", error_msg)
-            # Should show the first key as an example
-            self.assertIn("x", error_msg)
+            self.assertIn("tasks.foo.args", error_msg)
+            self.assertIn("not of type 'array'", error_msg)
+            self.assertIn("Arguments are a list", error_msg)
+            # Shows the list form, using the first key as the example
+            self.assertIn("- x:", error_msg)
 
     def test_args_list_syntax_is_valid(self):
         """
@@ -2457,8 +2458,8 @@ tasks:
                 parse_recipe(recipe_path)
 
             error_msg = str(cm.exception)
-            self.assertIn("invalid 'args' syntax", error_msg)
-            self.assertIn("dictionary syntax", error_msg)
+            self.assertIn("tasks.foo.args", error_msg)
+            self.assertIn("Arguments are a list", error_msg)
 
 
 class TestVariablesParsing(unittest.TestCase):
@@ -5303,7 +5304,7 @@ tasks:
 """)
             with self.assertRaises(ValueError) as ctx:
                 parse_recipe(recipe_path)
-            self.assertIn("'type'", str(ctx.exception))
+            self.assertIn("runners.builder.type", str(ctx.exception))
 
     def test_invalid_runner_engine_rejected(self):
         with TemporaryDirectory() as tmpdir:
@@ -5322,7 +5323,7 @@ tasks:
 """)
             with self.assertRaises(ValueError) as ctx:
                 parse_recipe(recipe_path)
-            self.assertIn("'engine'", str(ctx.exception))
+            self.assertIn("runners.builder.engine", str(ctx.exception))
 
 
 class TestInlineTaskRunner(unittest.TestCase):
@@ -5420,7 +5421,7 @@ tasks:
 """)
             with self.assertRaises(ValueError) as ctx:
                 parse_recipe(recipe_path)
-            self.assertIn("'runner'", str(ctx.exception))
+            self.assertIn("tasks.build.runner", str(ctx.exception))
 
     def test_blanket_runner_does_not_override_inline_runner(self):
         """Test that an import-level blanket runner leaves inline-runner tasks alone."""
@@ -5543,7 +5544,7 @@ tasks:
 """)
             with self.assertRaises(ValueError) as ctx:
                 parse_recipe(recipe_path)
-            self.assertIn("'interpreter'", str(ctx.exception))
+            self.assertIn("tasks.build.interpreter", str(ctx.exception))
 
 
 class TestDefaultInterpreter(unittest.TestCase):

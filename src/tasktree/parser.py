@@ -2415,6 +2415,8 @@ def parse_recipe(
         prune_unreferenced_runners(merged.data, keep=keep_runners)
         prune_unreferenced_interpreters(merged.data, keep=keep_interpreters)
 
+    _schema_validate(merged.data, recipe_path)
+
     tasks = _build_tasks_from_merged(merged)
     runners, default_runner, interpreters, default_interpreter = (
         _parse_runners_from_data(merged.data, project_root)
@@ -2446,8 +2448,6 @@ def parse_recipe(
     # Validate that task-level interpreter names reference defined interpreters.
     _validate_task_interpreter_refs(recipe)
 
-    _schema_validate(merged.data, recipe_path)
-
     # Trigger lazy variable evaluation
     # If root_task is provided: evaluate only reachable variables
     # If root_task is None: evaluate all variables (for --list)
@@ -2461,11 +2461,11 @@ def _schema_validate(merged_data: dict, recipe_path: Path) -> None:
     Check the merged tree against the recipe schema.
 
     Runs on the pruned tree, so defects in tasks this invocation never
-    reaches stay tolerated, and before variables are evaluated, so no
-    'eval:' command runs on the strength of a structurally broken recipe.
-
-    Hand-written checks still run first and keep their own wording; the
-    schema is what catches the structural mistakes none of them look for.
+    reaches stay tolerated, and before anything is built from it: the
+    construction code reads fields the schema has just guaranteed, which is
+    what lets the hand-written shape checks retire (slice 8). Variables are
+    evaluated later still, so no 'eval:' command runs on the strength of a
+    structurally broken recipe.
 
     Raises:
     ValueError: If the merged tree does not match the schema

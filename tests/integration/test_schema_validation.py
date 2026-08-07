@@ -86,14 +86,18 @@ class TestErrorMessagesLocateTheProblem(SchemaValidationTestCase):
         self.assertIn("tasks.build", message)
         self.assertIn("outpts", message)
 
-    def test_hand_written_checks_keep_their_own_wording(self):
+    def test_graph_checks_keep_their_own_wording(self):
         """
-        Validation is additive: it runs after the parser's own checks, so
-        every message they already produce is unchanged.
+        Only structural checks retire. Graph and lifecycle questions the
+        schema cannot answer stay in Python, with their own messages.
         """
         with self.assertRaises(ValueError) as cm:
-            self.parse("tasks:\n  build:\n    desc: no command here\n")
-        self.assertIn("missing required 'cmd'", str(cm.exception))
+            self.parse(
+                "tasks:\n  build:\n    cmd: make\n    runner: nope\n",
+                root_task="build",
+            )
+        self.assertIn("nope", str(cm.exception))
+        self.assertNotIn("is not of type", str(cm.exception))
 
     def test_message_does_not_dump_the_schema(self):
         with self.assertRaises(ValueError) as cm:

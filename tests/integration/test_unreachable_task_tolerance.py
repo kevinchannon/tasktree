@@ -197,19 +197,20 @@ class TestValidationStillCoversWhatMatters(ToleranceTestCase):
         )
         result = self.runner.invoke(app, ["good"], env=self.env)
         self.assertNotEqual(result.exit_code, 0)
-        self.assertIn("missing required 'cmd'", result.output)
+        self.assertIn("broken", result.output)
+        self.assertIn("cmd", result.output)
 
     def test_list_still_validates_whole_file(self):
         self.write_recipe(BROKEN_UNREACHABLE_RECIPE)
         result = self.runner.invoke(app, ["--list"], env=self.env)
         self.assertNotEqual(result.exit_code, 0)
-        self.assertIn("missing required 'cmd'", result.output)
+        self.assertIn("tasks.", result.output)
 
     def test_show_still_validates_whole_file(self):
         self.write_recipe(BROKEN_UNREACHABLE_RECIPE)
         result = self.runner.invoke(app, ["--show", "good"], env=self.env)
         self.assertNotEqual(result.exit_code, 0)
-        self.assertIn("missing required 'cmd'", result.output)
+        self.assertIn("tasks.", result.output)
 
 
 if __name__ == "__main__":
