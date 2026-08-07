@@ -2228,10 +2228,6 @@ def _build_tasks_from_merged(merged: MergedRecipe) -> dict[str, Task]:
     tasks_data = merged.data.get("tasks") or {}
 
     for task_name, task_data in tasks_data.items():
-        if not isinstance(task_data, dict):
-            raise ValueError(f"Task '{task_name}' must be a dictionary")
-
-
         deps = task_data.get("deps", [])
         if isinstance(deps, str):
             deps = [deps]
