@@ -303,14 +303,23 @@
             "runner": {
               "description": "Runner to use for this task (overrides default): the name of a runner from the 'runners' section, or an inline runner definition",
               "oneOf": [
-                { "type": "string" },
-                { "$ref": "#/$defs/runnerDef" }
+                {
+                  "type": "string",
+                  "description": "The name of a runner defined in the 'runners' section"
+                },
+                {
+                  "$ref": "#/$defs/runnerDef",
+                  "description": "An inline runner definition (a host runner, or 'type: containerised' with an 'engine', or 'type: nix')"
+                }
               ]
             },
             "interpreter": {
               "description": "Interpreter used to run this task's command (overrides the runner's interpreter): the name of an interpreter from the top-level 'interpreters' section, an inline definition ({cmd, ext?, preamble?}), or a reference ({use: name})",
               "oneOf": [
-                { "type": "string" },
+                {
+                  "type": "string",
+                  "description": "The name of an interpreter from the top-level 'interpreters' section"
+                },
                 {
                   "type": "object",
                   "description": "Reference to an interpreter from the top-level 'interpreters' section",
@@ -320,7 +329,10 @@
                   "required": ["use"],
                   "additionalProperties": false
                 },
-                { "$ref": "#/$defs/interpreterDef" }
+                {
+                  "$ref": "#/$defs/interpreterDef",
+                  "description": "An inline interpreter definition ({cmd, ext?, preamble?})"
+                }
               ]
             },
             "pin_runner": {
