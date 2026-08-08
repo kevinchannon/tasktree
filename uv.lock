@@ -726,6 +726,7 @@ dependencies = [
     { name = "click" },
     { name = "colorama" },
     { name = "jinja2" },
+    { name = "jsonschema" },
     { name = "lsprotocol" },
     { name = "pathspec" },
     { name = "platformdirs" },
@@ -740,7 +741,6 @@ dependencies = [
 [package.optional-dependencies]
 dev = [
     { name = "black" },
-    { name = "jsonschema" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ruff" },
@@ -752,7 +752,7 @@ requires-dist = [
     { name = "click", specifier = ">=8.1.0" },
     { name = "colorama", specifier = ">=0.4.6" },
     { name = "jinja2", specifier = ">=3.1.0" },
-    { name = "jsonschema", marker = "extra == 'dev'", specifier = ">=4.0.0" },
+    { name = "jsonschema", specifier = ">=4.0.0" },
     { name = "lsprotocol", specifier = ">=2023.0.0" },
     { name = "pathspec", specifier = ">=0.11.0" },
     { name = "platformdirs", specifier = ">=4.0.0" },

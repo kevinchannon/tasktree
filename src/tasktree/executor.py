@@ -624,15 +624,7 @@ class Executor:
         # Compute hashes (include effective environment and dependencies)
         resolved = self.resolve_environment(task)
         effective_env = resolved.runner_name
-        task_hash = hash_task(
-            task.cmd,
-            task.outputs,
-            task.working_dir,
-            task.args,
-            effective_env,
-            task.deps,
-            self._interpreter_identity(resolved.interpreter),
-        )
+        task_hash = self.task_hash(task, resolved)
         self.logger.trace(f"Task hash for '{task.name}': {task_hash}")
         args_hash = hash_args(args_dict) if args_dict else None
         if args_hash:
@@ -1308,47 +1300,39 @@ class Executor:
         """
         from dataclasses import replace
 
-        # Substitute in volumes (builtin vars first, then env vars)
+        # Substitute in volumes
         substituted_volumes = (
-            [
-                self._substitute_env(self._substitute_builtin(vol, builtin_vars))
-                for vol in env.volumes
-            ]
+            [self._render_runner_field(vol, builtin_vars) for vol in env.volumes]
             if env.volumes
             else []
         )
 
-        # Substitute in env_vars values (builtin vars first, then env vars)
+        # Substitute in env_vars values
         substituted_env_vars = (
             {
-                key: self._substitute_env(self._substitute_builtin(value, builtin_vars))
+                key: self._render_runner_field(value, builtin_vars)
                 for key, value in env.env_vars.items()
             }
             if env.env_vars
             else {}
         )
 
-        # Substitute in ports (builtin vars first, then env vars)
+        # Substitute in ports
         substituted_ports = (
-            [
-                self._substitute_env(self._substitute_builtin(port, builtin_vars))
-                for port in env.ports
-            ]
+            [self._render_runner_field(port, builtin_vars) for port in env.ports]
             if env.ports
             else []
         )
 
-        # Substitute in working_dir (builtin vars first, then env vars)
+        # Substitute in working_dir
         substituted_working_dir = (
-            self._substitute_env(
-                self._substitute_builtin(env.working_dir, builtin_vars)
-            )
+            self._render_runner_field(env.working_dir, builtin_vars)
             if env.working_dir
             else ""
         )
 
         def subst(s: str) -> str:
-            return self._substitute_env(self._substitute_builtin(s, builtin_vars))
+            return self._render_runner_field(s, builtin_vars)
 
         # Substitute in docker build args
         substituted_build_args = [subst(arg) for arg in env.args.build]
@@ -1500,8 +1484,8 @@ class Executor:
                 "Other built-in variables like {{ tt.task_name }} or {{ tt.timestamp }} are allowed."
             )
 
-    @staticmethod
     def _render_field(
+        self,
         text: str,
         builtin_vars: dict[str, str],
         regular_args: dict[str, Any],
@@ -1532,6 +1516,7 @@ class Executor:
         from tasktree.task_config import build_task_config
 
         config = build_task_config(
+            variables=self.recipe.evaluated_variables,
             args=regular_args,
             exported_args=exported_args,
             builtins=builtin_vars,
@@ -1539,25 +1524,28 @@ class Executor:
         return render(text, config, task_name=task_name)
 
     @staticmethod
-    def _substitute_builtin(text: str, builtin_vars: dict[str, str]) -> str:
+    def _render_runner_field(text: str, builtin_vars: dict[str, str]) -> str:
         """
-        Substitute {{ tt.name }} placeholders in text.
+        Render a runner or interpreter field against the runner context.
 
-        Built-in variables are resolved at execution time.
+        Only ``env.*`` and ``tt.*`` are available (see ``build_runner_config``);
+        per-task namespaces fail the render because runners are shared across
+        tasks.
 
         Args:
-        text: Text with {{ tt.name }} placeholders
-        builtin_vars: Built-in variable values
+        text: Field text containing {{ ... }} placeholders
+        builtin_vars: Built-in variable values (the tt namespace)
 
         Returns:
-        Text with built-in variables substituted
+        The rendered field text
 
         Raises:
-        ValueError: If built-in variable is not defined
+        ValueError: If a placeholder cannot be resolved or the template is malformed
         """
-        from tasktree.substitution import substitute_builtin_variables
+        from tasktree.rendering import render
+        from tasktree.task_config import build_runner_config
 
-        return substitute_builtin_variables(text, builtin_vars)
+        return render(text, build_runner_config(builtins=builtin_vars))
 
     @staticmethod
     def _substitute_args(
@@ -1583,26 +1571,6 @@ class Executor:
         from tasktree.substitution import substitute_arguments
 
         return substitute_arguments(cmd, args_dict, exported_args)
-
-    @staticmethod
-    def _substitute_env(text: str) -> str:
-        """
-        Substitute {{ env.NAME }} placeholders in text.
-
-        Environment variables are resolved at execution time from os.environ.
-
-        Args:
-        text: Text with {{ env.NAME }} placeholders
-
-        Returns:
-        Text with environment variables substituted
-
-        Raises:
-        ValueError: If environment variable is not set
-        """
-        from tasktree.substitution import substitute_environment
-
-        return substitute_environment(text)
 
     def _get_all_inputs(self, task: Task, args_dict: dict[str, Any] | None = None) -> list[str]:
         """
@@ -1957,7 +1925,12 @@ class Executor:
             input_state[f"_runner_image_fp_{env_name}"] = fingerprint
 
         output_state = self._output_files_to_modified_times(task, process_runner)
-        new_state = TaskState(last_run=time.time(), input_state=input_state, output_state=output_state)
+        new_state = TaskState(
+            last_run=time.time(),
+            input_state=input_state,
+            output_state=output_state,
+            task_name=task.name,
+        )
         self.state.set(cache_key, new_state)
         self.state.save()
 
@@ -1977,8 +1950,27 @@ class Executor:
     def _cache_key(self, task: Task, args_dict: dict[str, Any]) -> str:
         """
         """
-        resolved = self.resolve_environment(task)
-        task_hash = hash_task(
+        task_hash = self.task_hash(task)
+        args_hash = hash_args(args_dict) if args_dict else None
+        return make_cache_key(task_hash, args_hash)
+
+    def task_hash(self, task: Task, resolved: "ResolvedEnvironment | None" = None) -> str:
+        """
+        Hash a task's definition, including the values behind its var.*/env.*
+        references.
+
+        Every caller must go through here. The freshness check, the cache key
+        and state pruning have to agree on the hash inputs to the letter: if
+        they don't, a task is looked up under one key, recorded under a
+        second, and pruned against a third, so it re-runs forever.
+
+        Args:
+        task: The task to hash
+        resolved: Its resolved runner/interpreter, if the caller already has
+        it (it is resolved here otherwise)
+        """
+        resolved = resolved if resolved is not None else self.resolve_environment(task)
+        return hash_task(
             task.cmd,
             task.outputs,
             task.working_dir,
@@ -1986,9 +1978,10 @@ class Executor:
             resolved.runner_name,
             task.deps,
             self._interpreter_identity(resolved.interpreter),
+            referenced_values=self.recipe.referenced_values(
+                task.name, resolved.runner_name
+            ),
         )
-        args_hash = hash_args(args_dict) if args_dict else None
-        return make_cache_key(task_hash, args_hash)
 
     def _input_files_to_modified_times(
         self,

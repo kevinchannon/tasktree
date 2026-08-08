@@ -259,6 +259,15 @@ Task Tree only runs tasks when necessary. A task executes if:
 - It has never been executed before
 - It has no inputs (always runs)
 - The execution runner has changed (CLI override or runner config change)
+- The value behind a `{{ var.* }}` or `{{ env.* }}` reference in its
+  definition has changed — including references in the runner it uses, and
+  however the value was produced (a literal edit, a different `eval:` result,
+  a file read by `read:`, a changed environment variable)
+
+Only references a task actually makes are tracked. Editing an unrelated
+variable, or changing an environment variable the task never mentions, will
+not re-run it — so if a task depends on an environment variable, reference it
+in the task rather than relying on it being inherited.
 
 ### Automatic Input Inheritance
 

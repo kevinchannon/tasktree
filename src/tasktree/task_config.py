@@ -54,6 +54,38 @@ class _DepNamespace(dict):
         )
 
 
+class _VarNamespace(dict):
+    """
+    The ``var`` namespace.
+
+    Variables merged from an import keep their dotted name
+    (``build.greeting``), which a template writes as ``var.build.greeting``.
+    Jinja resolves that a segment at a time, so a segment that is only a
+    prefix of real variable names returns a namespace scoped to it, and the
+    final segment resolves to the value. Keeping the value map flat (rather
+    than nesting it) is what leaves ``{{ var.name.upper() }}`` working.
+
+    A variable whose own name matches an intermediate segment wins over the
+    namespace: with both ``build`` and ``build.greeting`` defined,
+    ``var.build`` is the value of ``build``.
+    """
+
+    def __init__(self, variables: Mapping[str, Any], prefix: str = ""):
+        super().__init__(variables)
+        self._prefix = prefix
+
+    def __missing__(self, key: str) -> Any:
+        qualified = f"{self._prefix}{key}"
+        if dict.__contains__(self, qualified):
+            return dict.__getitem__(self, qualified)
+        if any(name.startswith(f"{qualified}.") for name in self):
+            return _VarNamespace(self, prefix=f"{qualified}.")
+        raise ValueError(
+            f"Variable '{qualified}' is not defined. "
+            f"Variables must be defined before use."
+        )
+
+
 class _EnvNamespace(dict):
     """
     The ``env`` namespace.
@@ -147,6 +179,35 @@ class _ArgNamespace(dict):
         raise KeyError(key)
 
 
+def build_runner_config(
+    *,
+    builtins: Mapping[str, str] | None = None,
+    env: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
+    """
+    Assemble the rendering context for runner and interpreter fields.
+
+    Runners are shared across tasks, so only task-independent namespaces are
+    available: ``env`` and the ``tt`` built-ins. Per-task namespaces (``arg``,
+    ``dep``, ``self``) are deliberately absent — referencing one fails the
+    render. ``var`` is absent because recipe variables are already folded into
+    runner fields at parse time.
+
+    Args:
+    builtins: Built-in variable values (the ``tt`` namespace)
+    env: Environment variables (the ``env`` namespace); defaults to a snapshot
+    of ``os.environ``
+
+    Returns:
+    A context dict with ``env`` and ``tt`` keys suitable for passing to
+    ``rendering.render``.
+    """
+    return {
+        "env": _EnvNamespace(env if env is not None else os.environ),
+        "tt": dict(builtins or {}),
+    }
+
+
 def build_task_config(
     *,
     variables: Mapping[str, str] | None = None,
@@ -203,7 +264,7 @@ def build_task_config(
     }
 
     return {
-        "var": dict(variables or {}),
+        "var": _VarNamespace(variables or {}),
         "arg": _ArgNamespace(args or {}, exported_args or set()),
         "env": env_snapshot,
         "tt": dict(builtins or {}),

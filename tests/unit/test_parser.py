@@ -1856,7 +1856,8 @@ tasks:
 
             with self.assertRaises(ValueError) as cm:
                 parse_recipe(recipe_path)
-            self.assertIn("must be a dictionary", str(cm.exception))
+            self.assertIn("tasks.build", str(cm.exception))
+            self.assertIn("not of type 'object'", str(cm.exception))
 
     def test_parse_task_missing_cmd(self):
         """
@@ -1874,7 +1875,8 @@ tasks:
 
             with self.assertRaises(ValueError) as cm:
                 parse_recipe(recipe_path)
-            self.assertIn("missing required 'cmd' field", str(cm.exception))
+            self.assertIn("tasks.build", str(cm.exception))
+            self.assertIn("cmd", str(cm.exception))
 
     def test_task_name_cannot_contain_dots(self):
         """
@@ -2182,6 +2184,52 @@ tasks:
             self.assertIsNone(recipe.get_runner("bare-env").interpreter)
 
 
+class TestTaskPruning(unittest.TestCase):
+    """
+    parse_recipe(prune_unreachable=True) prunes to the invoked task's
+    reachable set before Task construction.
+    """
+
+    RECIPE = """
+tasks:
+  top:
+    deps: [mid]
+    cmd: echo top
+  mid:
+    cmd: echo mid
+  stray:
+    cmd: echo stray
+"""
+
+    def parse(self, **kwargs):
+        recipe_path = self.root / "tasktree.yaml"
+        recipe_path.write_text(self.RECIPE)
+        return parse_recipe(recipe_path, **kwargs)
+
+    def setUp(self):
+        self._tmp = TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.root = Path(self._tmp.name)
+
+    def test_pruning_keeps_only_reachable_tasks(self):
+        recipe = self.parse(root_task="top", prune_unreachable=True)
+        self.assertEqual(set(recipe.tasks), {"top", "mid"})
+
+    def test_defined_task_names_still_cover_pruned_tasks(self):
+        recipe = self.parse(root_task="top", prune_unreachable=True)
+        self.assertEqual(
+            recipe.defined_task_names, frozenset({"top", "mid", "stray"})
+        )
+
+    def test_missing_root_task_skips_pruning(self):
+        recipe = self.parse(root_task="no-such-task", prune_unreachable=True)
+        self.assertEqual(set(recipe.tasks), {"top", "mid", "stray"})
+
+    def test_root_task_without_flag_does_not_prune(self):
+        recipe = self.parse(root_task="top")
+        self.assertEqual(set(recipe.tasks), {"top", "mid", "stray"})
+
+
 class TestTasksFieldValidation(unittest.TestCase):
     """
     Tests for validating that tasks must be under 'tasks:' key.
@@ -2364,12 +2412,11 @@ tasks:
                 parse_recipe(recipe_path)
 
             error_msg = str(cm.exception)
-            self.assertIn("invalid 'args' syntax", error_msg)
-            self.assertIn("dictionary syntax", error_msg)
-            self.assertIn("list format", error_msg)
-            self.assertIn("with dashes", error_msg)
-            # Should show the first key as an example
-            self.assertIn("x", error_msg)
+            self.assertIn("tasks.foo.args", error_msg)
+            self.assertIn("not of type 'array'", error_msg)
+            self.assertIn("Arguments are a list", error_msg)
+            # Shows the list form, using the first key as the example
+            self.assertIn("- x:", error_msg)
 
     def test_args_list_syntax_is_valid(self):
         """
@@ -2411,8 +2458,8 @@ tasks:
                 parse_recipe(recipe_path)
 
             error_msg = str(cm.exception)
-            self.assertIn("invalid 'args' syntax", error_msg)
-            self.assertIn("dictionary syntax", error_msg)
+            self.assertIn("tasks.foo.args", error_msg)
+            self.assertIn("Arguments are a list", error_msg)
 
 
 class TestVariablesParsing(unittest.TestCase):
@@ -2543,7 +2590,7 @@ tasks:
                 parse_recipe(recipe_path)
 
             error_msg = str(cm.exception)
-            self.assertIn("found invalid keys", error_msg.lower())
+            self.assertIn("variables.my_var", error_msg)
             self.assertIn("foo", error_msg)
 
     def test_parse_env_variable_invalid_name_empty(self):
@@ -2565,7 +2612,7 @@ tasks:
                 parse_recipe(recipe_path)
 
             error_msg = str(cm.exception)
-            self.assertIn("Invalid environment variable reference", error_msg)
+            self.assertIn("variables.my_var.env", error_msg)
 
     def test_parse_env_variable_invalid_name_format(self):
         """
@@ -2586,7 +2633,7 @@ tasks:
                 parse_recipe(recipe_path)
 
             error_msg = str(cm.exception)
-            self.assertIn("Invalid environment variable name", error_msg)
+            self.assertIn("variables.my_var.env", error_msg)
             self.assertIn("INVALID NAME", error_msg)
 
     def test_parse_multiple_env_variables(self):
@@ -3233,8 +3280,8 @@ tasks:
             with self.assertRaises(ValueError) as ctx:
                 parse_recipe(recipe_path)
 
-            self.assertIn("Invalid file read reference", str(ctx.exception))
-            self.assertIn("extra keys", str(ctx.exception).lower())
+            self.assertIn("variables.data", str(ctx.exception))
+            self.assertIn("not valid here", str(ctx.exception).lower())
 
     def test_file_read_invalid_syntax_empty_path(self):
         """
@@ -3254,8 +3301,8 @@ tasks:
             with self.assertRaises(ValueError) as ctx:
                 parse_recipe(recipe_path)
 
-            self.assertIn("Invalid file read reference", str(ctx.exception))
-            self.assertIn("non-empty string", str(ctx.exception))
+            self.assertIn("variables.data", str(ctx.exception))
+            self.assertIn("not of type 'string'", str(ctx.exception))
 
     def test_file_read_mixed_with_env_and_regular(self):
         """
@@ -3514,7 +3561,7 @@ tasks:
             with self.assertRaises(ValueError) as cm:
                 parse_recipe(recipe_path)
             error_msg = str(cm.exception)
-            self.assertIn("Invalid eval reference", error_msg)
+            self.assertIn("variables.bad", error_msg)
             self.assertIn("bad", error_msg)
 
     def test_eval_validation_extra_keys(self):
@@ -3535,8 +3582,8 @@ tasks:
             with self.assertRaises(ValueError) as cm:
                 parse_recipe(recipe_path)
             error_msg = str(cm.exception)
-            self.assertIn("Invalid eval reference", error_msg)
-            self.assertIn("extra keys", error_msg)
+            self.assertIn("variables.bad", error_msg)
+            self.assertIn("not valid here", error_msg)
             self.assertIn("timeout", error_msg)
 
     def test_eval_validation_non_string_command(self):
@@ -3557,8 +3604,8 @@ tasks:
             with self.assertRaises(ValueError) as cm:
                 parse_recipe(recipe_path)
             error_msg = str(cm.exception)
-            self.assertIn("Invalid eval reference", error_msg)
-            self.assertIn("must be a non-empty string", error_msg)
+            self.assertIn("variables.bad", error_msg)
+            self.assertIn("not of type 'string'", error_msg)
 
     def test_eval_uses_default_runner(self):
         """
@@ -4149,6 +4196,50 @@ class TestArgTypeInference(unittest.TestCase):
         self.assertIn("greater than max", error_msg)
 
 
+def _parse_task_recipe(task_body: str):
+    """Parse a one-task recipe, for checks the schema owns at recipe level."""
+    with TemporaryDirectory() as tmpdir:
+        recipe_path = Path(tmpdir) / "tasktree.yaml"
+        recipe_path.write_text("tasks:\n  build:\n    cmd: make\n" + task_body)
+        return parse_recipe(recipe_path)
+
+
+class TestOverrideRunnerVariables(unittest.TestCase):
+    """
+    A runner named only by --runner is still part of the run, so the
+    variables its definition references have to be evaluated. Nothing else
+    mentions it, so task-and-default reachability alone would miss it.
+    """
+
+    RECIPE = (
+        "variables:\n  where: /srv\n"
+        "runners:\n"
+        "  spare:\n"
+        "    interpreter:\n      cmd: bash\n"
+        '    working_dir: "{{ var.where }}"\n'
+        "tasks:\n  build:\n    cmd: echo hi\n"
+    )
+
+    def parse(self, **kwargs):
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text(self.RECIPE)
+            return parse_recipe(recipe_path, root_task="build", **kwargs)
+
+    def test_variable_used_only_by_the_override_runner_is_evaluated(self):
+        recipe = self.parse(prune_unreachable=True, keep_runners=("spare",))
+        self.assertEqual(recipe.evaluated_variables.get("where"), "/srv")
+
+    def test_override_runner_fields_are_resolved(self):
+        recipe = self.parse(prune_unreachable=True, keep_runners=("spare",))
+        self.assertEqual(recipe.runners["spare"].working_dir, "/srv")
+
+    def test_unreferenced_runner_without_the_override_is_left_alone(self):
+        """Without the override nothing selects it, so nothing is evaluated."""
+        recipe = self.parse()
+        self.assertEqual(recipe.evaluated_variables, {})
+
+
 class TestNamedOutputs(unittest.TestCase):
     """
     Tests for named output functionality.
@@ -4292,37 +4383,20 @@ tasks:
             self.assertIn("bundle", error_msg)
 
     def test_named_output_multiple_keys(self):
-        """
-        Test that output dicts with multiple keys raise error.
-        """
-        task = Task(name="test", cmd="echo test")
+        """A named output names one path; the schema rejects a second."""
         with self.assertRaises(ValueError) as cm:
-            task.outputs = [{"key1": "path1", "key2": "path2"}]
-            task.__post_init__()
-        error_msg = str(cm.exception)
-        self.assertIn("exactly one key-value pair", error_msg)
+            _parse_task_recipe("    outputs:\n      - {key1: path1, key2: path2}\n")
+        self.assertIn("tasks.build.outputs[0]", str(cm.exception))
 
     def test_named_output_non_string_path(self):
-        """
-        Test that non-string output paths raise error.
-        """
-        task = Task(name="test", cmd="echo test")
         with self.assertRaises(ValueError) as cm:
-            task.outputs = [{"bundle": 123}]
-            task.__post_init__()
-        error_msg = str(cm.exception)
-        self.assertIn("string path", error_msg)
+            _parse_task_recipe("    outputs:\n      - {bundle: 123}\n")
+        self.assertIn("not of type 'string'", str(cm.exception))
 
     def test_output_invalid_type(self):
-        """
-        Test that invalid output types raise error.
-        """
-        task = Task(name="test", cmd="echo test")
         with self.assertRaises(ValueError) as cm:
-            task.outputs = [123]
-            task.__post_init__()
-        error_msg = str(cm.exception)
-        self.assertIn("string or dict", error_msg)
+            _parse_task_recipe("    outputs: [123]\n")
+        self.assertIn("tasks.build.outputs[0]", str(cm.exception))
 
     def test_named_output_valid_identifiers(self):
         """
@@ -4512,37 +4586,20 @@ tasks:
             self.assertIn("src", error_msg)
 
     def test_named_input_multiple_keys(self):
-        """
-        Test that input dicts with multiple keys raise error.
-        """
-        task = Task(name="test", cmd="echo test")
+        """A named input names one path; the schema rejects a second."""
         with self.assertRaises(ValueError) as cm:
-            task.inputs = [{"key1": "path1", "key2": "path2"}]
-            task.__post_init__()
-        error_msg = str(cm.exception)
-        self.assertIn("exactly one key-value pair", error_msg)
+            _parse_task_recipe("    inputs:\n      - {key1: path1, key2: path2}\n")
+        self.assertIn("tasks.build.inputs[0]", str(cm.exception))
 
     def test_named_input_non_string_path(self):
-        """
-        Test that non-string input paths raise error.
-        """
-        task = Task(name="test", cmd="echo test")
         with self.assertRaises(ValueError) as cm:
-            task.inputs = [{"src": 123}]
-            task.__post_init__()
-        error_msg = str(cm.exception)
-        self.assertIn("string path", error_msg)
+            _parse_task_recipe("    inputs:\n      - {src: 123}\n")
+        self.assertIn("not of type 'string'", str(cm.exception))
 
     def test_invalid_input_type(self):
-        """
-        Test that invalid input types raise error.
-        """
-        task = Task(name="test", cmd="echo test")
         with self.assertRaises(ValueError) as cm:
-            task.inputs = [123]
-            task.__post_init__()
-        error_msg = str(cm.exception)
-        self.assertIn("string or dict", error_msg)
+            _parse_task_recipe("    inputs: [123]\n")
+        self.assertIn("tasks.build.inputs[0]", str(cm.exception))
 
     def test_named_input_valid_identifiers(self):
         """
@@ -5257,7 +5314,7 @@ tasks:
 """)
             with self.assertRaises(ValueError) as ctx:
                 parse_recipe(recipe_path)
-            self.assertIn("'type'", str(ctx.exception))
+            self.assertIn("runners.builder.type", str(ctx.exception))
 
     def test_invalid_runner_engine_rejected(self):
         with TemporaryDirectory() as tmpdir:
@@ -5276,7 +5333,7 @@ tasks:
 """)
             with self.assertRaises(ValueError) as ctx:
                 parse_recipe(recipe_path)
-            self.assertIn("'engine'", str(ctx.exception))
+            self.assertIn("runners.builder.engine", str(ctx.exception))
 
 
 class TestInlineTaskRunner(unittest.TestCase):
@@ -5374,7 +5431,7 @@ tasks:
 """)
             with self.assertRaises(ValueError) as ctx:
                 parse_recipe(recipe_path)
-            self.assertIn("'runner'", str(ctx.exception))
+            self.assertIn("tasks.build.runner", str(ctx.exception))
 
     def test_blanket_runner_does_not_override_inline_runner(self):
         """Test that an import-level blanket runner leaves inline-runner tasks alone."""
@@ -5497,7 +5554,7 @@ tasks:
 """)
             with self.assertRaises(ValueError) as ctx:
                 parse_recipe(recipe_path)
-            self.assertIn("'interpreter'", str(ctx.exception))
+            self.assertIn("tasks.build.interpreter", str(ctx.exception))
 
 
 class TestDefaultInterpreter(unittest.TestCase):
@@ -5581,6 +5638,61 @@ tasks:
             recipe = parse_recipe(recipe_path)
 
             self.assertEqual(recipe.default_interpreter, "")
+
+
+class TestRunnerTemplateRefsCheck(unittest.TestCase):
+    """Direct tests of the per-task-reference restriction for runner defs."""
+
+    def test_accepts_allowed_namespaces(self):
+        from tasktree.parser import check_runner_template_refs
+
+        config = {
+            "volumes": ["{{ tt.project_root }}:/workspace"],
+            "env_vars": {"HOME_DIR": "{{ tt.user_home }}", "MODE": "{{ env.MODE }}"},
+            "working_dir": "{{ var.build_dir }}",
+        }
+        check_runner_template_refs(config, "Runner 'docker'")  # Must not raise
+
+    def test_rejects_arg_reference(self):
+        from tasktree.parser import check_runner_template_refs
+
+        config = {"volumes": ["{{ arg.mount }}:/data"]}
+        with self.assertRaises(ValueError) as ctx:
+            check_runner_template_refs(config, "Runner 'docker'")
+        self.assertIn("Runner 'docker'", str(ctx.exception))
+        self.assertIn("arg.mount", str(ctx.exception))
+        self.assertIn("shared across tasks", str(ctx.exception))
+
+    def test_rejects_dep_and_self_references(self):
+        from tasktree.parser import check_runner_template_refs
+
+        config = {
+            "dockerfile": "{{ dep.build.outputs.dockerfile }}",
+            "context": "{{ self.inputs.ctx }}",
+        }
+        with self.assertRaises(ValueError) as ctx:
+            check_runner_template_refs(config, "Runner 'docker'")
+        self.assertIn("dep.build.outputs.dockerfile", str(ctx.exception))
+        self.assertIn("self.inputs.ctx", str(ctx.exception))
+
+    def test_rejects_per_task_tt_builtins(self):
+        from tasktree.parser import check_runner_template_refs
+
+        for name in ("task_name", "working_dir", "timestamp", "timestamp_unix"):
+            config = {"env_vars": {"X": f"{{{{ tt.{name} }}}}"}}
+            with self.assertRaises(ValueError, msg=f"tt.{name} not rejected") as ctx:
+                check_runner_template_refs(config, "Runner 'docker'")
+            self.assertIn(f"tt.{name}", str(ctx.exception))
+
+    def test_error_lists_allowed_alternatives(self):
+        from tasktree.parser import check_runner_template_refs
+
+        with self.assertRaises(ValueError) as ctx:
+            check_runner_template_refs({"ports": ["{{ arg.port }}:80"]}, "Runner 'r'")
+        message = str(ctx.exception)
+        for allowed in ("var.*", "env.*", "tt.project_root", "tt.recipe_dir",
+                        "tt.user_home", "tt.user_name"):
+            self.assertIn(allowed, message)
 
 
 if __name__ == "__main__":

@@ -13,7 +13,6 @@ from tasktree.graph import (
     resolve_dependency_output_references,
     resolve_self_references,
 )
-from tasktree.hasher import hash_task
 from tasktree.logging import Logger
 from tasktree.parser import get_recipe, parse_task_args
 from tasktree.process_runner import TaskOutputTypes, make_process_runner
@@ -50,8 +49,18 @@ def execute_dynamic_task(
     task_name = args[0]
     task_args = args[1:]
 
-    # Pass task_name as root_task for lazy variable evaluation
-    recipe = get_recipe(logger, tasks_file, root_task=task_name)
+    # Pass task_name as root_task for lazy variable evaluation; task
+    # invocation prunes the recipe to the reachable set, tolerating
+    # defects in tasks this run doesn't touch
+    recipe = get_recipe(
+        logger,
+        tasks_file,
+        root_task=task_name,
+        prune_unreachable=True,
+        # Override names must survive pruning even when no task references them
+        keep_runners=(runner,) if runner else (),
+        keep_interpreters=(interpreter,) if interpreter else (),
+    )
     if recipe is None:
         logger.error(
             "[red]No recipe file found (tasktree.yaml, tasktree.yml, tt.yaml, or *.tasks)[/red]",
@@ -117,22 +126,15 @@ def execute_dynamic_task(
 
     # Prune state based on tasks that will actually execute (with their specific arguments)
     # This ensures template-substituted dependencies are handled correctly
-    valid_hashes = set()
-    for _, task in recipe.tasks.items():
-        # Compute base task hash
-        task_hash = hash_task(
-            task.cmd,
-            task.outputs,
-            task.working_dir,
-            task.args,
-            executor._get_effective_runner_name(task),
-            task.deps,
-            executor._interpreter_identity(executor._resolve_interpreter(task)),
-        )
+    # Through the executor, so pruning hashes tasks exactly as the freshness
+    # check and the cache key do
+    valid_hashes = {executor.task_hash(task) for task in recipe.tasks.values()}
 
-        valid_hashes.add(task_hash)
-
-    state.prune(valid_hashes)
+    state.prune(
+        valid_hashes,
+        defined_task_names=recipe.defined_task_names,
+        reachable_task_names={name for name, _ in execution_order},
+    )
     state.save()
     try:
         executor.execute_task(

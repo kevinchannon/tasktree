@@ -260,8 +260,10 @@ class TestBuiltinVariables(unittest.TestCase):
 
         executor = Executor(recipe, state, logger_stub, fake_proc_runner_factory)
 
-        # Still need to mock subprocess.run because it's used to docker inspect
-        with patch("tasktree.process_runner.subprocess.run", side_effect=mock_run):
+        # Still need to mock subprocess.run because it's used to docker inspect.
+        # Pin the login name so USER_NAME_VAR can be asserted exactly.
+        with patch("tasktree.process_runner.subprocess.run", side_effect=mock_run), \
+                patch("os.getlogin", return_value="tt-test-user"):
             # Execute task
             executor.execute_task("docker-test", TaskOutputTypes.ALL)
 
@@ -316,11 +318,11 @@ class TestBuiltinVariables(unittest.TestCase):
             "PROJECT_PATH should contain the resolved project root",
         )
 
-        self.assertIn("TASK_NAME_VAR", env_vars, "TASK_NAME_VAR should be present")
+        self.assertIn("USER_NAME_VAR", env_vars, "USER_NAME_VAR should be present")
         self.assertEqual(
-            env_vars["TASK_NAME_VAR"],
-            "docker-test",
-            "TASK_NAME_VAR should contain the task name",
+            env_vars["USER_NAME_VAR"],
+            "tt-test-user",
+            "USER_NAME_VAR should contain the substituted user name",
         )
 
     @unittest.skipIf(
@@ -379,9 +381,13 @@ class TestBuiltinVariables(unittest.TestCase):
 
     def test_uid_in_runner_volume_is_undefined_on_windows(self):
         """
-        Test that tt.uid in a runner field on Windows raises the substitution
-        engine's "Built-in variable ... is not defined" error, which is the
-        error src/tasktree/README.md documents for the omitted variables.
+        Test that tt.uid in a runner field on Windows fails loudly rather than
+        rendering as an empty string.
+
+        Runner fields render through Jinja's strict undefined (see the schema
+        validation pipeline plan, slice 1), so the wording is the renderer's
+        generic one rather than the old regex path's "Built-in variable ... is
+        not defined"; there is no "Available:" list to check against.
         """
 
         from unittest.mock import patch
@@ -397,11 +403,9 @@ class TestBuiltinVariables(unittest.TestCase):
             with self.assertRaises(ValueError) as cm:
                 executor.execute_task("docker-test", TaskOutputTypes.ALL)
 
-        # The message quotes the placeholder in the template syntax the user wrote
-        self.assertIn(
-            "Built-in variable '{{ tt.uid }}' is not defined", str(cm.exception)
-        )
-        self.assertNotIn("uid", str(cm.exception).split("Available")[1])
+        # The message names the undefined built-in the user referenced
+        self.assertIn("Undefined variable", str(cm.exception))
+        self.assertIn("uid", str(cm.exception))
 
     @unittest.skipIf(
         platform.system() == "Windows", "tt.uid/tt.gid are not defined on Windows"
