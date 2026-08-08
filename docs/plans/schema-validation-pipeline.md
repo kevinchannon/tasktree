@@ -1,10 +1,11 @@
 # Implementation plan: runtime schema validation pipeline
 
-> **Status:** in progress — **slices 0–7 and 9 done**; only slice 8 (retiring
-> hand-written checks, explicitly a trailing long tail) remains, plus the
-> follow-up slice 10 that slice 7 identified. The branch is mergeable: the
-> schema validates recipes at runtime alongside the not-yet-retired manual
-> checks.
+> **Status:** **slices 0–9 done**, bar slice 8's residue — which turned out
+> to be far smaller than planned (see its entry: most remaining checks serve
+> a second, unvalidated entry point or are not expressible in JSON Schema).
+> The one real follow-up is **slice 10**, deleting the parse-time
+> substitution pass, which slice 7 identified and gated. The branch is
+> ready to merge.
 > Branch `schema-validation-pipeline`;
 > [PR #212](https://github.com/kevinchannon/tasktree/pull/212) tracks it.
 > **Tracking issue:** [#43](https://github.com/kevinchannon/tasktree/issues/43).
@@ -750,15 +751,34 @@ go, and they govern the rest of the slice:
    than being lost. Any other check in that category should move the same
    way before it retires.
 
-Retired so far (each its own commit, tests migrated in the flip):
-`cmd` is required; a task must be a dictionary; task `runner`/`interpreter`
-must be a name or a mapping.
+Retired so far: `cmd` is required; a task must be a dictionary; task
+`runner`/`interpreter` must be a name or a mapping; and in
+`Task.__post_init__`, the input/output entry type, the one-pair rule for a
+named entry, and the string path. `raise ValueError` in `parser.py`:
+**128 → 116**.
 
-Still eligible, not yet done: the remaining recipe-only shape checks in
-`_build_tasks_from_merged` (inputs/outputs entry types, `deps` shape — mind
-decision 2, which wants the traversal's own defensive `deps` checks kept),
-and `_parse_inline_interpreter`'s type checks where they are reachable only
-from recipe parsing. Check the machine-config path for each before deleting.
+**The tail is much shorter than "~128 hand-written checks" suggests.**
+Applying the rule above, most of what remains is not eligible at all:
+
+- **A second, unvalidated entry point.** `runner_from_config` and
+  `parse_interpreter_spec` are the machine-config loader's constructors
+  (`config.py`), and machine config is never schema-validated — so runner
+  field/enum checks and the interpreter type checks stay.
+- **Public API.** `parse_arg_spec` is exported in `tasktree.__all__`, so
+  its arg-shape checks (one key per entry, config is a mapping, no unknown
+  keys) guard callers we don't control, even though the schema covers all
+  three for recipes.
+- **Runs before validation.** `raw_merge._validate_top_level_keys` reports
+  which *file* carried a bad key, which the post-merge schema cannot; the
+  reachability traversal's defensive checks are decision 2's, by design.
+- **Not expressible in JSON Schema.** Named input/output identifiers,
+  duplicate names across entries, min/max-vs-choices exclusivity, type
+  inference consistency, variable cycles, dependency existence.
+
+What is left that is genuinely eligible is small and worth doing only when
+touching the surrounding code. Treat the slice as effectively complete
+rather than a standing backlog, and apply the rule to any new check
+instead.
 
 **Original scope follows.**
 One manual structural check deleted per commit, its pinned tests updated to
