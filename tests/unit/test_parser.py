@@ -4204,6 +4204,42 @@ def _parse_task_recipe(task_body: str):
         return parse_recipe(recipe_path)
 
 
+class TestOverrideRunnerVariables(unittest.TestCase):
+    """
+    A runner named only by --runner is still part of the run, so the
+    variables its definition references have to be evaluated. Nothing else
+    mentions it, so task-and-default reachability alone would miss it.
+    """
+
+    RECIPE = (
+        "variables:\n  where: /srv\n"
+        "runners:\n"
+        "  spare:\n"
+        "    interpreter:\n      cmd: bash\n"
+        '    working_dir: "{{ var.where }}"\n'
+        "tasks:\n  build:\n    cmd: echo hi\n"
+    )
+
+    def parse(self, **kwargs):
+        with TemporaryDirectory() as tmpdir:
+            recipe_path = Path(tmpdir) / "tasktree.yaml"
+            recipe_path.write_text(self.RECIPE)
+            return parse_recipe(recipe_path, root_task="build", **kwargs)
+
+    def test_variable_used_only_by_the_override_runner_is_evaluated(self):
+        recipe = self.parse(prune_unreachable=True, keep_runners=("spare",))
+        self.assertEqual(recipe.evaluated_variables.get("where"), "/srv")
+
+    def test_override_runner_fields_are_resolved(self):
+        recipe = self.parse(prune_unreachable=True, keep_runners=("spare",))
+        self.assertEqual(recipe.runners["spare"].working_dir, "/srv")
+
+    def test_unreferenced_runner_without_the_override_is_left_alone(self):
+        """Without the override nothing selects it, so nothing is evaluated."""
+        recipe = self.parse()
+        self.assertEqual(recipe.evaluated_variables, {})
+
+
 class TestNamedOutputs(unittest.TestCase):
     """
     Tests for named output functionality.

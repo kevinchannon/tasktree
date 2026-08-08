@@ -427,6 +427,9 @@ class Recipe:
     _name_errors: dict[str, str] = field(
         default_factory=dict
     )  # Deferred name validation errors (checked when items are reachable)
+    override_runners: frozenset[str] = frozenset()
+    # Runner names the CLI selected (--runner). Nothing in the recipe
+    # references them, so variable reachability has to be told.
     defined_task_names: frozenset[str] = frozenset()
     # Every task name in the merged recipe, captured before any pruning.
     # State pruning uses this to tell a deleted task's stale entry from
@@ -558,7 +561,9 @@ class Recipe:
         if root_task and isinstance(tasks_data, dict) and root_task in tasks_data:
             reachable_tasks = collect_reachable_task_names(tasks_data, root_task)
             variables_to_eval = _collect_referenced_variable_names(
-                self._original_yaml_data, reachable_tasks
+                self._original_yaml_data,
+                reachable_tasks,
+                extra_runners=self.override_runners,
             )
         else:
             # Eager path: evaluate all variables (for --list command)
@@ -761,13 +766,16 @@ class Recipe:
         """
         Collect all runner names referenced by reachable tasks.
 
+        A runner named only by the CLI's --runner override counts: nothing
+        in the recipe mentions it, but it is the one the run will use.
+
         Args:
             reachable_tasks: Set or KeysView of task names that are reachable from target tasks
 
         Returns:
             Set of runner names that are referenced by the reachable tasks
         """
-        return {
+        return set(self.override_runners) | {
             self.tasks[t].runner
             for t in reachable_tasks
             if t in self.tasks and self.tasks[t].runner
@@ -2257,7 +2265,9 @@ def _build_tasks_from_merged(merged: MergedRecipe) -> dict[str, Task]:
 
 
 def _collect_referenced_variable_names(
-    data: dict[str, Any], reachable_task_names: Iterable[str]
+    data: dict[str, Any],
+    reachable_task_names: Iterable[str],
+    extra_runners: Iterable[str] = (),
 ) -> set[str]:
     """
     Discover the {{ var.* }} names the reachable subtree references.
@@ -2277,7 +2287,7 @@ def _collect_referenced_variable_names(
     ]
     nodes: list[Any] = list(task_nodes)
 
-    referenced_runners = {
+    referenced_runners = set(extra_runners) | {
         task["runner"]
         for task in task_nodes
         if isinstance(task, dict)
@@ -2398,6 +2408,7 @@ def parse_recipe(
         # the merge, and imported interpreters are resolvable in it
         _original_yaml_data=merged.data,
         _name_errors=dict(merged.name_errors),
+        override_runners=frozenset(keep_runners),
         defined_task_names=defined_task_names,
     )
 
