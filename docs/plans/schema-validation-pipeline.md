@@ -726,7 +726,41 @@ dict would break. Tests exist for the shape in
 TestPlainRecipesShareTheLimitation` — they assert today's failure and
 flip to asserting success when this lands.
 
-### Slice 8 — retire hand-written checks *(long tail)*
+### Slice 8 — retire hand-written checks *(long tail, in progress)*
+**Started 2026-08-08.** Two things had to be settled before any check could
+go, and they govern the rest of the slice:
+
+1. **Validation had to move ahead of construction.** The shape checks are
+   load-bearing where they stood: delete the `cmd`-required one with
+   validation running afterwards and a raw `KeyError('cmd')` escapes
+   instead of any message. Validation now runs immediately after pruning
+   (where slice 6 originally wanted it), so construction reads fields the
+   schema has guaranteed. Twelve pinned messages migrated in that commit.
+2. **"Covered by the schema" is not sufficient — it must be covered on
+   *every* path that reaches the check.** `runner_from_config` is also the
+   machine-config loader's constructor (`config.py`), and machine config
+   files are not schema-validated at all. Its checks (`type`/`engine`
+   enums, field types) are therefore the only validation on that path and
+   **must stay**, however redundant they look from the recipe side.
+
+   A third consideration: **a check that teaches the fix is worth more than
+   the schema's description of it.** The `args`-written-as-a-mapping check
+   showed the list form; the schema can only say "not of type 'array'".
+   That advice moved into `schema_error_message`'s remediation hints rather
+   than being lost. Any other check in that category should move the same
+   way before it retires.
+
+Retired so far (each its own commit, tests migrated in the flip):
+`cmd` is required; a task must be a dictionary; task `runner`/`interpreter`
+must be a name or a mapping.
+
+Still eligible, not yet done: the remaining recipe-only shape checks in
+`_build_tasks_from_merged` (inputs/outputs entry types, `deps` shape — mind
+decision 2, which wants the traversal's own defensive `deps` checks kept),
+and `_parse_inline_interpreter`'s type checks where they are reachable only
+from recipe parsing. Check the machine-config path for each before deleting.
+
+**Original scope follows.**
 One manual structural check deleted per commit, its pinned tests updated to
 the new wording as each goes. Only checks now covered by the schema are
 eligible; graph/lifecycle checks (§1) stay. This slice can trail after the
