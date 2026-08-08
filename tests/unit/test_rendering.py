@@ -125,5 +125,42 @@ class TestRenderErrorTranslation(unittest.TestCase):
         self.assertNotIn("Traceback", str(ctx.exception))
 
 
+class TestSandboxing(unittest.TestCase):
+    """
+    Rendering runs in the tt process on the host, before any container is
+    launched, so a template must never be able to reach Python itself. The
+    prefix check on runner fields cannot help here: a payload that names no
+    known prefix has nothing for it to match on.
+    """
+
+    def test_attribute_introspection_is_refused(self):
+        with self.assertRaises(ValueError) as ctx:
+            render("{{ ''.__class__.__mro__[1].__subclasses__() }}", {})
+        self.assertIn("not permitted", str(ctx.exception))
+
+    def test_dunder_access_on_a_value_is_refused(self):
+        with self.assertRaises(ValueError) as ctx:
+            render("{{ var.x.__class__ }}", {"var": {"x": "hello"}})
+        self.assertIn("not permitted", str(ctx.exception))
+
+    def test_refusal_does_not_leak_jinja_internals(self):
+        with self.assertRaises(ValueError) as ctx:
+            render("{{ ''.__class__ }}", {})
+        message = str(ctx.exception)
+        self.assertNotIn("jinja2", message.lower())
+        self.assertNotIn("Traceback", message)
+
+    def test_ordinary_string_methods_still_work(self):
+        """The sandbox must not cost the templating users rely on."""
+        self.assertEqual(render("{{ var.x.upper() }}", {"var": {"x": "hi"}}), "HI")
+
+    def test_filters_and_conditionals_still_work(self):
+        self.assertEqual(
+            render("{{ var.a | upper if var.flag else var.b }}",
+                   {"var": {"a": "x", "b": "y", "flag": "1"}}),
+            "X",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

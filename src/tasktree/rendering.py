@@ -13,12 +13,13 @@ import re
 from typing import Any
 
 from jinja2 import (
-    Environment,
     StrictUndefined,
     TemplateError,
     TemplateSyntaxError,
     UndefinedError,
 )
+from jinja2.exceptions import SecurityError
+from jinja2.sandbox import SandboxedEnvironment
 
 
 def _finalize(value: Any) -> Any:
@@ -33,9 +34,19 @@ def _finalize(value: Any) -> Any:
     return value
 
 
-def _build_environment() -> Environment:
-    """Create the Jinja2 environment used for all task rendering."""
-    return Environment(
+def _build_environment() -> SandboxedEnvironment:
+    """
+    Create the Jinja2 environment used for all task rendering.
+
+    Sandboxed: rendering happens inside the tt process, on the host, before
+    any container is launched, so a template that could reach Python's
+    object graph would be running code with tt's own privileges -- from an
+    imported recipe too, and for a task whose command would have run in a
+    container. The runner-field prefix check cannot cover this, since a
+    payload like ``{{ ''.__class__.__mro__ }}`` names no prefix for it to
+    match.
+    """
+    return SandboxedEnvironment(
         undefined=StrictUndefined,
         finalize=_finalize,
         autoescape=False,
@@ -116,6 +127,11 @@ def render(text: str, context: dict[str, Any], task_name: str | None = None) -> 
     except UndefinedError as e:
         raise ValueError(
             f"Undefined variable{where}: {_clean_message(str(e))}"
+        ) from e
+    except SecurityError as e:
+        raise ValueError(
+            f"Template{where} is not permitted to access Python internals: "
+            f"{_clean_message(str(e))}"
         ) from e
     except TemplateSyntaxError as e:
         raise ValueError(
