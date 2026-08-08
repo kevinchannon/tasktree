@@ -65,8 +65,9 @@ mid-implementation; if one proves untenable, stop and raise it.
    the transform rewrote the expected number of patterns, so schema edits that
    would silently break the transform fail tests instead.
 4. **Runner/interpreter templates are restricted** to `var.*`, `env.*`, and the
-   global `tt.*` builtins (`project_root`, `recipe_dir`, `user_home`,
-   `user_name`). Forbidden: `arg.*`, `dep.*`, `self.*`, and per-task `tt.*`
+   host-global `tt.*` builtins (`project_root`, `recipe_dir`, `user_home`,
+   `user_name`, and — added to `main` after this decision was written —
+   `uid`, `gid`; see the slice 3 amendment). Forbidden: `arg.*`, `dep.*`, `self.*`, and per-task `tt.*`
    (`task_name`, `working_dir`). Enforced by a Python parse-time check (not a
    schema `not`/`pattern`) so the error can explain *why*: runners are shared
    across tasks, so per-task values aren't available. This is what makes
@@ -897,6 +898,30 @@ whole-block case.
 **Sizing**: one session — the walker and regexes already exist; this is
 mostly `rewrite_var_refs` plus its tests, then a mechanical swap at the four
 call sites with the full pyramid re-run after.
+
+### Known defects found while reviewing PR #212 (not yet fixed)
+
+- **Host runners never render their fields.** `_substitute_builtin_in_runner`
+  is called only from the Docker execution path and from
+  `_current_image_fingerprint` (guarded by `isinstance(env, ContainerisedRunner)`).
+  For a host runner, `working_dir` and the interpreter's `cmd`/`preamble`
+  reach execution as raw text: a preamble of `MARKER={{ env.TT_PROBE }}`
+  makes the shell report `env.TT_PROBE: command not found`. **Pre-existing
+  in v1.3.2**, not a branch regression, and it is why the `--runner`
+  variable bug fixed in this session is invisible on the host path.
+  Note the slice 7 tests `test_env_referenced_by_the_runner_*` pass on the
+  strength of the *hash* counting the reference — they do not prove the
+  field renders, and a fix should add tests that assert the rendered
+  content.
+- **Regex rewrites corrupt string literals inside a template block.**
+  `rendering.py`'s `_SELF_NAMESPACE`/`_DEP_OUTPUT` and `template_refs.py`'s
+  `rewrite_var_refs` all operate on block text, so
+  `{{ "note: self.value" }}` renders as `note: this.value`, and
+  `{{ "see var.greeting" }}` is namespaced to `var.build.greeting` on
+  import. Silent mutation, narrow in practice (a literal that happens to
+  contain `self.`/`dep.`/`var.`). The durable fix is to parse the block
+  rather than pattern-match it — Jinja's own parser can supply the AST.
+  Recorded from the PR #212 review; verified in both places.
 
 ### Slice 10 — render tasks instead of substituting them (planned, not started)
 Identified during slice 7. `Recipe.evaluate_variables` still ends with a
