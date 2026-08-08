@@ -2241,13 +2241,8 @@ def _build_tasks_from_merged(merged: MergedRecipe) -> dict[str, Task]:
         if isinstance(runner_value, dict):
             runner = ""
             runner_def = runner_value
-        elif isinstance(runner_value, str):
-            runner = runner_value
         else:
-            raise ValueError(
-                f"Task '{task_name}': 'runner' must be a runner name or an "
-                f"inline runner definition mapping"
-            )
+            runner = runner_value
 
         # Task interpreter is the NAME of an interpreter from the 'interpreters'
         # section (existence validated post-parse, see _validate_task_interpreter_refs)
@@ -2257,13 +2252,8 @@ def _build_tasks_from_merged(merged: MergedRecipe) -> dict[str, Task]:
         if isinstance(interpreter_value, dict):
             interpreter = ""
             interpreter_def = interpreter_value
-        elif isinstance(interpreter_value, str):
-            interpreter = interpreter_value
         else:
-            raise ValueError(
-                f"Task '{task_name}': 'interpreter' must be an interpreter name "
-                f"or an inline interpreter definition mapping"
-            )
+            interpreter = interpreter_value
 
         task = Task(
             name=task_name,
