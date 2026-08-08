@@ -269,17 +269,7 @@ class Task:
         for idx, output in enumerate(self.outputs):
             if isinstance(output, dict):
                 # Named output: validate and store
-                if len(output) != 1:
-                    raise ValueError(
-                        f"Task '{self.name}': Named output at index {idx} must have exactly one key-value pair, got {len(output)}: {output}"
-                    )
-
                 name, path = next(iter(output.items()))
-
-                if not isinstance(path, str):
-                    raise ValueError(
-                        f"Task '{self.name}': Named output '{name}' must have a string path, got {type(path).__name__}: {path}"
-                    )
 
                 if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", name):
                     raise ValueError(
@@ -294,14 +284,10 @@ class Task:
 
                 self._output_map[name] = path
                 self._indexed_outputs.append(path)
-            elif isinstance(output, str):
-                # Anonymous output: just store
+            else:
+                # Anonymous output
                 self._anonymous_outputs.append(output)
                 self._indexed_outputs.append(output)
-            else:
-                raise ValueError(
-                    f"Task '{self.name}': Output at index {idx} must be a string or dict, got {type(output).__name__}: {output}"
-                )
 
         # Build input maps for efficient lookup
         self._input_map = {}
@@ -311,17 +297,7 @@ class Task:
         for idx, input_item in enumerate(self.inputs):
             if isinstance(input_item, dict):
                 # Named input: validate and store
-                if len(input_item) != 1:
-                    raise ValueError(
-                        f"Task '{self.name}': Named input at index {idx} must have exactly one key-value pair, got {len(input_item)}: {input_item}"
-                    )
-
                 name, path = next(iter(input_item.items()))
-
-                if not isinstance(path, str):
-                    raise ValueError(
-                        f"Task '{self.name}': Named input '{name}' must have a string path, got {type(path).__name__}: {path}"
-                    )
 
                 if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", name):
                     raise ValueError(
@@ -336,14 +312,10 @@ class Task:
 
                 self._input_map[name] = path
                 self._indexed_inputs.append(path)
-            elif isinstance(input_item, str):
-                # Anonymous input: just store
+            else:
+                # Anonymous input
                 self._anonymous_inputs.append(input_item)
                 self._indexed_inputs.append(input_item)
-            else:
-                raise ValueError(
-                    f"Task '{self.name}': Input at index {idx} must be a string or dict, got {type(input_item).__name__}: {input_item}"
-                )
 
 
 @dataclass

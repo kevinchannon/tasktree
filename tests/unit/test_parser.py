@@ -4196,6 +4196,14 @@ class TestArgTypeInference(unittest.TestCase):
         self.assertIn("greater than max", error_msg)
 
 
+def _parse_task_recipe(task_body: str):
+    """Parse a one-task recipe, for checks the schema owns at recipe level."""
+    with TemporaryDirectory() as tmpdir:
+        recipe_path = Path(tmpdir) / "tasktree.yaml"
+        recipe_path.write_text("tasks:\n  build:\n    cmd: make\n" + task_body)
+        return parse_recipe(recipe_path)
+
+
 class TestNamedOutputs(unittest.TestCase):
     """
     Tests for named output functionality.
@@ -4339,37 +4347,20 @@ tasks:
             self.assertIn("bundle", error_msg)
 
     def test_named_output_multiple_keys(self):
-        """
-        Test that output dicts with multiple keys raise error.
-        """
-        task = Task(name="test", cmd="echo test")
+        """A named output names one path; the schema rejects a second."""
         with self.assertRaises(ValueError) as cm:
-            task.outputs = [{"key1": "path1", "key2": "path2"}]
-            task.__post_init__()
-        error_msg = str(cm.exception)
-        self.assertIn("exactly one key-value pair", error_msg)
+            _parse_task_recipe("    outputs:\n      - {key1: path1, key2: path2}\n")
+        self.assertIn("tasks.build.outputs[0]", str(cm.exception))
 
     def test_named_output_non_string_path(self):
-        """
-        Test that non-string output paths raise error.
-        """
-        task = Task(name="test", cmd="echo test")
         with self.assertRaises(ValueError) as cm:
-            task.outputs = [{"bundle": 123}]
-            task.__post_init__()
-        error_msg = str(cm.exception)
-        self.assertIn("string path", error_msg)
+            _parse_task_recipe("    outputs:\n      - {bundle: 123}\n")
+        self.assertIn("not of type 'string'", str(cm.exception))
 
     def test_output_invalid_type(self):
-        """
-        Test that invalid output types raise error.
-        """
-        task = Task(name="test", cmd="echo test")
         with self.assertRaises(ValueError) as cm:
-            task.outputs = [123]
-            task.__post_init__()
-        error_msg = str(cm.exception)
-        self.assertIn("string or dict", error_msg)
+            _parse_task_recipe("    outputs: [123]\n")
+        self.assertIn("tasks.build.outputs[0]", str(cm.exception))
 
     def test_named_output_valid_identifiers(self):
         """
@@ -4559,37 +4550,20 @@ tasks:
             self.assertIn("src", error_msg)
 
     def test_named_input_multiple_keys(self):
-        """
-        Test that input dicts with multiple keys raise error.
-        """
-        task = Task(name="test", cmd="echo test")
+        """A named input names one path; the schema rejects a second."""
         with self.assertRaises(ValueError) as cm:
-            task.inputs = [{"key1": "path1", "key2": "path2"}]
-            task.__post_init__()
-        error_msg = str(cm.exception)
-        self.assertIn("exactly one key-value pair", error_msg)
+            _parse_task_recipe("    inputs:\n      - {key1: path1, key2: path2}\n")
+        self.assertIn("tasks.build.inputs[0]", str(cm.exception))
 
     def test_named_input_non_string_path(self):
-        """
-        Test that non-string input paths raise error.
-        """
-        task = Task(name="test", cmd="echo test")
         with self.assertRaises(ValueError) as cm:
-            task.inputs = [{"src": 123}]
-            task.__post_init__()
-        error_msg = str(cm.exception)
-        self.assertIn("string path", error_msg)
+            _parse_task_recipe("    inputs:\n      - {src: 123}\n")
+        self.assertIn("not of type 'string'", str(cm.exception))
 
     def test_invalid_input_type(self):
-        """
-        Test that invalid input types raise error.
-        """
-        task = Task(name="test", cmd="echo test")
         with self.assertRaises(ValueError) as cm:
-            task.inputs = [123]
-            task.__post_init__()
-        error_msg = str(cm.exception)
-        self.assertIn("string or dict", error_msg)
+            _parse_task_recipe("    inputs: [123]\n")
+        self.assertIn("tasks.build.inputs[0]", str(cm.exception))
 
     def test_named_input_valid_identifiers(self):
         """
