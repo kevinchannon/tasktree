@@ -2,6 +2,7 @@
 Dependency resolution using topological sorting.
 """
 
+from collections.abc import Callable
 from graphlib import TopologicalSorter
 from typing import Any
 
@@ -508,7 +509,10 @@ def resolve_self_references(
 
 
 def get_implicit_inputs(
-    recipe: Recipe, task: Task, task_args: dict[str, Any] | None = None
+    recipe: Recipe,
+    task: Task,
+    task_args: dict[str, Any] | None = None,
+    render_pattern: Callable[[str, Task, dict[str, Any]], str] | None = None,
 ) -> list[str]:
     """
     Get implicit inputs for a task based on its dependencies.
@@ -521,8 +525,8 @@ def get_implicit_inputs(
     - .dockerignore (if present)
     - Special markers for context directory and base image digests
 
-    Output paths that contain {{ arg.* }} templates are rendered using the
-    resolved arguments of the dependency invocation, so that parameterised
+    Inherited paths are rendered using the resolved arguments of the
+    *dependency's* invocation, not the dependent's, so that parameterised
     tasks (e.g. build with config=debug) produce the correct concrete paths.
 
     Args:
@@ -530,6 +534,11 @@ def get_implicit_inputs(
     task: Task to get implicit inputs for
     task_args: Argument values for the current task execution (used to
                resolve {{ arg.* }} templates in dependency arg specs)
+    render_pattern: Renders one inherited pattern, given the dependency it
+               came from and that dependency's arguments. Supplied by the
+               executor, which owns rendering; without it only {{ arg.* }}
+               is substituted, which is all this function could do before
+               rendering moved to the point of use.
 
     Returns:
     List of glob patterns for implicit inputs, including Docker-specific markers
@@ -565,22 +574,32 @@ def get_implicit_inputs(
         if dep_inv.args:
             dep_args.update(dep_inv.args)
 
-        def _render(path: str) -> str:
+        def _render(path: str, dep_task: Task = dep_task, dep_args=dep_args) -> str:
+            # A pattern that cannot be resolved is inherited as it stands:
+            # a dependency path naming an argument the caller never passed
+            # should not fail the freshness check for the whole task.
             try:
+                if render_pattern is not None:
+                    return render_pattern(path, dep_task, dep_args)
                 return substitute_arguments(path, dep_args)
             except (ValueError, KeyError):
                 return path
 
-        # If dependency has outputs, inherit them (with templates rendered)
+        def _inherit(patterns: list) -> None:
+            for pattern in patterns:
+                if isinstance(pattern, str):
+                    implicit_inputs.append(_render(pattern))
+                elif isinstance(pattern, dict):
+                    # Named input or output: inherit the path value(s)
+                    implicit_inputs.extend(_render(v) for v in pattern.values())
+
+        # A dependency passes down its outputs, or its inputs when it
+        # declares no outputs: either way they are this task's inputs, and
+        # are matched against the filesystem, so either way they render.
         if dep_task.outputs:
-            for output in dep_task.outputs:
-                if isinstance(output, str):
-                    implicit_inputs.append(_render(output))
-                elif isinstance(output, dict):
-                    implicit_inputs.extend(_render(v) for v in output.values())
-        # If dependency has no outputs, inherit its inputs
+            _inherit(dep_task.outputs)
         elif dep_task.inputs:
-            implicit_inputs.extend(dep_task.inputs)
+            _inherit(dep_task.inputs)
 
     # Note: Docker build artifacts (Dockerfile, .dockerignore, context files,
     # base image) are deliberately NOT implicit inputs. Environment changes are

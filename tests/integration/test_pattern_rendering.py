@@ -182,5 +182,53 @@ class TestFiltersInOutputPatterns(PatternRenderingTestCase):
         self.assert_settles()
 
 
+class TestInheritedDependencyPatterns(PatternRenderingTestCase):
+    """
+    A task inherits its dependencies' patterns -- their outputs, or their
+    inputs when they declare no outputs -- and those are matched against
+    the filesystem too, so they need rendering for the same reason the
+    task's own patterns do. They render against the *dependency's*
+    invocation, not the dependent's.
+    """
+
+    def test_inherits_a_dependencys_rendered_input_pattern(self):
+        """
+        A dependency with no outputs passes its inputs up. Unrendered, the
+        dependent inherits a pattern matching nothing and goes quiet.
+        """
+        self.write_recipe(
+            "variables:\n  dir: SRCDIR\n"
+            "tasks:\n"
+            "  generate:\n"
+            '    inputs: ["{{ var.dir | lower }}/*.txt"]\n'
+            "    cmd: echo generated\n"
+            "  build:\n"
+            "    deps: [generate]\n"
+            "    outputs: [out.txt]\n"
+            "    cmd: echo done > out.txt\n"
+        )
+        self.assert_tracks_its_inputs()
+
+    def test_inherits_a_dependencys_rendered_output_pattern(self):
+        """
+        The commoner case: a dependency's outputs become the dependent's
+        inputs, so a template in the producer's output path has to render
+        before the consumer can notice it changing.
+        """
+        self.write_recipe(
+            "variables:\n  built: BUILT.TXT\n"
+            "tasks:\n"
+            "  generate:\n"
+            "    inputs: [srcdir/a.txt]\n"
+            '    outputs: ["{{ var.built | lower }}"]\n'
+            "    cmd: echo generated > built.txt\n"
+            "  build:\n"
+            "    deps: [generate]\n"
+            "    outputs: [out.txt]\n"
+            "    cmd: echo done > out.txt\n"
+        )
+        self.assert_tracks_its_inputs()
+
+
 if __name__ == "__main__":
     unittest.main()

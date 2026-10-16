@@ -1684,7 +1684,9 @@ class Executor:
         # dependency's own invocation, not this task's: a dependency's output
         # path may name the arguments it was called with. Rendering them here
         # would use the wrong arguments.
-        implicit_inputs = get_implicit_inputs(self.recipe, task, args_dict)
+        implicit_inputs = get_implicit_inputs(
+            self.recipe, task, args_dict, render_pattern=self._render_pattern
+        )
         all_inputs.extend(implicit_inputs)
         return all_inputs
 

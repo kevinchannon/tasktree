@@ -133,6 +133,79 @@ class TestGetImplicitInputs(unittest.TestCase):
         implicit = get_implicit_inputs(recipe, tasks["build"])
         self.assertEqual(implicit, ["src/**/*.rs"])
 
+    def test_inherit_named_inputs_as_paths_not_dicts(self):
+        """
+        A named input is a {name: path} dict. Inheriting it verbatim would
+        put a dict into a list of glob patterns; only the path is inherited.
+        """
+        tasks = {
+            "lint": Task(
+                name="lint", cmd="cargo clippy", inputs=[{"sources": "src/**/*.rs"}]
+            ),
+            "build": Task(name="build", cmd="cargo build", deps=["lint"]),
+        }
+        recipe = Recipe(
+            tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml")
+        )
+
+        implicit = get_implicit_inputs(recipe, tasks["build"])
+        self.assertEqual(implicit, ["src/**/*.rs"])
+
+    def test_inherited_patterns_go_through_the_injected_renderer(self):
+        """
+        The executor owns rendering and injects it; this function only says
+        which pattern belongs to which dependency invocation. Asserting on
+        the arguments it hands over is the contract that matters.
+        """
+        tasks = {
+            "build": Task(
+                name="build",
+                cmd="build",
+                args=[{"config": {"default": "debug"}}],
+                outputs=["out/{{ arg.config }}/bin"],
+            ),
+            "package": Task(name="package", cmd="package", deps=["build"]),
+        }
+        recipe = Recipe(
+            tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml")
+        )
+        seen = []
+
+        def render(pattern, dep_task, dep_args):
+            seen.append((pattern, dep_task.name, dict(dep_args)))
+            return "rendered"
+
+        implicit = get_implicit_inputs(
+            recipe, tasks["package"], render_pattern=render
+        )
+
+        self.assertEqual(implicit, ["rendered"])
+        self.assertEqual(
+            seen, [("out/{{ arg.config }}/bin", "build", {"config": "debug"})]
+        )
+
+    def test_unresolvable_inherited_pattern_is_kept_as_it_stands(self):
+        """
+        A dependency path naming something the renderer cannot resolve must
+        not fail the whole freshness check.
+        """
+        tasks = {
+            "build": Task(name="build", cmd="build", outputs=["out/{{ arg.gone }}"]),
+            "package": Task(name="package", cmd="package", deps=["build"]),
+        }
+        recipe = Recipe(
+            tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml")
+        )
+
+        def render(pattern, dep_task, dep_args):
+            raise ValueError("undefined")
+
+        implicit = get_implicit_inputs(
+            recipe, tasks["package"], render_pattern=render
+        )
+
+        self.assertEqual(implicit, ["out/{{ arg.gone }}"])
+
     def test_inherit_templated_outputs_from_parametrised_dependency(self):
         """
         Outputs that contain {{ arg.* }} templates must be rendered with the
