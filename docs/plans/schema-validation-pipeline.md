@@ -975,13 +975,30 @@ found while re-planning make it bigger, and change its shape:
   is re-rendered as a template, so a value containing `{{ ... }}` becomes
   template injection. Rendering must therefore happen before these passes
   consume the paths, not after.
-- **Hash and state.** `task_hash` hashes `task.outputs`; stop substituting
-  and it hashes the unrendered template instead. That is what decision 5
-  *wants* (unrendered templates plus referenced values), and
-  `referenced_values` already folds the variable's value in, so
-  sensitivity is preserved — but it invalidates state for every task with a
-  variable in an output, so it re-runs once after upgrade. Covered by the
-  existing §3 state-reset decision; add a changelog line.
+- **Hash and state: hash the *unrendered* output, deliberately.** `task_hash`
+  hashes `task.outputs`; stop substituting and it hashes the unrendered
+  template instead. Do **not** "fix" this by hashing the rendered output —
+  `task_hash` has to be invocation-independent, because `State.prune`
+  reproduces it from `{executor.task_hash(task) for task in recipe.tasks.values()}`
+  (`cli_commands/execute_dynamic_task.py:131`) with **no args available**,
+  and prunes any reachable task whose stored hash is not in that set.
+  Outputs may legitimately contain `{{ arg.* }}` — parameterised output
+  paths are a supported feature (`graph.py:524-526`) — so a rendered-output
+  hash would give one task many valid hashes, only one of which pruning can
+  compute. Every other invocation's state entry would be pruned on every
+  run and parameterised tasks would re-run forever: the exact failure slice
+  7's trap records. Invocation variance belongs in `args_hash`, the other
+  half of the cache key (`hasher.py:202`).
+  Sensitivity is not lost by hashing the template: `referenced_values`
+  already folds in the value behind every `var.*`/`env.*` the task
+  references, and it covers references that appear in *no* task field at all
+  (an env var in a runner preamble), so hashing rendered text would be a
+  second mechanism covering a subset of the first. This is also decision 5's
+  own point — hashing values rather than rendered text is what makes
+  `eval:`/`read:`/env-sourced indirection work uniformly.
+  The change does invalidate state for every task with a variable in an
+  output, so those re-run once after upgrade. Covered by the existing §3
+  state-reset decision; add a changelog line.
 - **Two consumers cannot move into the execution loop.** Argument defaults
   are read and Click-converted at `parser.py:3022`, `:3086` and `:3234`,
   and for parameterised dependency defaults at `graph.py:563` — all while
