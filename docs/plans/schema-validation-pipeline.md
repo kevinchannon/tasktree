@@ -3,9 +3,15 @@
 > **Status:** **slices 0–9 done**, bar slice 8's residue — which turned out
 > to be far smaller than planned (see its entry: most remaining checks serve
 > a second, unvalidated entry point or are not expressible in JSON Schema).
-> The one real follow-up is **slice 10**, deleting the parse-time
-> substitution pass, which slice 7 identified and gated. The branch is
-> ready to merge.
+> The branch is ready to merge; everything below it is follow-on work that
+> the schema pipeline exposed rather than created.
+> **Slice 10** (deleting the parse-time substitution pass) was re-planned on
+> 2026-10-16 and split into **10a–10d**: tracing its consumers showed seven
+> of them rather than two, and `StrictUndefined` rules out swapping the pass
+> for a Jinja one in place, so rendering has to move to point of use.
+> **Slices 11 and 12** are the two defects the PR #212 review turned up,
+> promoted to slices so they can be scheduled. Recommended order:
+> 10a → 12 → 10b → 10c → 10d, with 11 droppable in anywhere.
 > Branch `schema-validation-pipeline`;
 > [PR #212](https://github.com/kevinchannon/tasktree/pull/212) tracks it.
 > **Tracking issue:** [#43](https://github.com/kevinchannon/tasktree/issues/43).
@@ -899,57 +905,175 @@ whole-block case.
 mostly `rewrite_var_refs` plus its tests, then a mechanical swap at the four
 call sites with the full pyramid re-run after.
 
-### Known defects found while reviewing PR #212 (not yet fixed)
-
-- **Host runners never render their fields.** `_substitute_builtin_in_runner`
-  is called only from the Docker execution path and from
-  `_current_image_fingerprint` (guarded by `isinstance(env, ContainerisedRunner)`).
-  For a host runner, `working_dir` and the interpreter's `cmd`/`preamble`
-  reach execution as raw text: a preamble of `MARKER={{ env.TT_PROBE }}`
-  makes the shell report `env.TT_PROBE: command not found`. **Pre-existing
-  in v1.3.2**, not a branch regression, and it is why the `--runner`
-  variable bug fixed in this session is invisible on the host path.
-  Note the slice 7 tests `test_env_referenced_by_the_runner_*` pass on the
-  strength of the *hash* counting the reference — they do not prove the
-  field renders, and a fix should add tests that assert the rendered
-  content.
-- **Regex rewrites corrupt string literals inside a template block.**
-  `rendering.py`'s `_SELF_NAMESPACE`/`_DEP_OUTPUT` and `template_refs.py`'s
-  `rewrite_var_refs` all operate on block text, so
-  `{{ "note: self.value" }}` renders as `note: this.value`, and
-  `{{ "see var.greeting" }}` is namespaced to `var.build.greeting` on
-  import. Silent mutation, narrow in practice (a literal that happens to
-  contain `self.`/`dep.`/`var.`). The durable fix is to parse the block
-  rather than pattern-match it — Jinja's own parser can supply the AST.
-  Recorded from the PR #212 review; verified in both places.
-
-### Slice 10 — render tasks instead of substituting them (planned, not started)
-Identified during slice 7. `Recipe.evaluate_variables` still ends with a
-text-substitution pass that writes evaluated variable values into each
-reachable task's `cmd`, `desc`, `working_dir`, `inputs`, `outputs` and
-`args`, using an enumerated field list. Now that `var.*` renders through
-Jinja like every other namespace, that pass is redundant for anything that
-goes through rendering — and it is the last thing standing between the
-recipe pipeline and its §1 step 8 ("render tasks one-by-one in dependency
-order").
+### Slice 10 — render tasks instead of substituting them *(re-planned 2026-10-16)*
+Identified during slice 7; re-scoped on 2026-10-16 after tracing every
+consumer of the fields it touches. `Recipe.evaluate_variables` still ends
+with a text-substitution pass (`parser.py:586` onward) that rewrites
+`{{ var.* }}` **in place** in each reachable task's `cmd`, `desc`,
+`working_dir`, `inputs`, `outputs` and `args`, using an enumerated field
+list and the regex `substitute_variables` (`substitution.py:30`). It is the
+last thing standing between the pipeline and its §1 step 8 ("render tasks
+one-by-one in dependency order").
 
 **Do not simply delete it.** Probed during slice 7: disabling the pass
-fails only two unit tests, both of which merely assert that `task.cmd` is
-substituted at parse. What it hides is that *input and output patterns are
-matched against the filesystem without ever being rendered*, so
-`inputs: ["{{ var.dir }}/*.txt"]` matches nothing, the task looks
-permanently fresh, and it silently stops re-running when its inputs
-change. The gate for this slice is
-`tests/integration/test_hash_sensitivity.py::TestVariablesInInputPatterns`,
-which was written for exactly this reason.
+fails only **two** unit tests, both of which merely assert that `task.cmd`
+is substituted at parse. What it hides is that input and output patterns
+are matched against the filesystem *without ever being rendered*. The
+failure shape is worth stating precisely, because it is silent in the worst
+way:
 
-Sequence: render inputs/outputs on the freshness path first (both
-`_get_all_inputs` and the output-missing check), with tests for globs,
-named entries and inherited dependency inputs; then `working_dir` and the
-remaining fields; then delete the substitution pass and update the two
-unit tests. Worth doing — one mechanism instead of two, and `--show`
-gaining the option of displaying either form — but it is a freshness-path
-change, so it wants its own session and a full pyramid per increment.
+- An unrendered input pattern is still a non-empty string, so the "no
+  inputs → always run" escape at `executor.py:638` does **not** fire;
+  `_check_inputs_changed` then matches zero files, outputs exist, and the
+  task is **skipped**. The first run is correct and it never re-runs again.
+- An unrendered *output* pattern fails the mirror way: it never matches, so
+  `_check_outputs_missing` always reports it missing and the task **always**
+  runs. Noisy rather than silent, but equally wrong.
+
+The gate is `tests/integration/test_hash_sensitivity.py::TestVariablesInInputPatterns`,
+written for exactly this reason.
+
+#### What the first plan got wrong
+
+It read as "fix two freshness functions, then delete the pass". Three facts
+found while re-planning make it bigger, and change its shape:
+
+1. **Seven consumers, not two.** `task.inputs` / `task.outputs` are read
+   by: the freshness input list (`_get_all_inputs`, `executor.py:1575`);
+   the output-missing check (`_expand_output_paths` / `_check_outputs_missing`,
+   `executor.py:1719` / `:1739`); the **task hash** (`task_hash` hashes
+   `task.outputs`, `executor.py:1975`); inherited dependency inputs and
+   dep-output-as-input (`get_implicit_inputs`, `graph.py:575-583`);
+   `{{ dep.*.outputs.* }}` resolution, which both reads producer outputs and
+   writes back `task.outputs` (`graph.py:392-413`); `{{ self.inputs.* }}` /
+   `{{ self.outputs.* }}` resolution (`substitution.py:411`); and `--show`
+   (`show_task.py:86`).
+2. **A partial Jinja render is impossible, so the pass cannot be swapped
+   in place.** `_build_environment` uses `StrictUndefined`
+   (`rendering.py:49`). At parse time `arg.*` is not yet known, so
+   rendering `"{{ var.dir }}/{{ arg.x }}"` with only `var` in context
+   *raises* rather than leaving `arg.x` alone. The regex pass is inherently
+   partial; Jinja is not. There is no halfway house where the same pass
+   becomes a Jinja pass at the same point in the pipeline — rendering has
+   to move to where the full context exists, which is point of use.
+3. **Patterns are invocation-dependent once rendering moves.** `var.*` is
+   the same for every invocation of a task, which is why one up-front pass
+   has worked. But `get_implicit_inputs` already renders a dependency's
+   output patterns with *that dependency's* resolved args
+   (`graph.py:578`), and the same task can appear in the order under
+   different args. So point-of-use rendering is per `(task, args)` pair,
+   not once per `Task` object — and must not write back into the shared
+   `Task`.
+
+#### Constraints the sub-slices have to respect
+
+- **Ordering.** `resolve_dependency_output_references` and
+  `resolve_self_references` run *before* the execution loop
+  (`executor.py:780`, `:784`) and inject output/input path text into
+  `cmd`. If those paths still hold `{{ var.* }}`, the later task render
+  resolves them — it works by accident, but it means a variable's *value*
+  is re-rendered as a template, so a value containing `{{ ... }}` becomes
+  template injection. Rendering must therefore happen before these passes
+  consume the paths, not after.
+- **Hash and state.** `task_hash` hashes `task.outputs`; stop substituting
+  and it hashes the unrendered template instead. That is what decision 5
+  *wants* (unrendered templates plus referenced values), and
+  `referenced_values` already folds the variable's value in, so
+  sensitivity is preserved — but it invalidates state for every task with a
+  variable in an output, so it re-runs once after upgrade. Covered by the
+  existing §3 state-reset decision; add a changelog line.
+- **Two consumers cannot move into the execution loop.** Argument defaults
+  are read and Click-converted at `parser.py:3022`, `:3086` and `:3234`,
+  and for parameterised dependency defaults at `graph.py:563` — all while
+  the CLI is still assembling arguments, necessarily before any `arg.*`
+  context exists. `desc` and `inputs` are displayed by `--list` / `--show`
+  (`list_tasks.py:88`, `show_task.py:86`), which run on the eager
+  `root_task=None` path with no task render at all. These need their own
+  render at their own point of use, restricted to `var.*`/`env.*`/host
+  `tt.*` — which is legitimate there precisely because `arg.*` genuinely
+  is not known yet.
+
+#### Sub-slices
+
+- **10a — the freshness path (the gate).** Render input patterns in
+  `_get_all_inputs` and output patterns in `_expand_output_paths` /
+  `_check_outputs_missing` against the task's full render context;
+  `_get_all_inputs` already receives `args_dict`, the output side does not
+  and needs it threaded through from `check_task_status`. **Tests first**:
+  anonymous globs, named entries, inherited dependency inputs, and a
+  variable in an output path. The substitution pass **stays in place for
+  all of 10a** — rendering an already-substituted pattern is a no-op — so
+  this lands and ships on its own with no behaviour change, which is what
+  makes the rest safe.
+- **10b — self/dep resolution over rendered paths.** Make
+  `resolve_dependency_output_references` (`graph.py:333`) and
+  `resolve_self_references` (`substitution.py:411`) consume rendered paths,
+  so no variable value is ever re-rendered as a template. Test that a
+  variable whose value contains `{{ ... }}` survives a `self.outputs`
+  reference literally.
+- **10c — the consumers that stay outside the loop.** Render arg
+  defaults/min/max/choices before Click conversion, and `desc`/`inputs` at
+  display time, each with the var/env/tt-host context. `_substitute_args`'
+  docstring (`executor.py:1557`) currently *asserts* the parse-time pass
+  has already run; that comment is load-bearing documentation and must be
+  corrected here.
+- **10d — delete the pass.** Remove the tail of `evaluate_variables`,
+  update the two unit tests that assert parse-time substitution of
+  `task.cmd`, and drop `substitute_variables` if 10a–10c leave it unused.
+  Full pyramid, and re-run the slice 7 gate as well.
+
+**Payoff, restated honestly.** One mechanism instead of two, and §1 step 8
+finally true. The user-visible win is consistency: because the parse pass
+is regex, filters and conditionals work in `cmd` today but **not** in
+inputs, outputs or arg defaults, so `inputs: ["{{ var.dir | lower }}/*.txt"]`
+fails confusingly. `--show` also gains the option of displaying either the
+raw or the rendered form.
+
+**Sizing**: 10a is a session on its own; 10b and 10c a session each; 10d is
+small but gated on all three. Two to three sessions in total, full pyramid
+per increment, and it is a freshness-path change — so it wants its own
+session and should not be squeezed into the tail of another slice.
+
+### Slice 11 — host runners never render their fields
+Found while reviewing PR #212. `_substitute_builtin_in_runner` is called
+only from the Docker execution path and from `_current_image_fingerprint`
+(guarded by `isinstance(env, ContainerisedRunner)`). For a host runner,
+`working_dir` and the interpreter's `cmd`/`preamble` reach execution as raw
+text: a preamble of `MARKER={{ env.TT_PROBE }}` makes the shell report
+`env.TT_PROBE: command not found`. **Pre-existing in v1.3.2**, not a branch
+regression, and it is why the `--runner` variable bug fixed during slice 8
+was invisible on the host path.
+
+The slice 7 tests `test_env_referenced_by_the_runner_*` pass on the
+strength of the *hash* counting the reference — they do not prove the field
+renders, so this slice must add tests that assert the **rendered content**,
+not just re-run behaviour.
+
+**Sizing**: one session. Independent of slice 10 — it concerns runner
+fields, not task fields — so it can go first if a smaller piece of work is
+wanted.
+
+### Slice 12 — parse template blocks instead of pattern-matching them
+Found while reviewing PR #212. `rendering.py`'s `_SELF_NAMESPACE` /
+`_DEP_OUTPUT` and `template_refs.py`'s `rewrite_var_refs` all operate on
+block *text*, so `{{ "note: self.value" }}` renders as `note: this.value`,
+and `{{ "see var.greeting" }}` is namespaced to `var.build.greeting` on
+import. Silent mutation, narrow in practice (a string literal that happens
+to contain `self.`/`dep.`/`var.`). Verified in both places.
+
+The durable fix is to parse the block rather than pattern-match it —
+Jinja's own parser can supply the AST, and rewriting on the AST cannot
+touch a literal.
+
+**Sequence with slice 10.** These are the same work seen from two sides:
+slice 10 moves rendering to point of use, and slice 12 makes the rewrites
+that rendering depends on trustworthy. Doing 12 **first** is tempting, but
+10a is the piece that removes a silent-wrong-answer risk and lands with no
+behaviour change, so the recommended order is 10a → 12 → 10b → 10c → 10d,
+with 11 droppable in anywhere.
+
+**Sizing**: one session, concentrated in `rendering.py` and
+`template_refs.py` plus their unit tests.
 
 ## 6. Rough sizing
 
@@ -957,3 +1081,10 @@ Slices 0–3 are each comfortably a single working session; slice 4 is several
 sessions and the main risk concentration; slices 5–7 are likely a session
 each; slice 8 is piecemeal filler for spare capacity in any session; slice 9
 (planned) is a single session once picked up.
+
+The follow-on slices, re-sized 2026-10-16: slice 10 is two to three sessions
+across its four sub-slices (10a one on its own, 10b and 10c one each, 10d
+small but gated on the other three); slices 11 and 12 are a session each and
+independent of one another. Slice 10 is a freshness-path change with a
+silent-wrong-answer failure mode, so none of its sub-slices should be
+squeezed into the tail of another slice's session.
