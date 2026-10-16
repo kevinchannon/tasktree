@@ -9,6 +9,9 @@
 > 2026-10-16 and split into **10a–10d**: tracing its consumers showed seven
 > of them rather than two, and `StrictUndefined` rules out swapping the pass
 > for a Jinja one in place, so rendering has to move to point of use.
+> **10a is done** (2026-10-17): every pattern on the freshness path now
+> renders, with the substitution pass still in place behind it, so nothing
+> that worked before changed.
 > **Slices 11 and 12** are the two defects the PR #212 review turned up,
 > promoted to slices so they can be scheduled. Recommended order:
 > 10a → 12 → 10b → 10c → 10d, with 11 droppable in anywhere.
@@ -1012,22 +1015,58 @@ found while re-planning make it bigger, and change its shape:
 
 #### Sub-slices
 
-- **10a — the freshness path (the gate).** Render input patterns in
-  `_get_all_inputs` and output patterns in `_expand_output_paths` /
-  `_check_outputs_missing` against the task's full render context;
-  `_get_all_inputs` already receives `args_dict`, the output side does not
-  and needs it threaded through from `check_task_status`. **Tests first**:
-  anonymous globs, named entries, inherited dependency inputs, and a
-  variable in an output path. The substitution pass **stays in place for
-  all of 10a** — rendering an already-substituted pattern is a no-op — so
-  this lands and ships on its own with no behaviour change, which is what
-  makes the rest safe.
+- **10a — the freshness path (the gate) ✅ done (2026-10-17).** Input
+  patterns render in `_get_all_inputs`, output patterns in
+  `_expand_output_paths` (no longer a static method) with `args_dict`
+  threaded through `_check_outputs_missing` and
+  `_output_files_to_modified_times`, and inherited dependency patterns in
+  `get_implicit_inputs`. The substitution pass stayed in place throughout,
+  so nothing that worked before changed — rendering an already-substituted
+  pattern is a no-op.
+
+  Three things it turned up:
+  - **`dep.*` and `self.*` in a pattern are deferred, explicitly.**
+    `_render_field` populates neither namespace, and both resolve against
+    *another* task's invocation, so rendering such a pattern raises instead
+    of matching. `Executor._resolved_after_patterns` asks the slice 2
+    walker whether a pattern references either, and leaves it verbatim if
+    so — which keeps today's behaviour (it matches nothing) rather than
+    turning it into an error. `tests/fixtures/self_ref_dep_resolved_before_self`
+    proves dep references in *inputs* are a supported, tested feature, so
+    this is not hypothetical. **Deleting that guard is slice 10b's visible
+    outcome**, and the fixture is its gate.
+  - **Inherited named inputs were being passed down as dicts.** The
+    no-outputs branch of `get_implicit_inputs` did
+    `implicit_inputs.extend(dep_task.inputs)`, so a dependency's
+    `{name: path}` input landed in a list of glob patterns as a dict.
+    Fixed in passing; both branches share one path extraction now.
+  - **Rendering is injected, not imported.** `get_implicit_inputs` takes a
+    `render_pattern` callable because an inherited pattern renders against
+    the dependency's invocation: graph.py says which pattern belongs to
+    which invocation, the executor knows how to render. Without the
+    callable it falls back to `substitute_arguments`, so the function's
+    existing callers and tests are unchanged.
+
+  Also extracted `Executor._split_task_args`: the execution path's inline
+  exported/regular argument split, now shared with the pattern renderer
+  rather than copied into it.
+
+  **Gate run (2026-10-17):** unit 1534 passed, integration 336 passed, e2e
+  47 passed. The 21 Docker e2e tests cannot run on this machine — their
+  fixture raises when no daemon is reachable — so CI's ubuntu leg is the
+  only place they are covered for this slice.
 - **10b — self/dep resolution over rendered paths.** Make
   `resolve_dependency_output_references` (`graph.py:333`) and
   `resolve_self_references` (`substitution.py:411`) consume rendered paths,
   so no variable value is ever re-rendered as a template. Test that a
   variable whose value contains `{{ ... }}` survives a `self.outputs`
-  reference literally.
+  reference literally. **Inherits 10a's deferral**: once these passes run
+  on rendered paths, `Executor._resolved_after_patterns` and its early
+  return should be deleted, and a pattern like
+  `inputs: [{source: "{{ dep.generate.outputs.filename }}"}]` should then
+  match the file it names instead of matching nothing. Note it is currently
+  harmless only because such a dependency's outputs are implicit inputs
+  anyway, so the task still re-runs for the right reason by accident.
 - **10c — the consumers that stay outside the loop.** Render arg
   defaults/min/max/choices before Click conversion, and `desc`/`inputs` at
   display time, each with the var/env/tt-host context. `_substitute_args`'
