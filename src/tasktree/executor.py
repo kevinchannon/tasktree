@@ -687,7 +687,7 @@ class Executor:
 
         # Check if declared outputs are missing
         missing_outputs = self._check_outputs_missing(
-            task, cached_state, process_runner
+            task, cached_state, process_runner, args_dict
         )
         if missing_outputs:
             outputs_list = ", ".join(missing_outputs)
@@ -1806,25 +1806,35 @@ class Executor:
 
         return changed_files
 
-    @staticmethod
-    def _expand_output_paths(task: Task) -> list[str]:
+    def _expand_output_paths(
+        self, task: Task, args_dict: dict[str, Any] | None = None
+    ) -> list[str]:
         """
         Extract all output paths from task outputs (both named and anonymous).
 
+        Patterns are rendered here for the same reason input patterns are
+        (see _render_pattern): an unrendered output pattern matches nothing,
+        which reads as "declared outputs are missing" and re-runs the task
+        on every invocation.
+
         Args:
         task: Task with outputs to extract
+        args_dict: Argument values for this invocation
 
         Returns:
-        List of output path patterns (glob patterns as strings)
+        List of rendered output path patterns (glob patterns as strings)
         """
         paths = []
         for output in task.outputs:
             if isinstance(output, str):
                 # Anonymous output: just the path string
-                paths.append(output)
+                paths.append(self._render_pattern(output, task, args_dict))
             elif isinstance(output, dict):
                 # Named output: extract the path value
-                paths.extend(output.values())
+                paths.extend(
+                    self._render_pattern(path, task, args_dict)
+                    for path in output.values()
+                )
         return paths
 
     def _check_outputs_missing(
@@ -1832,6 +1842,7 @@ class Executor:
         task: Task,
         cached_state: "TaskState | None" = None,
         process_runner: ProcessRunner | None = None,
+        args_dict: dict[str, Any] | None = None,
     ) -> list[str]:
         """
         Check if any declared outputs are missing.
@@ -1844,6 +1855,8 @@ class Executor:
         task: Task to check
         cached_state: Previously saved state (used to detect deleted glob members)
         process_runner: Used to build/run the container for in-container probing
+        args_dict: Argument values for this invocation, used to render
+                   {{ arg.* }} templates in output patterns
 
         Returns:
         List of output patterns or file paths that are missing
@@ -1854,7 +1867,7 @@ class Executor:
         missing_patterns = []
 
         # Expand outputs to paths (handles both named and anonymous)
-        output_paths = self._expand_output_paths(task)
+        output_paths = self._expand_output_paths(task, args_dict)
         cached_files = (
             list(cached_state.output_state)
             if cached_state and cached_state.output_state
@@ -2015,7 +2028,9 @@ class Executor:
         if fingerprint is not None:
             input_state[f"_runner_image_fp_{env_name}"] = fingerprint
 
-        output_state = self._output_files_to_modified_times(task, process_runner)
+        output_state = self._output_files_to_modified_times(
+            task, args_dict, process_runner
+        )
         new_state = TaskState(
             last_run=time.time(),
             input_state=input_state,
@@ -2092,7 +2107,10 @@ class Executor:
         return input_state
 
     def _output_files_to_modified_times(
-        self, task: Task, process_runner: ProcessRunner | None = None
+        self,
+        task: Task,
+        args_dict: dict[str, Any] | None = None,
+        process_runner: ProcessRunner | None = None,
     ) -> dict[str, float]:
         """
         Expand output patterns to actual files and record their mtimes.
@@ -2101,7 +2119,7 @@ class Executor:
         are later deleted, even if other files in the set still exist.
         """
         stat = self._freshness_probe(task, process_runner).stat_patterns(
-            self._expand_output_paths(task)
+            self._expand_output_paths(task, args_dict)
         )
         output_state: dict[str, float] = {}
         for matches in stat.values():

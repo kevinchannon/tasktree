@@ -127,5 +127,60 @@ class TestFiltersInInputPatterns(PatternRenderingTestCase):
         self.assert_tracks_its_inputs()
 
 
+class TestFiltersInOutputPatterns(PatternRenderingTestCase):
+    """
+    Outputs fail the other way round. A pattern that never matches reports
+    its outputs missing on every run, so the task re-runs for ever instead
+    of going quiet -- noisy rather than silent, but just as wrong.
+    """
+
+    def assert_settles(self) -> None:
+        """
+        Run twice. The second run has nothing to do, and says so; a task
+        whose output pattern matched nothing claims its outputs are missing
+        and runs again.
+        """
+        result, output = self.run_task()
+        self.assert_ran(output, result)
+
+        result, output = self.run_task()
+        self.assert_skipped(output, result)
+
+    def test_filter_in_anonymous_output_pattern_is_rendered(self):
+        self.write_recipe(
+            "variables:\n  out: OUT.TXT\n"
+            "tasks:\n  build:\n"
+            "    inputs: [srcdir/a.txt]\n"
+            '    outputs: ["{{ var.out | lower }}"]\n'
+            "    cmd: echo done > out.txt\n"
+        )
+        self.assert_settles()
+
+    def test_filter_in_named_output_pattern_is_rendered(self):
+        self.write_recipe(
+            "variables:\n  out: OUT.TXT\n"
+            "tasks:\n  build:\n"
+            "    inputs: [srcdir/a.txt]\n"
+            "    outputs:\n"
+            '      - result: "{{ var.out | lower }}"\n'
+            "    cmd: echo done > out.txt\n"
+        )
+        self.assert_settles()
+
+    def test_argument_in_output_pattern_is_rendered(self):
+        """
+        Arguments are the namespace a pattern renderer must get from the
+        invocation rather than the recipe, so cover one explicitly.
+        """
+        self.write_recipe(
+            "tasks:\n  build:\n"
+            "    args:\n      - name: { default: out }\n"
+            "    inputs: [srcdir/a.txt]\n"
+            '    outputs: ["{{ arg.name }}.txt"]\n'
+            "    cmd: echo done > {{ arg.name }}.txt\n"
+        )
+        self.assert_settles()
+
+
 if __name__ == "__main__":
     unittest.main()

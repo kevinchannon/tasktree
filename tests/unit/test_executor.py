@@ -3760,3 +3760,15 @@ class TestPatternRendering(unittest.TestCase):
         self.assertEqual(
             executor._get_all_inputs(task), ["src/*.c", "src/*.h"]
         )
+
+    def test_expand_output_paths_renders_named_and_anonymous_alike(self):
+        task = Task(
+            name="build",
+            cmd="echo hi",
+            outputs=["{{ var.dir | lower }}/app", {"debug": "{{ var.dir | lower }}/app.pdb"}],
+        )
+        executor = self._executor(task, {"dir": "BUILD"})
+
+        self.assertEqual(
+            executor._expand_output_paths(task), ["build/app", "build/app.pdb"]
+        )
