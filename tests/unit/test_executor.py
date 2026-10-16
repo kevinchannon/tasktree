@@ -3673,3 +3673,90 @@ tasks:
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestPatternRendering(unittest.TestCase):
+    """
+    Input and output patterns are rendered before they are matched against
+    the filesystem (schema pipeline slice 10a). The regex pass they replace
+    could only substitute a bare ``{{ var.name }}``, so anything with an
+    expression in it reached the glob verbatim and matched nothing.
+    """
+
+    def _executor(self, task: Task, variables: dict[str, str] | None = None):
+        project_root = Path(tempfile.gettempdir())
+        recipe = Recipe(
+            tasks={task.name: task},
+            project_root=project_root,
+            recipe_path=project_root / "tasktree.yaml",
+        )
+        recipe.evaluated_variables = variables or {}
+        return Executor(
+            recipe, StateManager(project_root), logger_stub, make_process_runner
+        )
+
+    def test_renders_a_filter_the_regex_pass_could_not_express(self):
+        task = Task(name="build", cmd="echo hi", inputs=["{{ var.dir | lower }}/*.c"])
+        executor = self._executor(task, {"dir": "SRC"})
+
+        self.assertEqual(
+            executor._render_pattern(task.inputs[0], task), "src/*.c"
+        )
+
+    def test_renders_an_argument_reference(self):
+        task = Task(
+            name="build",
+            cmd="echo hi",
+            args=[{"config": {"default": "debug"}}],
+            outputs=["build/{{ arg.config }}/app"],
+        )
+        executor = self._executor(task)
+
+        self.assertEqual(
+            executor._render_pattern(task.outputs[0], task, {"config": "release"}),
+            "build/release/app",
+        )
+
+    def test_leaves_a_dependency_reference_for_its_own_pass(self):
+        """
+        A dep reference resolves against the dependency's invocation, which
+        this phase knows nothing about, so the pattern must survive it
+        untouched rather than failing to render.
+        """
+        task = Task(
+            name="process",
+            cmd="echo hi",
+            deps=["generate"],
+            inputs=["{{ dep.generate.outputs.data }}"],
+        )
+        executor = self._executor(task)
+
+        self.assertEqual(
+            executor._render_pattern(task.inputs[0], task),
+            "{{ dep.generate.outputs.data }}",
+        )
+
+    def test_leaves_a_self_reference_for_its_own_pass(self):
+        task = Task(
+            name="build",
+            cmd="echo hi",
+            inputs=["{{ self.outputs.bin }}.d"],
+            outputs=[{"bin": "app"}],
+        )
+        executor = self._executor(task)
+
+        self.assertEqual(
+            executor._render_pattern(task.inputs[0], task), "{{ self.outputs.bin }}.d"
+        )
+
+    def test_get_all_inputs_renders_named_and_anonymous_alike(self):
+        task = Task(
+            name="build",
+            cmd="echo hi",
+            inputs=["{{ var.dir | lower }}/*.c", {"headers": "{{ var.dir | lower }}/*.h"}],
+        )
+        executor = self._executor(task, {"dir": "SRC"})
+
+        self.assertEqual(
+            executor._get_all_inputs(task), ["src/*.c", "src/*.h"]
+        )

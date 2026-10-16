@@ -1043,25 +1043,9 @@ class Executor:
         # This allows us to skip re-reading if no nested tt calls modified it
         initial_state_hash = self.state.get_hash()
 
-        # Parse task arguments to identify exported args
-        # Note: args_dict already has defaults applied by CLI (cli.py:413-424)
-        from tasktree.parser import parse_arg_spec
-
-        exported_args = set()
-        regular_args = {}
-        exported_env_vars = {}
-
-        for arg_spec in task.args:
-            parsed = parse_arg_spec(arg_spec)
-            if parsed.is_exported:
-                exported_args.add(parsed.name)
-                # Get value and convert to string for environment variable
-                # Value should always be in args_dict (CLI applies defaults)
-                if parsed.name in args_dict:
-                    exported_env_vars[parsed.name] = str(args_dict[parsed.name])
-            else:
-                if parsed.name in args_dict:
-                    regular_args[parsed.name] = args_dict[parsed.name]
+        regular_args, exported_args, exported_env_vars = self._split_task_args(
+            task, args_dict
+        )
 
         # Collect early built-in variables (those that don't depend on working_dir)
         # These can be used in the working_dir field itself
@@ -1524,6 +1508,106 @@ class Executor:
         return render(text, config, task_name=task_name)
 
     @staticmethod
+    def _split_task_args(
+        task: Task, args_dict: dict[str, Any]
+    ) -> tuple[dict[str, Any], set[str], dict[str, str]]:
+        """
+        Split a task's arguments into the three forms its callers need.
+
+        Exported arguments are deliberately absent from the rendering
+        context: they reach the task as environment variables, and
+        referencing one as {{ arg.name }} is an error the renderer reports.
+
+        Note: args_dict already has defaults applied by the CLI
+        (cli.py:413-424).
+
+        Args:
+        task: Task whose argument specs say which name is exported
+        args_dict: Argument values for this invocation
+
+        Returns:
+        (regular args by name, exported arg names, exported args as strings)
+        """
+        from tasktree.parser import parse_arg_spec
+
+        regular_args: dict[str, Any] = {}
+        exported_args: set[str] = set()
+        exported_env_vars: dict[str, str] = {}
+
+        for arg_spec in task.args:
+            parsed = parse_arg_spec(arg_spec)
+            if parsed.is_exported:
+                exported_args.add(parsed.name)
+                if parsed.name in args_dict:
+                    exported_env_vars[parsed.name] = str(args_dict[parsed.name])
+            elif parsed.name in args_dict:
+                regular_args[parsed.name] = args_dict[parsed.name]
+
+        return regular_args, exported_args, exported_env_vars
+
+    def _render_pattern(
+        self, pattern: str, task: Task, args_dict: dict[str, Any] | None = None
+    ) -> str:
+        """
+        Render an input or output pattern before it meets the filesystem.
+
+        A pattern is matched, not executed, so a template left unrendered
+        becomes a literal that matches nothing -- which looks like a task
+        with no changed inputs rather than like an error. Rendering here is
+        what makes {{ var.dir | lower }} and friends mean the same thing in
+        a pattern as they do in a command.
+
+        Only the built-ins that don't depend on working_dir are available:
+        the working directory is resolved later, during execution, and a
+        freshness check that resolved it early would be doing execution's
+        work. {{ tt.working_dir }} in a pattern therefore reports itself as
+        undefined, where before it silently matched nothing.
+
+        Args:
+        pattern: Input or output pattern, possibly containing templates
+        task: Task the pattern belongs to
+        args_dict: Argument values for this invocation
+
+        Returns:
+        The rendered pattern
+        """
+        if self._resolved_after_patterns(pattern):
+            return pattern
+
+        regular_args, exported_args, _ = self._split_task_args(task, args_dict or {})
+        return self._render_field(
+            pattern,
+            self._collect_early_builtin_variables(task, datetime.now()),
+            regular_args,
+            exported_args,
+            task.name,
+        )
+
+    @staticmethod
+    def _resolved_after_patterns(pattern: str) -> bool:
+        """
+        Whether a pattern defers to a namespace resolved after this phase.
+
+        ``{{ dep.<task>.outputs.<name> }}`` and ``{{ self.* }}`` have their
+        own resolution passes, which read a dependency's outputs against
+        *that* dependency's invocation rather than this task's, so the
+        pattern renderer holds no values for them. Such a pattern is left
+        verbatim, exactly as it was before patterns rendered at all, and so
+        keeps matching nothing until slice 10b brings those passes onto
+        rendered paths.
+
+        Args:
+        pattern: An input or output pattern
+
+        Returns:
+        True if the pattern must be left for a later phase
+        """
+        from tasktree.template_refs import collect_template_refs
+
+        refs = collect_template_refs(pattern)
+        return any(refs[prefix] for prefix in ("dep", "self"))
+
+    @staticmethod
     def _render_runner_field(text: str, builtin_vars: dict[str, str]) -> str:
         """
         Render a runner or interpreter field against the runner context.
@@ -1588,11 +1672,18 @@ class Executor:
         all_inputs = []
         for inp in task.inputs:
             if isinstance(inp, str):
-                all_inputs.append(inp)
+                all_inputs.append(self._render_pattern(inp, task, args_dict))
             elif isinstance(inp, dict):
                 # Named input - extract the path value(s)
-                all_inputs.extend(inp.values())
+                all_inputs.extend(
+                    self._render_pattern(path, task, args_dict)
+                    for path in inp.values()
+                )
 
+        # Implicit inputs are rendered by get_implicit_inputs against each
+        # dependency's own invocation, not this task's: a dependency's output
+        # path may name the arguments it was called with. Rendering them here
+        # would use the wrong arguments.
         implicit_inputs = get_implicit_inputs(self.recipe, task, args_dict)
         all_inputs.extend(implicit_inputs)
         return all_inputs
