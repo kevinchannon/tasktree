@@ -230,5 +230,48 @@ class TestInheritedDependencyPatterns(PatternRenderingTestCase):
         self.assert_tracks_its_inputs()
 
 
+class TestNothingIsRenderedTwice(PatternRenderingTestCase):
+    """
+    A path is data by the time it reaches a command: whatever a variable
+    evaluated to has to arrive literally, even when it happens to look
+    like a template.
+
+    Slice 10b achieved this for the *injection* step -- a path now reaches
+    the command through the render context rather than being substituted
+    into the command text beforehand, which is covered at unit level by
+    ``TestSelfNamespaceRendering`` in ``tests/unit/test_executor.py``.
+    End to end it is still wrong, and for a different reason: the
+    parse-time substitution pass writes variable *values* into the pattern
+    text, and slice 10a renders patterns, so the value is rendered on its
+    way through. Only deleting that pass (slice 10d) closes it.
+
+    Kept as a running gate rather than a note in the plan: it fails for the
+    exact reason 10d exists, and an unexpected pass means 10d has landed
+    and the marker should come off.
+    """
+
+    @unittest.expectedFailure
+    def test_a_variable_value_containing_a_template_stays_literal(self):
+        """
+        The value arrives from the environment, so it is data and never a
+        template: a recipe-literal spelling would be rendered once on its
+        way in and prove nothing.
+        """
+        self.write_recipe(
+            "variables:\n"
+            "  braced: { env: TT_BRACED }\n"
+            "tasks:\n  build:\n"
+            "    inputs:\n"
+            '      - src: "{{ var.braced }}"\n'
+            "    outputs: [out.txt]\n"
+            "    cmd: echo {{ self.inputs.src }} > out.txt\n"
+        )
+        result, output = self.run_task(env={"TT_BRACED": "{{ oops }}"})
+        self.assert_ran(output, result)
+        self.assertEqual(
+            (self.project_root / "out.txt").read_text().strip(), "{{ oops }}"
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

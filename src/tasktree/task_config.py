@@ -145,11 +145,17 @@ class _FieldNamespace:
 
     def _by_name(self, name: str) -> str:
         if name not in self._named:
-            available = ", ".join(self._named) if self._named else "(none)"
+            available = (
+                ", ".join(self._named)
+                if self._named
+                else f"(none - all {self._field} are anonymous)"
+            )
             raise ValueError(
                 f"Task '{self._task_name}' references {self._singular} '{name}' "
                 f"but has no {self._singular} named '{name}'.\n"
-                f"Available named {self._field}: {available}"
+                f"Available named {self._field}: {available}\n"
+                f"Hint: Define named {self._field} like: "
+                f"{self._field}: [{{ {name}: 'path/to/file' }}]"
             )
         return self._named[name]
 

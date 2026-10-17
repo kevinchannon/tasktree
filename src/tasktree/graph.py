@@ -388,6 +388,39 @@ def resolve_dependency_output_references(
                 resolved_tasks,
             )
 
+        # Resolve output references in inputs. A dependency's output is a
+        # perfectly ordinary thing to declare as an input -- it gives the
+        # path a name to use as {{ self.inputs.<name> }} -- and the pattern
+        # is matched against the filesystem, so it has to name a real path
+        # by the time the freshness check runs.
+        resolved_inputs = []
+        for input_item in task.inputs:
+            if isinstance(input_item, str):
+                resolved_inputs.append(
+                    substitute_dependency_outputs(
+                        input_item,
+                        task_name,
+                        dep_task_names,
+                        resolved_tasks,
+                    )
+                )
+            elif isinstance(input_item, dict):
+                # Named input: resolve the path value
+                resolved_inputs.append(
+                    {
+                        name: substitute_dependency_outputs(
+                            path,
+                            task_name,
+                            dep_task_names,
+                            resolved_tasks,
+                        )
+                        for name, path in input_item.items()
+                    }
+                )
+            else:
+                resolved_inputs.append(input_item)
+        task.inputs = resolved_inputs
+
         # Resolve output references in outputs
         resolved_outputs = []
         for output in task.outputs:
@@ -446,6 +479,11 @@ def resolve_self_references(
     inputs/outputs. Supports both named access ({{ self.inputs.name }}) and
     positional access ({{ self.inputs.0 }}, {{ self.inputs.1 }}, etc.).
 
+    Only argument defaults are resolved here. They are converted to their
+    declared types while the CLI is still assembling arguments, before any
+    task render, so they cannot wait for the renderer the way cmd and
+    working_dir now do (slice 10c moves them).
+
     Must be called AFTER resolve_dependency_output_references() so that
     dependency outputs are already resolved in output paths.
 
@@ -469,27 +507,11 @@ def resolve_self_references(
         if task is None:
             continue
 
-        # Resolve self-references in command
-        if task.cmd:
-            task.cmd = substitute_self_references(
-                task.cmd,
-                task_name,
-                task._input_map,
-                task._output_map,
-                task._indexed_inputs,
-                task._indexed_outputs,
-            )
-
-        # Resolve self-references in working_dir
-        if task.working_dir:
-            task.working_dir = substitute_self_references(
-                task.working_dir,
-                task_name,
-                task._input_map,
-                task._output_map,
-                task._indexed_inputs,
-                task._indexed_outputs,
-            )
+        # cmd and working_dir are not resolved here: the executor renders
+        # them with the self namespace in scope, against paths that are
+        # already rendered. Substituting them textually first would inject
+        # an unrendered path into text that is about to be rendered, so a
+        # value containing a template would be executed as one.
 
         # Resolve self-references in argument defaults
         if task.args:

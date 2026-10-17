@@ -3717,11 +3717,14 @@ class TestPatternRendering(unittest.TestCase):
             "build/release/app",
         )
 
-    def test_leaves_a_dependency_reference_for_its_own_pass(self):
+    def test_a_dependency_reference_should_already_be_resolved(self):
         """
-        A dep reference resolves against the dependency's invocation, which
-        this phase knows nothing about, so the pattern must survive it
-        untouched rather than failing to render.
+        Dependency references are resolved before patterns are rendered, by
+        resolve_dependency_output_references, which reads them against the
+        dependency's own invocation. One still here by rendering time is
+        not a pattern this phase can defer -- it means that pass did not
+        run or did not cover the field, so it is reported rather than
+        silently matching nothing.
         """
         task = Task(
             name="process",
@@ -3731,10 +3734,10 @@ class TestPatternRendering(unittest.TestCase):
         )
         executor = self._executor(task)
 
-        self.assertEqual(
-            executor._render_pattern(task.inputs[0], task),
-            "{{ dep.generate.outputs.data }}",
-        )
+        with self.assertRaises(ValueError) as cm:
+            executor._render_pattern(task.inputs[0], task)
+
+        self.assertIn("generate", str(cm.exception))
 
     def test_leaves_a_self_reference_for_its_own_pass(self):
         task = Task(
@@ -3772,3 +3775,101 @@ class TestPatternRendering(unittest.TestCase):
         self.assertEqual(
             executor._expand_output_paths(task), ["build/app", "build/app.pdb"]
         )
+
+
+class TestSelfNamespaceRendering(unittest.TestCase):
+    """
+    A task's own inputs and outputs reach its command through the render
+    context (schema pipeline slice 10b), not by being substituted into the
+    command text beforehand. The paths go in rendered, and whatever they
+    contain arrives literally.
+    """
+
+    def _executor(self, task: Task, variables: dict[str, str] | None = None):
+        project_root = Path(tempfile.gettempdir())
+        recipe = Recipe(
+            tasks={task.name: task},
+            project_root=project_root,
+            recipe_path=project_root / "tasktree.yaml",
+        )
+        recipe.evaluated_variables = variables or {}
+        return Executor(
+            recipe, StateManager(project_root), logger_stub, make_process_runner
+        )
+
+    def _render(self, executor: Executor, task: Task, text: str) -> str:
+        return executor._render_field(
+            text, {}, {}, set(), task.name, executor._rendered_self_maps(task)
+        )
+
+    def test_self_maps_hold_rendered_paths(self):
+        task = Task(
+            name="build",
+            cmd="echo hi",
+            inputs=[{"src": "{{ var.dir | lower }}/a.c"}],
+            outputs=["{{ var.dir | lower }}/a.o"],
+        )
+        executor = self._executor(task, {"dir": "SRC"})
+
+        maps = executor._rendered_self_maps(task)
+
+        self.assertEqual(maps["inputs_named"], {"src": "src/a.c"})
+        self.assertEqual(maps["inputs_indexed"], ["src/a.c"])
+        self.assertEqual(maps["outputs_indexed"], ["src/a.o"])
+
+    def test_named_and_positional_references_resolve(self):
+        task = Task(
+            name="copy",
+            cmd="cp {{ self.inputs.src }} {{ self.outputs.0 }}",
+            inputs=[{"src": "in.txt"}],
+            outputs=["out.txt"],
+        )
+        executor = self._executor(task)
+
+        self.assertEqual(
+            self._render(executor, task, task.cmd), "cp in.txt out.txt"
+        )
+
+    def test_a_path_containing_a_template_arrives_literally(self):
+        """
+        The property the textual pass could not have: a path is data by the
+        time it is injected, so a value that happens to look like a
+        template is not rendered a second time and executed.
+        """
+        task = Task(
+            name="build",
+            cmd="echo {{ self.inputs.src }}",
+            inputs=[{"src": "{{ env.TT_BRACED }}"}],
+        )
+        executor = self._executor(task)
+
+        with patch.dict(os.environ, {"TT_BRACED": "{{ oops }}"}):
+            self.assertEqual(
+                self._render(executor, task, task.cmd), "echo {{ oops }}"
+            )
+
+    def test_an_unknown_name_names_the_alternatives(self):
+        task = Task(
+            name="build",
+            cmd="cp {{ self.inputs.missing }}",
+            inputs=[{"src": "file.txt"}],
+        )
+        executor = self._executor(task)
+
+        with self.assertRaises(ValueError) as cm:
+            self._render(executor, task, task.cmd)
+
+        message = str(cm.exception)
+        self.assertIn("missing", message)
+        self.assertIn("src", message)
+
+    def test_an_anonymous_only_task_says_so(self):
+        task = Task(
+            name="build", cmd="cp {{ self.inputs.src }}", inputs=["file.txt"]
+        )
+        executor = self._executor(task)
+
+        with self.assertRaises(ValueError) as cm:
+            self._render(executor, task, task.cmd)
+
+        self.assertIn("anonymous", str(cm.exception))

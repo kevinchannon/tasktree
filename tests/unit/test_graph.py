@@ -418,9 +418,12 @@ class TestResolveSelfReferences(unittest.TestCase):
     Test resolve_self_references function.
     """
 
-    def test_resolve_self_references_in_command(self):
+    def test_leaves_the_command_for_the_renderer(self):
         """
-        Test that self-references in cmd field are resolved.
+        cmd is rendered by the executor with the self namespace in scope,
+        against paths that are already rendered. Substituting it here would
+        inject an unrendered path into text about to be rendered, so a
+        value containing a template would be executed as one.
         """
         task = Task(
             name="copy",
@@ -432,16 +435,14 @@ class TestResolveSelfReferences(unittest.TestCase):
         recipe = Recipe(
             tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml")
         )
-        ordered_tasks = [("copy", None)]
 
-        resolve_self_references(recipe, ordered_tasks)
+        resolve_self_references(recipe, [("copy", None)])
 
-        self.assertEqual(task.cmd, "cp input.txt output.txt")
+        self.assertEqual(
+            task.cmd, "cp {{ self.inputs.src }} {{ self.outputs.dest }}"
+        )
 
-    def test_resolve_self_references_in_working_dir(self):
-        """
-        Test that self-references in working_dir field are resolved.
-        """
+    def test_leaves_the_working_dir_for_the_renderer(self):
         task = Task(
             name="build",
             cmd="make",
@@ -452,11 +453,29 @@ class TestResolveSelfReferences(unittest.TestCase):
         recipe = Recipe(
             tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml")
         )
-        ordered_tasks = [("build", None)]
 
-        resolve_self_references(recipe, ordered_tasks)
+        resolve_self_references(recipe, [("build", None)])
 
-        self.assertEqual(task.working_dir, "myproject/build")
+        self.assertEqual(task.working_dir, "{{ self.inputs.project }}/build")
+
+    def test_does_not_validate_a_command_it_no_longer_resolves(self):
+        """
+        A bad self-reference in cmd is reported when the task renders, not
+        when the order is resolved, so this pass must not raise on it.
+        """
+        task = Task(
+            name="build",
+            cmd="cp {{ self.inputs.missing }}",
+            inputs=[{"src": "file.txt"}],
+        )
+        tasks = {"build": task}
+        recipe = Recipe(
+            tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml")
+        )
+
+        resolve_self_references(recipe, [("build", None)])
+
+        self.assertEqual(task.cmd, "cp {{ self.inputs.missing }}")
 
     def test_resolve_self_references_in_arg_defaults(self):
         """
@@ -481,69 +500,52 @@ class TestResolveSelfReferences(unittest.TestCase):
         # Check that the default was resolved
         self.assertEqual(task.args[0]["target"]["default"], "dist/app.js")
 
-    def test_resolve_self_references_multiple_tasks(self):
+    def test_resolves_every_task_in_the_order(self):
         """
-        Test that self-references are resolved for multiple tasks.
+        Argument defaults are what this pass still resolves, so they are
+        what shows that it visits each task rather than only the first.
         """
         task1 = Task(
             name="task1",
-            cmd="process {{ self.inputs.in1 }}",
+            cmd="process",
             inputs=[{"in1": "file1.txt"}],
+            args=[{"target": {"default": "{{ self.inputs.in1 }}"}}],
         )
         task2 = Task(
             name="task2",
-            cmd="process {{ self.inputs.in2 }}",
+            cmd="process",
             inputs=[{"in2": "file2.txt"}],
+            args=[{"target": {"default": "{{ self.inputs.in2 }}"}}],
         )
         tasks = {"task1": task1, "task2": task2}
         recipe = Recipe(
             tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml")
         )
-        ordered_tasks = [("task1", None), ("task2", None)]
 
-        resolve_self_references(recipe, ordered_tasks)
+        resolve_self_references(recipe, [("task1", None), ("task2", None)])
 
-        self.assertEqual(task1.cmd, "process file1.txt")
-        self.assertEqual(task2.cmd, "process file2.txt")
+        self.assertEqual(task1.args[0]["target"]["default"], "file1.txt")
+        self.assertEqual(task2.args[0]["target"]["default"], "file2.txt")
 
-    def test_resolve_self_references_no_refs(self):
+    def test_an_error_in_an_argument_default_still_propagates(self):
         """
-        Test that tasks without self-references are unchanged.
+        Argument defaults are converted to their declared types before any
+        render, so this pass still owns them -- and still owns reporting a
+        bad reference in one.
         """
         task = Task(
             name="build",
-            cmd="make build",
-            inputs=["src/**/*.c"],
-            outputs=["bin/app"],
+            cmd="build",
+            inputs=[{"src": "file.txt"}],
+            args=[{"target": {"default": "{{ self.inputs.missing }}"}}],
         )
         tasks = {"build": task}
         recipe = Recipe(
             tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml")
         )
-        ordered_tasks = [("build", None)]
-
-        resolve_self_references(recipe, ordered_tasks)
-
-        # Command should be unchanged
-        self.assertEqual(task.cmd, "make build")
-
-    def test_resolve_self_references_error_propagates(self):
-        """
-        Test that validation errors from substitute_self_references propagate.
-        """
-        task = Task(
-            name="build",
-            cmd="cp {{ self.inputs.missing }}",  # Reference to non-existent input
-            inputs=[{"src": "file.txt"}],  # Only has 'src', not 'missing'
-        )
-        tasks = {"build": task}
-        recipe = Recipe(
-            tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml")
-        )
-        ordered_tasks = [("build", None)]
 
         with self.assertRaises(ValueError) as cm:
-            resolve_self_references(recipe, ordered_tasks)
+            resolve_self_references(recipe, [("build", None)])
 
         error_msg = str(cm.exception)
         self.assertIn("missing", error_msg)

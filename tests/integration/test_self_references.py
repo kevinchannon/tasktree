@@ -1388,9 +1388,11 @@ class TestPositionalSelfReferences(unittest.TestCase):
                     result.exit_code, 0, "Task should fail when no inputs exist"
                 )
 
-                # Check error message
-                output = strip_ansi_codes(result.output)
-                self.assertIn("inputs defined", output.lower())
+                # Check error message. Collapsed whitespace: the message
+                # is wrapped to the terminal, and where it breaks is not
+                # what this test is about.
+                output = " ".join(strip_ansi_codes(result.output).lower().split())
+                self.assertIn("inputs defined", output)
             finally:
                 os.chdir(original_cwd)
 

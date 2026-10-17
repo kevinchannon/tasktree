@@ -1056,8 +1056,14 @@ class Executor:
         # Resolve working directory
         # Validate that working_dir doesn't contain {{ tt.working_dir }} (circular dependency)
         self._validate_no_working_dir_circular_ref(task.working_dir)
+        self_maps = self._rendered_self_maps(task, args_dict)
         working_dir_str = self._render_field(
-            task.working_dir, early_builtin_vars, regular_args, exported_args, task.name
+            task.working_dir,
+            early_builtin_vars,
+            regular_args,
+            exported_args,
+            task.name,
+            self_maps,
         )
         working_dir = self.recipe.project_root / working_dir_str
 
@@ -1070,7 +1076,7 @@ class Executor:
         # Variables (var.*), dependency outputs (dep.*) and self-references (self.*)
         # were already resolved in earlier phases, so only tt/arg/env remain here.
         cmd = self._render_field(
-            task.cmd, builtin_vars, regular_args, exported_args, task.name
+            task.cmd, builtin_vars, regular_args, exported_args, task.name, self_maps
         )
 
         # Resolve the execution environment (runner + interpreter) once; the
@@ -1475,13 +1481,15 @@ class Executor:
         regular_args: dict[str, Any],
         exported_args: set[str] | None,
         task_name: str,
+        self_maps: dict[str, Any] | None = None,
     ) -> str:
         """
-        Render execution-time placeholders (tt.*, arg.*, env.*) in a field.
+        Render a task field against the namespaces available to it.
 
-        Variables (var.*), dependency outputs (dep.*) and self-references (self.*)
-        are resolved in earlier phases, so the only namespaces that remain at
-        execution time are built-ins, arguments and the environment.
+        Dependency outputs (dep.*) are resolved in an earlier phase, so what
+        remains at execution time is built-ins, arguments, the environment,
+        variables, and -- for fields given self_maps -- the task's own
+        inputs and outputs.
 
         Args:
         text: Field text containing remaining {{ ... }} placeholders
@@ -1489,6 +1497,11 @@ class Executor:
         regular_args: Non-exported argument values (the arg namespace)
         exported_args: Exported argument names (referencing one is an error)
         task_name: Current task name, used in error messages
+        self_maps: The task's own rendered inputs and outputs, as
+                   _rendered_self_maps returns them, for fields where
+                   {{ self.* }} is meaningful. Omitted for the patterns
+                   those maps are built from, which cannot refer to
+                   themselves.
 
         Returns:
         The rendered field text
@@ -1504,8 +1517,48 @@ class Executor:
             args=regular_args,
             exported_args=exported_args,
             builtins=builtin_vars,
+            task_name=task_name,
+            **(self_maps or {}),
         )
         return render(text, config, task_name=task_name)
+
+    def _rendered_self_maps(
+        self, task: Task, args_dict: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """
+        The task's own inputs and outputs, rendered, for the self namespace.
+
+        A self-reference puts one of the task's own paths into another of
+        its fields. The path has to go in rendered: it is data by the time
+        it lands, and a value that happens to contain a template -- an
+        env-sourced variable, say -- would otherwise be rendered a second
+        time and executed as one.
+
+        Args:
+        task: Task whose inputs and outputs form the namespace
+        args_dict: Argument values for this invocation
+
+        Returns:
+        Keyword arguments for build_task_config's self namespace
+        """
+        return {
+            "inputs_named": {
+                name: self._render_pattern(path, task, args_dict)
+                for name, path in task._input_map.items()
+            },
+            "inputs_indexed": [
+                self._render_pattern(path, task, args_dict)
+                for path in task._indexed_inputs
+            ],
+            "outputs_named": {
+                name: self._render_pattern(path, task, args_dict)
+                for name, path in task._output_map.items()
+            },
+            "outputs_indexed": [
+                self._render_pattern(path, task, args_dict)
+                for path in task._indexed_outputs
+            ],
+        }
 
     @staticmethod
     def _split_task_args(
@@ -1588,13 +1641,16 @@ class Executor:
         """
         Whether a pattern defers to a namespace resolved after this phase.
 
-        ``{{ dep.<task>.outputs.<name> }}`` and ``{{ self.* }}`` have their
-        own resolution passes, which read a dependency's outputs against
-        *that* dependency's invocation rather than this task's, so the
-        pattern renderer holds no values for them. Such a pattern is left
-        verbatim, exactly as it was before patterns rendered at all, and so
-        keeps matching nothing until slice 10b brings those passes onto
-        rendered paths.
+        ``{{ self.* }}`` names one of the task's own inputs or outputs, and
+        those are what this renderer is resolving: a pattern that refers to
+        the set it belongs to cannot be rendered without deciding an order
+        within it. Such a pattern is left verbatim, exactly as it was
+        before patterns rendered at all, so it keeps matching nothing
+        rather than becoming an error.
+
+        ``{{ dep.* }}`` is not deferred -- it is resolved before this point
+        by resolve_dependency_output_references, which reads the
+        dependency's outputs against that dependency's invocation.
 
         Args:
         pattern: An input or output pattern
@@ -1604,8 +1660,7 @@ class Executor:
         """
         from tasktree.template_refs import collect_template_refs
 
-        refs = collect_template_refs(pattern)
-        return any(refs[prefix] for prefix in ("dep", "self"))
+        return bool(collect_template_refs(pattern)["self"])
 
     @staticmethod
     def _render_runner_field(text: str, builtin_vars: dict[str, str]) -> str:
