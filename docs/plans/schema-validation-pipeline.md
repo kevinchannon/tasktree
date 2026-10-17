@@ -9,10 +9,13 @@
 > 2026-10-16 and split into **10a–10d**: tracing its consumers showed seven
 > of them rather than two, and `StrictUndefined` rules out swapping the pass
 > for a Jinja one in place, so rendering has to move to point of use.
-> **10a and 10b are done** (2026-10-17): every pattern on the freshness path
-> renders, and `self.*` reaches a command through the render context rather
-> than by injection into text that is about to be rendered. The parse-time
-> pass is still in place behind both, so nothing that worked before changed.
+> **10a, 10b and 10c are done** (2026-10-17): every pattern on the freshness
+> path renders; `self.*` reaches a command through the render context rather
+> than by injection into text about to be rendered; and descriptions and
+> argument specs render where they always were, since they cannot depend on
+> the invocation. Only **10d** is left — and it is now narrower than planned,
+> deleting the substitution of `cmd`, `working_dir`, `inputs` and `outputs`
+> rather than the whole pass.
 > **Slices 11 and 12** are the two defects the PR #212 review turned up,
 > promoted to slices so they can be scheduled. Recommended order:
 > 10a → 12 → 10b → 10c → 10d, with 11 droppable in anywhere.
@@ -1109,12 +1112,54 @@ found while re-planning make it bigger, and change its shape:
 
   **Gate run (2026-10-17):** unit 1539 passed, integration 336 passed +1
   xfailed, e2e 47 passed (Docker legs unrunnable here).
-- **10c — the consumers that stay outside the loop.** Render arg
-  defaults/min/max/choices before Click conversion, and `desc`/`inputs` at
-  display time, each with the var/env/tt-host context. `_substitute_args`'
-  docstring (`executor.py:1557`) currently *asserts* the parse-time pass
-  has already run; that comment is load-bearing documentation and must be
-  corrected here.
+- **10c — the fields that cannot wait for the point of use ✅ done
+  (2026-10-17).** `render_arg_spec` / `render_static_value` in `parser.py`
+  replace the regex pass over `desc` and the argument specs, **in the same
+  place**: these fields cannot name an argument — a description is printed
+  by `--list` with no invocation at all — so they do not need point-of-use
+  rendering, and one early render is the right shape for them.
+
+  **A correction to this plan.** It said to render these "at display time"
+  and "before Click conversion", i.e. to move them. They do not move;
+  only the mechanism changes. That also means **10d does not delete the
+  whole pass** — a narrowed, correctly-scoped static render stays. What 10d
+  deletes is the substitution of `cmd`, `working_dir`, `inputs` and
+  `outputs`.
+
+  Only `var.*` and `env.*` are resolved: a value naming anything else is
+  returned untouched rather than failing, since `self.*` in a default is
+  resolved later by `resolve_self_references` (which needs the task's
+  inputs) and `tt.*` values are not assembled until a task runs. Both reach
+  the command as text, exactly as before. Making those work is a separate
+  decision, not a side effect of this slice.
+
+  **Two findings:**
+  - **Templated `choices` have never worked, and not for a rendering
+    reason.** `_parse_arg_dict` validates default-against-choices while the
+    *recipe* is parsed, before variables are evaluated, so it compares a
+    rendered default with unrendered choices and rejects the recipe before
+    anything runs. Deferring that validation to the point of use belongs
+    with the validation pipeline, not here. Parked as a running
+    `expectedFailure` gate, `test_a_filter_in_a_choice_is_rendered`.
+  - **`Executor._substitute_args` is dead production code.** `_render_field`
+    superseded it; nothing in the package calls it and only its own three
+    unit tests keep it alive. Its docstring — which asserted that variables
+    are substituted at parse time, the stale claim this slice was meant to
+    correct — now says so instead. **Deliberately not deleted**: removing
+    code is a decision for Kevin, not a side effect of moving a renderer.
+  - Also corrected: the dependency-argument error told users "variables are
+    substituted at parse time", explaining a mechanism that is on its way
+    out rather than the reason. It now says a dependency argument passes a
+    value down from the calling task, so only that task's arguments are in
+    scope.
+
+  **`--show` is left alone deliberately.** It prints `task.inputs` as
+  stored, so while the pass survives it shows substituted text and after
+  10d it will show the templates. That is the better output for `--show`
+  and is 10d's to confirm, not a regression to pre-empt here.
+
+  **Gate run (2026-10-17):** unit 1546 passed, integration 338 passed +2
+  xfailed, e2e 47 passed (Docker legs unrunnable here).
 - **10d — delete the pass.** Remove the tail of `evaluate_variables`,
   update the two unit tests that assert parse-time substitution of
   `task.cmd`, and drop `substitute_variables` if 10a–10c leave it unused.
