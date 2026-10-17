@@ -263,7 +263,9 @@ def substitute_dependency_args(
                 f"Task '{parent_task_name}': dependency argument contains {{{{ var.{name} }}}}\n"
                 f"Template: {template_value}\n\n"
                 f"Variables ({{{{ var.* }}}}) are not allowed in dependency arguments.\n"
-                f"Variables are substituted at parse time, use them directly in task definitions.\n"
+                f"A dependency argument passes a value down from the calling task, so only\n"
+                f"that task's arguments are in scope here. Use the variable directly in the\n"
+                f"dependency's own definition instead.\n"
                 f"In dependency arguments, only {{{{ arg.* }}}} templates are supported."
             )
         elif prefix == "env":

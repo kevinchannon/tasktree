@@ -1693,8 +1693,11 @@ class Executor:
         """
         Substitute {{ arg.name }} placeholders in command string.
 
-        Variables are already substituted at parse time by the parser.
-        This only handles runtime argument substitution.
+        Superseded by _render_field, which resolves arguments along with
+        every other namespace. Nothing in the package calls this any more --
+        only its own unit tests do -- so it is kept for now rather than
+        removed in the middle of moving rendering about. Do not reach for it
+        in new code.
 
         Args:
         cmd: Command with {{ arg.name }} placeholders

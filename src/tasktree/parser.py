@@ -28,7 +28,7 @@ from tasktree.raw_merge import (
     prune_unreferenced_interpreters,
     prune_unreferenced_runners,
 )
-from tasktree.template_refs import collect_template_refs
+from tasktree.template_refs import TEMPLATE_PREFIXES, collect_template_refs
 
 
 # Pattern for extracting variable names from references (single capture group)
@@ -592,7 +592,7 @@ class Recipe:
                 continue
 
             task.cmd = substitute_variables(task.cmd, self.evaluated_variables)
-            task.desc = substitute_variables(task.desc, self.evaluated_variables)
+            task.desc = render_static_value(task.desc, self.evaluated_variables)
             task.working_dir = substitute_variables(
                 task.working_dir, self.evaluated_variables
             )
@@ -638,51 +638,11 @@ class Recipe:
             # Rebuild output maps after variable substitution
             task.__post_init__()
 
-            # Substitute in argument default values (handle both string and dict args)
-            resolved_args = []
-            for arg in task.args:
-                if isinstance(arg, str):
-                    resolved_args.append(
-                        substitute_variables(arg, self.evaluated_variables)
-                    )
-                elif isinstance(arg, dict):
-                    # Dict arg: substitute in nested values (like default values)
-                    resolved_dict = {}
-                    for arg_name, arg_spec in arg.items():
-                        if isinstance(arg_spec, dict):
-                            # Substitute in the nested dict values (e.g., default, help, choices)
-                            resolved_spec = {}
-                            for key, value in arg_spec.items():
-                                if isinstance(value, str):
-                                    resolved_spec[key] = substitute_variables(
-                                        value, self.evaluated_variables
-                                    )
-                                elif isinstance(value, list):
-                                    # Handle lists like 'choices'
-                                    resolved_spec[key] = [
-                                        (
-                                            substitute_variables(
-                                                v, self.evaluated_variables
-                                            )
-                                            if isinstance(v, str)
-                                            else v
-                                        )
-                                        for v in value
-                                    ]
-                                else:
-                                    resolved_spec[key] = value
-                            resolved_dict[arg_name] = resolved_spec
-                        else:
-                            # Simple value
-                            resolved_dict[arg_name] = (
-                                substitute_variables(arg_spec, self.evaluated_variables)
-                                if isinstance(arg_spec, str)
-                                else arg_spec
-                            )
-                    resolved_args.append(resolved_dict)
-                else:
-                    resolved_args.append(arg)
-            task.args = resolved_args
+            # Argument specs are rendered, not substituted: a default can
+            # carry a filter or a conditional like any other template.
+            task.args = [
+                render_arg_spec(arg, self.evaluated_variables) for arg in task.args
+            ]
 
         # Substitute evaluated variables into reachable runners only
         reachable_runner_names = self._collect_reachable_runners(reachable_tasks)
@@ -2532,6 +2492,84 @@ def _check_case_sensitive_arg_collisions(args: list[str], task_name: str) -> Non
                 )
         else:
             seen_lower[lower_name] = name
+
+
+_STATIC_RENDERABLE_PREFIXES = frozenset({"var", "env"})
+
+
+def render_static_value(value: Any, variables: dict[str, str]) -> Any:
+    """
+    Render one value of a field that cannot depend on the invocation.
+
+    A task's description, and the parts of an argument spec, are rendered
+    here -- early and once -- rather than at the point they are used.
+    Neither can name an argument: a description is printed by --list with no
+    invocation at all, and an argument default cannot refer to arguments.
+    Patterns are the opposite case, and render at the point of use.
+
+    Only ``var`` and ``env`` are available. A value naming anything else is
+    returned untouched rather than failing: ``self.*`` in a default is
+    resolved later by resolve_self_references, and ``tt.*`` would need
+    built-in values that are not assembled until a task runs. Both reach
+    the command as they stand, which is what they did before argument specs
+    rendered at all.
+
+    Args:
+    value: One value from an argument spec (default, min, max, a choice, ...)
+    variables: Evaluated recipe variables
+
+    Returns:
+    The rendered value, or the value unchanged if it is not a string or
+    names a namespace this phase cannot resolve
+    """
+    if not isinstance(value, str):
+        return value
+
+    refs = collect_template_refs(value)
+    if any(
+        refs[prefix]
+        for prefix in TEMPLATE_PREFIXES
+        if prefix not in _STATIC_RENDERABLE_PREFIXES
+    ):
+        return value
+
+    from tasktree.rendering import render
+    from tasktree.task_config import build_task_config
+
+    return render(value, build_task_config(variables=variables))
+
+
+def render_arg_spec(arg_spec: Any, variables: dict[str, str]) -> Any:
+    """
+    Render the templates in one argument spec.
+
+    Args:
+    arg_spec: An entry of a task's ``args`` list, in any of its shapes
+    variables: Evaluated recipe variables
+
+    Returns:
+    The spec with its string values rendered, as a new object; shapes that
+    hold no templates are returned as they are
+    """
+    if isinstance(arg_spec, str):
+        return render_static_value(arg_spec, variables)
+    if not isinstance(arg_spec, dict):
+        return arg_spec
+
+    rendered: dict[str, Any] = {}
+    for arg_name, details in arg_spec.items():
+        if isinstance(details, dict):
+            rendered[arg_name] = {
+                key: (
+                    [render_static_value(item, variables) for item in value]
+                    if isinstance(value, list)
+                    else render_static_value(value, variables)
+                )
+                for key, value in details.items()
+            }
+        else:
+            rendered[arg_name] = render_static_value(details, variables)
+    return rendered
 
 
 def parse_arg_spec(arg_spec: str | dict) -> ArgSpec:

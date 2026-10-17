@@ -273,5 +273,87 @@ class TestNothingIsRenderedTwice(PatternRenderingTestCase):
         )
 
 
+class TestTemplatesInArgumentSpecs(PatternRenderingTestCase):
+    """
+    An argument's default, bounds and choices are read and converted to the
+    argument's declared type while the CLI is still assembling arguments,
+    before any task renders -- so they cannot wait for the renderer the way
+    a command does (schema pipeline slice 10c).
+
+    They are invocation-independent, though: an argument default cannot
+    name an argument. So unlike a pattern, one render up front is the right
+    shape for them, and the old regex pass was in the right place -- just
+    unable to express anything but a bare {{ var.name }}.
+    """
+
+    def test_a_filter_in_an_argument_default_is_rendered(self):
+        self.write_recipe(
+            "variables:\n  tag: RELEASE\n"
+            "tasks:\n  build:\n"
+            "    args:\n"
+            '      - name: { default: "{{ var.tag | lower }}" }\n'
+            "    inputs: [srcdir/a.txt]\n"
+            "    outputs: [out.txt]\n"
+            "    cmd: echo {{ arg.name }} > out.txt\n"
+        )
+        result, output = self.run_task()
+        self.assert_ran(output, result)
+        self.assertEqual((self.project_root / "out.txt").read_text().strip(), "release")
+
+    @unittest.expectedFailure
+    def test_a_filter_in_a_choice_is_rendered(self):
+        """
+        Choices constrain the value, so an unrendered one rejects the very
+        default it was meant to allow.
+
+        Still failing, and not for a rendering reason: ``_parse_arg_dict``
+        validates default-against-choices while the *recipe* is parsed,
+        which is before variables are evaluated, so the check compares a
+        rendered default with unrendered choices and rejects the recipe
+        before anything can run. A template in a choice has therefore never
+        worked. Making it work means deferring that validation to the point
+        of use, which belongs with the validation pipeline rather than with
+        moving a renderer; kept as a running gate so it reports itself when
+        that lands.
+        """
+        self.write_recipe(
+            "variables:\n  tag: RELEASE\n"
+            "tasks:\n  build:\n"
+            "    args:\n"
+            "      - name:\n"
+            "          default: release\n"
+            '          choices: ["{{ var.tag | lower }}", debug]\n'
+            "    inputs: [srcdir/a.txt]\n"
+            "    outputs: [out.txt]\n"
+            "    cmd: echo {{ arg.name }} > out.txt\n"
+        )
+        result, output = self.run_task()
+        self.assert_ran(output, result)
+        self.assertEqual((self.project_root / "out.txt").read_text().strip(), "release")
+
+
+class TestTemplatesInDescriptions(PatternRenderingTestCase):
+    """
+    A description is printed by --list, where there is no invocation at
+    all, so it is the other clear case for rendering early and once rather
+    than at the point of use.
+    """
+
+    def test_a_filter_in_a_description_is_rendered(self):
+        self.write_recipe(
+            "variables:\n  product: TaskTree\n"
+            "tasks:\n  build:\n"
+            '    desc: "Builds {{ var.product | upper }}"\n'
+            "    inputs: [srcdir/a.txt]\n"
+            "    outputs: [out.txt]\n"
+            "    cmd: echo done > out.txt\n"
+        )
+        result = self.runner.invoke(app, ["--list"], env={"NO_COLOR": "1"})
+        output = strip_ansi_codes(result.stdout)
+
+        self.assertEqual(result.exit_code, 0, output)
+        self.assertIn("Builds TASKTREE", output)
+
+
 if __name__ == "__main__":
     unittest.main()

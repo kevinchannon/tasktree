@@ -30,6 +30,8 @@ from tasktree.parser import (
     parse_arg_spec,
     runner_from_config,
     parse_recipe,
+    render_arg_spec,
+    render_static_value,
 )
 from tasktree.interpreter import Interpreter
 
@@ -5697,3 +5699,65 @@ class TestRunnerTemplateRefsCheck(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestRenderStaticFields(unittest.TestCase):
+    """
+    Descriptions and argument specs cannot depend on the invocation, so
+    they are rendered early and once (schema pipeline slice 10c) rather
+    than at the point of use the way patterns are.
+    """
+
+    def test_renders_a_filter_in_a_default(self):
+        spec = {"name": {"default": "{{ var.tag | lower }}"}}
+
+        self.assertEqual(
+            render_arg_spec(spec, {"tag": "RELEASE"}),
+            {"name": {"default": "release"}},
+        )
+
+    def test_renders_each_choice(self):
+        spec = {"name": {"choices": ["{{ var.tag | lower }}", "debug"]}}
+
+        self.assertEqual(
+            render_arg_spec(spec, {"tag": "RELEASE"}),
+            {"name": {"choices": ["release", "debug"]}},
+        )
+
+    def test_leaves_values_that_are_not_strings(self):
+        spec = {"replicas": {"type": "int", "min": 1, "max": 100}}
+
+        self.assertEqual(render_arg_spec(spec, {}), spec)
+
+    def test_defers_a_self_reference_to_its_own_pass(self):
+        """
+        resolve_self_references still owns self.* in an argument default:
+        it needs the task's inputs, which this phase does not have.
+        """
+        spec = {"name": {"default": "{{ self.inputs.src }}"}}
+
+        self.assertEqual(render_arg_spec(spec, {}), spec)
+
+    def test_defers_a_builtin_reference(self):
+        """
+        tt.* values are not assembled until a task runs, so a default
+        naming one is left exactly as it was before this phase rendered
+        anything -- it reaches the command as text.
+        """
+        spec = {"name": {"default": "{{ tt.project_root }}/out"}}
+
+        self.assertEqual(render_arg_spec(spec, {}), spec)
+
+    def test_renders_an_environment_reference(self):
+        spec = {"name": {"default": "{{ env.TT_TAG }}"}}
+
+        with patch.dict(os.environ, {"TT_TAG": "from-env"}):
+            self.assertEqual(
+                render_arg_spec(spec, {}), {"name": {"default": "from-env"}}
+            )
+
+    def test_renders_a_description(self):
+        self.assertEqual(
+            render_static_value("Builds {{ var.product | upper }}", {"product": "tt"}),
+            "Builds TT",
+        )
