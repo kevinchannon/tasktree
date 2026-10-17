@@ -9,9 +9,10 @@
 > 2026-10-16 and split into **10a–10d**: tracing its consumers showed seven
 > of them rather than two, and `StrictUndefined` rules out swapping the pass
 > for a Jinja one in place, so rendering has to move to point of use.
-> **10a is done** (2026-10-17): every pattern on the freshness path now
-> renders, with the substitution pass still in place behind it, so nothing
-> that worked before changed.
+> **10a and 10b are done** (2026-10-17): every pattern on the freshness path
+> renders, and `self.*` reaches a command through the render context rather
+> than by injection into text that is about to be rendered. The parse-time
+> pass is still in place behind both, so nothing that worked before changed.
 > **Slices 11 and 12** are the two defects the PR #212 review turned up,
 > promoted to slices so they can be scheduled. Recommended order:
 > 10a → 12 → 10b → 10c → 10d, with 11 droppable in anywhere.
@@ -1055,18 +1056,59 @@ found while re-planning make it bigger, and change its shape:
   47 passed. The 21 Docker e2e tests cannot run on this machine — their
   fixture raises when no daemon is reachable — so CI's ubuntu leg is the
   only place they are covered for this slice.
-- **10b — self/dep resolution over rendered paths.** Make
-  `resolve_dependency_output_references` (`graph.py:333`) and
-  `resolve_self_references` (`substitution.py:411`) consume rendered paths,
-  so no variable value is ever re-rendered as a template. Test that a
-  variable whose value contains `{{ ... }}` survives a `self.outputs`
-  reference literally. **Inherits 10a's deferral**: once these passes run
-  on rendered paths, `Executor._resolved_after_patterns` and its early
-  return should be deleted, and a pattern like
-  `inputs: [{source: "{{ dep.generate.outputs.filename }}"}]` should then
-  match the file it names instead of matching nothing. Note it is currently
-  harmless only because such a dependency's outputs are implicit inputs
-  anyway, so the task still re-runs for the right reason by accident.
+- **10b — cross-task references stop injecting into unrendered text ✅ done
+  (2026-10-17).** `cmd` and `working_dir` render with the `self` namespace
+  in scope (`Executor._rendered_self_maps` feeds `build_task_config`'s
+  `inputs_named`/`indexed`/`outputs_*`, which existed and were simply
+  unused), against paths `_render_pattern` has already rendered. The
+  textual `self` substitution of those two fields is gone.
+
+  **The two halves interlock, so they landed in one commit.** Narrowing the
+  self pass alone breaks `tests/fixtures/self_ref_dep_resolved_before_self`:
+  `{{ self.inputs.source }}` yields the input's text, and that input is
+  `{{ dep.generate.outputs.filename }}`, which the command's render cannot
+  resolve. So dep references are now resolved in **input** patterns too —
+  `resolve_dependency_output_references` already covered `cmd`,
+  `working_dir` and `outputs`, and inputs were simply the gap. With that in
+  place the 10a deferral narrows from dep-and-self to **self alone**, which
+  is a correction to this plan: a self-reference in a pattern names the very
+  set the renderer is building, so it cannot be resolved without deciding an
+  order within that set. `_resolved_after_patterns` therefore survives
+  10b, narrowed, rather than being deleted.
+
+  **What 10b does *not* achieve, and why.** End to end, a variable value
+  containing `{{ ... }}` is still rendered twice: the parse-time pass writes
+  the value into the pattern text, and 10a renders patterns. Only 10d closes
+  that. The injection step itself is fixed and covered at unit level
+  (`TestSelfNamespaceRendering`, `tests/unit/test_executor.py`); the
+  end-to-end case is parked as a **running `expectedFailure` gate**,
+  `TestNothingIsRenderedTwice` in `tests/integration/test_pattern_rendering.py`.
+  An unexpected pass there means 10d has landed and the marker comes off.
+
+  **Behaviour changes to know about:**
+  - A bad self-reference in `cmd` is now reported when the task renders,
+    not when the execution order is resolved. It surfaces per task in
+    dependency order, which is what pipeline step 8 intends, but it means
+    earlier tasks in the order run first. `resolve_self_references`'s own
+    unit tests were restated to the narrower contract, and the behaviour
+    they covered is now tested on the executor.
+  - In `--only` mode a dep reference in an *input* now raises the same
+    "unknown task" error it already raised in `cmd`, since the pass runs
+    with only the invoked task in the order.
+  - `_FieldNamespace`'s "no such name" error gained the fuller wording of
+    the pass it replaces (`(none - all inputs are anonymous)` plus the
+    `Hint:` line), so error quality did not drop on the way across.
+
+  **Still textual, deliberately:** `resolve_self_references` keeps argument
+  defaults, and `resolve_dependency_output_references` keeps everything —
+  migrating `dep.*` to the render namespace would mean `_DepNamespace`
+  losing the pass's ability to tell "unknown task" from "not a dependency"
+  (pinned by `tests/integration/test_dependency_outputs.py:141`), and its
+  only behavioural payoff is blocked by the parse pass anyway. Fold it into
+  10d, where the pass goes.
+
+  **Gate run (2026-10-17):** unit 1539 passed, integration 336 passed +1
+  xfailed, e2e 47 passed (Docker legs unrunnable here).
 - **10c — the consumers that stay outside the loop.** Render arg
   defaults/min/max/choices before Click conversion, and `desc`/`inputs` at
   display time, each with the var/env/tt-host context. `_substitute_args`'
