@@ -1126,12 +1126,25 @@ found while re-planning make it bigger, and change its shape:
   deletes is the substitution of `cmd`, `working_dir`, `inputs` and
   `outputs`.
 
-  Only `var.*` and `env.*` are resolved: a value naming anything else is
-  returned untouched rather than failing, since `self.*` in a default is
-  resolved later by `resolve_self_references` (which needs the task's
-  inputs) and `tt.*` values are not assembled until a task runs. Both reach
-  the command as text, exactly as before. Making those work is a separate
-  decision, not a side effect of this slice.
+  `var.*`, `env.*` and the task-independent `tt.*` builtins are resolved
+  (the `tt` half added 2026-10-18, Kevin's call, after probing showed that
+  a default naming `{{ tt.project_root }}` reached the shell as that
+  literal text — a silent wrong answer, present since before this branch).
+  `host_builtin_variables` in `parser.py` is now the single definition of
+  those values, shared with `Executor._collect_early_builtin_variables`,
+  which adds the three only a running task can supply. Descriptions and
+  argument specs also get `tt.task_name`, since unlike a runner definition
+  they belong to one known task.
+
+  **Refused here, with an error naming what is allowed** (following the
+  runner restriction's pattern): `tt.working_dir`, which is resolved during
+  execution and may itself name an argument; and `tt.timestamp` /
+  `tt.timestamp_unix`, which would change the task's arguments on every run
+  and so re-run it every time. Passing them through, as before, means
+  handing the shell a literal and calling it success.
+
+  A value naming `arg.*`, `dep.*` or `self.*` is still returned untouched —
+  see the `self.*` analysis below.
 
   **Two findings:**
   - **Templated `choices` have never worked, and not for a rendering
@@ -1141,12 +1154,12 @@ found while re-planning make it bigger, and change its shape:
     anything runs. Deferring that validation to the point of use belongs
     with the validation pipeline, not here. Parked as a running
     `expectedFailure` gate, `test_a_filter_in_a_choice_is_rendered`.
-  - **`Executor._substitute_args` is dead production code.** `_render_field`
-    superseded it; nothing in the package calls it and only its own three
-    unit tests keep it alive. Its docstring — which asserted that variables
-    are substituted at parse time, the stale claim this slice was meant to
-    correct — now says so instead. **Deliberately not deleted**: removing
-    code is a decision for Kevin, not a side effect of moving a renderer.
+  - **`Executor._substitute_args` was dead production code — deleted**
+    (Kevin's call, 2026-10-18). A two-line wrapper round
+    `substitute_arguments` that `_render_field` had superseded; nothing in
+    the package called it and only its own three unit tests kept it looking
+    alive. `substitute_arguments` itself stays (graph.py, substitution.py),
+    with its own tests.
   - Also corrected: the dependency-argument error told users "variables are
     substituted at parse time", explaining a mechanism that is on its way
     out rather than the reason. It now says a dependency argument passes a
@@ -1176,6 +1189,45 @@ raw or the rendered form.
 small but gated on all three. Two to three sessions in total, full pyramid
 per increment, and it is a freshness-path change — so it wants its own
 session and should not be squeezed into the tail of another slice.
+
+### Slice 10e — an ordered resolver for a task's own fields (proposed)
+Raised by Kevin on 2026-10-18, asking whether `self.*` in an argument
+default could be supported for the acyclic cases. It can, but the cycle is
+not the one it looks like.
+
+**The cycle does not run input-to-input.** Resolving `self.inputs.src` in an
+argument default needs input `src` *rendered*; rendering a pattern needs the
+argument values; the argument values need their defaults. So the loop is
+**default → pattern → arg → default**. Two distinct families exist:
+
+1. `self.*` in an **argument default**, blocked by that loop.
+2. `self.*` in a **pattern** (`inputs: [b: "{{ self.inputs.a }}.bak"]`),
+   blocked because a pattern would name the very set being rendered. This is
+   what `_resolved_after_patterns` defers today.
+
+**The acyclic subset is larger than first described.** An earlier note in
+this plan said `self.*` in a default could only work when the referenced
+pattern has no `arg.*` references. That is too pessimistic: with resolution
+in dependency order, `args: [target: {default: "{{ self.inputs.src }}"}]`
+plus `inputs: [src: "build/{{ arg.config }}/x"]` resolves fine as long as
+`config`'s own default does not reference `self.*` — resolve `config`,
+render `src`, then resolve `target`. Only a genuine loop is unresolvable.
+
+**Shape of the work.** A small resolver over one task's own fields: nodes
+are each argument default, each named and indexed input, and each named and
+indexed output; edges come from the `self.*` and `arg.*` references in each;
+topologically sort, resolve in that order, and report a cycle as an error
+naming the loop. `graphlib.TopologicalSorter` is already a project
+dependency and already used for the task graph, so the machinery exists.
+
+**Why it is worth its own slice.** It closes *both* deferrals with one
+mechanism, and family 2 is what finally deletes `_resolved_after_patterns`
+and the arg-defaults branch of `resolve_self_references`. It wants to land
+**after 10d**, so it is built against patterns that no longer have variable
+values substituted into them.
+
+**Sizing**: one session for the resolver and its unit tests, plus a second
+pass to retire the two deferrals it replaces.
 
 ### Slice 11 — host runners never render their fields
 Found while reviewing PR #212. `_substitute_builtin_in_runner` is called
