@@ -100,13 +100,24 @@ def execute_dynamic_task(
                 logger.info(f"  - {name}")
         raise typer.Exit(1)
 
-    # Parse task arguments
-    args_dict = parse_task_args(logger, task.args, task_args)
-
-    # Create executor and state manager
+    # Create executor and state manager. Built before the arguments are
+    # parsed because an argument default may name one of the task's own
+    # inputs, and rendering that pattern is the executor's job.
     state = StateManager(recipe.project_root, logger)
     state.load()
     executor = Executor(recipe, state, logger, make_process_runner)
+
+    # Parse task arguments
+    def resolve_specs(parsed_specs, given_args):
+        return executor.resolve_arg_specs(task, parsed_specs, given_args)
+
+    try:
+        args_dict = parse_task_args(
+            logger, task.args, task_args, resolve_specs=resolve_specs
+        )
+    except ValueError as e:
+        logger.error(f"[red]Error in task arguments: {e}[/red]")
+        raise typer.Exit(1)
 
     # Resolve execution order to determine which tasks will actually run
     # This is important for correct state pruning after template substitution

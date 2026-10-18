@@ -3814,3 +3814,108 @@ class TestSelfNamespaceRendering(unittest.TestCase):
             self._render(executor, task, task.cmd)
 
         self.assertIn("anonymous", str(cm.exception))
+
+
+class TestResolveArgSpecs(unittest.TestCase):
+    """
+    Argument defaults that name one of the task's own inputs are settled
+    after the patterns are rendered, and the patterns are rendered against
+    the arguments that are already known (schema pipeline slice 10e).
+    """
+
+    def _executor(self, task: Task):
+        project_root = Path(tempfile.gettempdir())
+        recipe = Recipe(
+            tasks={task.name: task},
+            project_root=project_root,
+            recipe_path=project_root / "tasktree.yaml",
+        )
+        recipe.evaluated_variables = {}
+        return Executor(
+            recipe, StateManager(project_root), logger_stub, make_process_runner
+        )
+
+    def _specs(self, task: Task):
+        from tasktree.parser import parse_arg_spec
+
+        return [parse_arg_spec(spec) for spec in task.args]
+
+    def test_specs_naming_nothing_are_returned_untouched(self):
+        task = Task(
+            name="build", cmd="echo hi", args=[{"config": {"default": "debug"}}]
+        )
+        executor = self._executor(task)
+        specs = self._specs(task)
+
+        self.assertIs(executor.resolve_arg_specs(task, specs, {}), specs)
+
+    def test_a_default_naming_an_input_is_resolved(self):
+        task = Task(
+            name="build",
+            cmd="echo hi",
+            args=[{"target": {"default": "{{ self.inputs.src }}"}}],
+            inputs=[{"src": "srcdir/a.txt"}],
+        )
+        executor = self._executor(task)
+
+        resolved = executor.resolve_arg_specs(task, self._specs(task), {})
+
+        self.assertEqual(resolved[0].default, "srcdir/a.txt")
+
+    def test_the_pattern_sees_the_argument_that_was_given(self):
+        """
+        Not the default it replaced: the given value is settled first, which
+        is the whole reason the work is staged.
+        """
+        task = Task(
+            name="build",
+            cmd="echo hi",
+            args=[
+                {"config": {"default": "debug"}},
+                {"target": {"default": "{{ self.inputs.src }}"}},
+            ],
+            inputs=[{"src": "srcdir/{{ arg.config }}.txt"}],
+        )
+        executor = self._executor(task)
+
+        resolved = executor.resolve_arg_specs(
+            task, self._specs(task), {"config": "release"}
+        )
+
+        self.assertEqual(resolved[1].default, "srcdir/release.txt")
+
+    def test_a_loop_through_an_argument_is_reported(self):
+        task = Task(
+            name="build",
+            cmd="echo hi",
+            args=[{"target": {"default": "{{ self.inputs.src }}"}}],
+            inputs=[{"src": "srcdir/{{ arg.target }}.txt"}],
+        )
+        executor = self._executor(task)
+
+        with self.assertRaises(ValueError) as cm:
+            executor.resolve_arg_specs(task, self._specs(task), {})
+
+        message = str(cm.exception)
+        self.assertIn("target", message)
+        self.assertIn("build", message)
+
+    def test_a_missing_argument_is_left_to_the_ordinary_report(self):
+        """
+        A pattern naming an argument that has no value and no default is
+        not a loop; the familiar "missing required argument" is the better
+        error, so the specs come back untouched for it to be reached.
+        """
+        task = Task(
+            name="build",
+            cmd="echo hi",
+            args=[
+                {"needed": {}},
+                {"target": {"default": "{{ self.inputs.src }}"}},
+            ],
+            inputs=[{"src": "srcdir/{{ arg.needed }}.txt"}],
+        )
+        executor = self._executor(task)
+        specs = self._specs(task)
+
+        self.assertIs(executor.resolve_arg_specs(task, specs, {}), specs)

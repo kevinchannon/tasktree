@@ -26,7 +26,7 @@ from tasktree.graph import (
 )
 from tasktree.hasher import hash_args, hash_task, make_cache_key
 from tasktree.logging import Logger, LogLevel
-from tasktree.parser import DockerArgs, Recipe, Task, Runner, HostRunner, ContainerisedRunner, NixRunner, platform_default_interpreter, container_default_interpreter, nix_default_interpreter
+from tasktree.parser import ArgSpec, DockerArgs, Recipe, Task, Runner, HostRunner, ContainerisedRunner, NixRunner, platform_default_interpreter, container_default_interpreter, nix_default_interpreter
 from tasktree.interpreter import Interpreter
 from tasktree.process_runner import ProcessRunner, TaskOutputTypes
 from tasktree.state import StateManager, TaskState
@@ -1618,6 +1618,139 @@ class Executor:
             task.name,
             self._rendered_self_maps(task, args_dict),
         )
+
+    @staticmethod
+    def _spec_templates(spec: ArgSpec) -> list[str]:
+        """The string values of one argument spec that may hold templates."""
+        values = [spec.default, spec.min_val, spec.max_val]
+        values += list(spec.choices or ())
+        return [value for value in values if isinstance(value, str)]
+
+    def _spec_names_self(self, spec: ArgSpec) -> bool:
+        """Whether an argument spec names one of the task's own patterns."""
+        from tasktree.template_refs import collect_template_refs
+
+        return any(
+            collect_template_refs(value)["self"]
+            for value in self._spec_templates(spec)
+        )
+
+    def _pattern_args(self, task: Task) -> set[str]:
+        """The arguments the task's own patterns name."""
+        from tasktree.template_refs import collect_template_refs
+
+        named: set[str] = set()
+        for pattern in self._own_pattern_texts(task):
+            named |= {
+                reference.split(".")[0]
+                for reference in collect_template_refs(pattern)["arg"]
+            }
+        return named
+
+    @staticmethod
+    def _own_pattern_texts(task: Task) -> list[str]:
+        """Every input and output pattern of a task, as text."""
+        texts = []
+        for pattern in list(task.inputs) + list(task.outputs):
+            if isinstance(pattern, dict):
+                texts += [v for v in pattern.values() if isinstance(v, str)]
+            elif isinstance(pattern, str):
+                texts.append(pattern)
+        return texts
+
+    def resolve_arg_specs(
+        self, task: Task, parsed_specs: list[ArgSpec], given_args: dict[str, Any]
+    ) -> list[ArgSpec]:
+        """
+        Settle the argument defaults that name one of the task's own inputs.
+
+        This is the only order that can work. Resolving such a default needs
+        the pattern rendered; rendering a pattern may need argument values;
+        and those come from the defaults. So the arguments that were given
+        on the command line and the defaults that name no self-reference are
+        settled first, the patterns are rendered against those, and the
+        remaining defaults are settled last.
+
+        A pattern that names an argument still waiting on its own default is
+        a genuine loop, and is reported as one.
+
+        Args:
+        task: The task whose arguments these are
+        parsed_specs: The task's parsed argument specifications
+        given_args: The values supplied on the command line, by name
+
+        Returns:
+        The specs, with the self-references in their values resolved. The
+        list is returned unchanged when none of them names a self-reference,
+        and when an argument a pattern needs has no value yet for a reason
+        other than a loop -- the ordinary "missing required argument" report
+        is the better error there.
+
+        Raises:
+        ValueError: If a pattern and an argument default wait on each other
+        """
+        from dataclasses import replace
+
+        pending = {spec.name for spec in parsed_specs if self._spec_names_self(spec)}
+        if not pending:
+            return parsed_specs
+
+        settled = dict(given_args)
+        for spec in parsed_specs:
+            if spec.name in settled or spec.name in pending:
+                continue
+            if spec.default is not None:
+                settled[spec.name] = spec.default
+
+        needed = self._pattern_args(task)
+        in_a_loop = sorted(needed & pending)
+        if in_a_loop:
+            waiting = ", ".join(in_a_loop)
+            raise ValueError(
+                f"Task '{task.name}': argument '{in_a_loop[0]}' has a default that "
+                f"names one of the task's own inputs or outputs, and one of those "
+                f"patterns names '{in_a_loop[0]}' in turn, so neither can be "
+                f"resolved first (waiting on: {waiting}). Write one of them out in "
+                f"full."
+            )
+        if needed - settled.keys():
+            return parsed_specs
+
+        self_maps = self._rendered_self_maps(task, settled)
+        regular_args, exported_args, _ = self._split_task_args(task, settled)
+        builtin_vars = self._collect_early_builtin_variables(task, datetime.now())
+
+        def render(value: Any) -> Any:
+            if not isinstance(value, str):
+                return value
+            return self._render_field(
+                value,
+                builtin_vars,
+                regular_args,
+                exported_args,
+                task.name,
+                self_maps,
+            )
+
+        resolved = []
+        for spec in parsed_specs:
+            if spec.name not in pending:
+                resolved.append(spec)
+                continue
+            resolved.append(
+                replace(
+                    spec,
+                    default=render(spec.default),
+                    min_val=render(spec.min_val),
+                    max_val=render(spec.max_val),
+                    choices=(
+                        [render(choice) for choice in spec.choices]
+                        if spec.choices is not None
+                        else None
+                    ),
+                )
+            )
+        return resolved
 
     @staticmethod
     def _render_runner_field(text: str, builtin_vars: dict[str, str]) -> str:
