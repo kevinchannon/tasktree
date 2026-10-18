@@ -16,8 +16,9 @@
 > where they always were, since they cannot depend on the invocation; and
 > the parse-time substitution of `cmd`, `working_dir`, `inputs` and
 > `outputs` is gone. **Runner fields are the last textual substitution**,
-> which belongs with slice 11. **Slice 10e** (proposed) would close the two
-> remaining `self.*` deferrals with an ordered resolver.
+> which belongs with slice 11. **Slice 10e** closed the pattern-to-pattern
+> `self.*` deferral with an ordered resolver (`field_order.py`); the
+> argument-default half is not started and needs a decision first.
 > **Slices 11 and 12** are the two defects the PR #212 review turned up,
 > promoted to slices so they can be scheduled. Recommended order:
 > 10a → 12 → 10b → 10c → 10d, with 11 droppable in anywhere.
@@ -1233,7 +1234,52 @@ small but gated on all three. Two to three sessions in total, full pyramid
 per increment, and it is a freshness-path change — so it wants its own
 session and should not be squeezed into the tail of another slice.
 
-### Slice 10e — an ordered resolver for a task's own fields (proposed)
+### Slice 10e — an ordered resolver for a task's own fields *(half done)*
+**Family 2 is done (2026-10-18); family 1 is not started.** The two
+families below turned out to need different machinery in different places,
+so they are no longer one slice.
+
+**Family 2 — `self.*` between patterns ✅ done.** `src/tasktree/field_order.py`
+decides the order a task's own patterns render in, so each follows the ones
+it names, and reports a loop with both ends named. There is nothing
+circular about this family: by the time patterns are rendered the
+invocation's arguments are known, so the only ordering needed is between
+the patterns themselves. The module takes a render callback, since
+rendering belongs to the executor.
+
+Positions count paths rather than YAML entries, matching the indexed view
+`Task.__post_init__` builds, so `{{ self.inputs.1 }}` means the same thing
+to the resolver as to the renderer. A reference to something the task does
+not have makes no edge, so the render is reached and reports it with the
+names that do exist.
+
+The freshness path now reads the indexed views from that one ordered
+render, so the duplicated named-or-anonymous flattening in
+`_get_all_inputs` and `_expand_output_paths` is gone, and so is
+`_resolved_after_patterns` — **the last of 10a's deferrals**.
+
+**Family 1 — `self.*` in an argument default: not started, and it needs a
+CLI change.** The staged resolution is clear enough — resolve the defaults
+that name no `self.*`, build a partial args dict, render the patterns with
+it, then resolve the remaining defaults, and call anything still unresolved
+a cycle. What makes it more than a resolver is *where* it has to happen:
+`parse_task_args` consumes defaults at `execute_dynamic_task.py:104` and
+the `Executor` — which owns rendering — is not built until `:109`. So the
+CLI's argument assembly has to be reordered to create the executor first.
+
+That is the riskiest edit in this area (Click parsing, exported arguments
+and dependency arguments all hang off it) for the smallest payoff in it:
+`self.*` in a default is broken today in both directions, silently on the
+invoked task and with a leaked internal on a dependency, and nobody has
+reported it. **The cheap alternative is to refuse it** with an error saying
+a default cannot name the task's own inputs, and delete the dead
+arg-defaults branch of `resolve_self_references` — which would also fix the
+leaked `_ArgNamespace` name. Kevin's call.
+
+**Gate run (2026-10-18), full pyramid:** unit 1559 passed, integration 353
+passed +1 xfailed, e2e 76 passed / 3 skipped.
+
+### Slice 10e-1 — the original proposal, for reference
 Raised by Kevin on 2026-10-18, asking whether `self.*` in an argument
 default could be supported for the acyclic cases. It can, but the cycle is
 not the one it looks like.
