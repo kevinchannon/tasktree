@@ -16,9 +16,12 @@
 > where they always were, since they cannot depend on the invocation; and
 > the parse-time substitution of `cmd`, `working_dir`, `inputs` and
 > `outputs` is gone. **Runner fields are the last textual substitution**,
-> which belongs with slice 11. **Slice 10e** closed the pattern-to-pattern
-> `self.*` deferral with an ordered resolver (`field_order.py`); the
-> argument-default half is not started and needs a decision first.
+> which belongs with slice 11. **Slice 10e** closed both `self.*`
+> deferrals: patterns order themselves through `field_order.py`, and
+> argument defaults are staged around the pattern render by
+> `Executor.resolve_arg_specs`. It also turned up a pre-existing defect it
+> did not fix — a dependency named as a bare string gets no argument
+> defaults at all.
 > **Slices 11 and 12** are the two defects the PR #212 review turned up,
 > promoted to slices so they can be scheduled. Recommended order:
 > 10a → 12 → 10b → 10c → 10d, with 11 droppable in anywhere.
@@ -1258,8 +1261,41 @@ render, so the duplicated named-or-anonymous flattening in
 `_get_all_inputs` and `_expand_output_paths` is gone, and so is
 `_resolved_after_patterns` — **the last of 10a's deferrals**.
 
-**Family 1 — `self.*` in an argument default: not started, and it needs a
-CLI change.** The staged resolution is clear enough — resolve the defaults
+**Family 1 — `self.*` in an argument default ✅ done (2026-10-18), bar one
+gated case.** `Executor.resolve_arg_specs` stages the work:
+`parse_task_args` was split into matching the values that were *given* and
+filling the defaults, with a `resolve_specs` hook in the seam, and the
+executor is now built before arguments are parsed rather than after. The
+arguments given on the command line and the defaults naming no
+self-reference are settled first, the patterns rendered against those, and
+the remaining defaults settled last.
+
+The staging is what makes the overridden case right: a pattern naming
+`{{ arg.config }}` renders with the value the caller passed, so a default
+naming that pattern sees the override rather than the default it replaced.
+A pattern naming an argument still waiting on its own default is a real
+loop and says so; a pattern naming an argument that merely has no value
+yet is not, so the specs come back untouched and the familiar "missing
+required argument" is reached instead.
+
+Both halves of `parse_task_args` go through one conversion helper, so there
+is still a single place that knows how a value becomes its declared type —
+the duplication that made three `hash_task` call sites disagree was not
+worth repeating.
+
+**A separate pre-existing defect, found here and gated, not fixed: a
+dependency named as a bare string gets no argument defaults at all.**
+`parse_dependency_spec` returns `args=None` for that form and nothing fills
+them in later, so even a plain literal default is missing and the task
+fails with a leaked `_ArgNamespace` name. The positional and named
+dependency-argument parsers both fill defaults; the bare-string branch is
+the odd one out. Verified identical on c5ad5c7. Fixing it changes the
+arguments a simple dependency is invoked with, and so its cache key and
+every affected task's state, which is why it is a decision rather than a
+side effect. Gate: `test_a_dependencys_default_may_name_its_own_input`.
+
+**The original note on why this looked expensive**, kept because the
+reasoning held up — the cost was in the staging, not the line move: The staged resolution is clear enough — resolve the defaults
 that name no `self.*`, build a partial args dict, render the patterns with
 it, then resolve the remaining defaults, and call anything still unresolved
 a cycle. What makes it more than a resolver is *where* it has to happen:
