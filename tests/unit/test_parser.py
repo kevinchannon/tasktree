@@ -1526,13 +1526,19 @@ imports:
 
             recipe = parse_recipe(recipe_path)
 
-            # Variables are rewritten to namespaced names and then resolved
+            # Variables are rewritten to namespaced names. A description is
+            # resolved here, since --list prints it with nothing running;
+            # the command, working directory and patterns keep their
+            # templates and are rendered at the point each is used (slice
+            # 10d), so what the rewrite guarantees is the name they carry.
             task = recipe.tasks["build.compile"]
-            self.assertEqual(task.cmd, "echo gcc")
             self.assertEqual(task.desc, "Build with gcc")
-            self.assertEqual(task.working_dir, "src")
-            self.assertEqual(task.inputs[0], "src/*.c")
-            self.assertEqual(task.outputs[0], "src/out.o")
+            self.assertEqual(task.cmd, "echo {{ var.build.compiler }}")
+            self.assertEqual(task.working_dir, "{{ var.build.src_dir }}")
+            self.assertEqual(task.inputs[0], "{{ var.build.src_dir }}/*.c")
+            self.assertEqual(task.outputs[0], "{{ var.build.src_dir }}/out.o")
+            self.assertEqual(recipe.evaluated_variables["build.compiler"], "gcc")
+            self.assertEqual(recipe.evaluated_variables["build.src_dir"], "src")
 
     def test_import_rewrites_variable_references_in_runner_fields(self):
         """Test that {{ var.* }} references in imported runner fields are rewritten and resolved."""

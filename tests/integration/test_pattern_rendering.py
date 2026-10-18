@@ -236,21 +236,14 @@ class TestNothingIsRenderedTwice(PatternRenderingTestCase):
     evaluated to has to arrive literally, even when it happens to look
     like a template.
 
-    Slice 10b achieved this for the *injection* step -- a path now reaches
-    the command through the render context rather than being substituted
-    into the command text beforehand, which is covered at unit level by
-    ``TestSelfNamespaceRendering`` in ``tests/unit/test_executor.py``.
-    End to end it is still wrong, and for a different reason: the
-    parse-time substitution pass writes variable *values* into the pattern
-    text, and slice 10a renders patterns, so the value is rendered on its
-    way through. Only deleting that pass (slice 10d) closes it.
-
-    Kept as a running gate rather than a note in the plan: it fails for the
-    exact reason 10d exists, and an unexpected pass means 10d has landed
-    and the marker should come off.
+    This was wrong in two places at once, and needed both halves of the
+    work. Slice 10b stopped the *injection* step substituting an unrendered
+    path into text that was about to be rendered. Slice 10d removed the
+    parse-time pass that wrote variable *values* into the pattern text,
+    which slice 10a had then started rendering. Either one alone left the
+    value going through a render it should never have seen.
     """
 
-    @unittest.expectedFailure
     def test_a_variable_value_containing_a_template_stays_literal(self):
         """
         The value arrives from the environment, so it is data and never a

@@ -584,9 +584,17 @@ class Recipe:
         # Also update the deprecated 'variables' field for backward compatibility
         self.variables = self.evaluated_variables
 
-        # Substitute evaluated variables into all tasks
+        # Runner fields below are still substituted textually; only tasks
+        # have moved to the renderer.
         from tasktree.substitution import substitute_variables
 
+        # Variables reach a task's command, working directory and patterns
+        # through the renderer, at the point each is used: the command and
+        # working directory when the task runs, the patterns when they are
+        # matched against the filesystem. Only the fields that cannot wait
+        # for a point of use are rendered here -- a description is printed
+        # by --list with nothing running, and an argument's value is settled
+        # before the task starts.
         host_builtins = host_builtin_variables(self.project_root, self.recipe_path)
 
         for task_name, task in self.tasks.items():
@@ -598,57 +606,9 @@ class Recipe:
             static_builtins = {**host_builtins, "task_name": task_name}
             where = f"Task '{task_name}'"
 
-            task.cmd = substitute_variables(task.cmd, self.evaluated_variables)
             task.desc = render_static_value(
                 task.desc, self.evaluated_variables, static_builtins, where
             )
-            task.working_dir = substitute_variables(
-                task.working_dir, self.evaluated_variables
-            )
-
-            # Substitute variables in inputs (handle both string and dict inputs)
-            resolved_inputs = []
-            for inp in task.inputs:
-                if isinstance(inp, str):
-                    resolved_inputs.append(
-                        substitute_variables(inp, self.evaluated_variables)
-                    )
-                elif isinstance(inp, dict):
-                    # Named input: substitute the path value
-                    resolved_dict = {}
-                    for name, path in inp.items():
-                        resolved_dict[name] = substitute_variables(
-                            path, self.evaluated_variables
-                        )
-                    resolved_inputs.append(resolved_dict)
-                else:
-                    resolved_inputs.append(inp)
-            task.inputs = resolved_inputs
-
-            # Substitute variables in outputs (handle both string and dict outputs)
-            resolved_outputs = []
-            for out in task.outputs:
-                if isinstance(out, str):
-                    resolved_outputs.append(
-                        substitute_variables(out, self.evaluated_variables)
-                    )
-                elif isinstance(out, dict):
-                    # Named output: substitute the path value
-                    resolved_dict = {}
-                    for name, path in out.items():
-                        resolved_dict[name] = substitute_variables(
-                            path, self.evaluated_variables
-                        )
-                    resolved_outputs.append(resolved_dict)
-                else:
-                    resolved_outputs.append(out)
-            task.outputs = resolved_outputs
-
-            # Rebuild output maps after variable substitution
-            task.__post_init__()
-
-            # Argument specs are rendered, not substituted: a default can
-            # carry a filter or a conditional like any other template.
             task.args = [
                 render_arg_spec(arg, self.evaluated_variables, static_builtins, where)
                 for arg in task.args

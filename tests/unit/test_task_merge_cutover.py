@@ -78,9 +78,23 @@ class TestImportedTaskParity(TaskCutoverTestCase):
         self.assertEqual(recipe_obj.tasks["top"].deps, ["helper"])
 
     def test_var_refs_in_imported_cmd_resolve_to_imported_scope(self):
+        """
+        The guarantee is the scope, not the timing: an imported task's
+        {{ var.greeting }} must mean the imported file's greeting and not
+        the root's, which both define. Since slice 10d the command keeps
+        its template and is rendered when the task runs, so the scope shows
+        as the namespaced reference plus the value behind that name.
+        """
         recipe = self.write_recipe_with_import()
         recipe_obj = parse_recipe(recipe)
-        self.assertEqual(recipe_obj.tasks["sub.worker"].cmd, "echo imported-value")
+
+        self.assertEqual(
+            recipe_obj.tasks["sub.worker"].cmd, "echo {{ var.sub.greeting }}"
+        )
+        self.assertEqual(
+            recipe_obj.evaluated_variables["sub.greeting"], "imported-value"
+        )
+        self.assertEqual(recipe_obj.evaluated_variables["greeting"], "root-value")
 
 
 class TestImportedTaskVarRefDivergence(TaskCutoverTestCase):
