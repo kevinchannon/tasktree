@@ -3663,7 +3663,11 @@ class TestPatternRendering(unittest.TestCase):
 
         self.assertIn("generate", str(cm.exception))
 
-    def test_leaves_a_self_reference_for_its_own_pass(self):
+    def test_a_self_reference_names_another_of_the_tasks_patterns(self):
+        """
+        Deferred until slice 10e, which orders a task's own patterns so each
+        renders after the ones it names.
+        """
         task = Task(
             name="build",
             cmd="echo hi",
@@ -3672,9 +3676,22 @@ class TestPatternRendering(unittest.TestCase):
         )
         executor = self._executor(task)
 
-        self.assertEqual(
-            executor._render_pattern(task.inputs[0], task), "{{ self.outputs.bin }}.d"
+        self.assertEqual(executor._render_pattern(task.inputs[0], task), "app.d")
+
+    def test_a_loop_between_patterns_is_reported(self):
+        task = Task(
+            name="build",
+            cmd="echo hi",
+            inputs=[{"first": "{{ self.inputs.second }}"}, {"second": "{{ self.inputs.first }}"}],
         )
+        executor = self._executor(task)
+
+        with self.assertRaises(ValueError) as cm:
+            executor._get_all_inputs(task)
+
+        message = str(cm.exception)
+        self.assertIn("loop", message)
+        self.assertIn("self.inputs.first", message)
 
     def test_get_all_inputs_renders_named_and_anonymous_alike(self):
         task = Task(

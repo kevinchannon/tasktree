@@ -1513,6 +1513,12 @@ class Executor:
         env-sourced variable, say -- would otherwise be rendered a second
         time and executed as one.
 
+        A pattern may itself name another of the task's patterns, so the
+        order they render in matters; field_order works it out and reports
+        a loop. Nothing is cached: the patterns are few and small, and a
+        cache keyed on the invocation would be a correctness risk out of
+        proportion to the saving.
+
         Args:
         task: Task whose inputs and outputs form the namespace
         args_dict: Argument values for this invocation
@@ -1520,24 +1526,22 @@ class Executor:
         Returns:
         Keyword arguments for build_task_config's self namespace
         """
-        return {
-            "inputs_named": {
-                name: self._render_pattern(path, task, args_dict)
-                for name, path in task._input_map.items()
-            },
-            "inputs_indexed": [
-                self._render_pattern(path, task, args_dict)
-                for path in task._indexed_inputs
-            ],
-            "outputs_named": {
-                name: self._render_pattern(path, task, args_dict)
-                for name, path in task._output_map.items()
-            },
-            "outputs_indexed": [
-                self._render_pattern(path, task, args_dict)
-                for path in task._indexed_outputs
-            ],
-        }
+        from tasktree.field_order import render_own_patterns
+
+        regular_args, exported_args, _ = self._split_task_args(task, args_dict or {})
+        builtin_vars = self._collect_early_builtin_variables(task, datetime.now())
+
+        def render(pattern: str, resolved_so_far: dict[str, Any]) -> str:
+            return self._render_field(
+                pattern,
+                builtin_vars,
+                regular_args,
+                exported_args,
+                task.name,
+                resolved_so_far,
+            )
+
+        return render_own_patterns(task.name, task.inputs, task.outputs, render)
 
     @staticmethod
     def _split_task_args(
@@ -1581,31 +1585,30 @@ class Executor:
         self, pattern: str, task: Task, args_dict: dict[str, Any] | None = None
     ) -> str:
         """
-        Render an input or output pattern before it meets the filesystem.
+        Render one pattern belonging to a task.
+
+        Used for the patterns a task inherits from a dependency, and for a
+        dependency's output path on its way into another task's text: both
+        belong to the dependency, so they render in its context and against
+        its own set of patterns rather than the dependent's.
 
         A pattern is matched, not executed, so a template left unrendered
         becomes a literal that matches nothing -- which looks like a task
-        with no changed inputs rather than like an error. Rendering here is
-        what makes {{ var.dir | lower }} and friends mean the same thing in
-        a pattern as they do in a command.
+        with no changed inputs rather than like an error.
 
         Only the built-ins that don't depend on working_dir are available:
         the working directory is resolved later, during execution, and a
         freshness check that resolved it early would be doing execution's
-        work. {{ tt.working_dir }} in a pattern therefore reports itself as
-        undefined, where before it silently matched nothing.
+        work.
 
         Args:
         pattern: Input or output pattern, possibly containing templates
         task: Task the pattern belongs to
-        args_dict: Argument values for this invocation
+        args_dict: Argument values for that task's invocation
 
         Returns:
         The rendered pattern
         """
-        if self._resolved_after_patterns(pattern):
-            return pattern
-
         regular_args, exported_args, _ = self._split_task_args(task, args_dict or {})
         return self._render_field(
             pattern,
@@ -1613,33 +1616,8 @@ class Executor:
             regular_args,
             exported_args,
             task.name,
+            self._rendered_self_maps(task, args_dict),
         )
-
-    @staticmethod
-    def _resolved_after_patterns(pattern: str) -> bool:
-        """
-        Whether a pattern defers to a namespace resolved after this phase.
-
-        ``{{ self.* }}`` names one of the task's own inputs or outputs, and
-        those are what this renderer is resolving: a pattern that refers to
-        the set it belongs to cannot be rendered without deciding an order
-        within it. Such a pattern is left verbatim, exactly as it was
-        before patterns rendered at all, so it keeps matching nothing
-        rather than becoming an error.
-
-        ``{{ dep.* }}`` is not deferred -- it is resolved before this point
-        by resolve_dependency_output_references, which reads the
-        dependency's outputs against that dependency's invocation.
-
-        Args:
-        pattern: An input or output pattern
-
-        Returns:
-        True if the pattern must be left for a later phase
-        """
-        from tasktree.template_refs import collect_template_refs
-
-        return bool(collect_template_refs(pattern)["self"])
 
     @staticmethod
     def _render_runner_field(text: str, builtin_vars: dict[str, str]) -> str:
@@ -1677,17 +1655,10 @@ class Executor:
         Returns:
         List of input glob patterns
         """
-        # Extract paths from inputs (handle both anonymous strings and named dicts)
-        all_inputs = []
-        for inp in task.inputs:
-            if isinstance(inp, str):
-                all_inputs.append(self._render_pattern(inp, task, args_dict))
-            elif isinstance(inp, dict):
-                # Named input - extract the path value(s)
-                all_inputs.extend(
-                    self._render_pattern(path, task, args_dict)
-                    for path in inp.values()
-                )
+        # The task's own patterns come from one ordered render of the whole
+        # set, since a pattern may name another of them; the indexed view is
+        # every path in declaration order, named or not.
+        all_inputs = list(self._rendered_self_maps(task, args_dict)["inputs_indexed"])
 
         # Implicit inputs are rendered by get_implicit_inputs against each
         # dependency's own invocation, not this task's: a dependency's output
@@ -1835,18 +1806,7 @@ class Executor:
         Returns:
         List of rendered output path patterns (glob patterns as strings)
         """
-        paths = []
-        for output in task.outputs:
-            if isinstance(output, str):
-                # Anonymous output: just the path string
-                paths.append(self._render_pattern(output, task, args_dict))
-            elif isinstance(output, dict):
-                # Named output: extract the path value
-                paths.extend(
-                    self._render_pattern(path, task, args_dict)
-                    for path in output.values()
-                )
-        return paths
+        return list(self._rendered_self_maps(task, args_dict)["outputs_indexed"])
 
     def _check_outputs_missing(
         self,

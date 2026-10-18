@@ -401,5 +401,72 @@ class TestTemplatesInDescriptions(PatternRenderingTestCase):
         self.assertIn("Builds TASKTREE", output)
 
 
+class TestSelfReferencesBetweenPatterns(PatternRenderingTestCase):
+    """
+    A pattern may name another of the task's own patterns (schema pipeline
+    slice 10e). Unlike the argument-default case, nothing is circular here:
+    by the time patterns are rendered the invocation's arguments are known,
+    so the only ordering needed is between the patterns themselves.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.backup = self.source_dir / "a.txt.bak"
+        self.backup.write_text("backup\n")
+
+    def test_an_input_may_name_another_input(self):
+        self.write_recipe(
+            "tasks:\n  build:\n"
+            "    inputs:\n"
+            "      - src: srcdir/a.txt\n"
+            '      - backup: "{{ self.inputs.src }}.bak"\n'
+            "    outputs: [out.txt]\n"
+            "    cmd: echo done > out.txt\n"
+        )
+        result, output = self.run_task()
+        self.assert_ran(output, result)
+
+        result, output = self.run_task()
+        self.assert_skipped(output, result)
+
+        # The second input resolved, so the file it names is tracked.
+        time.sleep(0.01)
+        self.backup.write_text("changed\n")
+        result, output = self.run_task()
+        self.assert_ran(output, result)
+
+    def test_an_output_may_name_an_input(self):
+        self.write_recipe(
+            "tasks:\n  build:\n"
+            "    inputs:\n"
+            "      - src: srcdir/a.txt\n"
+            "    outputs:\n"
+            '      - log: "{{ self.inputs.src }}.log"\n'
+            "    cmd: echo done > srcdir/a.txt.log\n"
+        )
+        result, output = self.run_task()
+        self.assert_ran(output, result)
+
+        # An unresolved output pattern would be reported missing for ever.
+        result, output = self.run_task()
+        self.assert_skipped(output, result)
+
+    def test_a_cycle_between_patterns_is_reported(self):
+        self.write_recipe(
+            "tasks:\n  build:\n"
+            "    inputs:\n"
+            '      - first: "{{ self.inputs.second }}"\n'
+            '      - second: "{{ self.inputs.first }}"\n'
+            "    outputs: [out.txt]\n"
+            "    cmd: echo done > out.txt\n"
+        )
+        result, output = self.run_task()
+
+        self.assertNotEqual(result.exit_code, 0, output)
+        collapsed = " ".join(output.split())
+        self.assertIn("first", collapsed)
+        self.assertIn("second", collapsed)
+
+
 if __name__ == "__main__":
     unittest.main()
