@@ -754,7 +754,9 @@ class Executor:
 
         # Resolve dependency output references in topological order
         # This substitutes {{ dep.*.outputs.* }} templates before execution
-        resolve_dependency_output_references(self.recipe, execution_order)
+        resolve_dependency_output_references(
+            self.recipe, execution_order, render_pattern=self._render_pattern
+        )
 
         # Resolve self-references in topological order
         # This substitutes {{ self.inputs.* }} and {{ self.outputs.* }} templates

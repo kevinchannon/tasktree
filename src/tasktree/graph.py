@@ -329,6 +329,7 @@ def resolve_execution_order(
 def resolve_dependency_output_references(
     recipe: Recipe,
     ordered_tasks: list[tuple[str, dict[str, Any]]],
+    render_pattern: Callable[[str, Task, dict[str, Any]], str] | None = None,
 ) -> None:
     """
     Resolve {{ dep.<task>.outputs.<name> }} references in topological order.
@@ -340,6 +341,9 @@ def resolve_dependency_output_references(
     Args:
     recipe: Recipe containing task definitions
     ordered_tasks: List of (task_name, args) tuples in topological order
+    render_pattern: Renders a dependency's output path against that
+    dependency's own invocation before it is put in place. Supplied by the
+    executor, which owns rendering; without it paths are used as they stand.
 
     Raises:
     ValueError: If template references cannot be resolved (missing task,
@@ -352,8 +356,21 @@ def resolve_dependency_output_references(
     """
     from tasktree.substitution import substitute_dependency_outputs
 
-    # Track which tasks have been resolved (for validation)
+    # Track which tasks have been resolved (for validation), and the
+    # arguments each was invoked with, which is the context its own output
+    # paths render against.
     resolved_tasks = {}
+    resolved_args: dict[str, dict[str, Any]] = {}
+
+    def render_output(path: str, dep_task: Task) -> str:
+        if render_pattern is None:
+            return path
+        # A path naming something unresolvable is left as it stands rather
+        # than failing the whole order; the field that uses it reports it.
+        try:
+            return render_pattern(path, dep_task, resolved_args.get(dep_task.name))
+        except (ValueError, KeyError):
+            return path
 
     for task_name, task_args in ordered_tasks:
         task = recipe.tasks.get(task_name)
@@ -377,6 +394,7 @@ def resolve_dependency_output_references(
                 task_name,
                 dep_task_names,
                 resolved_tasks,
+                render_output,
             )
 
         # Resolve output references in working_dir
@@ -386,6 +404,7 @@ def resolve_dependency_output_references(
                 task_name,
                 dep_task_names,
                 resolved_tasks,
+                render_output,
             )
 
         # Resolve output references in inputs. A dependency's output is a
@@ -402,6 +421,7 @@ def resolve_dependency_output_references(
                         task_name,
                         dep_task_names,
                         resolved_tasks,
+                        render_output,
                     )
                 )
             elif isinstance(input_item, dict):
@@ -431,6 +451,7 @@ def resolve_dependency_output_references(
                         task_name,
                         dep_task_names,
                         resolved_tasks,
+                        render_output,
                     )
                 )
             elif isinstance(output, dict):
@@ -442,6 +463,7 @@ def resolve_dependency_output_references(
                         task_name,
                         dep_task_names,
                         resolved_tasks,
+                        render_output,
                     )
                 resolved_outputs.append(resolved_dict)
         task.outputs = resolved_outputs
@@ -466,6 +488,7 @@ def resolve_dependency_output_references(
 
         # Mark this task as resolved for future references
         resolved_tasks[task_name] = task
+        resolved_args[task_name] = task_args or {}
 
 
 def resolve_self_references(

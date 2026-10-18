@@ -8,6 +8,7 @@ from tasktree.graph import (
     TaskNotFoundError,
     build_dependency_tree,
     get_implicit_inputs,
+    resolve_dependency_output_references,
     resolve_execution_order,
     resolve_self_references,
 )
@@ -554,3 +555,87 @@ class TestResolveSelfReferences(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestDependencyOutputsAreRendered(unittest.TestCase):
+    """
+    A dependency's output path is data by the time it lands in another
+    task's text, and that text is itself about to be rendered -- so the
+    path has to go in rendered, or it is rendered a second time (schema
+    pipeline slice 10d).
+    """
+
+    def _recipe(self, producer_outputs, consumer_cmd, producer_args=None):
+        tasks = {
+            "build": Task(
+                name="build",
+                cmd="build",
+                args=producer_args or [],
+                outputs=producer_outputs,
+            ),
+            "package": Task(name="package", cmd=consumer_cmd, deps=["build"]),
+        }
+        return Recipe(
+            tasks=tasks, project_root=Path.cwd(), recipe_path=Path("tasktree.yaml")
+        ), tasks
+
+    def test_the_injected_path_goes_in_rendered(self):
+        recipe, tasks = self._recipe(
+            [{"bundle": "out/{{ var.dir }}/app"}],
+            "ship {{ dep.build.outputs.bundle }}",
+        )
+        seen = []
+
+        def render(pattern, task, args):
+            seen.append((pattern, task.name))
+            return "out/rendered/app"
+
+        resolve_dependency_output_references(
+            recipe, [("build", None), ("package", None)], render_pattern=render
+        )
+
+        self.assertEqual(tasks["package"].cmd, "ship out/rendered/app")
+        self.assertEqual(seen, [("out/{{ var.dir }}/app", "build")])
+
+    def test_it_renders_against_the_dependencys_own_arguments(self):
+        """
+        The producer's output names the arguments *it* was invoked with, not
+        the consumer's.
+        """
+        recipe, tasks = self._recipe(
+            [{"bundle": "out/{{ arg.config }}/app"}],
+            "ship {{ dep.build.outputs.bundle }}",
+            producer_args=[{"config": {"default": "debug"}}],
+        )
+        seen = []
+
+        def render(pattern, task, args):
+            seen.append(dict(args or {}))
+            return "out/release/app"
+
+        resolve_dependency_output_references(
+            recipe,
+            [("build", {"config": "release"}), ("package", None)],
+            render_pattern=render,
+        )
+
+        self.assertEqual(seen, [{"config": "release"}])
+
+    def test_an_unrenderable_path_is_used_as_it_stands(self):
+        """
+        One bad path must not fail the whole execution order; the field
+        that uses it reports it instead.
+        """
+        recipe, tasks = self._recipe(
+            [{"bundle": "out/{{ arg.gone }}/app"}],
+            "ship {{ dep.build.outputs.bundle }}",
+        )
+
+        def render(pattern, task, args):
+            raise ValueError("undefined")
+
+        resolve_dependency_output_references(
+            recipe, [("build", None), ("package", None)], render_pattern=render
+        )
+
+        self.assertEqual(tasks["package"].cmd, "ship out/{{ arg.gone }}/app")

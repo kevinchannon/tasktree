@@ -6,6 +6,7 @@ and {{ env.NAME }} placeholders with their corresponding values.
 """
 
 import re
+from collections.abc import Callable
 from typing import Any
 
 # Pattern matches: {{ prefix.name }} with optional whitespace
@@ -324,6 +325,7 @@ def substitute_dependency_outputs(
     current_task_name: str,
     current_task_deps: list[str],
     resolved_tasks: dict[str, Any],
+    render_output: Callable[[str, Any], str] | None = None,
 ) -> str:
     """
     Substitute {{ dep.<task>.outputs.<name> }} placeholders with dependency output paths.
@@ -339,6 +341,11 @@ def substitute_dependency_outputs(
     current_task_name: Name of task being resolved (for error messages)
     current_task_deps: List of dependency task names for the current task
     resolved_tasks: Dictionary mapping task names to Task objects (already resolved)
+    render_output: Renders the dependency's output path before it is put in
+    place, given the path and the dependency's Task. The path is data by the
+    time it lands in another task's text, so it has to go in rendered: text
+    that is itself about to be rendered would otherwise render it a second
+    time. Without it the path is used as it stands.
 
     Returns:
     Text with all {{ dep.*.outputs.* }} placeholders replaced with output paths
@@ -396,7 +403,8 @@ def substitute_dependency_outputs(
                 f"Hint: Define named outputs like: outputs: [{{ {output_name}: 'path/to/file' }}]"
             )
 
-        return dep_task._output_map[output_name]
+        path = dep_task._output_map[output_name]
+        return render_output(path, dep_task) if render_output else path
 
     return DEP_OUTPUT_PATTERN.sub(replacer, text)
 
