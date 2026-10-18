@@ -32,6 +32,7 @@ from tasktree.parser import (
     parse_recipe,
     render_arg_spec,
     render_static_value,
+    host_builtin_variables,
 )
 from tasktree.interpreter import Interpreter
 
@@ -5738,15 +5739,69 @@ class TestRenderStaticFields(unittest.TestCase):
 
         self.assertEqual(render_arg_spec(spec, {}), spec)
 
-    def test_defers_a_builtin_reference(self):
+    def test_renders_a_host_builtin(self):
         """
-        tt.* values are not assembled until a task runs, so a default
-        naming one is left exactly as it was before this phase rendered
-        anything -- it reaches the command as text.
+        tt.* names that describe the host and the project need neither a
+        task nor a run, so they resolve here like any other namespace.
         """
-        spec = {"name": {"default": "{{ tt.project_root }}/out"}}
+        builtins = host_builtin_variables(Path("/projects/app"), Path("/projects/app/tasktree.yaml"))
+        spec = {"where": {"default": "{{ tt.project_root }}/out"}}
 
-        self.assertEqual(render_arg_spec(spec, {}), spec)
+        rendered = render_arg_spec(spec, {}, builtins, "Task 'build'")
+
+        self.assertEqual(
+            rendered["where"]["default"],
+            f"{builtins['project_root']}/out",
+        )
+
+    def test_renders_the_task_name(self):
+        """
+        A description or argument spec belongs to one known task, unlike a
+        runner definition, so tt.task_name is available to it.
+        """
+        self.assertEqual(
+            render_static_value(
+                "Builds {{ tt.task_name }}", {}, {"task_name": "build"}, "Task 'build'"
+            ),
+            "Builds build",
+        )
+
+    def test_a_builtin_that_needs_a_run_is_reported(self):
+        """
+        Passing it through would mean handing the shell a literal
+        {{ tt.working_dir }} and calling that success.
+        """
+        spec = {"where": {"default": "{{ tt.working_dir }}"}}
+
+        with self.assertRaises(ValueError) as cm:
+            render_arg_spec(spec, {}, {}, "Task 'build'")
+
+        message = str(cm.exception)
+        self.assertIn("tt.working_dir", message)
+        self.assertIn("Task 'build'", message)
+        self.assertIn("tt.project_root", message)  # names what IS allowed
+
+    def test_a_volatile_builtin_is_reported(self):
+        """
+        tt.timestamp is deliberately not available: an argument default that
+        changed on every run would change the task's arguments, and so
+        re-run it every time.
+        """
+        with self.assertRaises(ValueError) as cm:
+            render_static_value("{{ tt.timestamp }}", {}, {}, "Task 'build'")
+
+        self.assertIn("tt.timestamp", str(cm.exception))
+
+    @unittest.skipIf(
+        platform.system() == "Windows", "os.getuid/getgid do not exist on Windows"
+    )
+    def test_renders_the_host_user_ids(self):
+        builtins = host_builtin_variables(Path.cwd(), Path.cwd() / "tasktree.yaml")
+
+        self.assertEqual(
+            render_static_value("{{ tt.uid }}:{{ tt.gid }}", {}, builtins),
+            f"{builtins['uid']}:{builtins['gid']}",
+        )
 
     def test_renders_an_environment_reference(self):
         spec = {"name": {"default": "{{ env.TT_TAG }}"}}

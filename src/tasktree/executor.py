@@ -234,49 +234,26 @@ class Executor:
         Raises:
         ExecutionError: If any built-in variable fails to resolve
         """
-        import os
+        from tasktree.parser import host_builtin_variables
 
-        builtin_vars = {
-            # {{ tt.project_root }} - Absolute path to project root
-            "project_root": str(self.recipe.project_root.resolve()),
-            # {{ tt.recipe_dir }} - Absolute path to directory containing the recipe file
-            "recipe_dir": str(self.recipe.recipe_path.parent.resolve()),
-            # {{ tt.task_name }} - Name of currently executing task
-            "task_name": task.name,
-            # {{ tt.timestamp }} - ISO8601 timestamp when task started execution
-            "timestamp": timestamp.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            # {{ tt.timestamp_unix }} - Unix epoch timestamp when task started
-            "timestamp_unix": str(int(timestamp.timestamp())),
-        }
-
-        # {{ tt.user_home }} - Current user's home directory (cross-platform)
         try:
-            user_home = Path.home()
-            builtin_vars["user_home"] = str(user_home)
-        except Exception as e:
-            raise ExecutionError(
-                f"Failed to get user home directory for {{{{ tt.user_home }}}}: {e}"
+            builtin_vars = host_builtin_variables(
+                self.recipe.project_root, self.recipe.recipe_path
             )
+        except ValueError as e:
+            raise ExecutionError(str(e))
 
-        # {{ tt.user_name }} - Current username (with fallback)
-        try:
-            user_name = os.getlogin()
-        except OSError:
-            # Fallback to environment variables if os.getlogin() fails
-            user_name = (
-                os.environ.get("USER") or os.environ.get("USERNAME") or "unknown"
-            )
-        builtin_vars["user_name"] = user_name
-
-        # {{ tt.uid }} / {{ tt.gid }} - Host numeric UID/GID, for matching a
-        # containerised runner's --user mapping to a passwd entry in the image.
-        # Not defined on Windows, where os.getuid()/os.getgid() don't exist;
-        # referencing them there hits the substitution engine's usual
-        # "not defined" error rather than a platform-specific one, since these
-        # keys are collected unconditionally on every task run.
-        if platform.system() != "Windows":
-            builtin_vars["uid"] = str(os.getuid())
-            builtin_vars["gid"] = str(os.getgid())
+        # The values only a running task can supply.
+        builtin_vars.update(
+            {
+                # {{ tt.task_name }} - Name of currently executing task
+                "task_name": task.name,
+                # {{ tt.timestamp }} - ISO8601 timestamp when task started execution
+                "timestamp": timestamp.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                # {{ tt.timestamp_unix }} - Unix epoch timestamp when task started
+                "timestamp_unix": str(int(timestamp.timestamp())),
+            }
+        )
 
         return builtin_vars
 

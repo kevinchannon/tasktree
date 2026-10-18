@@ -332,6 +332,59 @@ class TestTemplatesInArgumentSpecs(PatternRenderingTestCase):
         self.assertEqual((self.project_root / "out.txt").read_text().strip(), "release")
 
 
+class TestBuiltinsInArgumentSpecs(PatternRenderingTestCase):
+    """
+    The tt.* values that describe the host and the project need neither a
+    task nor a run, so an argument default may name them. The ones that do
+    depend on the run are reported rather than handed to the shell as text,
+    which is what used to happen.
+    """
+
+    def test_a_host_builtin_in_a_default_reaches_the_command(self):
+        self.write_recipe(
+            "tasks:\n  build:\n"
+            "    args:\n"
+            '      - where: { default: "{{ tt.project_root }}" }\n'
+            "    inputs: [srcdir/a.txt]\n"
+            "    outputs: [out.txt]\n"
+            "    cmd: echo {{ arg.where }} > out.txt\n"
+        )
+        result, output = self.run_task()
+        self.assert_ran(output, result)
+        self.assertEqual(
+            (self.project_root / "out.txt").read_text().strip(),
+            str(self.project_root.resolve()),
+        )
+
+    def test_the_task_name_in_a_description_reaches_the_listing(self):
+        self.write_recipe(
+            "tasks:\n  build:\n"
+            '    desc: "Runs {{ tt.task_name }}"\n'
+            "    inputs: [srcdir/a.txt]\n"
+            "    outputs: [out.txt]\n"
+            "    cmd: echo done > out.txt\n"
+        )
+        result = self.runner.invoke(app, ["--list"], env={"NO_COLOR": "1"})
+        output = strip_ansi_codes(result.stdout)
+
+        self.assertEqual(result.exit_code, 0, output)
+        self.assertIn("Runs build", output)
+
+    def test_a_builtin_that_needs_a_run_is_refused(self):
+        self.write_recipe(
+            "tasks:\n  build:\n"
+            "    args:\n"
+            '      - where: { default: "{{ tt.working_dir }}" }\n'
+            "    inputs: [srcdir/a.txt]\n"
+            "    outputs: [out.txt]\n"
+            "    cmd: echo {{ arg.where }} > out.txt\n"
+        )
+        result, output = self.run_task()
+
+        self.assertNotEqual(result.exit_code, 0, output)
+        self.assertIn("tt.working_dir", " ".join(output.split()))
+
+
 class TestTemplatesInDescriptions(PatternRenderingTestCase):
     """
     A description is printed by --list, where there is no invocation at

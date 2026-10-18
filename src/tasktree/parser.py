@@ -587,12 +587,21 @@ class Recipe:
         # Substitute evaluated variables into all tasks
         from tasktree.substitution import substitute_variables
 
+        host_builtins = host_builtin_variables(self.project_root, self.recipe_path)
+
         for task_name, task in self.tasks.items():
             if task_name not in reachable_tasks:
                 continue
 
+            # Descriptions and argument specs belong to one known task, so
+            # tt.task_name is available to them even though nothing is running.
+            static_builtins = {**host_builtins, "task_name": task_name}
+            where = f"Task '{task_name}'"
+
             task.cmd = substitute_variables(task.cmd, self.evaluated_variables)
-            task.desc = render_static_value(task.desc, self.evaluated_variables)
+            task.desc = render_static_value(
+                task.desc, self.evaluated_variables, static_builtins, where
+            )
             task.working_dir = substitute_variables(
                 task.working_dir, self.evaluated_variables
             )
@@ -641,7 +650,8 @@ class Recipe:
             # Argument specs are rendered, not substituted: a default can
             # carry a filter or a conditional like any other template.
             task.args = [
-                render_arg_spec(arg, self.evaluated_variables) for arg in task.args
+                render_arg_spec(arg, self.evaluated_variables, static_builtins, where)
+                for arg in task.args
             ]
 
         # Substitute evaluated variables into reachable runners only
@@ -1863,6 +1873,64 @@ _RUNNER_ALLOWED_TT_NAMES = frozenset(
 _RUNNER_FORBIDDEN_PREFIXES = ("arg", "dep", "self")
 
 
+def host_builtin_variables(project_root: Path, recipe_path: Path) -> dict[str, str]:
+    """
+    The built-in variables that describe the host and the project.
+
+    These are the ``tt.*`` values that need neither a task nor an
+    invocation, so they can be resolved in any phase: runner definitions,
+    descriptions, argument specs, and task fields alike. The per-task
+    values (``task_name``, ``working_dir``) and the volatile ones
+    (``timestamp``, ``timestamp_unix``) are the executor's to add, since
+    only it knows which task is running and when it started.
+
+    Args:
+    project_root: Root directory of the project
+    recipe_path: Path to the recipe file
+
+    Returns:
+    Built-in variable names mapped to their values. ``uid``/``gid`` are
+    absent on Windows, where the underlying calls do not exist.
+
+    Raises:
+    ValueError: If the user's home directory cannot be determined
+    """
+    builtins = {
+        # {{ tt.project_root }} - Absolute path to project root
+        "project_root": str(project_root.resolve()),
+        # {{ tt.recipe_dir }} - Absolute path to directory containing the recipe file
+        "recipe_dir": str(recipe_path.parent.resolve()),
+    }
+
+    # {{ tt.user_home }} - Current user's home directory (cross-platform)
+    try:
+        builtins["user_home"] = str(Path.home())
+    except Exception as e:
+        raise ValueError(
+            f"Failed to get user home directory for {{{{ tt.user_home }}}}: {e}"
+        )
+
+    # {{ tt.user_name }} - Current username (with fallback)
+    try:
+        builtins["user_name"] = os.getlogin()
+    except OSError:
+        # Fallback to environment variables if os.getlogin() fails
+        builtins["user_name"] = (
+            os.environ.get("USER") or os.environ.get("USERNAME") or "unknown"
+        )
+
+    # {{ tt.uid }} / {{ tt.gid }} - Host numeric UID/GID, for matching a
+    # containerised runner's --user mapping to a passwd entry in the image.
+    # Not defined on Windows, where os.getuid()/os.getgid() don't exist;
+    # referencing them there hits the usual "not defined" error rather than
+    # a platform-specific one.
+    if platform.system() != "Windows":
+        builtins["uid"] = str(os.getuid())
+        builtins["gid"] = str(os.getgid())
+
+    return builtins
+
+
 def check_runner_template_refs(subtree: Any, where: str) -> None:
     """
     Reject per-task template references in a runner/interpreter definition.
@@ -2494,10 +2562,19 @@ def _check_case_sensitive_arg_collisions(args: list[str], task_name: str) -> Non
             seen_lower[lower_name] = name
 
 
-_STATIC_RENDERABLE_PREFIXES = frozenset({"var", "env"})
+_STATIC_RENDERABLE_PREFIXES = frozenset({"var", "env", "tt"})
+
+# A description or argument spec belongs to one known task, so it may name
+# tt.task_name as well as the host-global builtins a shared runner may use.
+_STATIC_ALLOWED_TT_NAMES = _RUNNER_ALLOWED_TT_NAMES | {"task_name"}
 
 
-def render_static_value(value: Any, variables: dict[str, str]) -> Any:
+def render_static_value(
+    value: Any,
+    variables: dict[str, str],
+    builtins: dict[str, str] | None = None,
+    where: str = "",
+) -> Any:
     """
     Render one value of a field that cannot depend on the invocation.
 
@@ -2507,20 +2584,28 @@ def render_static_value(value: Any, variables: dict[str, str]) -> Any:
     invocation at all, and an argument default cannot refer to arguments.
     Patterns are the opposite case, and render at the point of use.
 
-    Only ``var`` and ``env`` are available. A value naming anything else is
-    returned untouched rather than failing: ``self.*`` in a default is
-    resolved later by resolve_self_references, and ``tt.*`` would need
-    built-in values that are not assembled until a task runs. Both reach
-    the command as they stand, which is what they did before argument specs
-    rendered at all.
+    ``var``, ``env`` and the task-independent ``tt.*`` builtins are
+    available. A value naming a per-task namespace (``arg``, ``dep``,
+    ``self``) is returned untouched rather than failing, since those are
+    resolved by their own passes later on.
+
+    A ``tt.*`` name that cannot be resolved this early is reported rather
+    than passed through, because passing it through means handing the shell
+    a literal ``{{ tt.working_dir }}`` and calling it success.
 
     Args:
     value: One value from an argument spec (default, min, max, a choice, ...)
     variables: Evaluated recipe variables
+    builtins: Built-in variable values available here, as
+              host_builtin_variables returns them plus tt.task_name
+    where: Names the field in errors, e.g. "Task 'build'"
 
     Returns:
     The rendered value, or the value unchanged if it is not a string or
     names a namespace this phase cannot resolve
+
+    Raises:
+    ValueError: If the value names a tt builtin that is not available here
     """
     if not isinstance(value, str):
         return value
@@ -2533,26 +2618,49 @@ def render_static_value(value: Any, variables: dict[str, str]) -> Any:
     ):
         return value
 
+    unavailable = sorted(
+        name for name in refs["tt"] if name not in _STATIC_ALLOWED_TT_NAMES
+    )
+    if unavailable:
+        offenders = ", ".join(f"tt.{name}" for name in unavailable)
+        allowed = ", ".join(
+            f"tt.{name}" for name in sorted(_STATIC_ALLOWED_TT_NAMES)
+        )
+        raise ValueError(
+            f"{where}: {offenders} cannot be used in a description or an "
+            f"argument specification. Descriptions are printed without "
+            f"running anything, and argument values are settled before a "
+            f"task starts, so values that depend on the run are not "
+            f"available yet. Allowed: var.*, env.*, {allowed}."
+        )
+
     from tasktree.rendering import render
     from tasktree.task_config import build_task_config
 
-    return render(value, build_task_config(variables=variables))
+    return render(value, build_task_config(variables=variables, builtins=builtins))
 
 
-def render_arg_spec(arg_spec: Any, variables: dict[str, str]) -> Any:
+def render_arg_spec(
+    arg_spec: Any,
+    variables: dict[str, str],
+    builtins: dict[str, str] | None = None,
+    where: str = "",
+) -> Any:
     """
     Render the templates in one argument spec.
 
     Args:
     arg_spec: An entry of a task's ``args`` list, in any of its shapes
     variables: Evaluated recipe variables
+    builtins: Built-in variable values available here
+    where: Names the task in errors, e.g. "Task 'build'"
 
     Returns:
     The spec with its string values rendered, as a new object; shapes that
     hold no templates are returned as they are
     """
     if isinstance(arg_spec, str):
-        return render_static_value(arg_spec, variables)
+        return render_static_value(arg_spec, variables, builtins, where)
     if not isinstance(arg_spec, dict):
         return arg_spec
 
@@ -2561,14 +2669,19 @@ def render_arg_spec(arg_spec: Any, variables: dict[str, str]) -> Any:
         if isinstance(details, dict):
             rendered[arg_name] = {
                 key: (
-                    [render_static_value(item, variables) for item in value]
+                    [
+                        render_static_value(item, variables, builtins, where)
+                        for item in value
+                    ]
                     if isinstance(value, list)
-                    else render_static_value(value, variables)
+                    else render_static_value(value, variables, builtins, where)
                 )
                 for key, value in details.items()
             }
         else:
-            rendered[arg_name] = render_static_value(details, variables)
+            rendered[arg_name] = render_static_value(
+                details, variables, builtins, where
+            )
     return rendered
 
 
