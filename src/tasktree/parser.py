@@ -11,7 +11,7 @@ import subprocess
 import tempfile
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from collections.abc import KeysView
+from collections.abc import Callable, KeysView
 from typing import Any, Iterable, Optional
 
 import typer
@@ -3265,8 +3265,121 @@ def get_recipe(
         raise typer.Exit(1)
 
 
+def _convert_arg_value(
+    logger: Logger, spec: ArgSpec, raw: Any, what: str
+) -> Any:
+    """
+    Convert one argument value to the type its spec declares.
+
+    Args:
+    logger: Logger interface for output
+    spec: The argument's parsed specification
+    raw: The value to convert
+    what: How to describe the value in an error, e.g. "value" or
+          "default value"
+
+    Returns:
+    The converted value
+
+    Raises:
+    typer.Exit: If conversion fails or the value is not among the choices
+    """
+    try:
+        click_type = get_click_type(
+            spec.arg_type, min_val=spec.min_val, max_val=spec.max_val
+        )
+        converted = click_type.convert(raw, None, None)
+    except Exception as e:
+        logger.error(f"[red]Invalid {what} for {spec.name}: {e}[/red]")
+        raise typer.Exit(1)
+
+    if spec.choices is not None and converted not in spec.choices:
+        logger.error(f"[red]Invalid {what} for {spec.name}: {converted!r}[/red]")
+        logger.info(f"Valid choices: {', '.join(repr(c) for c in spec.choices)}")
+        raise typer.Exit(1)
+
+    return converted
+
+
+def _match_given_args(
+    logger: Logger, parsed_specs: list[ArgSpec], arg_values: list[str]
+) -> dict[str, Any]:
+    """
+    Match the values given on the command line to the task's arguments.
+
+    Named values (``name=value``) are matched by name and the rest
+    positionally, in declaration order.
+
+    Args:
+    logger: Logger interface for output
+    parsed_specs: The task's parsed argument specifications
+    arg_values: Raw argument values from the command line
+
+    Returns:
+    Converted values for the arguments that were given, by name
+
+    Raises:
+    typer.Exit: If a name is unknown, there are too many values, or a value
+    is invalid
+    """
+    args_dict: dict[str, Any] = {}
+    positional_index = 0
+
+    for value_str in arg_values:
+        if "=" in value_str:
+            arg_name, arg_value = value_str.split("=", 1)
+            spec = next((s for s in parsed_specs if s.name == arg_name), None)
+            if spec is None:
+                logger.error(f"[red]Unknown argument: {arg_name}[/red]")
+                raise typer.Exit(1)
+        else:
+            if positional_index >= len(parsed_specs):
+                logger.error("[red]Too many arguments[/red]")
+                raise typer.Exit(1)
+            spec = parsed_specs[positional_index]
+            arg_value = value_str
+            positional_index += 1
+
+        args_dict[spec.name] = _convert_arg_value(logger, spec, arg_value, "value")
+
+    return args_dict
+
+
+def _fill_missing_args(
+    logger: Logger, parsed_specs: list[ArgSpec], args_dict: dict[str, Any]
+) -> dict[str, Any]:
+    """
+    Supply the defaults for arguments that were not given.
+
+    Args:
+    logger: Logger interface for output
+    parsed_specs: The task's parsed argument specifications
+    args_dict: Values already matched from the command line
+
+    Returns:
+    args_dict with defaults filled in
+
+    Raises:
+    typer.Exit: If an argument has neither a value nor a default
+    """
+    for spec in parsed_specs:
+        if spec.name in args_dict:
+            continue
+        if spec.default is None:
+            logger.error(f"[red]Missing required argument: {spec.name}[/red]")
+            raise typer.Exit(1)
+        args_dict[spec.name] = _convert_arg_value(
+            logger, spec, spec.default, "default value"
+        )
+
+    return args_dict
+
+
 def parse_task_args(
-    logger: Logger, arg_specs: list[str], arg_values: list[str]
+    logger: Logger,
+    arg_specs: list[str],
+    arg_values: list[str],
+    resolve_specs: Callable[[list[ArgSpec], dict[str, Any]], list[ArgSpec]] | None = None,
 ) -> dict[str, Any]:
     """
     Parse and validate task arguments from command line values.
@@ -3275,6 +3388,12 @@ def parse_task_args(
     logger: Logger interface for output
     arg_specs: Task argument specifications with types and defaults
     arg_values: Raw argument values from command line (positional or named)
+    resolve_specs: Given the parsed specs and the values supplied on the
+    command line, returns the specs with any remaining templates in them
+    resolved. It runs between the two halves of the work because a default
+    may name one of the task's own inputs, and a pattern may name an
+    argument: the values that were *given* have to be known first, and the
+    defaults settled after.
 
     Returns:
     Dictionary mapping argument names to typed, validated values
@@ -3289,72 +3408,10 @@ def parse_task_args(
             raise typer.Exit(1)
         return {}
 
-    parsed_specs = []
-    for spec in arg_specs:
-        parsed = parse_arg_spec(spec)
-        parsed_specs.append(parsed)
+    parsed_specs = [parse_arg_spec(spec) for spec in arg_specs]
+    args_dict = _match_given_args(logger, parsed_specs, arg_values)
 
-    args_dict = {}
-    positional_index = 0
+    if resolve_specs is not None:
+        parsed_specs = resolve_specs(parsed_specs, args_dict)
 
-    for i, value_str in enumerate(arg_values):
-        # Check if it's a named argument (name=value)
-        if "=" in value_str:
-            arg_name, arg_value = value_str.split("=", 1)
-            # Find the spec for this argument
-            spec = next((s for s in parsed_specs if s.name == arg_name), None)
-            if spec is None:
-                logger.error(f"[red]Unknown argument: {arg_name}[/red]")
-                raise typer.Exit(1)
-        else:
-            # Positional argument
-            if positional_index >= len(parsed_specs):
-                logger.error("[red]Too many arguments[/red]")
-                raise typer.Exit(1)
-            spec = parsed_specs[positional_index]
-            arg_value = value_str
-            positional_index += 1
-
-        # Convert value to appropriate type (exported args are always strings)
-        try:
-            click_type = get_click_type(
-                spec.arg_type, min_val=spec.min_val, max_val=spec.max_val
-            )
-            converted_value = click_type.convert(arg_value, None, None)
-
-            # Validate choices after type conversion
-            if spec.choices is not None and converted_value not in spec.choices:
-                logger.error(
-                    f"[red]Invalid value for {spec.name}: {converted_value!r}[/red]",
-                )
-                logger.info(
-                    f"Valid choices: {', '.join(repr(c) for c in spec.choices)}",
-                )
-                raise typer.Exit(1)
-
-            args_dict[spec.name] = converted_value
-        except typer.Exit:
-            raise  # Re-raise typer.Exit without wrapping
-        except Exception as e:
-            logger.error(f"[red]Invalid value for {spec.name}: {e}[/red]")
-            raise typer.Exit(1)
-
-    # Fill in defaults for missing arguments
-    for spec in parsed_specs:
-        if spec.name not in args_dict:
-            if spec.default is not None:
-                try:
-                    click_type = get_click_type(
-                        spec.arg_type, min_val=spec.min_val, max_val=spec.max_val
-                    )
-                    args_dict[spec.name] = click_type.convert(spec.default, None, None)
-                except Exception as e:
-                    logger.error(
-                        f"[red]Invalid default value for {spec.name}: {e}[/red]",
-                    )
-                    raise typer.Exit(1)
-            else:
-                logger.error(f"[red]Missing required argument: {spec.name}[/red]")
-                raise typer.Exit(1)
-
-    return args_dict
+    return _fill_missing_args(logger, parsed_specs, args_dict)

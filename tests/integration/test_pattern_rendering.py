@@ -468,5 +468,104 @@ class TestSelfReferencesBetweenPatterns(PatternRenderingTestCase):
         self.assertIn("second", collapsed)
 
 
+class TestSelfReferencesInArgumentDefaults(PatternRenderingTestCase):
+    """
+    An argument default may name one of the task's own inputs (schema
+    pipeline slice 10e, family 1). This one *is* circular in general --
+    resolving the default needs the pattern rendered, rendering the pattern
+    needs the argument values, and those come from the defaults -- so the
+    defaults that name no self reference are settled first, the patterns
+    rendered with those, and the rest settled after. A default whose
+    pattern needs an argument that is itself still waiting is a real loop,
+    and is reported as one.
+    """
+
+    def test_a_default_may_name_an_input(self):
+        self.write_recipe(
+            "tasks:\n  build:\n"
+            "    args:\n"
+            '      - target: { default: "{{ self.inputs.src }}" }\n'
+            "    inputs:\n      - src: srcdir/a.txt\n"
+            "    outputs: [out.txt]\n"
+            "    cmd: echo {{ arg.target }} > out.txt\n"
+        )
+        result, output = self.run_task()
+        self.assert_ran(output, result)
+        self.assertEqual(
+            (self.project_root / "out.txt").read_text().strip(), "srcdir/a.txt"
+        )
+
+    def test_a_default_resolves_against_an_overridden_argument(self):
+        """
+        The pattern the default names may itself name another argument. If
+        the caller overrode that one, the default has to see the override,
+        not the default it replaced.
+        """
+        (self.source_dir / "release.txt").write_text("release\n")
+        self.write_recipe(
+            "tasks:\n  build:\n"
+            "    args:\n"
+            "      - config: { default: debug }\n"
+            '      - target: { default: "{{ self.inputs.src }}" }\n'
+            "    inputs:\n"
+            '      - src: "srcdir/{{ arg.config }}.txt"\n'
+            "    outputs: [out.txt]\n"
+            "    cmd: echo {{ arg.target }} > out.txt\n"
+        )
+        result = self.runner.invoke(
+            app, ["build", "config=release"], env={"NO_COLOR": "1"}
+        )
+        output = strip_ansi_codes(result.stdout)
+
+        self.assertEqual(result.exit_code, 0, output)
+        self.assertEqual(
+            (self.project_root / "out.txt").read_text().strip(), "srcdir/release.txt"
+        )
+
+    def test_a_loop_through_an_argument_is_reported(self):
+        """
+        The pattern needs the argument, the argument's default needs the
+        pattern. Nothing can go first.
+        """
+        self.write_recipe(
+            "tasks:\n  build:\n"
+            "    args:\n"
+            '      - target: { default: "{{ self.inputs.src }}" }\n'
+            "    inputs:\n"
+            '      - src: "srcdir/{{ arg.target }}.txt"\n'
+            "    outputs: [out.txt]\n"
+            "    cmd: echo {{ arg.target }} > out.txt\n"
+        )
+        result, output = self.run_task()
+
+        self.assertNotEqual(result.exit_code, 0, output)
+        collapsed = " ".join(output.split())
+        self.assertIn("target", collapsed)
+
+    def test_a_dependencys_default_may_name_its_own_input(self):
+        """
+        The same staging has to happen on the dependency path, or this
+        works on the invoked task and not one step down.
+        """
+        self.write_recipe(
+            "tasks:\n"
+            "  generate:\n"
+            "    args:\n"
+            '      - target: { default: "{{ self.inputs.src }}" }\n'
+            "    inputs:\n      - src: srcdir/a.txt\n"
+            "    outputs: [gen.txt]\n"
+            "    cmd: echo {{ arg.target }} > gen.txt\n"
+            "  build:\n"
+            "    deps: [generate]\n"
+            "    outputs: [out.txt]\n"
+            "    cmd: cp gen.txt out.txt\n"
+        )
+        result, output = self.run_task()
+        self.assert_ran(output, result)
+        self.assertEqual(
+            (self.project_root / "gen.txt").read_text().strip(), "srcdir/a.txt"
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
