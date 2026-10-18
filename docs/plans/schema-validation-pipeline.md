@@ -9,13 +9,15 @@
 > 2026-10-16 and split into **10a–10d**: tracing its consumers showed seven
 > of them rather than two, and `StrictUndefined` rules out swapping the pass
 > for a Jinja one in place, so rendering has to move to point of use.
-> **10a, 10b and 10c are done** (2026-10-17): every pattern on the freshness
-> path renders; `self.*` reaches a command through the render context rather
-> than by injection into text about to be rendered; and descriptions and
-> argument specs render where they always were, since they cannot depend on
-> the invocation. Only **10d** is left — and it is now narrower than planned,
-> deleting the substitution of `cmd`, `working_dir`, `inputs` and `outputs`
-> rather than the whole pass.
+> **Slice 10 is done** (10a–10c on 2026-10-17, 10d on 2026-10-18). Every
+> pattern on the freshness path renders; `self.*` and a dependency's output
+> paths reach a command through rendered values rather than by injection
+> into text about to be rendered; descriptions and argument specs render
+> where they always were, since they cannot depend on the invocation; and
+> the parse-time substitution of `cmd`, `working_dir`, `inputs` and
+> `outputs` is gone. **Runner fields are the last textual substitution**,
+> which belongs with slice 11. **Slice 10e** (proposed) would close the two
+> remaining `self.*` deferrals with an ordered resolver.
 > **Slices 11 and 12** are the two defects the PR #212 review turned up,
 > promoted to slices so they can be scheduled. Recommended order:
 > 10a → 12 → 10b → 10c → 10d, with 11 droppable in anywhere.
@@ -1173,10 +1175,51 @@ found while re-planning make it bigger, and change its shape:
 
   **Gate run (2026-10-17):** unit 1546 passed, integration 338 passed +2
   xfailed, e2e 47 passed (Docker legs unrunnable here).
-- **10d — delete the pass.** Remove the tail of `evaluate_variables`,
-  update the two unit tests that assert parse-time substitution of
-  `task.cmd`, and drop `substitute_variables` if 10a–10c leave it unused.
-  Full pyramid, and re-run the slice 7 gate as well.
+- **10d — delete the substitution of commands and patterns ✅ done
+  (2026-10-18).** Variables now reach a task's `cmd` and `working_dir` when
+  it runs, and its `inputs`/`outputs` when they are matched. The pass is
+  **narrowed, not removed**: it still renders `desc` and the argument specs,
+  per 10c's correction.
+
+  **The deferred half of 10b landed first.** A dependency's output path is
+  injected into the consumer's command, which is itself about to be
+  rendered, so a path carrying a template was rendered twice. With the
+  parse-time pass still in place this made no observable difference, which
+  is exactly why it had to be fixed *before* the deletion exposed it.
+  `substitute_dependency_outputs` takes a `render_output` callable and
+  `resolve_dependency_output_references` an injected `render_pattern`,
+  tracking each task's invocation arguments so a producer's path renders
+  against its own invocation.
+
+  **`TestNothingIsRenderedTwice` passes and its marker is gone.** It needed
+  both halves: 10b fixed the injection step, 10d removed the pass that
+  wrote values into pattern text for 10a to render. Either alone left the
+  value going through a render it should never have seen. Keeping it as a
+  running `expectedFailure` rather than a note in this document is what
+  reported the moment it came right.
+
+  **The two unit tests slice 7 predicted are restated, not dropped.** Both
+  assert what an import guarantees, which is the *scope* a reference
+  resolves in rather than when: they now check the reference was rewritten
+  to the imported namespace (`echo {{ var.sub.greeting }}`) and that the
+  name carries the imported file's value, with the root's same-named
+  variable as the contrast they always existed to draw.
+
+  **Still textual, and now the only such place: runner fields.**
+  `evaluate_variables` substitutes interpreter `cmd`/`preamble`,
+  `working_dir`, volumes, ports, env_vars and build/run args with the
+  regex. So a filter in a runner field does not work, and that is the
+  natural companion to slice 11 (host runners never render their fields at
+  all). Neither is slice 10's.
+
+  **`--show` now prints templates** for `cmd`/`inputs`/`outputs` rather
+  than substituted text, as 10c anticipated. That is the better output for
+  a command whose job is to show what a task *is*.
+
+  **Gate run (2026-10-18), the full pyramid for the first time** — Docker
+  became available on the machine partway through, so the Docker legs ran
+  here rather than only in CI: unit 1550 passed, integration 350 passed +1
+  xfailed (the `choices` gate), e2e 76 passed / 3 skipped.
 
 **Payoff, restated honestly.** One mechanism instead of two, and §1 step 8
 finally true. The user-visible win is consistency: because the parse pass
