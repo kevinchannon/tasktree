@@ -1686,34 +1686,6 @@ class Executor:
 
         return render(text, build_runner_config(builtins=builtin_vars))
 
-    @staticmethod
-    def _substitute_args(
-        cmd: str, args_dict: dict[str, Any], exported_args: set[str] | None = None
-    ) -> str:
-        """
-        Substitute {{ arg.name }} placeholders in command string.
-
-        Superseded by _render_field, which resolves arguments along with
-        every other namespace. Nothing in the package calls this any more --
-        only its own unit tests do -- so it is kept for now rather than
-        removed in the middle of moving rendering about. Do not reach for it
-        in new code.
-
-        Args:
-        cmd: Command with {{ arg.name }} placeholders
-        args_dict: Argument values to substitute (only regular args)
-        exported_args: Set of argument names that are exported (not available for substitution)
-
-        Returns:
-        Command with arguments substituted
-
-        Raises:
-        ValueError: If an exported argument is used in template substitution
-        """
-        from tasktree.substitution import substitute_arguments
-
-        return substitute_arguments(cmd, args_dict, exported_args)
-
     def _get_all_inputs(self, task: Task, args_dict: dict[str, Any] | None = None) -> list[str]:
         """
         Get all inputs for a task (explicit + implicit from dependencies).
