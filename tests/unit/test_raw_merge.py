@@ -84,6 +84,44 @@ class TestImportErrors(RawMergeTestCase):
             str(cm.exception), "Circular import detected: tt.yaml → tt.yaml"
         )
 
+    def test_a_cycle_spelled_with_dots_is_still_a_cycle(self):
+        """
+        The same two files, reached by paths that do not compare equal:
+        './sub/b.yaml' from the root, '../tt.yaml' back from the import.
+        Comparing the paths as written never matched, so the merge recursed
+        until Python gave up (PR #212 review).
+        """
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: ./sub/b.yaml\n"
+            "    as: sub\n",
+        )
+        self.write(
+            "sub/b.yaml",
+            "imports:\n"
+            "  - file: ../tt.yaml\n"
+            "    as: root\n",
+        )
+
+        with self.assertRaises(CircularImportError) as cm:
+            merge_recipe(recipe)
+
+        self.assertIn("Circular import detected", str(cm.exception))
+        self.assertIn("tt.yaml", str(cm.exception))
+
+    def test_a_cycle_through_a_redundant_segment_is_still_a_cycle(self):
+        """'./tt.yaml' and 'tt.yaml' name one file and must compare as one."""
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: ./tt.yaml\n"
+            "    as: me\n",
+        )
+
+        with self.assertRaises(CircularImportError):
+            merge_recipe(recipe)
+
     def test_mutual_import_raises_circular_with_chain(self):
         recipe = self.write(
             "tt.yaml",

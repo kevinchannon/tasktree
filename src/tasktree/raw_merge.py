@@ -105,7 +105,13 @@ def _merge_file(
     runnerless tasks (does not cascade into this file's imports - each
     import spec carries its own run_in)
     """
-    if file_path in import_stack:
+    # Compared resolved: one file reached as './sub/b.yaml' and as
+    # '../tt.yaml' is still one file, and comparing the paths as written
+    # matched neither -- so a cycle spelled that way recursed until Python
+    # gave up rather than being reported. The chain is still shown as
+    # written, which is how the author will recognise it.
+    resolved = file_path.resolve()
+    if any(entry.resolve() == resolved for entry in import_stack):
         chain = " → ".join(str(f.name) for f in import_stack + [file_path])
         raise CircularImportError(f"Circular import detected: {chain}")
 

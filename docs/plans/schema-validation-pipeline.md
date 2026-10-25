@@ -1405,12 +1405,20 @@ The durable fix is to parse the block rather than pattern-match it —
 Jinja's own parser can supply the AST, and rewriting on the AST cannot
 touch a literal.
 
-**A second symptom of the same cause, from the other side:** `\b` in
-`_REFERENCE` matches after a dot, so `{{ foo.var.bar }}` is rewritten as
-though `var` were the namespace prefix. Gated alongside the literals.
+**A second symptom of the same cause is fixed (2026-10-25):** `\b` in
+`_REFERENCE` matched after a dot, so `{{ foo.var.bar }}` read as a
+reference to `var.bar` and, on import, had its text rewritten as though
+`var` were the namespace prefix. A `(?<![\w.])` lookbehind expresses the
+actual rule — a prefix counts only at the start of a path — and that case
+is now a passing test rather than a gate.
+
+**What is left for the AST rewrite is string literals**, which no
+lookbehind can distinguish from code: a quote is not a word character, so
+`{{ "see var.greeting" }}` still matches. That is the remaining scope of
+this slice, and it is smaller than it was.
 
 **Gates added 2026-10-25** (from the PR #212 review's own request for a
-regression test), four `expectedFailure` tests that will report the moment
+regression test), three `expectedFailure` tests that will report the moment
 this lands: `TestStringLiteralsInsideTemplates` in
 `tests/unit/test_rendering.py` for the `self.` and `dep.` rewrites, and
 `TestStringLiteralsAreNotNamespaced` in `tests/unit/test_template_refs.py`

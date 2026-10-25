@@ -27,8 +27,12 @@ TEMPLATE_PREFIXES = ("var", "arg", "env", "tt", "dep", "self")
 _TEMPLATE_BLOCK = re.compile(r"\{\{.*?}}|\{%.*?%}", re.DOTALL)
 # Continuation segments may be purely numeric: positional references like
 # {{ self.inputs.0 }} are documented syntax and must keep their index.
+# The lookbehind matters: \b alone matches after a dot, so `{{ foo.var.x }}`
+# read as a reference to var.x and -- worse -- had its text rewritten on
+# import as though var were the namespace prefix. A prefix only counts at
+# the start of a path, never partway along one.
 _REFERENCE = re.compile(
-    r"\b(var|arg|env|tt|dep|self)\s*\.\s*"
+    r"(?<![\w.])(var|arg|env|tt|dep|self)\s*\.\s*"
     r"([A-Za-z_][A-Za-z0-9_-]*(?:\.[A-Za-z0-9_][A-Za-z0-9_-]*)*)"
 )
 

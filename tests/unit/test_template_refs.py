@@ -294,12 +294,12 @@ class TestStringLiteralsAreNotNamespaced(unittest.TestCase):
             '{{ "see var.greeting" }}',
         )
 
-    @unittest.expectedFailure
     def test_an_attribute_path_is_not_mistaken_for_a_reference(self):
         """
-        The same root cause from the other side: ``\b`` matches after a dot,
-        so a path that merely contains ``.var.`` is rewritten as though the
-        namespace were its own. Raised in the PR #212 review.
+        Fixed, unlike the literals above: a prefix only counts at the start
+        of a path, which a lookbehind can express. Quotes cannot be told
+        from code by the same trick, which is why the literals still wait
+        for slice 12's AST rewrite. Raised in the PR #212 review.
         """
         self.assertEqual(
             rewrite_var_refs("{{ foo.var.bar }}", "build"), "{{ foo.var.bar }}"
