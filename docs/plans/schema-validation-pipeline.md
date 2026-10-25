@@ -19,9 +19,10 @@
 > which belongs with slice 11. **Slice 10e** closed both `self.*`
 > deferrals: patterns order themselves through `field_order.py`, and
 > argument defaults are staged around the pattern render by
-> `Executor.resolve_arg_specs`. It also turned up a pre-existing defect it
-> did not fix — a dependency named as a bare string gets no argument
-> defaults at all.
+> `Executor.resolve_arg_specs`. It also turned up a pre-existing defect,
+> since fixed: a dependency named as a bare string got no argument
+> defaults at all, which cost it a second cache key as well as any
+> argument its command referenced.
 > **Slices 11 and 12** are the two defects the PR #212 review turned up,
 > promoted to slices so they can be scheduled. Recommended order:
 > 10a → 12 → 10b → 10c → 10d, with 11 droppable in anywhere.
@@ -1283,16 +1284,35 @@ is still a single place that knows how a value becomes its declared type —
 the duplication that made three `hash_task` call sites disagree was not
 worth repeating.
 
-**A separate pre-existing defect, found here and gated, not fixed: a
-dependency named as a bare string gets no argument defaults at all.**
-`parse_dependency_spec` returns `args=None` for that form and nothing fills
-them in later, so even a plain literal default is missing and the task
-fails with a leaked `_ArgNamespace` name. The positional and named
-dependency-argument parsers both fill defaults; the bare-string branch is
-the odd one out. Verified identical on c5ad5c7. Fixing it changes the
-arguments a simple dependency is invoked with, and so its cache key and
-every affected task's state, which is why it is a decision rather than a
-side effect. Gate: `test_a_dependencys_default_may_name_its_own_input`.
+**A separate pre-existing defect, found here and since fixed (2026-10-25,
+Kevin's call): a dependency named as a bare string got no argument defaults
+at all.** `parse_dependency_spec` returned `args=None` for that form and
+nothing filled them in later, so even a plain literal default was missing
+and the task failed with a leaked `_ArgNamespace` name. The positional and
+named parsers both filled defaults; the bare-string branch was the odd one
+out. Verified identical on c5ad5c7, so it predates this branch.
+
+It had a second symptom with no templates involved at all: reached
+directly a task had its defaults and so an args hash, reached as a bare
+dependency it had neither, so one task took two cache keys and left two
+state entries (`fc148921__3733df25` and `fc148921`). Those now agree, at
+the cost of one re-run per affected task.
+
+`_bare_dependency_args` returns `None` rather than an empty dict when there
+is nothing to fill, so a dependency taking no arguments keeps its cache
+key; a task that does not exist is left alone, so the existing "not found"
+report is unchanged; and an argument with **no** default is left out rather
+than reported, since making it raise there would fail recipes that get away
+with it today because nothing references the value.
+
+**It also corrects something recorded above.** The arg-defaults branch of
+`resolve_self_references` is *not* dead — it is dead only for the invoked
+task, whose defaults `parse_task_args` consumes too early. For a
+dependency it is live, because `resolve_execution_order` runs twice (once
+in the CLI at `execute_dynamic_task.py:124`, again inside
+`Executor.execute_task` at `executor.py:751`) and the pass rewrites the
+default in between. That double resolution is a smell worth its own look:
+the two passes can see different task state.
 
 **The original note on why this looked expensive**, kept because the
 reasoning held up — the cost was in the staging, not the line move: The staged resolution is clear enough — resolve the defaults
