@@ -129,7 +129,9 @@ def render_own_patterns(
     try:
         order = list(sorter.static_order())
     except CycleError as e:
-        raise ValueError(_cycle_message(task_name, e.args[1]))
+        # CycleError's second argument is the cycle it found: the nodes in
+        # order, with the first repeated at the end to close the loop.
+        raise ValueError(_cycle_message(task_name, e.args[1])) from e
 
     # Indexed entries are addressed by position, and the order patterns
     # resolve in is not the order they were declared in, so each list is

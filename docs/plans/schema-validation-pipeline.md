@@ -1448,7 +1448,10 @@ should move into it rather than be duplicated.
   upgrade, because those values are now part of its hash. One-time.
 - **A change to a referenced environment variable now re-runs a task.** v1.3.2
   never noticed. Only *referenced* variables count — inherited environment
-  still does not trigger a re-run.
+  still does not trigger a re-run. The corollary, raised in review and now in
+  `src/tasktree/README.md`: referencing a value that changes every run
+  (`{{ env.CI_JOB_ID }}`) makes the task run every time, and the way to use
+  such a value without that is to read it inside the command instead.
 - **A task with a variable in an output path re-runs once** after upgrade: its
   hash now holds the unrendered template plus the value behind it.
 - **A dependency named as a bare string now gets its argument defaults**, so

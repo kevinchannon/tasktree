@@ -1,6 +1,7 @@
 """Tests for state module."""
 
 import unittest
+import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -186,3 +187,53 @@ class TestStateErrors(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestStateWrittenByAnOlderVersion(unittest.TestCase):
+    """
+    Entries written before task names were recorded carry no ``task_name``.
+    They have to load, and they have to prune by the hash-only rule, or an
+    upgrade either crashes on the old file or keeps its entries for ever
+    (raised in the PR #212 review, which noted the round-trip was untested
+    at this level).
+    """
+
+    def _manager_with_legacy_state(self, tmpdir: Path, cache_key: str):
+        (tmpdir / ".tasktree-state").write_text(
+            json.dumps({cache_key: {"last_run": 1.0, "input_state": {"a.txt": 2.0}}})
+        )
+        manager = StateManager(tmpdir)
+        manager.load()
+        return manager
+
+    def test_a_legacy_entry_loads_with_no_name(self):
+        with TemporaryDirectory() as tmp:
+            manager = self._manager_with_legacy_state(Path(tmp), "abc123")
+
+            entry = manager.get("abc123")
+
+            self.assertIsNotNone(entry)
+            self.assertEqual(entry.task_name, "")
+            self.assertEqual(entry.input_state, {"a.txt": 2.0})
+
+    def test_a_legacy_entry_is_kept_when_its_hash_is_still_current(self):
+        with TemporaryDirectory() as tmp:
+            manager = self._manager_with_legacy_state(Path(tmp), "abc123")
+
+            manager.prune({"abc123"}, defined_task_names={"build"},
+                          reachable_task_names={"build"})
+
+            self.assertIsNotNone(manager.get("abc123"))
+
+    def test_a_legacy_entry_is_pruned_when_its_hash_is_gone(self):
+        """
+        The hash-only rule is all that can be applied: without a name there
+        is no way to tell a renamed task from a stale hash.
+        """
+        with TemporaryDirectory() as tmp:
+            manager = self._manager_with_legacy_state(Path(tmp), "abc123")
+
+            manager.prune({"different"}, defined_task_names={"build"},
+                          reachable_task_names={"build"})
+
+            self.assertIsNone(manager.get("abc123"))

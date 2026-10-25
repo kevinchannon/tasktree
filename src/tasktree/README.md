@@ -269,6 +269,13 @@ variable, or changing an environment variable the task never mentions, will
 not re-run it — so if a task depends on an environment variable, reference it
 in the task rather than relying on it being inherited.
 
+The other side of that: referencing an environment variable whose value
+changes every run makes the task run every time. `{{ env.CI_JOB_ID }}` or
+`{{ env.RANDOM }}` in a command — or in the runner it uses — is enough, since
+the value behind the reference is part of what the task *is*. If you need
+such a value at run time but not as part of the task's identity, read it
+inside the command (`$CI_JOB_ID`) rather than referencing it as a template.
+
 ### Automatic Input Inheritance
 
 Tasks automatically inherit inputs from dependencies, eliminating redundant declarations:
