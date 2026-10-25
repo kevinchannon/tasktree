@@ -35,8 +35,11 @@ class ValidationOrderingTestCase(unittest.TestCase):
     def write_recipe(self, text: str) -> None:
         (self.project_root / "tasktree.yaml").write_text(text)
 
-    def run_build(self):
-        result = self.runner.invoke(app, ["build"], env={"NO_COLOR": "1"})
+    def run_build(self, *args: str):
+        """Invoke tt, defaulting to running the task."""
+        result = self.runner.invoke(
+            app, list(args) or ["build"], env={"NO_COLOR": "1"}
+        )
         return result, re.sub(r"\x1b\[[0-9;]*m", "", result.stdout)
 
     def recipe(self, extra_task_field: str = "") -> str:
@@ -77,6 +80,36 @@ class TestEvalWaitsForAValidRecipe(ValidationOrderingTestCase):
 
         self.assertEqual(result.exit_code, 0, output)
         self.assertTrue(self.sentinel.exists(), output)
+
+
+class TestEveryEntryPointWaitsTheSame(ValidationOrderingTestCase):
+    """
+    The commands that only *describe* a recipe take a different route: with
+    no task to invoke they skip pruning, and they evaluate every variable
+    rather than the reachable ones. So they are the paths most likely to
+    reach an ``eval:`` early, and the guarantee has to hold on each of them
+    (raised in the PR #212 review, which asked for exactly this).
+    """
+
+    def assert_nothing_ran(self, *args: str) -> None:
+        self.write_recipe(self.recipe("    not_a_field: anything\n"))
+
+        result, output = self.run_build(*args)
+
+        self.assertNotEqual(result.exit_code, 0, output)
+        self.assertFalse(
+            self.sentinel.exists(),
+            f"an eval: variable ran for {' '.join(args)} on an invalid recipe",
+        )
+
+    def test_list_runs_nothing(self):
+        self.assert_nothing_ran("--list")
+
+    def test_show_runs_nothing(self):
+        self.assert_nothing_ran("--show", "build")
+
+    def test_tree_runs_nothing(self):
+        self.assert_nothing_ran("--tree", "build")
 
 
 if __name__ == "__main__":
