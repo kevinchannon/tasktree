@@ -273,3 +273,23 @@ class TestRewriteVarRefs(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestStringLiteralsAreNotNamespaced(unittest.TestCase):
+    """
+    Importing a file rewrites its ``var.*`` references to the namespace the
+    import gave it. A string literal inside a template block is content,
+    not a reference, but the rewrite works on the block's raw text and so
+    reaches inside quotes.
+
+    Raised in the PR #212 review and tracked as slice 12 of
+    docs/plans/schema-validation-pipeline.md, whose fix is to rewrite on
+    Jinja's own AST. This is its gate on the import side.
+    """
+
+    @unittest.expectedFailure
+    def test_a_literal_mentioning_a_variable_is_left_alone(self):
+        self.assertEqual(
+            rewrite_var_refs('{{ "see var.greeting" }}', "build"),
+            '{{ "see var.greeting" }}',
+        )

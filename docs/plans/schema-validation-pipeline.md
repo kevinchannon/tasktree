@@ -1405,6 +1405,20 @@ The durable fix is to parse the block rather than pattern-match it —
 Jinja's own parser can supply the AST, and rewriting on the AST cannot
 touch a literal.
 
+**Gates added 2026-10-25** (from the PR #212 review's own request for a
+regression test), three `expectedFailure` tests that will report the moment
+this lands: `TestStringLiteralsInsideTemplates` in
+`tests/unit/test_rendering.py` for the `self.` and `dep.` rewrites, and
+`TestStringLiteralsAreNotNamespaced` in `tests/unit/test_template_refs.py`
+for the import-side `var.` rewrite.
+
+**One correction to the description above:** only the `self.` case is
+silent. `{{ "see dep.build.outputs.x" }}` has the subscript rewrite applied
+*inside the quotes*, producing text that will not parse, so a correctly
+written template is reported as `Malformed template (line 1): expected
+token 'end of print statement', got 'build'`. That is arguably the worse
+symptom of the two, since it accuses the user's own template.
+
 **Sequence with slice 10.** These are the same work seen from two sides:
 slice 10 moves rendering to point of use, and slice 12 makes the rewrites
 that rendering depends on trustworthy. Doing 12 **first** is tempting, but

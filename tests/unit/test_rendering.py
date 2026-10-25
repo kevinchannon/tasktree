@@ -164,3 +164,38 @@ class TestSandboxing(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestStringLiteralsInsideTemplates(unittest.TestCase):
+    """
+    A string literal in a template block is content, not a reference. The
+    rewrites that make Tasktree's spellings valid Jinja -- ``self.`` to
+    Jinja's reserved-name alias, and ``dep.<task>.outputs.<name>`` to
+    subscript form -- work on the block's raw text, so they reach inside
+    quotes too.
+
+    Raised in the PR #212 review and tracked as slice 12 of
+    docs/plans/schema-validation-pipeline.md, whose fix is to rewrite on
+    Jinja's own AST rather than by pattern. These are its gates: narrow in
+    practice, since a literal has to contain one of those spellings, but
+    silent in one direction and baffling in the other.
+    """
+
+    @unittest.expectedFailure
+    def test_a_literal_mentioning_self_is_not_rewritten(self):
+        """Silently corrupted: the reserved-name alias is substituted in."""
+        self.assertEqual(
+            render('{{ "note: self.value" }}', {}), "note: self.value"
+        )
+
+    @unittest.expectedFailure
+    def test_a_literal_mentioning_a_dependency_output_is_not_rewritten(self):
+        """
+        Worse than silent: the subscript rewrite lands inside the quotes
+        and the result will not parse, so a correctly written template is
+        reported as malformed.
+        """
+        self.assertEqual(
+            render('{{ "see dep.build.outputs.x" }}', {}),
+            "see dep.build.outputs.x",
+        )
