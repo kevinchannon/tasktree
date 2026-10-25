@@ -1,0 +1,717 @@
+"""
+Integration tests for rendering templates in input and output patterns
+(schema pipeline slice 10a).
+
+A pattern has to be rendered before it is matched against the filesystem.
+Until slice 10a that was done for ``{{ var.name }}`` only, and by a regex
+pass at parse time rather than by the renderer -- so anything the regex
+could not express (a filter, a conditional, an arithmetic expression) was
+left in the pattern verbatim and silently matched nothing.
+
+The failure that follows is quiet, which is why these are behavioural
+tests rather than assertions about state: a task whose input pattern
+matches no files has nothing to compare, so it runs once and is then
+considered fresh for ever. The mirror case for outputs is noisy instead --
+a pattern that never matches reports its outputs missing on every run --
+so each is asserted in the direction it actually fails.
+
+Deliberately NOT part of ``test_hash_sensitivity.py``: that file is copied
+into the reference worktree for the v1.3.2 parity gate, and these tests
+describe behaviour v1.3.2 does not have.
+"""
+
+import os
+import re
+import time
+import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
+from typer.testing import CliRunner
+
+from tasktree.cli import app
+
+
+def strip_ansi_codes(text: str) -> str:
+    ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
+    return ansi_escape.sub("", text)
+
+
+class PatternRenderingTestCase(unittest.TestCase):
+    """
+    Harness for a task whose patterns contain templates.
+
+    ``cmd`` is kept to a redirected ``echo`` so that it runs on every
+    platform without naming an interpreter: what is under test is which
+    files the *pattern* matches, not what the command does with them.
+    """
+
+    def setUp(self):
+        self.runner = CliRunner()
+        self._tmp = TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.project_root = Path(self._tmp.name)
+        self._original_cwd = os.getcwd()
+        os.chdir(self.project_root)
+        self.addCleanup(lambda: os.chdir(self._original_cwd))
+        self.source_dir = self.project_root / "srcdir"
+        self.source_dir.mkdir()
+        self.source_file = self.source_dir / "a.txt"
+        self.source_file.write_text("one\n")
+
+    def write_recipe(self, text: str) -> None:
+        (self.project_root / "tasktree.yaml").write_text(text)
+
+    def run_task(self, task: str = "build", env: dict | None = None):
+        result = self.runner.invoke(app, [task], env={"NO_COLOR": "1", **(env or {})})
+        return result, strip_ansi_codes(result.stdout)
+
+    def assert_ran(self, output: str, result, task: str = "build") -> None:
+        self.assertEqual(result.exit_code, 0, output)
+        self.assertIn(f"Running: {task}", output)
+
+    def assert_skipped(self, output: str, result, task: str = "build") -> None:
+        self.assertEqual(result.exit_code, 0, output)
+        self.assertNotIn(f"Running: {task}", output)
+
+    def touch_source(self) -> None:
+        """Change a matched input, the one thing that should force a re-run."""
+        time.sleep(0.01)
+        self.source_file.write_text("two\n")
+
+    def assert_tracks_its_inputs(self) -> None:
+        """
+        The whole contract in one sequence: run, settle, change an input,
+        run again. A pattern that matched nothing passes the first two
+        steps and fails the third.
+        """
+        result, output = self.run_task()
+        self.assert_ran(output, result)
+
+        result, output = self.run_task()
+        self.assert_skipped(output, result)
+
+        self.touch_source()
+        result, output = self.run_task()
+        self.assert_ran(output, result)
+
+
+class TestFiltersInInputPatterns(PatternRenderingTestCase):
+    """
+    A filter is the cheapest thing the old regex pass could not express:
+    ``PLACEHOLDER_PATTERN`` matches ``{{ var.name }}`` and nothing with a
+    space and a pipe in it, so ``{{ var.dir | lower }}`` was never
+    substituted and reached the glob verbatim.
+    """
+
+    def test_filter_in_anonymous_input_pattern_is_rendered(self):
+        self.write_recipe(
+            "variables:\n  dir: SRCDIR\n"
+            "tasks:\n  build:\n"
+            '    inputs: ["{{ var.dir | lower }}/*.txt"]\n'
+            "    outputs: [out.txt]\n"
+            "    cmd: echo done > out.txt\n"
+        )
+        self.assert_tracks_its_inputs()
+
+    def test_filter_in_named_input_pattern_is_rendered(self):
+        """Named inputs are a dict branch in every consumer; cover it too."""
+        self.write_recipe(
+            "variables:\n  dir: SRCDIR\n"
+            "tasks:\n  build:\n"
+            "    inputs:\n"
+            '      - sources: "{{ var.dir | lower }}/*.txt"\n'
+            "    outputs: [out.txt]\n"
+            "    cmd: echo done > out.txt\n"
+        )
+        self.assert_tracks_its_inputs()
+
+
+class TestFiltersInOutputPatterns(PatternRenderingTestCase):
+    """
+    Outputs fail the other way round. A pattern that never matches reports
+    its outputs missing on every run, so the task re-runs for ever instead
+    of going quiet -- noisy rather than silent, but just as wrong.
+    """
+
+    def assert_settles(self) -> None:
+        """
+        Run twice. The second run has nothing to do, and says so; a task
+        whose output pattern matched nothing claims its outputs are missing
+        and runs again.
+        """
+        result, output = self.run_task()
+        self.assert_ran(output, result)
+
+        result, output = self.run_task()
+        self.assert_skipped(output, result)
+
+    def test_filter_in_anonymous_output_pattern_is_rendered(self):
+        self.write_recipe(
+            "variables:\n  out: OUT.TXT\n"
+            "tasks:\n  build:\n"
+            "    inputs: [srcdir/a.txt]\n"
+            '    outputs: ["{{ var.out | lower }}"]\n'
+            "    cmd: echo done > out.txt\n"
+        )
+        self.assert_settles()
+
+    def test_filter_in_named_output_pattern_is_rendered(self):
+        self.write_recipe(
+            "variables:\n  out: OUT.TXT\n"
+            "tasks:\n  build:\n"
+            "    inputs: [srcdir/a.txt]\n"
+            "    outputs:\n"
+            '      - result: "{{ var.out | lower }}"\n'
+            "    cmd: echo done > out.txt\n"
+        )
+        self.assert_settles()
+
+    def test_argument_in_output_pattern_is_rendered(self):
+        """
+        Arguments are the namespace a pattern renderer must get from the
+        invocation rather than the recipe, so cover one explicitly.
+        """
+        self.write_recipe(
+            "tasks:\n  build:\n"
+            "    args:\n      - name: { default: out }\n"
+            "    inputs: [srcdir/a.txt]\n"
+            '    outputs: ["{{ arg.name }}.txt"]\n'
+            "    cmd: echo done > {{ arg.name }}.txt\n"
+        )
+        self.assert_settles()
+
+
+class TestInheritedDependencyPatterns(PatternRenderingTestCase):
+    """
+    A task inherits its dependencies' patterns -- their outputs, or their
+    inputs when they declare no outputs -- and those are matched against
+    the filesystem too, so they need rendering for the same reason the
+    task's own patterns do. They render against the *dependency's*
+    invocation, not the dependent's.
+    """
+
+    def test_inherits_a_dependencys_rendered_input_pattern(self):
+        """
+        A dependency with no outputs passes its inputs up. Unrendered, the
+        dependent inherits a pattern matching nothing and goes quiet.
+        """
+        self.write_recipe(
+            "variables:\n  dir: SRCDIR\n"
+            "tasks:\n"
+            "  generate:\n"
+            '    inputs: ["{{ var.dir | lower }}/*.txt"]\n'
+            "    cmd: echo generated\n"
+            "  build:\n"
+            "    deps: [generate]\n"
+            "    outputs: [out.txt]\n"
+            "    cmd: echo done > out.txt\n"
+        )
+        self.assert_tracks_its_inputs()
+
+    def test_inherits_a_dependencys_rendered_output_pattern(self):
+        """
+        The commoner case: a dependency's outputs become the dependent's
+        inputs, so a template in the producer's output path has to render
+        before the consumer can notice it changing.
+        """
+        self.write_recipe(
+            "variables:\n  built: BUILT.TXT\n"
+            "tasks:\n"
+            "  generate:\n"
+            "    inputs: [srcdir/a.txt]\n"
+            '    outputs: ["{{ var.built | lower }}"]\n'
+            "    cmd: echo generated > built.txt\n"
+            "  build:\n"
+            "    deps: [generate]\n"
+            "    outputs: [out.txt]\n"
+            "    cmd: echo done > out.txt\n"
+        )
+        self.assert_tracks_its_inputs()
+
+
+class TestNothingIsRenderedTwice(PatternRenderingTestCase):
+    """
+    A path is data by the time it reaches a command: whatever a variable
+    evaluated to has to arrive literally, even when it happens to look
+    like a template.
+
+    This was wrong in two places at once, and needed both halves of the
+    work. Slice 10b stopped the *injection* step substituting an unrendered
+    path into text that was about to be rendered. Slice 10d removed the
+    parse-time pass that wrote variable *values* into the pattern text,
+    which slice 10a had then started rendering. Either one alone left the
+    value going through a render it should never have seen.
+    """
+
+    def test_a_variable_value_containing_a_template_stays_literal(self):
+        """
+        The value arrives from the environment, so it is data and never a
+        template: a recipe-literal spelling would be rendered once on its
+        way in and prove nothing.
+        """
+        self.write_recipe(
+            "variables:\n"
+            "  braced: { env: TT_BRACED }\n"
+            "tasks:\n  build:\n"
+            "    inputs:\n"
+            '      - src: "{{ var.braced }}"\n'
+            "    outputs: [out.txt]\n"
+            "    cmd: echo {{ self.inputs.src }} > out.txt\n"
+        )
+        result, output = self.run_task(env={"TT_BRACED": "{{ oops }}"})
+        self.assert_ran(output, result)
+        self.assertEqual(
+            (self.project_root / "out.txt").read_text().strip(), "{{ oops }}"
+        )
+
+
+class TestTemplatesInArgumentSpecs(PatternRenderingTestCase):
+    """
+    An argument's default, bounds and choices are read and converted to the
+    argument's declared type while the CLI is still assembling arguments,
+    before any task renders -- so they cannot wait for the renderer the way
+    a command does (schema pipeline slice 10c).
+
+    They are invocation-independent, though: an argument default cannot
+    name an argument. So unlike a pattern, one render up front is the right
+    shape for them, and the old regex pass was in the right place -- just
+    unable to express anything but a bare {{ var.name }}.
+    """
+
+    def test_a_filter_in_an_argument_default_is_rendered(self):
+        self.write_recipe(
+            "variables:\n  tag: RELEASE\n"
+            "tasks:\n  build:\n"
+            "    args:\n"
+            '      - name: { default: "{{ var.tag | lower }}" }\n'
+            "    inputs: [srcdir/a.txt]\n"
+            "    outputs: [out.txt]\n"
+            "    cmd: echo {{ arg.name }} > out.txt\n"
+        )
+        result, output = self.run_task()
+        self.assert_ran(output, result)
+        self.assertEqual((self.project_root / "out.txt").read_text().strip(), "release")
+
+    @unittest.expectedFailure
+    def test_a_filter_in_a_choice_is_rendered(self):
+        """
+        Choices constrain the value, so an unrendered one rejects the very
+        default it was meant to allow.
+
+        Still failing, and not for a rendering reason: ``_parse_arg_dict``
+        validates default-against-choices while the *recipe* is parsed,
+        which is before variables are evaluated, so the check compares a
+        rendered default with unrendered choices and rejects the recipe
+        before anything can run. A template in a choice has therefore never
+        worked. Making it work means deferring that validation to the point
+        of use, which belongs with the validation pipeline rather than with
+        moving a renderer; kept as a running gate so it reports itself when
+        that lands.
+        """
+        self.write_recipe(
+            "variables:\n  tag: RELEASE\n"
+            "tasks:\n  build:\n"
+            "    args:\n"
+            "      - name:\n"
+            "          default: release\n"
+            '          choices: ["{{ var.tag | lower }}", debug]\n'
+            "    inputs: [srcdir/a.txt]\n"
+            "    outputs: [out.txt]\n"
+            "    cmd: echo {{ arg.name }} > out.txt\n"
+        )
+        result, output = self.run_task()
+        self.assert_ran(output, result)
+        self.assertEqual((self.project_root / "out.txt").read_text().strip(), "release")
+
+
+class TestBuiltinsInArgumentSpecs(PatternRenderingTestCase):
+    """
+    The tt.* values that describe the host and the project need neither a
+    task nor a run, so an argument default may name them. The ones that do
+    depend on the run are reported rather than handed to the shell as text,
+    which is what used to happen.
+    """
+
+    def test_a_host_builtin_in_a_default_reaches_the_command(self):
+        self.write_recipe(
+            "tasks:\n  build:\n"
+            "    args:\n"
+            '      - where: { default: "{{ tt.project_root }}" }\n'
+            "    inputs: [srcdir/a.txt]\n"
+            "    outputs: [out.txt]\n"
+            "    cmd: echo {{ arg.where }} > out.txt\n"
+        )
+        result, output = self.run_task()
+        self.assert_ran(output, result)
+        self.assertEqual(
+            (self.project_root / "out.txt").read_text().strip(),
+            str(self.project_root.resolve()),
+        )
+
+    def test_the_task_name_in_a_description_reaches_the_listing(self):
+        self.write_recipe(
+            "tasks:\n  build:\n"
+            '    desc: "Runs {{ tt.task_name }}"\n'
+            "    inputs: [srcdir/a.txt]\n"
+            "    outputs: [out.txt]\n"
+            "    cmd: echo done > out.txt\n"
+        )
+        result = self.runner.invoke(app, ["--list"], env={"NO_COLOR": "1"})
+        output = strip_ansi_codes(result.stdout)
+
+        self.assertEqual(result.exit_code, 0, output)
+        self.assertIn("Runs build", output)
+
+    def test_a_builtin_that_needs_a_run_is_refused(self):
+        self.write_recipe(
+            "tasks:\n  build:\n"
+            "    args:\n"
+            '      - where: { default: "{{ tt.working_dir }}" }\n'
+            "    inputs: [srcdir/a.txt]\n"
+            "    outputs: [out.txt]\n"
+            "    cmd: echo {{ arg.where }} > out.txt\n"
+        )
+        result, output = self.run_task()
+
+        self.assertNotEqual(result.exit_code, 0, output)
+        self.assertIn("tt.working_dir", " ".join(output.split()))
+
+
+class TestTemplatesInDescriptions(PatternRenderingTestCase):
+    """
+    A description is printed by --list, where there is no invocation at
+    all, so it is the other clear case for rendering early and once rather
+    than at the point of use.
+    """
+
+    def test_a_filter_in_a_description_is_rendered(self):
+        self.write_recipe(
+            "variables:\n  product: TaskTree\n"
+            "tasks:\n  build:\n"
+            '    desc: "Builds {{ var.product | upper }}"\n'
+            "    inputs: [srcdir/a.txt]\n"
+            "    outputs: [out.txt]\n"
+            "    cmd: echo done > out.txt\n"
+        )
+        result = self.runner.invoke(app, ["--list"], env={"NO_COLOR": "1"})
+        output = strip_ansi_codes(result.stdout)
+
+        self.assertEqual(result.exit_code, 0, output)
+        self.assertIn("Builds TASKTREE", output)
+
+
+class TestSelfReferencesBetweenPatterns(PatternRenderingTestCase):
+    """
+    A pattern may name another of the task's own patterns (schema pipeline
+    slice 10e). Unlike the argument-default case, nothing is circular here:
+    by the time patterns are rendered the invocation's arguments are known,
+    so the only ordering needed is between the patterns themselves.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.backup = self.source_dir / "a.txt.bak"
+        self.backup.write_text("backup\n")
+
+    def test_an_input_may_name_another_input(self):
+        self.write_recipe(
+            "tasks:\n  build:\n"
+            "    inputs:\n"
+            "      - src: srcdir/a.txt\n"
+            '      - backup: "{{ self.inputs.src }}.bak"\n'
+            "    outputs: [out.txt]\n"
+            "    cmd: echo done > out.txt\n"
+        )
+        result, output = self.run_task()
+        self.assert_ran(output, result)
+
+        result, output = self.run_task()
+        self.assert_skipped(output, result)
+
+        # The second input resolved, so the file it names is tracked.
+        time.sleep(0.01)
+        self.backup.write_text("changed\n")
+        result, output = self.run_task()
+        self.assert_ran(output, result)
+
+    def test_an_output_may_name_an_input(self):
+        self.write_recipe(
+            "tasks:\n  build:\n"
+            "    inputs:\n"
+            "      - src: srcdir/a.txt\n"
+            "    outputs:\n"
+            '      - log: "{{ self.inputs.src }}.log"\n'
+            "    cmd: echo done > srcdir/a.txt.log\n"
+        )
+        result, output = self.run_task()
+        self.assert_ran(output, result)
+
+        # An unresolved output pattern would be reported missing for ever.
+        result, output = self.run_task()
+        self.assert_skipped(output, result)
+
+    def test_a_cycle_between_patterns_is_reported(self):
+        self.write_recipe(
+            "tasks:\n  build:\n"
+            "    inputs:\n"
+            '      - first: "{{ self.inputs.second }}"\n'
+            '      - second: "{{ self.inputs.first }}"\n'
+            "    outputs: [out.txt]\n"
+            "    cmd: echo done > out.txt\n"
+        )
+        result, output = self.run_task()
+
+        self.assertNotEqual(result.exit_code, 0, output)
+        collapsed = " ".join(output.split())
+        self.assertIn("first", collapsed)
+        self.assertIn("second", collapsed)
+
+
+class TestSelfReferencesInArgumentDefaults(PatternRenderingTestCase):
+    """
+    An argument default may name one of the task's own inputs (schema
+    pipeline slice 10e, family 1). This one *is* circular in general --
+    resolving the default needs the pattern rendered, rendering the pattern
+    needs the argument values, and those come from the defaults -- so the
+    defaults that name no self reference are settled first, the patterns
+    rendered with those, and the rest settled after. A default whose
+    pattern needs an argument that is itself still waiting is a real loop,
+    and is reported as one.
+    """
+
+    def test_a_default_may_name_an_input(self):
+        self.write_recipe(
+            "tasks:\n  build:\n"
+            "    args:\n"
+            '      - target: { default: "{{ self.inputs.src }}" }\n'
+            "    inputs:\n      - src: srcdir/a.txt\n"
+            "    outputs: [out.txt]\n"
+            "    cmd: echo {{ arg.target }} > out.txt\n"
+        )
+        result, output = self.run_task()
+        self.assert_ran(output, result)
+        self.assertEqual(
+            (self.project_root / "out.txt").read_text().strip(), "srcdir/a.txt"
+        )
+
+    def test_a_default_resolves_against_an_overridden_argument(self):
+        """
+        The pattern the default names may itself name another argument. If
+        the caller overrode that one, the default has to see the override,
+        not the default it replaced.
+        """
+        (self.source_dir / "release.txt").write_text("release\n")
+        self.write_recipe(
+            "tasks:\n  build:\n"
+            "    args:\n"
+            "      - config: { default: debug }\n"
+            '      - target: { default: "{{ self.inputs.src }}" }\n'
+            "    inputs:\n"
+            '      - src: "srcdir/{{ arg.config }}.txt"\n'
+            "    outputs: [out.txt]\n"
+            "    cmd: echo {{ arg.target }} > out.txt\n"
+        )
+        result = self.runner.invoke(
+            app, ["build", "config=release"], env={"NO_COLOR": "1"}
+        )
+        output = strip_ansi_codes(result.stdout)
+
+        self.assertEqual(result.exit_code, 0, output)
+        self.assertEqual(
+            (self.project_root / "out.txt").read_text().strip(), "srcdir/release.txt"
+        )
+
+    def test_a_loop_through_an_argument_is_reported(self):
+        """
+        The pattern needs the argument, the argument's default needs the
+        pattern. Nothing can go first.
+        """
+        self.write_recipe(
+            "tasks:\n  build:\n"
+            "    args:\n"
+            '      - target: { default: "{{ self.inputs.src }}" }\n'
+            "    inputs:\n"
+            '      - src: "srcdir/{{ arg.target }}.txt"\n'
+            "    outputs: [out.txt]\n"
+            "    cmd: echo {{ arg.target }} > out.txt\n"
+        )
+        result, output = self.run_task()
+
+        self.assertNotEqual(result.exit_code, 0, output)
+        collapsed = " ".join(output.split())
+        self.assertIn("target", collapsed)
+
+    def test_a_dependencys_default_may_name_its_own_input(self):
+        """
+        The same thing one step down, and it needs the bare-dependency
+        defaults fix to work at all: ``deps: [generate]`` used to invoke
+        generate with no arguments, so there was no default to resolve.
+
+        With the defaults filled, the textual self-reference pass handles
+        this case rather than ``resolve_arg_specs`` -- it rewrites the
+        default in place before the execution order is resolved the second
+        time, inside ``execute_task``. That pass is therefore live for
+        dependencies even though ``parse_task_args`` consumes the invoked
+        task's defaults too early for it to matter there.
+        """
+        self.write_recipe(
+            "tasks:\n"
+            "  generate:\n"
+            "    args:\n"
+            '      - target: { default: "{{ self.inputs.src }}" }\n'
+            "    inputs:\n      - src: srcdir/a.txt\n"
+            "    outputs: [gen.txt]\n"
+            "    cmd: echo {{ arg.target }} > gen.txt\n"
+            "  build:\n"
+            "    deps: [generate]\n"
+            "    outputs: [out.txt]\n"
+            "    cmd: echo built > out.txt\n"
+        )
+        result, output = self.run_task()
+        self.assert_ran(output, result)
+        self.assertEqual(
+            (self.project_root / "gen.txt").read_text().strip(), "srcdir/a.txt"
+        )
+
+
+class TestBareDependencyArguments(PatternRenderingTestCase):
+    """
+    A dependency named on its own -- ``deps: [generate]`` -- is still an
+    invocation of that task, so it gets the task's argument defaults. The
+    positional and named forms always did; this form did not, so a command
+    referencing one of its own arguments had nothing to substitute.
+    """
+
+    def recipe(self, generate_args: str, generate_cmd: str) -> str:
+        return (
+            "tasks:\n"
+            "  generate:\n"
+            f"{generate_args}"
+            "    inputs:\n      - src: srcdir/a.txt\n"
+            "    outputs: [gen.txt]\n"
+            f"    cmd: {generate_cmd}\n"
+            "  build:\n"
+            "    deps: [generate]\n"
+            "    inputs: [gen.txt]\n"
+            "    outputs: [out.txt]\n"
+            "    cmd: echo built > out.txt\n"
+        )
+
+    def test_a_default_reaches_a_bare_dependency(self):
+        self.write_recipe(
+            self.recipe(
+                "    args:\n      - mode: { default: plain-default }\n",
+                "echo {{ arg.mode }} > gen.txt",
+            )
+        )
+        result, output = self.run_task()
+
+        self.assert_ran(output, result, task="generate")
+        self.assertEqual(
+            (self.project_root / "gen.txt").read_text().strip(), "plain-default"
+        )
+
+    def test_a_typed_default_reaches_it_converted(self):
+        self.write_recipe(
+            self.recipe(
+                "    args:\n      - count: { type: int, default: 3 }\n",
+                "echo {{ arg.count }} > gen.txt",
+            )
+        )
+        result, output = self.run_task()
+
+        self.assert_ran(output, result, task="generate")
+        self.assertEqual((self.project_root / "gen.txt").read_text().strip(), "3")
+
+    def test_the_task_settles_rather_than_running_once_per_route(self):
+        """
+        The symptom behind the cache key: reached one way and then the
+        other, the task used to run twice and keep two state entries,
+        because one route supplied its defaults and the other did not.
+        """
+        self.write_recipe(
+            self.recipe(
+                "    args:\n      - mode: { default: plain-default }\n",
+                "echo generated > gen.txt",
+            )
+        )
+        result, output = self.run_task(task="generate")
+        self.assert_ran(output, result, task="generate")
+
+        result, output = self.run_task()
+        self.assert_skipped(output, result, task="generate")
+
+    def test_an_argument_with_no_default_is_left_alone(self):
+        """
+        Deliberately unchanged: a task whose required argument is never
+        supplied is a recipe error, but reading the dependency list is not
+        where that is reported, so naming such a task as a bare dependency
+        raises nothing new here.
+        """
+        self.write_recipe(
+            self.recipe(
+                "    args:\n      - needed: {}\n",
+                "echo generated > gen.txt",
+            )
+        )
+        result, output = self.run_task()
+
+        self.assert_ran(output, result, task="generate")
+
+
+class TestStatementBlocks(PatternRenderingTestCase):
+    """
+    A variable named only inside a ``{% ... %}`` statement is still a
+    variable the task depends on. It used to be invisible to the walk that
+    decides which variables to evaluate, so a perfectly valid recipe failed
+    claiming the variable was not defined (PR #212 review).
+
+    The commands echo "yes"/"no" rather than the obvious "on"/"off":
+    ``echo on`` and ``echo off`` are cmd.exe's own echo-control commands,
+    so on Windows they set the echo state and write nothing, and the test
+    fails with an empty file for a reason that has nothing to do with it.
+    """
+
+    def test_a_variable_used_only_in_a_conditional_resolves(self):
+        self.write_recipe(
+            "variables:\n  flag: yes\n"
+            "tasks:\n  build:\n"
+            "    inputs: [srcdir/a.txt]\n"
+            "    outputs: [out.txt]\n"
+            '    cmd: "{% if var.flag %}echo yes{% else %}echo no{% endif %} > out.txt"\n'
+        )
+        result, output = self.run_task()
+
+        self.assert_ran(output, result)
+        self.assertEqual((self.project_root / "out.txt").read_text().strip(), "yes")
+
+    def test_changing_that_variable_re_runs_the_task(self):
+        """
+        The other half of being invisible: the hash never counted it, so the
+        task would not re-run when the value behind it changed.
+        """
+        def recipe(flag: str) -> str:
+            return (
+                f"variables:\n  flag: {flag}\n"
+                "tasks:\n  build:\n"
+                "    inputs: [srcdir/a.txt]\n"
+                "    outputs: [out.txt]\n"
+                '    cmd: "{% if var.flag == \'on\' %}echo yes{% else %}echo no{% endif %} > out.txt"\n'
+            )
+
+        self.write_recipe(recipe("on"))
+        result, output = self.run_task()
+        self.assert_ran(output, result)
+
+        result, output = self.run_task()
+        self.assert_skipped(output, result)
+
+        self.write_recipe(recipe("off"))
+        result, output = self.run_task()
+        self.assert_ran(output, result)
+        self.assertEqual((self.project_root / "out.txt").read_text().strip(), "no")
+
+
+if __name__ == "__main__":
+    unittest.main()

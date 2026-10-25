@@ -20,6 +20,10 @@ class TaskState:
     last_run: float
     input_state: dict[str, float | str] = field(default_factory=dict)
     output_state: dict[str, float] = field(default_factory=dict)
+    # Which task this entry belongs to. Lets pruning distinguish a stale
+    # entry (task changed/deleted) from the entry of a task that simply
+    # wasn't part of this run. Empty for entries written by older versions.
+    task_name: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -29,6 +33,7 @@ class TaskState:
             "last_run": self.last_run,
             "input_state": self.input_state,
             "output_state": self.output_state,
+            "task_name": self.task_name,
         }
 
     @classmethod
@@ -40,6 +45,7 @@ class TaskState:
             last_run=data["last_run"],
             input_state=data.get("input_state", {}),
             output_state=data.get("output_state", {}),
+            task_name=data.get("task_name", ""),
         )
 
 
@@ -131,22 +137,47 @@ class StateManager:
             self.load()
         self._state[cache_key] = state
 
-    def prune(self, valid_task_hashes: Set[str]) -> None:
+    def prune(
+        self,
+        valid_task_hashes: Set[str],
+        defined_task_names: Set[str] | None = None,
+        reachable_task_names: Set[str] | None = None,
+    ) -> None:
         """
         Remove state entries for tasks that no longer exist.
 
+        When task names are provided, pruning is name-aware: an entry is
+        removed if its task is gone from the recipe, or if the task is part
+        of this run (reachable) and the stored hash no longer matches any
+        current one. Entries for defined-but-not-invoked tasks are kept -
+        their hashes cannot be recomputed without evaluating their
+        variables, which lazy evaluation deliberately avoids. Entries
+        written by older versions carry no name and fall back to the
+        hash-only rule.
+
         Args:
-        valid_task_hashes: Set of valid task hashes from current recipe
+        valid_task_hashes: Valid task hashes for the tasks in this run
+        defined_task_names: All task names defined in the recipe
+        reachable_task_names: Task names participating in this run
         """
         if not self._loaded:
             self.load()
 
         # Find keys to remove
         keys_to_remove = []
-        for cache_key in self._state.keys():
+        for cache_key, entry in self._state.items():
             # Extract task hash (before __ if present)
             task_hash = cache_key.split("__")[0]
-            if task_hash not in valid_task_hashes:
+            if entry.task_name and defined_task_names is not None:
+                if entry.task_name not in defined_task_names:
+                    keys_to_remove.append(cache_key)
+                elif (
+                    reachable_task_names is not None
+                    and entry.task_name in reachable_task_names
+                    and task_hash not in valid_task_hashes
+                ):
+                    keys_to_remove.append(cache_key)
+            elif task_hash not in valid_task_hashes:
                 keys_to_remove.append(cache_key)
 
         if self.logger:

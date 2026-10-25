@@ -2,6 +2,7 @@
 Dependency resolution using topological sorting.
 """
 
+from collections.abc import Callable
 from graphlib import TopologicalSorter
 from typing import Any
 
@@ -328,6 +329,7 @@ def resolve_execution_order(
 def resolve_dependency_output_references(
     recipe: Recipe,
     ordered_tasks: list[tuple[str, dict[str, Any]]],
+    render_pattern: Callable[[str, Task, dict[str, Any]], str] | None = None,
 ) -> None:
     """
     Resolve {{ dep.<task>.outputs.<name> }} references in topological order.
@@ -339,6 +341,9 @@ def resolve_dependency_output_references(
     Args:
     recipe: Recipe containing task definitions
     ordered_tasks: List of (task_name, args) tuples in topological order
+    render_pattern: Renders a dependency's output path against that
+    dependency's own invocation before it is put in place. Supplied by the
+    executor, which owns rendering; without it paths are used as they stand.
 
     Raises:
     ValueError: If template references cannot be resolved (missing task,
@@ -351,8 +356,21 @@ def resolve_dependency_output_references(
     """
     from tasktree.substitution import substitute_dependency_outputs
 
-    # Track which tasks have been resolved (for validation)
+    # Track which tasks have been resolved (for validation), and the
+    # arguments each was invoked with, which is the context its own output
+    # paths render against.
     resolved_tasks = {}
+    resolved_args: dict[str, dict[str, Any]] = {}
+
+    def render_output(path: str, dep_task: Task) -> str:
+        if render_pattern is None:
+            return path
+        # A path naming something unresolvable is left as it stands rather
+        # than failing the whole order; the field that uses it reports it.
+        try:
+            return render_pattern(path, dep_task, resolved_args.get(dep_task.name))
+        except (ValueError, KeyError):
+            return path
 
     for task_name, task_args in ordered_tasks:
         task = recipe.tasks.get(task_name)
@@ -376,6 +394,7 @@ def resolve_dependency_output_references(
                 task_name,
                 dep_task_names,
                 resolved_tasks,
+                render_output,
             )
 
         # Resolve output references in working_dir
@@ -385,7 +404,42 @@ def resolve_dependency_output_references(
                 task_name,
                 dep_task_names,
                 resolved_tasks,
+                render_output,
             )
+
+        # Resolve output references in inputs. A dependency's output is a
+        # perfectly ordinary thing to declare as an input -- it gives the
+        # path a name to use as {{ self.inputs.<name> }} -- and the pattern
+        # is matched against the filesystem, so it has to name a real path
+        # by the time the freshness check runs.
+        resolved_inputs = []
+        for input_item in task.inputs:
+            if isinstance(input_item, str):
+                resolved_inputs.append(
+                    substitute_dependency_outputs(
+                        input_item,
+                        task_name,
+                        dep_task_names,
+                        resolved_tasks,
+                        render_output,
+                    )
+                )
+            elif isinstance(input_item, dict):
+                # Named input: resolve the path value
+                resolved_inputs.append(
+                    {
+                        name: substitute_dependency_outputs(
+                            path,
+                            task_name,
+                            dep_task_names,
+                            resolved_tasks,
+                        )
+                        for name, path in input_item.items()
+                    }
+                )
+            else:
+                resolved_inputs.append(input_item)
+        task.inputs = resolved_inputs
 
         # Resolve output references in outputs
         resolved_outputs = []
@@ -397,6 +451,7 @@ def resolve_dependency_output_references(
                         task_name,
                         dep_task_names,
                         resolved_tasks,
+                        render_output,
                     )
                 )
             elif isinstance(output, dict):
@@ -408,6 +463,7 @@ def resolve_dependency_output_references(
                         task_name,
                         dep_task_names,
                         resolved_tasks,
+                        render_output,
                     )
                 resolved_outputs.append(resolved_dict)
         task.outputs = resolved_outputs
@@ -432,6 +488,7 @@ def resolve_dependency_output_references(
 
         # Mark this task as resolved for future references
         resolved_tasks[task_name] = task
+        resolved_args[task_name] = task_args or {}
 
 
 def resolve_self_references(
@@ -444,6 +501,11 @@ def resolve_self_references(
     This function walks through tasks and resolves self-references to task's own
     inputs/outputs. Supports both named access ({{ self.inputs.name }}) and
     positional access ({{ self.inputs.0 }}, {{ self.inputs.1 }}, etc.).
+
+    Only argument defaults are resolved here. They are converted to their
+    declared types while the CLI is still assembling arguments, before any
+    task render, so they cannot wait for the renderer the way cmd and
+    working_dir now do (slice 10c moves them).
 
     Must be called AFTER resolve_dependency_output_references() so that
     dependency outputs are already resolved in output paths.
@@ -468,27 +530,11 @@ def resolve_self_references(
         if task is None:
             continue
 
-        # Resolve self-references in command
-        if task.cmd:
-            task.cmd = substitute_self_references(
-                task.cmd,
-                task_name,
-                task._input_map,
-                task._output_map,
-                task._indexed_inputs,
-                task._indexed_outputs,
-            )
-
-        # Resolve self-references in working_dir
-        if task.working_dir:
-            task.working_dir = substitute_self_references(
-                task.working_dir,
-                task_name,
-                task._input_map,
-                task._output_map,
-                task._indexed_inputs,
-                task._indexed_outputs,
-            )
+        # cmd and working_dir are not resolved here: the executor renders
+        # them with the self namespace in scope, against paths that are
+        # already rendered. Substituting them textually first would inject
+        # an unrendered path into text that is about to be rendered, so a
+        # value containing a template would be executed as one.
 
         # Resolve self-references in argument defaults
         if task.args:
@@ -508,7 +554,10 @@ def resolve_self_references(
 
 
 def get_implicit_inputs(
-    recipe: Recipe, task: Task, task_args: dict[str, Any] | None = None
+    recipe: Recipe,
+    task: Task,
+    task_args: dict[str, Any] | None = None,
+    render_pattern: Callable[[str, Task, dict[str, Any]], str] | None = None,
 ) -> list[str]:
     """
     Get implicit inputs for a task based on its dependencies.
@@ -521,8 +570,8 @@ def get_implicit_inputs(
     - .dockerignore (if present)
     - Special markers for context directory and base image digests
 
-    Output paths that contain {{ arg.* }} templates are rendered using the
-    resolved arguments of the dependency invocation, so that parameterised
+    Inherited paths are rendered using the resolved arguments of the
+    *dependency's* invocation, not the dependent's, so that parameterised
     tasks (e.g. build with config=debug) produce the correct concrete paths.
 
     Args:
@@ -530,6 +579,11 @@ def get_implicit_inputs(
     task: Task to get implicit inputs for
     task_args: Argument values for the current task execution (used to
                resolve {{ arg.* }} templates in dependency arg specs)
+    render_pattern: Renders one inherited pattern, given the dependency it
+               came from and that dependency's arguments. Supplied by the
+               executor, which owns rendering; without it only {{ arg.* }}
+               is substituted, which is all this function could do before
+               rendering moved to the point of use.
 
     Returns:
     List of glob patterns for implicit inputs, including Docker-specific markers
@@ -565,22 +619,32 @@ def get_implicit_inputs(
         if dep_inv.args:
             dep_args.update(dep_inv.args)
 
-        def _render(path: str) -> str:
+        def _render(path: str, dep_task: Task = dep_task, dep_args=dep_args) -> str:
+            # A pattern that cannot be resolved is inherited as it stands:
+            # a dependency path naming an argument the caller never passed
+            # should not fail the freshness check for the whole task.
             try:
+                if render_pattern is not None:
+                    return render_pattern(path, dep_task, dep_args)
                 return substitute_arguments(path, dep_args)
             except (ValueError, KeyError):
                 return path
 
-        # If dependency has outputs, inherit them (with templates rendered)
+        def _inherit(patterns: list) -> None:
+            for pattern in patterns:
+                if isinstance(pattern, str):
+                    implicit_inputs.append(_render(pattern))
+                elif isinstance(pattern, dict):
+                    # Named input or output: inherit the path value(s)
+                    implicit_inputs.extend(_render(v) for v in pattern.values())
+
+        # A dependency passes down its outputs, or its inputs when it
+        # declares no outputs: either way they are this task's inputs, and
+        # are matched against the filesystem, so either way they render.
         if dep_task.outputs:
-            for output in dep_task.outputs:
-                if isinstance(output, str):
-                    implicit_inputs.append(_render(output))
-                elif isinstance(output, dict):
-                    implicit_inputs.extend(_render(v) for v in output.values())
-        # If dependency has no outputs, inherit its inputs
+            _inherit(dep_task.outputs)
         elif dep_task.inputs:
-            implicit_inputs.extend(dep_task.inputs)
+            _inherit(dep_task.inputs)
 
     # Note: Docker build artifacts (Dockerfile, .dockerignore, context files,
     # base image) are deliberately NOT implicit inputs. Environment changes are

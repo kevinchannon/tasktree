@@ -9,7 +9,7 @@ runners:
       - "{{ tt.recipe_dir }}:/config"
     env_vars:
       PROJECT_PATH: "{{ tt.project_root }}"
-      TASK_NAME_VAR: "{{ tt.task_name }}"
+      USER_NAME_VAR: "{{ tt.user_name }}"
 
 tasks:
   docker-test:

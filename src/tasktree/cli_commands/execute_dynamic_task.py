@@ -13,7 +13,6 @@ from tasktree.graph import (
     resolve_dependency_output_references,
     resolve_self_references,
 )
-from tasktree.hasher import hash_task
 from tasktree.logging import Logger
 from tasktree.parser import get_recipe, parse_task_args
 from tasktree.process_runner import TaskOutputTypes, make_process_runner
@@ -50,8 +49,18 @@ def execute_dynamic_task(
     task_name = args[0]
     task_args = args[1:]
 
-    # Pass task_name as root_task for lazy variable evaluation
-    recipe = get_recipe(logger, tasks_file, root_task=task_name)
+    # Pass task_name as root_task for lazy variable evaluation; task
+    # invocation prunes the recipe to the reachable set, tolerating
+    # defects in tasks this run doesn't touch
+    recipe = get_recipe(
+        logger,
+        tasks_file,
+        root_task=task_name,
+        prune_unreachable=True,
+        # Override names must survive pruning even when no task references them
+        keep_runners=(runner,) if runner else (),
+        keep_interpreters=(interpreter,) if interpreter else (),
+    )
     if recipe is None:
         logger.error(
             "[red]No recipe file found (tasktree.yaml, tasktree.yml, tt.yaml, or *.tasks)[/red]",
@@ -91,13 +100,24 @@ def execute_dynamic_task(
                 logger.info(f"  - {name}")
         raise typer.Exit(1)
 
-    # Parse task arguments
-    args_dict = parse_task_args(logger, task.args, task_args)
-
-    # Create executor and state manager
+    # Create executor and state manager. Built before the arguments are
+    # parsed because an argument default may name one of the task's own
+    # inputs, and rendering that pattern is the executor's job.
     state = StateManager(recipe.project_root, logger)
     state.load()
     executor = Executor(recipe, state, logger, make_process_runner)
+
+    # Parse task arguments
+    def resolve_specs(parsed_specs, given_args):
+        return executor.resolve_arg_specs(task, parsed_specs, given_args)
+
+    try:
+        args_dict = parse_task_args(
+            logger, task.args, task_args, resolve_specs=resolve_specs
+        )
+    except ValueError as e:
+        logger.error(f"[red]Error in task arguments: {e}[/red]")
+        raise typer.Exit(1)
 
     # Resolve execution order to determine which tasks will actually run
     # This is important for correct state pruning after template substitution
@@ -106,7 +126,9 @@ def execute_dynamic_task(
     try:
         # Resolve dependency output references in topological order
         # This substitutes {{ dep.*.outputs.* }} templates before execution
-        resolve_dependency_output_references(recipe, execution_order)
+        resolve_dependency_output_references(
+            recipe, execution_order, render_pattern=executor.render_pattern
+        )
 
         # Resolve self-references in topological order
         # This substitutes {{ self.inputs.* }} and {{ self.outputs.* }} templates
@@ -117,22 +139,15 @@ def execute_dynamic_task(
 
     # Prune state based on tasks that will actually execute (with their specific arguments)
     # This ensures template-substituted dependencies are handled correctly
-    valid_hashes = set()
-    for _, task in recipe.tasks.items():
-        # Compute base task hash
-        task_hash = hash_task(
-            task.cmd,
-            task.outputs,
-            task.working_dir,
-            task.args,
-            executor._get_effective_runner_name(task),
-            task.deps,
-            executor._interpreter_identity(executor._resolve_interpreter(task)),
-        )
+    # Through the executor, so pruning hashes tasks exactly as the freshness
+    # check and the cache key do
+    valid_hashes = {executor.task_hash(task) for task in recipe.tasks.values()}
 
-        valid_hashes.add(task_hash)
-
-    state.prune(valid_hashes)
+    state.prune(
+        valid_hashes,
+        defined_task_names=recipe.defined_task_names,
+        reachable_task_names={name for name, _ in execution_order},
+    )
     state.save()
     try:
         executor.execute_task(

@@ -7,8 +7,18 @@ import unittest
 from pathlib import Path
 
 import jsonschema
+import yaml
 
-SCHEMA_PATH = Path(__file__).parents[2] / "schema" / "tasktree-schema.json"
+REPO_ROOT = Path(__file__).parents[2]
+SCHEMA_PATH = REPO_ROOT / "schema" / "tasktree-schema.json"
+FIXTURE_ROOT = REPO_ROOT / "tests" / "fixtures"
+
+# Fixtures the schema is *meant* to reject, with the reason. Everything else
+# under tests/fixtures must validate: the schema may never be stricter than
+# the recipes tt actually runs.
+INTENTIONALLY_INVALID = {
+    "e2e_task_name_with_dot/tasktree.yaml": "dotted task names are reserved for namespacing",
+}
 
 
 def _validate(recipe: dict) -> None:
@@ -88,5 +98,197 @@ class TestRunnerSchema(unittest.TestCase):
             _validate(_runner_recipe({"type": "virtualised"}))
 
 
+class TestVariableSchema(unittest.TestCase):
+    """
+    Tests for the variables section: the scalar forms tt accepts as a
+    variable's value, and the env/read/eval reference forms.
+    """
+
+    def test_string_value_valid(self):
+        _validate({"variables": {"greeting": "hello"}})
+
+    def test_integer_value_valid(self):
+        _validate({"variables": {"port": 8080}})
+
+    def test_float_value_valid(self):
+        _validate({"variables": {"ratio": 1.5}})
+
+    def test_boolean_value_valid(self):
+        _validate({"variables": {"enabled": True}})
+
+    def test_env_reference_valid(self):
+        _validate({"variables": {"home": {"env": "HOME", "default": "/root"}}})
+
+    def test_list_value_invalid(self):
+        with self.assertRaises(jsonschema.ValidationError):
+            _validate({"variables": {"parts": ["a", "b"]}})
+
+
+class TestTypedFieldsRejectTemplates(unittest.TestCase):
+    """
+    Typed (non-string) fields keep their native type in the schema.
+
+    A template there has never worked: the parser rejects each of these too,
+    on this branch and on v1.3.2, because they are consumed before any
+    rendering happens. Keeping the schema narrow means a typo like
+    'min: fivee' still fails.
+    """
+
+    def _arg_recipe(self, config: dict) -> dict:
+        return {"tasks": {"t": {"cmd": "echo hi", "args": [{"n": config}]}}}
+
+    def test_arg_min_template_invalid(self):
+        with self.assertRaises(jsonschema.ValidationError):
+            _validate(self._arg_recipe({"type": "int", "min": "{{ var.lo }}"}))
+
+    def test_arg_type_template_invalid(self):
+        with self.assertRaises(jsonschema.ValidationError):
+            _validate(self._arg_recipe({"type": "{{ var.t }}"}))
+
+    def test_run_as_root_template_invalid(self):
+        with self.assertRaises(jsonschema.ValidationError):
+            _validate(
+                _runner_recipe(
+                    {
+                        "type": "containerised",
+                        "engine": "docker",
+                        "dockerfile": "Dockerfile",
+                        "run_as_root": "{{ var.f }}",
+                    }
+                )
+            )
+
+    def test_interpreter_ext_template_invalid(self):
+        with self.assertRaises(jsonschema.ValidationError):
+            _validate({"interpreters": {"py": {"cmd": "python3", "ext": "{{ var.e }}"}}})
+
+
+def _recipe_fixtures() -> dict[str, dict]:
+    """
+    Every parseable recipe under tests/fixtures, keyed by its path relative to
+    the fixture root.
+
+    Keys are posix-style on every platform, so the allowlist above reads the
+    same way whichever separator the OS uses.
+    """
+    recipes = {}
+    for path in sorted(FIXTURE_ROOT.rglob("*")):
+        if path.suffix not in {".yaml", ".yml", ".tasks"} or not path.is_file():
+            continue
+        try:
+            data = yaml.safe_load(path.read_text())
+        except yaml.YAMLError:
+            continue  # fixtures for tt's own YAML-error handling
+        if isinstance(data, dict):
+            recipes[path.relative_to(FIXTURE_ROOT).as_posix()] = data
+    return recipes
+
+
+class TestFixtureCorpus(unittest.TestCase):
+    """
+    The whole fixture corpus validated against the schema. This is the net
+    that catches the schema drifting stricter than the parser: every recipe
+    here is one tt is expected to handle.
+    """
+
+    def test_every_fixture_recipe_validates(self):
+        schema = json.loads(SCHEMA_PATH.read_text())
+        validator = jsonschema.Draft7Validator(schema)
+
+        rejected = {}
+        for name, recipe in _recipe_fixtures().items():
+            error = jsonschema.exceptions.best_match(validator.iter_errors(recipe))
+            if error is not None:
+                rejected[name] = error.message
+
+        self.assertEqual(
+            sorted(rejected),
+            sorted(INTENTIONALLY_INVALID),
+            f"unexpected schema rejections: {rejected}",
+        )
+
+    def test_corpus_is_not_empty(self):
+        self.assertGreater(len(_recipe_fixtures()), 100)
+
+    def test_fixture_keys_use_posix_separators(self):
+        """
+        Fixtures live in subdirectories, so a native-separator key would not
+        match the allowlist on Windows.
+        """
+        nested = [name for name in _recipe_fixtures() if "/" in name]
+        self.assertEqual(len(nested), len(_recipe_fixtures()))
+        self.assertFalse([name for name in _recipe_fixtures() if "\\" in name])
+
+
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestSchemaCopiesAgree(unittest.TestCase):
+    """
+    The schema is authored at the repository root so the raw-GitHub URL in
+    the READMEs keeps resolving, and the wheel force-includes a copy under
+    the package. Two copies can drift, and the installed one wins at
+    runtime, so a stale copy in a source tree would silently validate
+    recipes against yesterday's schema (raised in the PR #212 review).
+    """
+
+    def test_every_copy_present_is_identical(self):
+        from tasktree.recipe_schema import schema_candidates
+
+        present = [path for path in schema_candidates() if path.exists()]
+        self.assertTrue(present, "no copy of the schema was found at all")
+
+        contents = {path: json.loads(path.read_text()) for path in present}
+        first, *rest = contents.items()
+        for path, parsed in rest:
+            self.assertEqual(
+                parsed,
+                first[1],
+                f"{path} differs from {first[0]}; the installed copy is the "
+                f"one used at runtime",
+            )
+
+    def test_the_authored_copy_is_the_one_the_readmes_point_at(self):
+        """Its location is load-bearing for the editor-integration URL."""
+        self.assertTrue((Path(__file__).parents[2] / "schema" / "tasktree-schema.json").exists())
+
+
+class TestTheCachedSchemaIsNotMutated(unittest.TestCase):
+    """
+    load_file_schema is lru_cached and hands every caller the same dict, so a
+    transform that edited it in place would change the schema for the rest of
+    the process. merged_tree_schema deep-copies; this is what fails if that
+    ever stops being true (raised in the PR #212 review).
+    """
+
+    def test_deriving_the_merged_tree_schema_leaves_the_file_schema_alone(self):
+        from tasktree.recipe_schema import load_file_schema, merged_tree_schema
+
+        load_file_schema.cache_clear()
+        before = json.dumps(load_file_schema(), sort_keys=True)
+
+        merged_tree_schema(load_file_schema())
+
+        self.assertEqual(json.dumps(load_file_schema(), sort_keys=True), before)
+
+
+class TestTheValidatorIsBuiltOnce(unittest.TestCase):
+    """
+    Deriving the merged-tree schema deep-copies, and compiling a validator
+    is not free. Both are pure functions of a cached input, so every parse
+    paying for them again was waste the LSP felt most (PR #212 review).
+    """
+
+    def test_the_same_validator_comes_back(self):
+        from tasktree.recipe_schema import merged_tree_validator
+
+        self.assertIs(merged_tree_validator(), merged_tree_validator())
+
+    def test_it_still_validates(self):
+        """Cached and useless would pass the test above."""
+        from tasktree.recipe_schema import merged_tree_validator
+
+        errors = list(merged_tree_validator().iter_errors({"tasks": {"a": {}}}))
+
+        self.assertTrue(errors, "a task with no cmd should not validate")

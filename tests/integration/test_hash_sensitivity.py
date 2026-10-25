@@ -1,0 +1,318 @@
+"""
+Integration tests for what a task's hash is sensitive to (schema pipeline
+slice 7, decision 5).
+
+A task re-runs when anything it depends on changes. Command text and inputs
+are the obvious cases; these cover the indirect ones -- the values behind the
+``var.*`` and ``env.*`` references in a task's definition, whichever way the
+value was produced (literal, ``env:``, ``eval:``, ``read:``).
+
+The variable case is the regression net the plan calls for first: variable
+values are baked into the command at parse time today, so a hash built from
+unrendered templates would silently stop noticing variable edits.
+
+Self-contained (only v1.3.2-era symbols) so the file can be copied into the
+reference worktree for the gate run.
+"""
+
+import os
+import platform
+import re
+import time
+import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
+from typer.testing import CliRunner
+
+from tasktree.cli import app
+
+
+def strip_ansi_codes(text: str) -> str:
+    ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
+    return ansi_escape.sub("", text)
+
+
+def interpreter_yaml(indent: str, preamble: str = "") -> str:
+    """
+    An inline interpreter definition that can actually run a task here.
+
+    These tests execute the task they invoke, so naming 'bash' outright
+    would make them a test of whether bash is installed. Deliberately
+    duplicated from test_unreachable_task_tolerance rather than shared:
+    both files have to stay self-contained to be copied into the reference
+    worktree for the parity gate.
+    """
+    if platform.system() == "Windows":
+        lines = [f"{indent}cmd: cmd.exe /c", f"{indent}ext: .bat"]
+        if preamble:
+            lines.append(f"{indent}preamble: set {preamble}")
+    else:
+        lines = [f"{indent}cmd: bash"]
+        if preamble:
+            lines.append(f"{indent}preamble: export {preamble}")
+    return "\n".join(lines) + "\n"
+
+
+class HashSensitivityTestCase(unittest.TestCase):
+    def setUp(self):
+        self.runner = CliRunner()
+        self._tmp = TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.project_root = Path(self._tmp.name)
+        self._original_cwd = os.getcwd()
+        os.chdir(self.project_root)
+        self.addCleanup(lambda: os.chdir(self._original_cwd))
+        # Tasks with no inputs always re-run, which would mask every freshness
+        # question these tests ask. Written once: rewriting it would bump its
+        # mtime and re-run the task for that reason instead of the one under
+        # test.
+        (self.project_root / "src.txt").write_text("source\n")
+
+    def write_recipe(self, text: str) -> None:
+        (self.project_root / "tasktree.yaml").write_text(text)
+
+    def run_task(self, task: str = "build", env: dict | None = None):
+        result = self.runner.invoke(
+            app, [task], env={"NO_COLOR": "1", **(env or {})}
+        )
+        return result, strip_ansi_codes(result.stdout)
+
+    def assert_ran(self, output: str, result) -> None:
+        """A task that executes announces itself; a fresh one stays quiet."""
+        self.assertEqual(result.exit_code, 0, output)
+        self.assertIn("Running: build", output)
+
+    def assert_skipped(self, output: str, result) -> None:
+        self.assertEqual(result.exit_code, 0, output)
+        self.assertNotIn("Running: build", output)
+
+
+class TestVariableChangesTriggerReruns(HashSensitivityTestCase):
+    """
+    The net the plan asks for first: nothing else catches a hash that stops
+    tracking variable values.
+    """
+
+    def test_literal_variable_change_reruns(self):
+        self.write_recipe(
+            "variables:\n  greeting: hello\n"
+            "tasks:\n  build:\n    inputs: [src.txt]\n    outputs: [out.txt]\n"
+            "    cmd: echo {{ var.greeting }} > out.txt\n"
+        )
+        result, output = self.run_task()
+        self.assert_ran(output, result)
+
+        result, output = self.run_task()
+        self.assert_skipped(output, result)
+
+        self.write_recipe(
+            "variables:\n  greeting: goodbye\n"
+            "tasks:\n  build:\n    inputs: [src.txt]\n    outputs: [out.txt]\n"
+            "    cmd: echo {{ var.greeting }} > out.txt\n"
+        )
+        result, output = self.run_task()
+        self.assert_ran(output, result)
+
+    def test_unreferenced_variable_change_does_not_rerun(self):
+        """Only what the task actually references counts."""
+
+        def recipe(unused_value: str) -> str:
+            return (
+                f"variables:\n  greeting: hello\n  unused: {unused_value}\n"
+                "tasks:\n  build:\n    inputs: [src.txt]\n    outputs: [out.txt]\n"
+                "    cmd: echo {{ var.greeting }} > out.txt\n"
+            )
+
+        self.write_recipe(recipe("one"))
+        result, output = self.run_task()
+        self.assert_ran(output, result)
+
+        self.write_recipe(recipe("two"))
+        result, output = self.run_task()
+        self.assert_skipped(output, result)
+
+    def test_eval_variable_value_change_reruns(self):
+        """However the value was produced: here, a command's output."""
+        source = self.project_root / "version.txt"
+        source.write_text("1.0\n")
+        self.write_recipe(
+            "variables:\n  version: { eval: \"cat version.txt\" }\n"
+            "tasks:\n  build:\n    inputs: [src.txt]\n    outputs: [out.txt]\n"
+            "    cmd: echo {{ var.version }} > out.txt\n"
+        )
+        result, output = self.run_task()
+        self.assert_ran(output, result)
+
+        result, output = self.run_task()
+        self.assert_skipped(output, result)
+
+        source.write_text("2.0\n")
+        result, output = self.run_task()
+        self.assert_ran(output, result)
+
+
+class TestEnvChangesTriggerReruns(HashSensitivityTestCase):
+    """
+    New in slice 7: a referenced env var's value is part of the hash.
+    Implicit environment inheritance still is not -- the contract is that a
+    task which depends on an env var references it.
+    """
+
+    def test_referenced_env_change_reruns(self):
+        self.write_recipe(
+            "tasks:\n  build:\n    inputs: [src.txt]\n    outputs: [out.txt]\n"
+            "    cmd: echo {{ env.TT_TARGET }} > out.txt\n"
+        )
+        result, output = self.run_task(env={"TT_TARGET": "dev"})
+        self.assert_ran(output, result)
+
+        result, output = self.run_task(env={"TT_TARGET": "dev"})
+        self.assert_skipped(output, result)
+
+        result, output = self.run_task(env={"TT_TARGET": "prod"})
+        self.assert_ran(output, result)
+
+    def test_unreferenced_env_change_does_not_rerun(self):
+        self.write_recipe(
+            "tasks:\n  build:\n    inputs: [src.txt]\n    outputs: [out.txt]\n"
+            "    cmd: echo hello > out.txt\n"
+        )
+        result, output = self.run_task(env={"TT_UNRELATED": "one"})
+        self.assert_ran(output, result)
+
+        result, output = self.run_task(env={"TT_UNRELATED": "two"})
+        self.assert_skipped(output, result)
+
+    def test_env_sourced_variable_change_reruns(self):
+        """A var whose value comes from the environment, not a direct ref."""
+        self.write_recipe(
+            "variables:\n  target: { env: TT_TARGET, default: dev }\n"
+            "tasks:\n  build:\n    inputs: [src.txt]\n    outputs: [out.txt]\n"
+            "    cmd: echo {{ var.target }} > out.txt\n"
+        )
+        result, output = self.run_task(env={"TT_TARGET": "dev"})
+        self.assert_ran(output, result)
+
+        result, output = self.run_task(env={"TT_TARGET": "dev"})
+        self.assert_skipped(output, result)
+
+        result, output = self.run_task(env={"TT_TARGET": "prod"})
+        self.assert_ran(output, result)
+
+
+class TestExpressionReferencesCount(HashSensitivityTestCase):
+    """
+    A variable used inside a Jinja expression is a reference like any other:
+    it is not substituted into the command text, so the value in the hash is
+    the only thing that notices it changing.
+    """
+
+    def test_variable_used_in_an_expression_reruns_on_change(self):
+        def recipe(greeting: str) -> str:
+            return (
+                f"variables:\n  greeting: {greeting}\n"
+                "tasks:\n  build:\n    inputs: [src.txt]\n    outputs: [out.txt]\n"
+                "    cmd: echo {{ var.greeting | upper }} > out.txt\n"
+            )
+
+        self.write_recipe(recipe("hello"))
+        result, output = self.run_task()
+        self.assert_ran(output, result)
+
+        result, output = self.run_task()
+        self.assert_skipped(output, result)
+
+        self.write_recipe(recipe("goodbye"))
+        result, output = self.run_task()
+        self.assert_ran(output, result)
+
+
+class TestVariablesInInputPatterns(HashSensitivityTestCase):
+    """
+    A variable in an input pattern has to be resolved before the pattern is
+    matched against the filesystem, or the task matches no files at all and
+    looks permanently fresh -- a silence, not an error. Nothing else in the
+    suite covers this.
+    """
+
+    def setUp(self):
+        super().setUp()
+        (self.project_root / "srcdir").mkdir()
+        (self.project_root / "srcdir" / "a.txt").write_text("one\n")
+        self.write_recipe(
+            "variables:\n  dir: srcdir\n"
+            "tasks:\n  build:\n"
+            '    inputs: ["{{ var.dir }}/*.txt"]\n'
+            "    outputs: [out.txt]\n"
+            "    cmd: cat {{ var.dir }}/*.txt > out.txt\n"
+        )
+
+    def test_change_to_a_matched_file_reruns(self):
+        result, output = self.run_task()
+        self.assert_ran(output, result)
+
+        result, output = self.run_task()
+        self.assert_skipped(output, result)
+
+        time.sleep(0.01)
+        (self.project_root / "srcdir" / "a.txt").write_text("two\n")
+        result, output = self.run_task()
+        self.assert_ran(output, result)
+
+    def test_pattern_actually_matched_something(self):
+        """A pattern matching nothing would skip for the wrong reason."""
+        self.run_task()
+        self.assertEqual((self.project_root / "out.txt").read_text(), "one\n")
+
+
+class TestRunnerReferencesCount(HashSensitivityTestCase):
+    """
+    A task's environment is part of what it is, so an env var referenced by
+    the runner it runs in counts the same as one referenced by its command.
+    """
+
+    def test_env_referenced_by_the_runner_preamble_reruns(self):
+        self.write_recipe(
+            "runners:\n"
+            "  sh:\n"
+            "    interpreter:\n"
+            + interpreter_yaml("      ", preamble="BUILD_TAG={{ env.TT_TAG }}")
+            + "tasks:\n  build:\n    inputs: [src.txt]\n    outputs: [out.txt]\n"
+            "    runner: sh\n"
+            "    cmd: echo hello > out.txt\n"
+        )
+        result, output = self.run_task(env={"TT_TAG": "one"})
+        self.assert_ran(output, result)
+
+        result, output = self.run_task(env={"TT_TAG": "one"})
+        self.assert_skipped(output, result)
+
+        result, output = self.run_task(env={"TT_TAG": "two"})
+        self.assert_ran(output, result)
+
+    def test_env_referenced_by_the_runner_working_dir_reruns(self):
+        (self.project_root / "one").mkdir()
+        (self.project_root / "two").mkdir()
+        self.write_recipe(
+            "runners:\n"
+            "  sh:\n"
+            "    interpreter:\n"
+            + interpreter_yaml("      ")
+            + "    working_dir: '{{ env.TT_WHERE }}'\n"
+            "tasks:\n  build:\n    inputs: [src.txt]\n"
+            "    runner: sh\n"
+            "    cmd: echo hello\n"
+        )
+        result, output = self.run_task(env={"TT_WHERE": "one"})
+        self.assert_ran(output, result)
+
+        result, output = self.run_task(env={"TT_WHERE": "one"})
+        self.assert_skipped(output, result)
+
+        result, output = self.run_task(env={"TT_WHERE": "two"})
+        self.assert_ran(output, result)
+
+
+if __name__ == "__main__":
+    unittest.main()

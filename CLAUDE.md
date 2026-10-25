@@ -56,20 +56,73 @@ Your sponsor is not made of money! Try to minimise token useage, so that we can 
 
 ### Core Components
 
-- **`src/tasktree/parser.py`** (~3,540 lines): YAML recipe parsing, task and runner definitions (the Runner class hierarchy and `runner_from_config` factory), circular import detection, schema validation
-- **`src/tasktree/executor.py`** (~1,940 lines): Task execution logic, incremental execution engine, state tracking, built-in variables, subprocess management
-- **`src/tasktree/cli.py`** (~215 lines): Typer-based CLI with options: `--list`, `--show`, `--tree`, `--force`, `--only`, `--runner`, `--interpreter`, `--log-level`, `--task-output`
-- **`src/tasktree/graph.py`** (~665 lines): Dependency resolution using graphlib.TopologicalSorter, parameterized dependencies, cycle detection
+- **`src/tasktree/parser.py`** (~3,460 lines): Recipe parsing and object
+  construction, task and runner definitions (the Runner class hierarchy and
+  `runner_from_config` factory), argument specs, lazy variable evaluation, and
+  the rendering of the fields that cannot wait for a point of use (a task's
+  `desc` and its argument specs)
+- **`src/tasktree/executor.py`** (~2,230 lines): Task execution logic, incremental execution engine, state tracking, built-in variables, subprocess management, and the rendering of task fields and patterns at the point each is used
+- **`src/tasktree/graph.py`** (~725 lines): Dependency resolution using graphlib.TopologicalSorter, parameterized dependencies, cycle detection, implicit inputs inherited from dependencies
+- **`src/tasktree/raw_merge.py`** (~600 lines): Import merging on plain dicts — namespacing, `run_in` blanket overrides, pinned-runner rewrites, variable-reference rewriting, reachability and pruning — all before any object is built, so the schema has a tree to validate
+- **`src/tasktree/substitution.py`** (~520 lines): The remaining regex substituters: dependency outputs, self-references, dependency arguments, and runner fields. Task fields render through `rendering.py` instead
 - **`src/tasktree/docker.py`** (~490 lines): Docker image building and container execution, user mapping, volume mounts, build args
-- **`src/tasktree/substitution.py`** (~510 lines): Template variable substitution engine supporting multiple prefixes (var, arg, env, tt, dep, self)
+- **`src/tasktree/process_runner.py`** (~410 lines): Subprocess execution and task output modes
+- **`src/tasktree/config.py`** (~300 lines): Machine-level configuration loading (not schema-validated — a second entry point for runner construction)
+- **`src/tasktree/task_config.py`** (~280 lines): Assembles a render context from the namespaces available to a field (`var`, `arg`, `env`, `tt`, `dep`, `self`), each raising an actionable error for a name it does not hold
+- **`src/tasktree/recipe_schema.py`** (~270 lines): Schema loading, deriving the merged-tree schema from the authored file schema, and turning `jsonschema` errors into recipe-relative messages
+- **`src/tasktree/hasher.py`** (~215 lines): Task hashing for incremental execution, cache key generation, runner definition hashing
+- **`src/tasktree/cli.py`** (~215 lines): Typer-based CLI with options: `--list`, `--show`, `--tree`, `--force`, `--only`, `--runner`, `--interpreter`, `--log-level`, `--task-output`
+- **`src/tasktree/state.py`** (~210 lines): State file management (.tasktree-state), task execution state tracking, name-aware pruning
 - **`src/tasktree/types.py`** (~180 lines): Custom Click parameter types for argument validation (hostname, email, IP, IPv4, IPv6, datetime)
-- **`src/tasktree/hasher.py`** (~205 lines): Task hashing for incremental execution, cache key generation, runner definition hashing
-- **`src/tasktree/state.py`** (~180 lines): State file management (.tasktree-state), task execution state tracking
+- **`src/tasktree/nix.py`** (~175 lines): Nix devShell realisation for `type: nix` runners
+- **`src/tasktree/temp_script.py`** (~150 lines): Writes a task's command to a temporary script for the interpreter to run
+- **`src/tasktree/rendering.py`** (~150 lines): The Jinja renderer — a `SandboxedEnvironment` with `StrictUndefined`, plus the rewrites that make Tasktree's `self.`/`dep.` spellings valid Jinja, and Tasktree-flavoured errors
+- **`src/tasktree/field_order.py`** (~150 lines): Orders a task's own patterns so each renders after the ones it names via `self.*`, and reports a loop
+- **`src/tasktree/template_refs.py`** (~145 lines): The generic reference walker — which `{{ prefix.name }}` references a subtree makes — shared by pruning, hashing and the runner restriction so they cannot disagree
+- **`src/tasktree/freshness.py`** (~135 lines): Filesystem probing for input and output patterns, on the host or inside a container
+- **`src/tasktree/logging.py`** (~100 lines): Logger interface and levels
+- **`src/tasktree/console_logger.py`** (~60 lines): The Rich-backed logger the CLI uses
+- **`src/tasktree/__init__.py`** (~50 lines): The public API surface. Its `__all__` is part of the contract — an exported helper cannot be retired on the grounds that nothing inside the package calls it
+- **`src/tasktree/interpreter.py`** (~40 lines): The Interpreter dataclass (`cmd`, `ext`, `preamble`) and its error type
 - **`src/tasktree/lsp/`**: Language Server Protocol implementation
   - **`server.py`**: Main LSP server with pygls handlers (initialize, shutdown, completion, document tracking)
   - **`builtin_variables.py`**: Built-in variable constant definitions (tt.*)
   - **`parser_wrapper.py`**: YAML parsing for variable/argument extraction (reuses tasktree parser)
   - **`position_utils.py`**: Cursor position detection utilities (task scoping, cmd field detection)
+
+### Parsing and rendering pipeline
+
+A recipe becomes a set of running tasks in this order. Each step has one job,
+and the order carries the guarantees:
+
+1. **Read** the YAML from disk.
+2. **Merge imports** into one raw dict (`raw_merge.py`) — namespacing, `run_in`
+   blanket overrides, pinned-runner rewrites and variable-reference rewriting,
+   all as dict transforms before any object exists.
+3. **Prune** to the tasks reachable from the invoked one, then the runners and
+   interpreters those reach. Errors in parts of the file nobody is invoking are
+   deliberately tolerated.
+4. **Schema-validate** the pruned merged tree (`recipe_schema.py`). This comes
+   before anything is evaluated, so an `eval:` variable in a recipe that is not
+   even structurally valid never runs — pinned by
+   `tests/integration/test_validation_ordering.py`.
+5. **Evaluate variables** that the surviving tasks reference, lazily, so an
+   expensive `eval:` or a sensitive `read:` only happens when it is needed.
+6. **Build** the `Task` and runner objects from the validated tree, and render
+   the fields that cannot wait for a point of use: a task's `desc`, printed by
+   `--list` with nothing running, and its argument specs, settled before the
+   task starts.
+7. **Render at the point of use** (`rendering.py`, a sandboxed Jinja
+   environment). Runners and interpreters render once, before any task. A
+   task's patterns render when they are matched against the filesystem, in an
+   order that respects any `self.*` references between them
+   (`field_order.py`); its command and working directory render when it runs.
+
+Two consequences worth knowing. A pattern left unrendered would be matched
+literally and match nothing, which reads as "no inputs changed" rather than as
+an error — so patterns render where they are used, not earlier. And a path
+injected into another field (a dependency's output, a self-reference) goes in
+*rendered*, because the text receiving it is itself about to be rendered.
 
 ### Key Dependencies
 
@@ -78,7 +131,8 @@ Your sponsor is not made of money! Try to minimise token useage, so that we can 
 - **graphlib.TopologicalSorter**: For dependency resolution
 - **pathlib**: For file operations and glob expansion
 - **docker (Python SDK)**: For Docker image building and container management
-- **jsonschema**: For YAML schema validation
+- **jsonschema**: For recipe schema validation at runtime
+- **Jinja2**: For template rendering, in a sandboxed environment
 
 ## Development Commands
 

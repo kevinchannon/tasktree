@@ -26,7 +26,7 @@ from tasktree.graph import (
 )
 from tasktree.hasher import hash_args, hash_task, make_cache_key
 from tasktree.logging import Logger, LogLevel
-from tasktree.parser import DockerArgs, Recipe, Task, Runner, HostRunner, ContainerisedRunner, NixRunner, platform_default_interpreter, container_default_interpreter, nix_default_interpreter
+from tasktree.parser import ArgSpec, DockerArgs, Recipe, Task, Runner, HostRunner, ContainerisedRunner, NixRunner, platform_default_interpreter, container_default_interpreter, nix_default_interpreter
 from tasktree.interpreter import Interpreter
 from tasktree.process_runner import ProcessRunner, TaskOutputTypes
 from tasktree.state import StateManager, TaskState
@@ -234,49 +234,26 @@ class Executor:
         Raises:
         ExecutionError: If any built-in variable fails to resolve
         """
-        import os
+        from tasktree.parser import host_builtin_variables
 
-        builtin_vars = {
-            # {{ tt.project_root }} - Absolute path to project root
-            "project_root": str(self.recipe.project_root.resolve()),
-            # {{ tt.recipe_dir }} - Absolute path to directory containing the recipe file
-            "recipe_dir": str(self.recipe.recipe_path.parent.resolve()),
-            # {{ tt.task_name }} - Name of currently executing task
-            "task_name": task.name,
-            # {{ tt.timestamp }} - ISO8601 timestamp when task started execution
-            "timestamp": timestamp.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            # {{ tt.timestamp_unix }} - Unix epoch timestamp when task started
-            "timestamp_unix": str(int(timestamp.timestamp())),
-        }
-
-        # {{ tt.user_home }} - Current user's home directory (cross-platform)
         try:
-            user_home = Path.home()
-            builtin_vars["user_home"] = str(user_home)
-        except Exception as e:
-            raise ExecutionError(
-                f"Failed to get user home directory for {{{{ tt.user_home }}}}: {e}"
+            builtin_vars = host_builtin_variables(
+                self.recipe.project_root, self.recipe.recipe_path
             )
+        except ValueError as e:
+            raise ExecutionError(str(e))
 
-        # {{ tt.user_name }} - Current username (with fallback)
-        try:
-            user_name = os.getlogin()
-        except OSError:
-            # Fallback to environment variables if os.getlogin() fails
-            user_name = (
-                os.environ.get("USER") or os.environ.get("USERNAME") or "unknown"
-            )
-        builtin_vars["user_name"] = user_name
-
-        # {{ tt.uid }} / {{ tt.gid }} - Host numeric UID/GID, for matching a
-        # containerised runner's --user mapping to a passwd entry in the image.
-        # Not defined on Windows, where os.getuid()/os.getgid() don't exist;
-        # referencing them there hits the substitution engine's usual
-        # "not defined" error rather than a platform-specific one, since these
-        # keys are collected unconditionally on every task run.
-        if platform.system() != "Windows":
-            builtin_vars["uid"] = str(os.getuid())
-            builtin_vars["gid"] = str(os.getgid())
+        # The values only a running task can supply.
+        builtin_vars.update(
+            {
+                # {{ tt.task_name }} - Name of currently executing task
+                "task_name": task.name,
+                # {{ tt.timestamp }} - ISO8601 timestamp when task started execution
+                "timestamp": timestamp.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                # {{ tt.timestamp_unix }} - Unix epoch timestamp when task started
+                "timestamp_unix": str(int(timestamp.timestamp())),
+            }
+        )
 
         return builtin_vars
 
@@ -624,15 +601,7 @@ class Executor:
         # Compute hashes (include effective environment and dependencies)
         resolved = self.resolve_environment(task)
         effective_env = resolved.runner_name
-        task_hash = hash_task(
-            task.cmd,
-            task.outputs,
-            task.working_dir,
-            task.args,
-            effective_env,
-            task.deps,
-            self._interpreter_identity(resolved.interpreter),
-        )
+        task_hash = self.task_hash(task, resolved)
         self.logger.trace(f"Task hash for '{task.name}': {task_hash}")
         args_hash = hash_args(args_dict) if args_dict else None
         if args_hash:
@@ -695,7 +664,7 @@ class Executor:
 
         # Check if declared outputs are missing
         missing_outputs = self._check_outputs_missing(
-            task, cached_state, process_runner
+            task, cached_state, process_runner, args_dict
         )
         if missing_outputs:
             outputs_list = ", ".join(missing_outputs)
@@ -785,7 +754,9 @@ class Executor:
 
         # Resolve dependency output references in topological order
         # This substitutes {{ dep.*.outputs.* }} templates before execution
-        resolve_dependency_output_references(self.recipe, execution_order)
+        resolve_dependency_output_references(
+            self.recipe, execution_order, render_pattern=self.render_pattern
+        )
 
         # Resolve self-references in topological order
         # This substitutes {{ self.inputs.* }} and {{ self.outputs.* }} templates
@@ -1051,25 +1022,9 @@ class Executor:
         # This allows us to skip re-reading if no nested tt calls modified it
         initial_state_hash = self.state.get_hash()
 
-        # Parse task arguments to identify exported args
-        # Note: args_dict already has defaults applied by CLI (cli.py:413-424)
-        from tasktree.parser import parse_arg_spec
-
-        exported_args = set()
-        regular_args = {}
-        exported_env_vars = {}
-
-        for arg_spec in task.args:
-            parsed = parse_arg_spec(arg_spec)
-            if parsed.is_exported:
-                exported_args.add(parsed.name)
-                # Get value and convert to string for environment variable
-                # Value should always be in args_dict (CLI applies defaults)
-                if parsed.name in args_dict:
-                    exported_env_vars[parsed.name] = str(args_dict[parsed.name])
-            else:
-                if parsed.name in args_dict:
-                    regular_args[parsed.name] = args_dict[parsed.name]
+        regular_args, exported_args, exported_env_vars = self._split_task_args(
+            task, args_dict
+        )
 
         # Collect early built-in variables (those that don't depend on working_dir)
         # These can be used in the working_dir field itself
@@ -1080,8 +1035,14 @@ class Executor:
         # Resolve working directory
         # Validate that working_dir doesn't contain {{ tt.working_dir }} (circular dependency)
         self._validate_no_working_dir_circular_ref(task.working_dir)
+        self_maps = self._rendered_self_maps(task, args_dict)
         working_dir_str = self._render_field(
-            task.working_dir, early_builtin_vars, regular_args, exported_args, task.name
+            task.working_dir,
+            early_builtin_vars,
+            regular_args,
+            exported_args,
+            task.name,
+            self_maps,
         )
         working_dir = self.recipe.project_root / working_dir_str
 
@@ -1094,7 +1055,7 @@ class Executor:
         # Variables (var.*), dependency outputs (dep.*) and self-references (self.*)
         # were already resolved in earlier phases, so only tt/arg/env remain here.
         cmd = self._render_field(
-            task.cmd, builtin_vars, regular_args, exported_args, task.name
+            task.cmd, builtin_vars, regular_args, exported_args, task.name, self_maps
         )
 
         # Resolve the execution environment (runner + interpreter) once; the
@@ -1308,47 +1269,39 @@ class Executor:
         """
         from dataclasses import replace
 
-        # Substitute in volumes (builtin vars first, then env vars)
+        # Substitute in volumes
         substituted_volumes = (
-            [
-                self._substitute_env(self._substitute_builtin(vol, builtin_vars))
-                for vol in env.volumes
-            ]
+            [self._render_runner_field(vol, builtin_vars) for vol in env.volumes]
             if env.volumes
             else []
         )
 
-        # Substitute in env_vars values (builtin vars first, then env vars)
+        # Substitute in env_vars values
         substituted_env_vars = (
             {
-                key: self._substitute_env(self._substitute_builtin(value, builtin_vars))
+                key: self._render_runner_field(value, builtin_vars)
                 for key, value in env.env_vars.items()
             }
             if env.env_vars
             else {}
         )
 
-        # Substitute in ports (builtin vars first, then env vars)
+        # Substitute in ports
         substituted_ports = (
-            [
-                self._substitute_env(self._substitute_builtin(port, builtin_vars))
-                for port in env.ports
-            ]
+            [self._render_runner_field(port, builtin_vars) for port in env.ports]
             if env.ports
             else []
         )
 
-        # Substitute in working_dir (builtin vars first, then env vars)
+        # Substitute in working_dir
         substituted_working_dir = (
-            self._substitute_env(
-                self._substitute_builtin(env.working_dir, builtin_vars)
-            )
+            self._render_runner_field(env.working_dir, builtin_vars)
             if env.working_dir
             else ""
         )
 
         def subst(s: str) -> str:
-            return self._substitute_env(self._substitute_builtin(s, builtin_vars))
+            return self._render_runner_field(s, builtin_vars)
 
         # Substitute in docker build args
         substituted_build_args = [subst(arg) for arg in env.args.build]
@@ -1500,20 +1453,22 @@ class Executor:
                 "Other built-in variables like {{ tt.task_name }} or {{ tt.timestamp }} are allowed."
             )
 
-    @staticmethod
     def _render_field(
+        self,
         text: str,
         builtin_vars: dict[str, str],
         regular_args: dict[str, Any],
         exported_args: set[str] | None,
         task_name: str,
+        self_maps: dict[str, Any] | None = None,
     ) -> str:
         """
-        Render execution-time placeholders (tt.*, arg.*, env.*) in a field.
+        Render a task field against the namespaces available to it.
 
-        Variables (var.*), dependency outputs (dep.*) and self-references (self.*)
-        are resolved in earlier phases, so the only namespaces that remain at
-        execution time are built-ins, arguments and the environment.
+        Dependency outputs (dep.*) are resolved in an earlier phase, so what
+        remains at execution time is built-ins, arguments, the environment,
+        variables, and -- for fields given self_maps -- the task's own
+        inputs and outputs.
 
         Args:
         text: Field text containing remaining {{ ... }} placeholders
@@ -1521,6 +1476,11 @@ class Executor:
         regular_args: Non-exported argument values (the arg namespace)
         exported_args: Exported argument names (referencing one is an error)
         task_name: Current task name, used in error messages
+        self_maps: The task's own rendered inputs and outputs, as
+                   _rendered_self_maps returns them, for fields where
+                   {{ self.* }} is meaningful. Omitted for the patterns
+                   those maps are built from, which cannot refer to
+                   themselves.
 
         Returns:
         The rendered field text
@@ -1532,77 +1492,292 @@ class Executor:
         from tasktree.task_config import build_task_config
 
         config = build_task_config(
+            variables=self.recipe.evaluated_variables,
             args=regular_args,
             exported_args=exported_args,
             builtins=builtin_vars,
+            task_name=task_name,
+            **(self_maps or {}),
         )
         return render(text, config, task_name=task_name)
 
-    @staticmethod
-    def _substitute_builtin(text: str, builtin_vars: dict[str, str]) -> str:
+    def _rendered_self_maps(
+        self, task: Task, args_dict: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """
-        Substitute {{ tt.name }} placeholders in text.
+        The task's own inputs and outputs, rendered, for the self namespace.
 
-        Built-in variables are resolved at execution time.
+        A self-reference puts one of the task's own paths into another of
+        its fields. The path has to go in rendered: it is data by the time
+        it lands, and a value that happens to contain a template -- an
+        env-sourced variable, say -- would otherwise be rendered a second
+        time and executed as one.
+
+        A pattern may itself name another of the task's patterns, so the
+        order they render in matters; field_order works it out and reports
+        a loop. Nothing is cached: the patterns are few and small, and a
+        cache keyed on the invocation would be a correctness risk out of
+        proportion to the saving.
 
         Args:
-        text: Text with {{ tt.name }} placeholders
-        builtin_vars: Built-in variable values
+        task: Task whose inputs and outputs form the namespace
+        args_dict: Argument values for this invocation
 
         Returns:
-        Text with built-in variables substituted
-
-        Raises:
-        ValueError: If built-in variable is not defined
+        Keyword arguments for build_task_config's self namespace
         """
-        from tasktree.substitution import substitute_builtin_variables
+        from tasktree.field_order import render_own_patterns
 
-        return substitute_builtin_variables(text, builtin_vars)
+        regular_args, exported_args, _ = self._split_task_args(task, args_dict or {})
+        builtin_vars = self._collect_early_builtin_variables(task, datetime.now())
+
+        def render(pattern: str, resolved_so_far: dict[str, Any]) -> str:
+            return self._render_field(
+                pattern,
+                builtin_vars,
+                regular_args,
+                exported_args,
+                task.name,
+                resolved_so_far,
+            )
+
+        return render_own_patterns(task.name, task.inputs, task.outputs, render)
 
     @staticmethod
-    def _substitute_args(
-        cmd: str, args_dict: dict[str, Any], exported_args: set[str] | None = None
+    def _split_task_args(
+        task: Task, args_dict: dict[str, Any]
+    ) -> tuple[dict[str, Any], set[str], dict[str, str]]:
+        """
+        Split a task's arguments into the three forms its callers need.
+
+        Exported arguments are deliberately absent from the rendering
+        context: they reach the task as environment variables, and
+        referencing one as {{ arg.name }} is an error the renderer reports.
+
+        Note: args_dict already has defaults applied by the CLI
+        (cli.py:413-424).
+
+        Args:
+        task: Task whose argument specs say which name is exported
+        args_dict: Argument values for this invocation
+
+        Returns:
+        (regular args by name, exported arg names, exported args as strings)
+        """
+        from tasktree.parser import parse_arg_spec
+
+        regular_args: dict[str, Any] = {}
+        exported_args: set[str] = set()
+        exported_env_vars: dict[str, str] = {}
+
+        for arg_spec in task.args:
+            parsed = parse_arg_spec(arg_spec)
+            if parsed.is_exported:
+                exported_args.add(parsed.name)
+                if parsed.name in args_dict:
+                    exported_env_vars[parsed.name] = str(args_dict[parsed.name])
+            elif parsed.name in args_dict:
+                regular_args[parsed.name] = args_dict[parsed.name]
+
+        return regular_args, exported_args, exported_env_vars
+
+    def render_pattern(
+        self, pattern: str, task: Task, args_dict: dict[str, Any] | None = None
     ) -> str:
         """
-        Substitute {{ arg.name }} placeholders in command string.
+        Render one pattern belonging to a task.
 
-        Variables are already substituted at parse time by the parser.
-        This only handles runtime argument substitution.
+        Public because the pieces that walk the dependency graph need it
+        without owning rendering: graph.py says which pattern belongs to
+        which invocation, and the CLI hands it to them. Used for the
+        patterns a task inherits from a dependency, and for a dependency's
+        output path on its way into another task's text -- both belong to
+        the dependency, so they render in its context and against its own
+        set of patterns rather than the dependent's.
+
+        A pattern is matched, not executed, so a template left unrendered
+        becomes a literal that matches nothing -- which looks like a task
+        with no changed inputs rather than like an error.
+
+        Only the built-ins that don't depend on working_dir are available:
+        the working directory is resolved later, during execution, and a
+        freshness check that resolved it early would be doing execution's
+        work.
 
         Args:
-        cmd: Command with {{ arg.name }} placeholders
-        args_dict: Argument values to substitute (only regular args)
-        exported_args: Set of argument names that are exported (not available for substitution)
+        pattern: Input or output pattern, possibly containing templates
+        task: Task the pattern belongs to
+        args_dict: Argument values for that task's invocation
 
         Returns:
-        Command with arguments substituted
-
-        Raises:
-        ValueError: If an exported argument is used in template substitution
+        The rendered pattern
         """
-        from tasktree.substitution import substitute_arguments
-
-        return substitute_arguments(cmd, args_dict, exported_args)
+        regular_args, exported_args, _ = self._split_task_args(task, args_dict or {})
+        return self._render_field(
+            pattern,
+            self._collect_early_builtin_variables(task, datetime.now()),
+            regular_args,
+            exported_args,
+            task.name,
+            self._rendered_self_maps(task, args_dict),
+        )
 
     @staticmethod
-    def _substitute_env(text: str) -> str:
-        """
-        Substitute {{ env.NAME }} placeholders in text.
+    def _spec_templates(spec: ArgSpec) -> list[str]:
+        """The string values of one argument spec that may hold templates."""
+        values = [spec.default, spec.min_val, spec.max_val]
+        values += list(spec.choices or ())
+        return [value for value in values if isinstance(value, str)]
 
-        Environment variables are resolved at execution time from os.environ.
+    def _spec_names_self(self, spec: ArgSpec) -> bool:
+        """Whether an argument spec names one of the task's own patterns."""
+        from tasktree.template_refs import collect_template_refs
+
+        return any(
+            collect_template_refs(value)["self"]
+            for value in self._spec_templates(spec)
+        )
+
+    def _pattern_args(self, task: Task) -> set[str]:
+        """The arguments the task's own patterns name."""
+        from tasktree.template_refs import collect_template_refs
+
+        named: set[str] = set()
+        for pattern in self._own_pattern_texts(task):
+            named |= {
+                reference.split(".")[0]
+                for reference in collect_template_refs(pattern)["arg"]
+            }
+        return named
+
+    @staticmethod
+    def _own_pattern_texts(task: Task) -> list[str]:
+        """Every input and output pattern of a task, as text."""
+        texts = []
+        for pattern in list(task.inputs) + list(task.outputs):
+            if isinstance(pattern, dict):
+                texts += [v for v in pattern.values() if isinstance(v, str)]
+            elif isinstance(pattern, str):
+                texts.append(pattern)
+        return texts
+
+    def resolve_arg_specs(
+        self, task: Task, parsed_specs: list[ArgSpec], given_args: dict[str, Any]
+    ) -> list[ArgSpec]:
+        """
+        Settle the argument defaults that name one of the task's own inputs.
+
+        This is the only order that can work. Resolving such a default needs
+        the pattern rendered; rendering a pattern may need argument values;
+        and those come from the defaults. So the arguments that were given
+        on the command line and the defaults that name no self-reference are
+        settled first, the patterns are rendered against those, and the
+        remaining defaults are settled last.
+
+        A pattern that names an argument still waiting on its own default is
+        a genuine loop, and is reported as one.
 
         Args:
-        text: Text with {{ env.NAME }} placeholders
+        task: The task whose arguments these are
+        parsed_specs: The task's parsed argument specifications
+        given_args: The values supplied on the command line, by name
 
         Returns:
-        Text with environment variables substituted
+        The specs, with the self-references in their values resolved. The
+        list is returned unchanged when none of them names a self-reference,
+        and when an argument a pattern needs has no value yet for a reason
+        other than a loop -- the ordinary "missing required argument" report
+        is the better error there.
 
         Raises:
-        ValueError: If environment variable is not set
+        ValueError: If a pattern and an argument default wait on each other
         """
-        from tasktree.substitution import substitute_environment
+        from dataclasses import replace
 
-        return substitute_environment(text)
+        pending = {spec.name for spec in parsed_specs if self._spec_names_self(spec)}
+        if not pending:
+            return parsed_specs
+
+        settled = dict(given_args)
+        for spec in parsed_specs:
+            if spec.name in settled or spec.name in pending:
+                continue
+            if spec.default is not None:
+                settled[spec.name] = spec.default
+
+        needed = self._pattern_args(task)
+        in_a_loop = sorted(needed & pending)
+        if in_a_loop:
+            waiting = ", ".join(in_a_loop)
+            raise ValueError(
+                f"Task '{task.name}': argument '{in_a_loop[0]}' has a default that "
+                f"names one of the task's own inputs or outputs, and one of those "
+                f"patterns names '{in_a_loop[0]}' in turn, so neither can be "
+                f"resolved first (waiting on: {waiting}). Write one of them out in "
+                f"full."
+            )
+        if needed - settled.keys():
+            return parsed_specs
+
+        self_maps = self._rendered_self_maps(task, settled)
+        regular_args, exported_args, _ = self._split_task_args(task, settled)
+        builtin_vars = self._collect_early_builtin_variables(task, datetime.now())
+
+        def render(value: Any) -> Any:
+            if not isinstance(value, str):
+                return value
+            return self._render_field(
+                value,
+                builtin_vars,
+                regular_args,
+                exported_args,
+                task.name,
+                self_maps,
+            )
+
+        resolved = []
+        for spec in parsed_specs:
+            if spec.name not in pending:
+                resolved.append(spec)
+                continue
+            resolved.append(
+                replace(
+                    spec,
+                    default=render(spec.default),
+                    min_val=render(spec.min_val),
+                    max_val=render(spec.max_val),
+                    choices=(
+                        [render(choice) for choice in spec.choices]
+                        if spec.choices is not None
+                        else None
+                    ),
+                )
+            )
+        return resolved
+
+    @staticmethod
+    def _render_runner_field(text: str, builtin_vars: dict[str, str]) -> str:
+        """
+        Render a runner or interpreter field against the runner context.
+
+        Only ``env.*`` and ``tt.*`` are available (see ``build_runner_config``);
+        per-task namespaces fail the render because runners are shared across
+        tasks.
+
+        Args:
+        text: Field text containing {{ ... }} placeholders
+        builtin_vars: Built-in variable values (the tt namespace)
+
+        Returns:
+        The rendered field text
+
+        Raises:
+        ValueError: If a placeholder cannot be resolved or the template is malformed
+        """
+        from tasktree.rendering import render
+        from tasktree.task_config import build_runner_config
+
+        return render(text, build_runner_config(builtins=builtin_vars))
 
     def _get_all_inputs(self, task: Task, args_dict: dict[str, Any] | None = None) -> list[str]:
         """
@@ -1616,16 +1791,18 @@ class Executor:
         Returns:
         List of input glob patterns
         """
-        # Extract paths from inputs (handle both anonymous strings and named dicts)
-        all_inputs = []
-        for inp in task.inputs:
-            if isinstance(inp, str):
-                all_inputs.append(inp)
-            elif isinstance(inp, dict):
-                # Named input - extract the path value(s)
-                all_inputs.extend(inp.values())
+        # The task's own patterns come from one ordered render of the whole
+        # set, since a pattern may name another of them; the indexed view is
+        # every path in declaration order, named or not.
+        all_inputs = list(self._rendered_self_maps(task, args_dict)["inputs_indexed"])
 
-        implicit_inputs = get_implicit_inputs(self.recipe, task, args_dict)
+        # Implicit inputs are rendered by get_implicit_inputs against each
+        # dependency's own invocation, not this task's: a dependency's output
+        # path may name the arguments it was called with. Rendering them here
+        # would use the wrong arguments.
+        implicit_inputs = get_implicit_inputs(
+            self.recipe, task, args_dict, render_pattern=self.render_pattern
+        )
         all_inputs.extend(implicit_inputs)
         return all_inputs
 
@@ -1747,32 +1924,32 @@ class Executor:
 
         return changed_files
 
-    @staticmethod
-    def _expand_output_paths(task: Task) -> list[str]:
+    def _expand_output_paths(
+        self, task: Task, args_dict: dict[str, Any] | None = None
+    ) -> list[str]:
         """
         Extract all output paths from task outputs (both named and anonymous).
 
+        Patterns are rendered here for the same reason input patterns are
+        (see render_pattern): an unrendered output pattern matches nothing,
+        which reads as "declared outputs are missing" and re-runs the task
+        on every invocation.
+
         Args:
         task: Task with outputs to extract
+        args_dict: Argument values for this invocation
 
         Returns:
-        List of output path patterns (glob patterns as strings)
+        List of rendered output path patterns (glob patterns as strings)
         """
-        paths = []
-        for output in task.outputs:
-            if isinstance(output, str):
-                # Anonymous output: just the path string
-                paths.append(output)
-            elif isinstance(output, dict):
-                # Named output: extract the path value
-                paths.extend(output.values())
-        return paths
+        return list(self._rendered_self_maps(task, args_dict)["outputs_indexed"])
 
     def _check_outputs_missing(
         self,
         task: Task,
         cached_state: "TaskState | None" = None,
         process_runner: ProcessRunner | None = None,
+        args_dict: dict[str, Any] | None = None,
     ) -> list[str]:
         """
         Check if any declared outputs are missing.
@@ -1785,6 +1962,8 @@ class Executor:
         task: Task to check
         cached_state: Previously saved state (used to detect deleted glob members)
         process_runner: Used to build/run the container for in-container probing
+        args_dict: Argument values for this invocation, used to render
+                   {{ arg.* }} templates in output patterns
 
         Returns:
         List of output patterns or file paths that are missing
@@ -1795,7 +1974,7 @@ class Executor:
         missing_patterns = []
 
         # Expand outputs to paths (handles both named and anonymous)
-        output_paths = self._expand_output_paths(task)
+        output_paths = self._expand_output_paths(task, args_dict)
         cached_files = (
             list(cached_state.output_state)
             if cached_state and cached_state.output_state
@@ -1956,8 +2135,15 @@ class Executor:
         if fingerprint is not None:
             input_state[f"_runner_image_fp_{env_name}"] = fingerprint
 
-        output_state = self._output_files_to_modified_times(task, process_runner)
-        new_state = TaskState(last_run=time.time(), input_state=input_state, output_state=output_state)
+        output_state = self._output_files_to_modified_times(
+            task, args_dict, process_runner
+        )
+        new_state = TaskState(
+            last_run=time.time(),
+            input_state=input_state,
+            output_state=output_state,
+            task_name=task.name,
+        )
         self.state.set(cache_key, new_state)
         self.state.save()
 
@@ -1977,8 +2163,27 @@ class Executor:
     def _cache_key(self, task: Task, args_dict: dict[str, Any]) -> str:
         """
         """
-        resolved = self.resolve_environment(task)
-        task_hash = hash_task(
+        task_hash = self.task_hash(task)
+        args_hash = hash_args(args_dict) if args_dict else None
+        return make_cache_key(task_hash, args_hash)
+
+    def task_hash(self, task: Task, resolved: "ResolvedEnvironment | None" = None) -> str:
+        """
+        Hash a task's definition, including the values behind its var.*/env.*
+        references.
+
+        Every caller must go through here. The freshness check, the cache key
+        and state pruning have to agree on the hash inputs to the letter: if
+        they don't, a task is looked up under one key, recorded under a
+        second, and pruned against a third, so it re-runs forever.
+
+        Args:
+        task: The task to hash
+        resolved: Its resolved runner/interpreter, if the caller already has
+        it (it is resolved here otherwise)
+        """
+        resolved = resolved if resolved is not None else self.resolve_environment(task)
+        return hash_task(
             task.cmd,
             task.outputs,
             task.working_dir,
@@ -1986,9 +2191,10 @@ class Executor:
             resolved.runner_name,
             task.deps,
             self._interpreter_identity(resolved.interpreter),
+            referenced_values=self.recipe.referenced_values(
+                task.name, resolved.runner_name
+            ),
         )
-        args_hash = hash_args(args_dict) if args_dict else None
-        return make_cache_key(task_hash, args_hash)
 
     def _input_files_to_modified_times(
         self,
@@ -2008,7 +2214,10 @@ class Executor:
         return input_state
 
     def _output_files_to_modified_times(
-        self, task: Task, process_runner: ProcessRunner | None = None
+        self,
+        task: Task,
+        args_dict: dict[str, Any] | None = None,
+        process_runner: ProcessRunner | None = None,
     ) -> dict[str, float]:
         """
         Expand output patterns to actual files and record their mtimes.
@@ -2017,7 +2226,7 @@ class Executor:
         are later deleted, even if other files in the set still exist.
         """
         stat = self._freshness_probe(task, process_runner).stat_patterns(
-            self._expand_output_paths(task)
+            self._expand_output_paths(task, args_dict)
         )
         output_state: dict[str, float] = {}
         for matches in stat.values():

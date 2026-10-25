@@ -373,7 +373,7 @@ class TestRunnerTaskDependencyTracking(unittest.TestCase):
 
             recipe = {
                 "runners": {
-                    "shell": {"shell": {"cmd": "bash"}},
+                    "shell": {"interpreter": {"cmd": "bash"}},
                 },
                 "tasks": {
                     "gen": {

@@ -1256,82 +1256,6 @@ class TestExecutorPrivateMethods(unittest.TestCase):
     Tests for executor private methods.
     """
 
-    def test_substitute_args_single(self):
-        """
-        Test substituting single argument.
-        """
-
-        with TemporaryDirectory() as tmpdir:
-            project_root = Path(tmpdir)
-            state_manager = StateManager(project_root)
-            tasks = {"deploy": Task(name="deploy", cmd="echo {{ arg.environment }}")}
-            recipe = Recipe(
-                tasks=tasks,
-                project_root=project_root,
-                recipe_path=project_root / "tasktree.yaml",
-            )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
-
-            result = executor._substitute_args(
-                "echo {{ arg.environment }}", {"environment": "production"}
-            )
-            self.assertEqual(result, "echo production")
-
-    def test_substitute_args_multiple(self):
-        """
-        Test substituting multiple arguments.
-        """
-
-        with TemporaryDirectory() as tmpdir:
-            project_root = Path(tmpdir)
-            state_manager = StateManager(project_root)
-            tasks = {
-                "deploy": Task(
-                    name="deploy", cmd="deploy {{ arg.app }} to {{ arg.region }}"
-                )
-            }
-            recipe = Recipe(
-                tasks=tasks,
-                project_root=project_root,
-                recipe_path=project_root / "tasktree.yaml",
-            )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
-
-            result = executor._substitute_args(
-                "deploy {{ arg.app }} to {{ arg.region }}",
-                {"app": "myapp", "region": "us-east-1"},
-            )
-            self.assertEqual(result, "deploy myapp to us-east-1")
-
-    def test_substitute_args_missing_placeholder(self):
-        """
-        Test raises error when arg not provided.
-        """
-
-        with TemporaryDirectory() as tmpdir:
-            project_root = Path(tmpdir)
-            state_manager = StateManager(project_root)
-            tasks = {
-                "deploy": Task(
-                    name="deploy", cmd="echo {{ arg.environment }} {{ arg.missing }}"
-                )
-            }
-            recipe = Recipe(
-                tasks=tasks,
-                project_root=project_root,
-                recipe_path=project_root / "tasktree.yaml",
-            )
-            executor = Executor(recipe, state_manager, logger_stub, make_process_runner)
-
-            # Missing argument should raise ValueError
-            with self.assertRaises(ValueError) as cm:
-                executor._substitute_args(
-                    "echo {{ arg.environment }} {{ arg.missing }}",
-                    {"environment": "production"},
-                )
-            self.assertIn("missing", str(cm.exception))
-            self.assertIn("not defined", str(cm.exception))
-
     def test_check_inputs_changed_mtime(self):
         """
         Test detects changed file by mtime.
@@ -2427,6 +2351,403 @@ class TestExecutorProcessRunner(unittest.TestCase):
             del os.environ["BUILD_DIR"]
             del os.environ["CUSTOM_SHELL"]
 
+    def test_substitute_runner_fields_substitutes_volumes(self):
+        """
+        Test that _substitute_builtin_in_runner substitutes builtin and env variables in volumes.
+        """
+        os.environ["VOLUME_SRC"] = "/host/src"
+
+        try:
+            with TemporaryDirectory() as tmpdir:
+                project_root = Path(tmpdir)
+                state_manager = StateManager(project_root)
+
+                recipe = Recipe(
+                    tasks={},
+                    project_root=project_root,
+                    recipe_path=project_root / "tasktree.yaml",
+                )
+                executor = Executor(
+                    recipe, state_manager, logger_stub, make_process_runner
+                )
+
+                runner = DockerRunner(
+                    name="test",
+                    dockerfile="Dockerfile",
+                    context=".",
+                    volumes=[
+                        "{{ tt.project_root }}/data:/data",
+                        "{{ env.VOLUME_SRC }}:/src:ro",
+                    ],
+                )
+
+                builtin_vars = {
+                    "project_root": str(project_root),
+                    "task_name": "test",
+                }
+
+                substituted_runner = executor._substitute_builtin_in_runner(
+                    runner, builtin_vars
+                )
+
+                self.assertEqual(
+                    substituted_runner.volumes,
+                    [f"{project_root}/data:/data", "/host/src:/src:ro"],
+                )
+        finally:
+            del os.environ["VOLUME_SRC"]
+
+    def test_substitute_runner_fields_rejects_arg_reference_in_volumes(self):
+        """
+        Test that an {{ arg.* }} reference in a runner volume is an error.
+
+        Runners are shared across tasks, so per-task values are not available
+        in runner fields (they were previously left in place, unsubstituted,
+        which silently produced a broken mount path).
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+
+            recipe = Recipe(
+                tasks={},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+            executor = Executor(
+                recipe, state_manager, logger_stub, make_process_runner
+            )
+
+            runner = DockerRunner(
+                name="test",
+                dockerfile="Dockerfile",
+                context=".",
+                volumes=["{{ arg.mount }}:/data"],
+            )
+
+            builtin_vars = {
+                "project_root": str(project_root),
+                "task_name": "test",
+            }
+
+            with self.assertRaises(ValueError):
+                executor._substitute_builtin_in_runner(runner, builtin_vars)
+
+    def test_substitute_runner_fields_substitutes_env_vars(self):
+        """
+        Test that _substitute_builtin_in_runner substitutes builtin and env variables in env_vars values.
+        """
+        os.environ["API_TOKEN"] = "secret123"
+
+        try:
+            with TemporaryDirectory() as tmpdir:
+                project_root = Path(tmpdir)
+                state_manager = StateManager(project_root)
+
+                recipe = Recipe(
+                    tasks={},
+                    project_root=project_root,
+                    recipe_path=project_root / "tasktree.yaml",
+                )
+                executor = Executor(
+                    recipe, state_manager, logger_stub, make_process_runner
+                )
+
+                runner = DockerRunner(
+                    name="test",
+                    dockerfile="Dockerfile",
+                    context=".",
+                    env_vars={
+                        "PROJECT_DIR": "{{ tt.project_root }}",
+                        "TOKEN": "{{ env.API_TOKEN }}",
+                        "PLAIN": "unchanged",
+                    },
+                )
+
+                builtin_vars = {
+                    "project_root": str(project_root),
+                    "task_name": "test",
+                }
+
+                substituted_runner = executor._substitute_builtin_in_runner(
+                    runner, builtin_vars
+                )
+
+                self.assertEqual(
+                    substituted_runner.env_vars,
+                    {
+                        "PROJECT_DIR": str(project_root),
+                        "TOKEN": "secret123",
+                        "PLAIN": "unchanged",
+                    },
+                )
+        finally:
+            del os.environ["API_TOKEN"]
+
+    def test_substitute_runner_fields_rejects_arg_reference_in_env_vars(self):
+        """
+        Test that an {{ arg.* }} reference in a runner env_vars value is an error.
+
+        Runners are shared across tasks, so per-task values are not available
+        in runner fields (they were previously left in place, unsubstituted).
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+
+            recipe = Recipe(
+                tasks={},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+            executor = Executor(
+                recipe, state_manager, logger_stub, make_process_runner
+            )
+
+            runner = DockerRunner(
+                name="test",
+                dockerfile="Dockerfile",
+                context=".",
+                env_vars={"MODE": "{{ arg.mode }}"},
+            )
+
+            builtin_vars = {
+                "project_root": str(project_root),
+                "task_name": "test",
+            }
+
+            with self.assertRaises(ValueError):
+                executor._substitute_builtin_in_runner(runner, builtin_vars)
+
+    def test_substitute_runner_fields_substitutes_ports(self):
+        """
+        Test that _substitute_builtin_in_runner substitutes env variables in ports.
+        """
+        os.environ["HOST_PORT"] = "8080"
+
+        try:
+            with TemporaryDirectory() as tmpdir:
+                project_root = Path(tmpdir)
+                state_manager = StateManager(project_root)
+
+                recipe = Recipe(
+                    tasks={},
+                    project_root=project_root,
+                    recipe_path=project_root / "tasktree.yaml",
+                )
+                executor = Executor(
+                    recipe, state_manager, logger_stub, make_process_runner
+                )
+
+                runner = DockerRunner(
+                    name="test",
+                    dockerfile="Dockerfile",
+                    context=".",
+                    ports=["{{ env.HOST_PORT }}:80", "9000:9000"],
+                )
+
+                builtin_vars = {
+                    "project_root": str(project_root),
+                    "task_name": "test",
+                }
+
+                substituted_runner = executor._substitute_builtin_in_runner(
+                    runner, builtin_vars
+                )
+
+                self.assertEqual(
+                    substituted_runner.ports, ["8080:80", "9000:9000"]
+                )
+        finally:
+            del os.environ["HOST_PORT"]
+
+    def test_substitute_runner_fields_rejects_arg_reference_in_ports(self):
+        """
+        Test that an {{ arg.* }} reference in a runner port mapping is an error.
+
+        Runners are shared across tasks, so per-task values are not available
+        in runner fields (they were previously left in place, unsubstituted).
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+
+            recipe = Recipe(
+                tasks={},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+            executor = Executor(
+                recipe, state_manager, logger_stub, make_process_runner
+            )
+
+            runner = DockerRunner(
+                name="test",
+                dockerfile="Dockerfile",
+                context=".",
+                ports=["{{ arg.port }}:80"],
+            )
+
+            builtin_vars = {
+                "project_root": str(project_root),
+                "task_name": "test",
+            }
+
+            with self.assertRaises(ValueError):
+                executor._substitute_builtin_in_runner(runner, builtin_vars)
+
+    def test_substitute_runner_fields_substitutes_working_dir(self):
+        """
+        Test that _substitute_builtin_in_runner substitutes env variables in the runner working_dir.
+        """
+        os.environ["APP_DIR"] = "myapp"
+
+        try:
+            with TemporaryDirectory() as tmpdir:
+                project_root = Path(tmpdir)
+                state_manager = StateManager(project_root)
+
+                recipe = Recipe(
+                    tasks={},
+                    project_root=project_root,
+                    recipe_path=project_root / "tasktree.yaml",
+                )
+                executor = Executor(
+                    recipe, state_manager, logger_stub, make_process_runner
+                )
+
+                runner = DockerRunner(
+                    name="test",
+                    dockerfile="Dockerfile",
+                    context=".",
+                    working_dir="/workspace/{{ env.APP_DIR }}",
+                )
+
+                builtin_vars = {
+                    "project_root": str(project_root),
+                    "task_name": "test",
+                }
+
+                substituted_runner = executor._substitute_builtin_in_runner(
+                    runner, builtin_vars
+                )
+
+                self.assertEqual(
+                    substituted_runner.working_dir, "/workspace/myapp"
+                )
+        finally:
+            del os.environ["APP_DIR"]
+
+    def test_substitute_runner_fields_rejects_arg_reference_in_working_dir(self):
+        """
+        Test that an {{ arg.* }} reference in a runner working_dir is an error.
+
+        Runners are shared across tasks, so per-task values are not available
+        in runner fields (they were previously left in place, unsubstituted).
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+
+            recipe = Recipe(
+                tasks={},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+            executor = Executor(
+                recipe, state_manager, logger_stub, make_process_runner
+            )
+
+            runner = DockerRunner(
+                name="test",
+                dockerfile="Dockerfile",
+                context=".",
+                working_dir="/workspace/{{ arg.subdir }}",
+            )
+
+            builtin_vars = {
+                "project_root": str(project_root),
+                "task_name": "test",
+            }
+
+            with self.assertRaises(ValueError):
+                executor._substitute_builtin_in_runner(runner, builtin_vars)
+
+    def test_substitute_runner_fields_rejects_arg_reference_in_run_args(self):
+        """
+        Test that an {{ arg.* }} reference in docker run args is an error.
+
+        Runners are shared across tasks, so per-task values are not available
+        in runner fields (they were previously left in place, unsubstituted).
+        """
+        from tasktree.parser import DockerArgs
+
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+
+            recipe = Recipe(
+                tasks={},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+            executor = Executor(
+                recipe, state_manager, logger_stub, make_process_runner
+            )
+
+            runner = DockerRunner(
+                name="test",
+                dockerfile="Dockerfile",
+                context=".",
+                args=DockerArgs(run=["--memory={{ arg.mem }}"]),
+            )
+
+            builtin_vars = {
+                "project_root": str(project_root),
+                "task_name": "test",
+            }
+
+            with self.assertRaises(ValueError):
+                executor._substitute_builtin_in_runner(runner, builtin_vars)
+
+    def test_substitute_runner_fields_rejects_arg_reference_in_preamble(self):
+        """
+        Test that an {{ arg.* }} reference in an interpreter preamble is an error.
+
+        Runners are shared across tasks, so per-task values are not available
+        in runner fields (they were previously left in place, unsubstituted).
+        """
+        with TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            state_manager = StateManager(project_root)
+
+            recipe = Recipe(
+                tasks={},
+                project_root=project_root,
+                recipe_path=project_root / "tasktree.yaml",
+            )
+            executor = Executor(
+                recipe, state_manager, logger_stub, make_process_runner
+            )
+
+            runner = DockerRunner(
+                name="test",
+                dockerfile="Dockerfile",
+                context=".",
+                interpreter=Interpreter(
+                    cmd="bash",
+                    preamble="export MODE={{ arg.mode }}\n",
+                ),
+            )
+
+            builtin_vars = {
+                "project_root": str(project_root),
+                "task_name": "test",
+            }
+
+            with self.assertRaises(ValueError):
+                executor._substitute_builtin_in_runner(runner, builtin_vars)
+
 
 class TestGetSessionDefaultRunner(unittest.TestCase):
     """
@@ -3276,3 +3597,325 @@ tasks:
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestPatternRendering(unittest.TestCase):
+    """
+    Input and output patterns are rendered before they are matched against
+    the filesystem (schema pipeline slice 10a). The regex pass they replace
+    could only substitute a bare ``{{ var.name }}``, so anything with an
+    expression in it reached the glob verbatim and matched nothing.
+    """
+
+    def _executor(self, task: Task, variables: dict[str, str] | None = None):
+        project_root = Path(tempfile.gettempdir())
+        recipe = Recipe(
+            tasks={task.name: task},
+            project_root=project_root,
+            recipe_path=project_root / "tasktree.yaml",
+        )
+        recipe.evaluated_variables = variables or {}
+        return Executor(
+            recipe, StateManager(project_root), logger_stub, make_process_runner
+        )
+
+    def test_renders_a_filter_the_regex_pass_could_not_express(self):
+        task = Task(name="build", cmd="echo hi", inputs=["{{ var.dir | lower }}/*.c"])
+        executor = self._executor(task, {"dir": "SRC"})
+
+        self.assertEqual(
+            executor.render_pattern(task.inputs[0], task), "src/*.c"
+        )
+
+    def test_renders_an_argument_reference(self):
+        task = Task(
+            name="build",
+            cmd="echo hi",
+            args=[{"config": {"default": "debug"}}],
+            outputs=["build/{{ arg.config }}/app"],
+        )
+        executor = self._executor(task)
+
+        self.assertEqual(
+            executor.render_pattern(task.outputs[0], task, {"config": "release"}),
+            "build/release/app",
+        )
+
+    def test_a_dependency_reference_should_already_be_resolved(self):
+        """
+        Dependency references are resolved before patterns are rendered, by
+        resolve_dependency_output_references, which reads them against the
+        dependency's own invocation. One still here by rendering time is
+        not a pattern this phase can defer -- it means that pass did not
+        run or did not cover the field, so it is reported rather than
+        silently matching nothing.
+        """
+        task = Task(
+            name="process",
+            cmd="echo hi",
+            deps=["generate"],
+            inputs=["{{ dep.generate.outputs.data }}"],
+        )
+        executor = self._executor(task)
+
+        with self.assertRaises(ValueError) as cm:
+            executor.render_pattern(task.inputs[0], task)
+
+        self.assertIn("generate", str(cm.exception))
+
+    def test_a_self_reference_names_another_of_the_tasks_patterns(self):
+        """
+        Deferred until slice 10e, which orders a task's own patterns so each
+        renders after the ones it names.
+        """
+        task = Task(
+            name="build",
+            cmd="echo hi",
+            inputs=["{{ self.outputs.bin }}.d"],
+            outputs=[{"bin": "app"}],
+        )
+        executor = self._executor(task)
+
+        self.assertEqual(executor.render_pattern(task.inputs[0], task), "app.d")
+
+    def test_a_loop_between_patterns_is_reported(self):
+        task = Task(
+            name="build",
+            cmd="echo hi",
+            inputs=[{"first": "{{ self.inputs.second }}"}, {"second": "{{ self.inputs.first }}"}],
+        )
+        executor = self._executor(task)
+
+        with self.assertRaises(ValueError) as cm:
+            executor._get_all_inputs(task)
+
+        message = str(cm.exception)
+        self.assertIn("loop", message)
+        self.assertIn("self.inputs.first", message)
+
+    def test_get_all_inputs_renders_named_and_anonymous_alike(self):
+        task = Task(
+            name="build",
+            cmd="echo hi",
+            inputs=["{{ var.dir | lower }}/*.c", {"headers": "{{ var.dir | lower }}/*.h"}],
+        )
+        executor = self._executor(task, {"dir": "SRC"})
+
+        self.assertEqual(
+            executor._get_all_inputs(task), ["src/*.c", "src/*.h"]
+        )
+
+    def test_expand_output_paths_renders_named_and_anonymous_alike(self):
+        task = Task(
+            name="build",
+            cmd="echo hi",
+            outputs=["{{ var.dir | lower }}/app", {"debug": "{{ var.dir | lower }}/app.pdb"}],
+        )
+        executor = self._executor(task, {"dir": "BUILD"})
+
+        self.assertEqual(
+            executor._expand_output_paths(task), ["build/app", "build/app.pdb"]
+        )
+
+
+class TestSelfNamespaceRendering(unittest.TestCase):
+    """
+    A task's own inputs and outputs reach its command through the render
+    context (schema pipeline slice 10b), not by being substituted into the
+    command text beforehand. The paths go in rendered, and whatever they
+    contain arrives literally.
+    """
+
+    def _executor(self, task: Task, variables: dict[str, str] | None = None):
+        project_root = Path(tempfile.gettempdir())
+        recipe = Recipe(
+            tasks={task.name: task},
+            project_root=project_root,
+            recipe_path=project_root / "tasktree.yaml",
+        )
+        recipe.evaluated_variables = variables or {}
+        return Executor(
+            recipe, StateManager(project_root), logger_stub, make_process_runner
+        )
+
+    def _render(self, executor: Executor, task: Task, text: str) -> str:
+        return executor._render_field(
+            text, {}, {}, set(), task.name, executor._rendered_self_maps(task)
+        )
+
+    def test_self_maps_hold_rendered_paths(self):
+        task = Task(
+            name="build",
+            cmd="echo hi",
+            inputs=[{"src": "{{ var.dir | lower }}/a.c"}],
+            outputs=["{{ var.dir | lower }}/a.o"],
+        )
+        executor = self._executor(task, {"dir": "SRC"})
+
+        maps = executor._rendered_self_maps(task)
+
+        self.assertEqual(maps["inputs_named"], {"src": "src/a.c"})
+        self.assertEqual(maps["inputs_indexed"], ["src/a.c"])
+        self.assertEqual(maps["outputs_indexed"], ["src/a.o"])
+
+    def test_named_and_positional_references_resolve(self):
+        task = Task(
+            name="copy",
+            cmd="cp {{ self.inputs.src }} {{ self.outputs.0 }}",
+            inputs=[{"src": "in.txt"}],
+            outputs=["out.txt"],
+        )
+        executor = self._executor(task)
+
+        self.assertEqual(
+            self._render(executor, task, task.cmd), "cp in.txt out.txt"
+        )
+
+    def test_a_path_containing_a_template_arrives_literally(self):
+        """
+        The property the textual pass could not have: a path is data by the
+        time it is injected, so a value that happens to look like a
+        template is not rendered a second time and executed.
+        """
+        task = Task(
+            name="build",
+            cmd="echo {{ self.inputs.src }}",
+            inputs=[{"src": "{{ env.TT_BRACED }}"}],
+        )
+        executor = self._executor(task)
+
+        with patch.dict(os.environ, {"TT_BRACED": "{{ oops }}"}):
+            self.assertEqual(
+                self._render(executor, task, task.cmd), "echo {{ oops }}"
+            )
+
+    def test_an_unknown_name_names_the_alternatives(self):
+        task = Task(
+            name="build",
+            cmd="cp {{ self.inputs.missing }}",
+            inputs=[{"src": "file.txt"}],
+        )
+        executor = self._executor(task)
+
+        with self.assertRaises(ValueError) as cm:
+            self._render(executor, task, task.cmd)
+
+        message = str(cm.exception)
+        self.assertIn("missing", message)
+        self.assertIn("src", message)
+
+    def test_an_anonymous_only_task_says_so(self):
+        task = Task(
+            name="build", cmd="cp {{ self.inputs.src }}", inputs=["file.txt"]
+        )
+        executor = self._executor(task)
+
+        with self.assertRaises(ValueError) as cm:
+            self._render(executor, task, task.cmd)
+
+        self.assertIn("anonymous", str(cm.exception))
+
+
+class TestResolveArgSpecs(unittest.TestCase):
+    """
+    Argument defaults that name one of the task's own inputs are settled
+    after the patterns are rendered, and the patterns are rendered against
+    the arguments that are already known (schema pipeline slice 10e).
+    """
+
+    def _executor(self, task: Task):
+        project_root = Path(tempfile.gettempdir())
+        recipe = Recipe(
+            tasks={task.name: task},
+            project_root=project_root,
+            recipe_path=project_root / "tasktree.yaml",
+        )
+        recipe.evaluated_variables = {}
+        return Executor(
+            recipe, StateManager(project_root), logger_stub, make_process_runner
+        )
+
+    def _specs(self, task: Task):
+        from tasktree.parser import parse_arg_spec
+
+        return [parse_arg_spec(spec) for spec in task.args]
+
+    def test_specs_naming_nothing_are_returned_untouched(self):
+        task = Task(
+            name="build", cmd="echo hi", args=[{"config": {"default": "debug"}}]
+        )
+        executor = self._executor(task)
+        specs = self._specs(task)
+
+        self.assertIs(executor.resolve_arg_specs(task, specs, {}), specs)
+
+    def test_a_default_naming_an_input_is_resolved(self):
+        task = Task(
+            name="build",
+            cmd="echo hi",
+            args=[{"target": {"default": "{{ self.inputs.src }}"}}],
+            inputs=[{"src": "srcdir/a.txt"}],
+        )
+        executor = self._executor(task)
+
+        resolved = executor.resolve_arg_specs(task, self._specs(task), {})
+
+        self.assertEqual(resolved[0].default, "srcdir/a.txt")
+
+    def test_the_pattern_sees_the_argument_that_was_given(self):
+        """
+        Not the default it replaced: the given value is settled first, which
+        is the whole reason the work is staged.
+        """
+        task = Task(
+            name="build",
+            cmd="echo hi",
+            args=[
+                {"config": {"default": "debug"}},
+                {"target": {"default": "{{ self.inputs.src }}"}},
+            ],
+            inputs=[{"src": "srcdir/{{ arg.config }}.txt"}],
+        )
+        executor = self._executor(task)
+
+        resolved = executor.resolve_arg_specs(
+            task, self._specs(task), {"config": "release"}
+        )
+
+        self.assertEqual(resolved[1].default, "srcdir/release.txt")
+
+    def test_a_loop_through_an_argument_is_reported(self):
+        task = Task(
+            name="build",
+            cmd="echo hi",
+            args=[{"target": {"default": "{{ self.inputs.src }}"}}],
+            inputs=[{"src": "srcdir/{{ arg.target }}.txt"}],
+        )
+        executor = self._executor(task)
+
+        with self.assertRaises(ValueError) as cm:
+            executor.resolve_arg_specs(task, self._specs(task), {})
+
+        message = str(cm.exception)
+        self.assertIn("target", message)
+        self.assertIn("build", message)
+
+    def test_a_missing_argument_is_left_to_the_ordinary_report(self):
+        """
+        A pattern naming an argument that has no value and no default is
+        not a loop; the familiar "missing required argument" is the better
+        error, so the specs come back untouched for it to be reached.
+        """
+        task = Task(
+            name="build",
+            cmd="echo hi",
+            args=[
+                {"needed": {}},
+                {"target": {"default": "{{ self.inputs.src }}"}},
+            ],
+            inputs=[{"src": "srcdir/{{ arg.needed }}.txt"}],
+        )
+        executor = self._executor(task)
+        specs = self._specs(task)
+
+        self.assertIs(executor.resolve_arg_specs(task, specs, {}), specs)
