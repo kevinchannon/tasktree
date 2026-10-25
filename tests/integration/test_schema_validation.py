@@ -137,3 +137,29 @@ class TestValidationRespectsExistingTolerance(SchemaValidationTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestPruningAndValidationAgreeOnDeps(SchemaValidationTestCase):
+    """
+    The reachability walk ignores a dependency dict with more than one key,
+    on the grounds that the schema reports it precisely once the pruned tree
+    is validated. This is that claim, end to end: the walk's tolerance must
+    not pre-empt the schema's complaint (PR #212 review asked for it).
+    """
+
+    def test_a_multi_key_dep_is_reported_by_the_schema(self):
+        with self.assertRaises(ValueError) as cm:
+            self.parse(
+                "tasks:\n"
+                "  a:\n    cmd: x\n    deps: [{p: [], q: []}]\n"
+                "  p:\n    cmd: y\n"
+                "  q:\n    cmd: z\n",
+                prune_unreachable=True,
+                root_task="a",
+            )
+
+        message = str(cm.exception)
+        self.assertIn("deps[0]", message)
+        self.assertIn("too many properties", message)
+        # Not the confusing error the walk's tolerance might have caused.
+        self.assertNotIn("not found", message)

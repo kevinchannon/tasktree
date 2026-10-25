@@ -1,12 +1,14 @@
 """
-Raw-dict import merging for the schema-validation pipeline (issue #43, slice 4).
+Raw-dict import merging.
 
 Merges a recipe file and all of its imports into a single raw dict *before*
 any Task/Runner object is constructed. Namespacing, run_in blanket overrides
 and pinned-runner rewrites are applied as dict transforms, so the result is
-what the runtime schema validation (slice 6) will validate. Built additively
-alongside the object-building path in parser.py; sections cut over one at a
-time.
+a tree the schema can validate -- which is the point: jsonschema validates
+a dict, not a Task.
+
+A blanket run_in applies to the file that declares the import and not to
+that file's own imports; each import spec carries its own.
 """
 
 from dataclasses import dataclass, field
@@ -452,9 +454,10 @@ def _validate_top_level_keys(data: dict[str, Any], file_path: Path) -> None:
     Reject unknown top-level keys in one file, with a 'tasks:' hint when the
     file looks like task definitions written at the root level.
 
-    Runs per file during the merge (the merged tree can't be checked - it no
-    longer knows which file an offending key came from). Wording matches the
-    old object path until slice 6/8 replaces this with the schema.
+    Runs per file during the merge rather than against the merged tree,
+    which no longer knows which file an offending key came from -- and
+    naming that file is the whole value of the message. The schema cannot
+    replace this for the same reason.
     """
     valid_top_level_keys = {"imports", "runners", "interpreters", "tasks", "variables"}
 
@@ -600,7 +603,34 @@ def _rewrite_dep_name(
 
 
 def _load_yaml(file_path: Path) -> dict[str, Any]:
+    """
+    Read one recipe file as a mapping of its top-level sections.
+
+    An empty file is an empty mapping, which is a valid if pointless recipe.
+    Anything else that is not a mapping -- a list, a bare scalar -- is
+    reported here rather than left to fail further in with Python's words:
+    the merge's very next move is to read sections off it. The file is named
+    because with imports in play it may not be the one the user invoked.
+
+    Args:
+    file_path: Path to the YAML file
+
+    Returns:
+    The file's top-level mapping
+
+    Raises:
+    ValueError: If the file's contents are not a mapping
+    """
     # Explicit UTF-8 to handle Unicode on Windows (default is cp1252 there)
     with open(file_path, "r", encoding="utf-8") as f:
         data = yaml.safe_load(f)
-    return data if data is not None else {}
+
+    if data is None:
+        return {}
+    if not isinstance(data, dict):
+        raise ValueError(
+            f"{file_path}: a recipe must be a mapping of sections "
+            f"(tasks, variables, runners, imports), not "
+            f"{type(data).__name__}"
+        )
+    return data

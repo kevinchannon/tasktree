@@ -71,6 +71,42 @@ class TestImportErrors(RawMergeTestCase):
         self.assertIn("Import file not found", str(cm.exception))
         self.assertIn("nope.yaml", str(cm.exception))
 
+    def test_a_recipe_that_is_not_a_mapping_is_reported(self):
+        """
+        A file whose root is a list or a scalar used to reach the merge's
+        dict operations and fail with AttributeError or TypeError -- Python's
+        words, not Tasktree's (PR #212 review).
+        """
+        for body, shape in [("- foo\n", "list"), ("just-a-string\n", "scalar")]:
+            with self.subTest(shape=shape):
+                recipe = self.write("tt.yaml", body)
+
+                with self.assertRaises(ValueError) as cm:
+                    merge_recipe(recipe)
+
+                message = str(cm.exception)
+                self.assertIn("tt.yaml", message)
+                self.assertIn("mapping", message)
+
+    def test_an_imported_file_that_is_not_a_mapping_names_that_file(self):
+        """The import is where the author has to look, so it has to be named."""
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n  - file: bad.yaml\n    as: bad\ntasks:\n  t:\n    cmd: x\n",
+        )
+        self.write("bad.yaml", "- not-a-mapping\n")
+
+        with self.assertRaises(ValueError) as cm:
+            merge_recipe(recipe)
+
+        self.assertIn("bad.yaml", str(cm.exception))
+
+    def test_an_empty_file_is_still_fine(self):
+        """An empty recipe is a mapping with nothing in it, not a mistake."""
+        recipe = self.write("tt.yaml", "")
+
+        self.assertEqual(merge_recipe(recipe), {})
+
     def test_self_import_raises_circular(self):
         recipe = self.write(
             "tt.yaml",

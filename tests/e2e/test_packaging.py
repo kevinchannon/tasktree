@@ -3,6 +3,7 @@
 import shutil
 import subprocess
 import unittest
+import tarfile
 import zipfile
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -55,6 +56,50 @@ class TestWheelContents(unittest.TestCase):
         packaged_candidate = schema_candidates()[0]
         relative = packaged_candidate.relative_to(packaged_candidate.parents[2])
         self.assertEqual(relative.as_posix(), PACKAGED_SCHEMA)
+
+
+@unittest.skipIf(shutil.which("uv") is None, "sdist build needs the uv CLI")
+class TestSdistContents(unittest.TestCase):
+    """
+    Installing from an sdist builds a wheel from it, and that build applies
+    the force-include -- but only if the sdist carries the authored schema in
+    the first place. Nothing configures the sdist explicitly, so this rests
+    on hatch's defaults, which is exactly the kind of thing that changes
+    quietly (PR #212 review noted the wheel was covered and the sdist was
+    not).
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls._tmpdir = TemporaryDirectory()
+        result = subprocess.run(
+            ["uv", "build", "--sdist", "--out-dir", cls._tmpdir.name, str(REPO_ROOT)],
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        if result.returncode != 0:
+            cls._tmpdir.cleanup()
+            raise RuntimeError(f"sdist build failed: {result.stderr}")
+        cls.sdist = next(Path(cls._tmpdir.name).glob("*.tar.gz"))
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._tmpdir.cleanup()
+
+    def test_sdist_carries_the_authored_schema(self):
+        with tarfile.open(self.sdist) as sdist:
+            schema_entries = [
+                name
+                for name in sdist.getnames()
+                if name.endswith("schema/tasktree-schema.json")
+            ]
+        self.assertEqual(
+            len(schema_entries),
+            1,
+            "the sdist must carry the authored schema, or a wheel built from "
+            "it has nothing to force-include",
+        )
 
 
 if __name__ == "__main__":
