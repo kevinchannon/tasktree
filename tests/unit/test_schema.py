@@ -252,3 +252,22 @@ class TestSchemaCopiesAgree(unittest.TestCase):
     def test_the_authored_copy_is_the_one_the_readmes_point_at(self):
         """Its location is load-bearing for the editor-integration URL."""
         self.assertTrue((Path(__file__).parents[2] / "schema" / "tasktree-schema.json").exists())
+
+
+class TestTheCachedSchemaIsNotMutated(unittest.TestCase):
+    """
+    load_file_schema is lru_cached and hands every caller the same dict, so a
+    transform that edited it in place would change the schema for the rest of
+    the process. merged_tree_schema deep-copies; this is what fails if that
+    ever stops being true (raised in the PR #212 review).
+    """
+
+    def test_deriving_the_merged_tree_schema_leaves_the_file_schema_alone(self):
+        from tasktree.recipe_schema import load_file_schema, merged_tree_schema
+
+        load_file_schema.cache_clear()
+        before = json.dumps(load_file_schema(), sort_keys=True)
+
+        merged_tree_schema(load_file_schema())
+
+        self.assertEqual(json.dumps(load_file_schema(), sort_keys=True), before)

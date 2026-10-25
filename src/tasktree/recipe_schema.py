@@ -158,7 +158,12 @@ def _remediation_hint(error: "ValidationError") -> str:
     checks used to carry advice like this, so it lives here as they retire.
     """
     path = list(error.absolute_path)
-    if path and path[-1] == "args" and error.validator == "type":
+    # A task's args, and only those: a runner's 'args' is a mapping of build
+    # arguments, so this advice would contradict the error it follows. An
+    # inline runner under a task puts 'args' deeper than three segments,
+    # which is why the length is pinned rather than just the first key.
+    is_task_args = len(path) == 3 and path[0] == "tasks" and path[-1] == "args"
+    if is_task_args and error.validator == "type":
         example = "name"
         if isinstance(error.instance, dict) and error.instance:
             example = str(next(iter(error.instance)))
@@ -201,6 +206,24 @@ def _plain_reason(error: "ValidationError") -> str:
     return error.message
 
 
+def _short(value: Any, limit: int = 120) -> str:
+    """
+    A value's repr, kept to a length a person will read.
+
+    The offending value may be an entire task, and quoting all of it back
+    reintroduces the wall of output this module exists to replace.
+
+    Args:
+    value: The value to describe
+    limit: Longest repr to show in full
+
+    Returns:
+    The repr, truncated with an ellipsis if it was longer
+    """
+    shown = repr(value)
+    return shown if len(shown) <= limit else f"{shown[: limit - 1]}…"
+
+
 def _accepted_forms_reason(error: "ValidationError") -> str:
     """
     Reword "is not valid under any of the given schemas", which jsonschema
@@ -217,8 +240,11 @@ def _accepted_forms_reason(error: "ValidationError") -> str:
         if isinstance(branch, dict) and branch.get("description")
     ]
     if forms:
-        return f"{error.instance!r} is not valid here. Expected one of: {'; '.join(forms)}"
-    return f"{error.instance!r} is not one of the accepted forms here"
+        return (
+            f"{_short(error.instance)} is not valid here. "
+            f"Expected one of: {'; '.join(forms)}"
+        )
+    return f"{_short(error.instance)} is not one of the accepted forms here"
 
 
 def _wrong_kind_reason(error: "ValidationError") -> str:

@@ -23,6 +23,7 @@ def _message(tree: dict) -> str:
     return schema_error_message(error, RECIPE_PATH)
 
 
+
 class TestRemediationHints(unittest.TestCase):
     """
     Where a hand-written check used to teach the fix, the schema message
@@ -105,3 +106,58 @@ class TestErrorMessages(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestAdviceIsScopedToWhatItDescribes(unittest.TestCase):
+    """
+    The args-as-mapping advice is for a *task's* arguments. A runner's
+    'args' is a mapping of build arguments, so the same advice there
+    contradicts the error it follows (raised in the PR #212 review).
+    """
+
+    DOCKER = {"type": "containerised", "engine": "docker", "dockerfile": "Dockerfile"}
+
+    def test_a_task_gets_the_list_advice(self):
+        message = _message({"tasks": {"build": {"cmd": "x", "args": {"name": {}}}}})
+        self.assertIn("Arguments are a list", message)
+
+    def test_a_runner_does_not(self):
+        message = _message(
+            {
+                "runners": {"box": {**self.DOCKER, "args": "not-a-mapping"}},
+                "tasks": {"build": {"cmd": "x", "runner": "box"}},
+            }
+        )
+        self.assertNotIn("Arguments are a list", message)
+
+    def test_an_inline_runner_under_a_task_does_not_either(self):
+        """Its args sit deeper than a task's own, which is why depth is pinned."""
+        message = _message(
+            {
+                "tasks": {
+                    "build": {
+                        "cmd": "x",
+                        "runner": {**self.DOCKER, "args": "not-a-mapping"},
+                    }
+                }
+            }
+        )
+        self.assertNotIn("Arguments are a list", message)
+
+
+class TestTheOffendingValueIsNotQuotedAtLength(unittest.TestCase):
+    """
+    Replacing jsonschema's wall of output is the point of this module, so it
+    must not quote an entire task back either (PR #212 review).
+    """
+
+    def test_a_long_value_is_truncated(self):
+        from tasktree.recipe_schema import _short
+
+        self.assertEqual(len(_short("x" * 500)), 120)
+        self.assertTrue(_short("x" * 500).endswith("…"))
+
+    def test_a_short_value_is_left_whole(self):
+        from tasktree.recipe_schema import _short
+
+        self.assertEqual(_short("abc"), "'abc'")
