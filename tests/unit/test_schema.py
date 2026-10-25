@@ -271,3 +271,24 @@ class TestTheCachedSchemaIsNotMutated(unittest.TestCase):
         merged_tree_schema(load_file_schema())
 
         self.assertEqual(json.dumps(load_file_schema(), sort_keys=True), before)
+
+
+class TestTheValidatorIsBuiltOnce(unittest.TestCase):
+    """
+    Deriving the merged-tree schema deep-copies, and compiling a validator
+    is not free. Both are pure functions of a cached input, so every parse
+    paying for them again was waste the LSP felt most (PR #212 review).
+    """
+
+    def test_the_same_validator_comes_back(self):
+        from tasktree.recipe_schema import merged_tree_validator
+
+        self.assertIs(merged_tree_validator(), merged_tree_validator())
+
+    def test_it_still_validates(self):
+        """Cached and useless would pass the test above."""
+        from tasktree.recipe_schema import merged_tree_validator
+
+        errors = list(merged_tree_validator().iter_errors({"tasks": {"a": {}}}))
+
+        self.assertTrue(errors, "a task with no cmd should not validate")

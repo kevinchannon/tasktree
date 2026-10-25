@@ -127,6 +127,26 @@ def _allow_empty_tree(schema: dict[str, Any]) -> None:
     schema.pop("anyOf", None)
 
 
+@lru_cache(maxsize=1)
+def merged_tree_validator() -> Any:
+    """
+    The validator for a merged recipe tree, built once.
+
+    Both halves of building it are pure functions of a cached input -- the
+    file schema is cached, deriving the merged-tree schema from it is
+    deterministic -- but neither was cached, so every parse deep-copied the
+    schema and recompiled the validator. The LSP parses often enough for
+    that to be worth avoiding.
+
+    Returns:
+    A ``jsonschema`` validator. Shared, like the schema behind it: validating
+    does not mutate it, but do not edit its ``schema`` in place.
+    """
+    import jsonschema
+
+    return jsonschema.Draft7Validator(merged_tree_schema(load_file_schema()))
+
+
 def schema_error_message(error: "ValidationError", recipe_path: Path) -> str:
     """
     Render a schema validation failure as something a recipe author can act on.

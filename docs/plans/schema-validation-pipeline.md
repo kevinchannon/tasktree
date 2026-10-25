@@ -1374,6 +1374,25 @@ values substituted into them.
 **Sizing**: one session for the resolver and its unit tests, plus a second
 pass to retire the two deferrals it replaces.
 
+### A pre-existing defect found in review, not fixed: imported `use:` references
+An imported file's own interpreters are namespaced on import, but an
+`interpreter: {use: name}` reference to one is not, so the reference names
+nothing and the recipe fails with `unknown interpreter 'py'`. It affects
+both an inline runner on an imported task and a task-level `interpreter`.
+
+**Verified identical on `main`**, so it predates this branch. Raised in the
+PR #212 review. Whether an imported file should be able to use the
+interpreters it defines is a design question rather than a typo, and the fix
+lands in the import/namespacing code, so it is recorded rather than taken.
+
+Gates: `TestImportedInterpreterUseReferences` in
+`tests/integration/test_imported_variables_and_runners.py`, two
+`expectedFailure` tests that report themselves when this is addressed.
+
+One incidental observation: on `main` both cases report the *inline*
+runner's error, because interpreters resolve eagerly there. On this branch
+each case reports its own, which is lazy validation doing its job.
+
 ### Slice 11 — host runners never render their fields
 Found while reviewing PR #212. `_substitute_builtin_in_runner` is called
 only from the Docker execution path and from `_current_image_fingerprint`

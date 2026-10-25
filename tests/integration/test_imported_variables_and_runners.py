@@ -200,3 +200,55 @@ class TestMultiLevelImportVariablesAndRunners(unittest.TestCase):
 
             finally:
                 os.chdir(original_cwd)
+
+
+class TestImportedInterpreterUseReferences(unittest.TestCase):
+    """
+    An imported file's own interpreters are namespaced on import, but a
+    ``interpreter: {use: name}`` reference to one is not, so the reference
+    no longer names anything: "unknown interpreter 'py'".
+
+    **Pre-existing**, not this branch's doing -- the same recipe fails
+    identically on `main`, which was checked before these were written.
+    Raised in the PR #212 review. Whether an imported file should be able
+    to use the interpreters it defines is a design question rather than a
+    typo to fix in passing, so these pin the defect and will report
+    themselves when it is addressed.
+    """
+
+    RECIPE = (
+        "interpreters:\n  py: { cmd: python3, ext: .py }\n"
+        "tasks:\n"
+        "  inline:\n"
+        "    runner:\n      interpreter: { use: py }\n"
+        '    cmd: print("from an inline runner")\n'
+        "  tasklevel:\n"
+        "    interpreter: { use: py }\n"
+        '    cmd: print("from a task-level interpreter")\n'
+    )
+
+    def run_imported_task(self, task: str):
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            original_cwd = os.getcwd()
+            os.chdir(root)
+            try:
+                (root / "sub.yaml").write_text(self.RECIPE)
+                (root / "tasktree.yaml").write_text(
+                    "imports:\n  - file: sub.yaml\n    as: sub\n"
+                    "tasks:\n  t:\n    cmd: echo hi\n"
+                )
+                result = CliRunner().invoke(app, [task], env={"NO_COLOR": "1"})
+                return result, strip_ansi_codes(result.stdout)
+            finally:
+                os.chdir(original_cwd)
+
+    @unittest.expectedFailure
+    def test_an_inline_runner_can_use_an_imported_interpreter(self):
+        result, output = self.run_imported_task("sub.inline")
+        self.assertEqual(result.exit_code, 0, output)
+
+    @unittest.expectedFailure
+    def test_a_task_level_interpreter_can_use_an_imported_one(self):
+        result, output = self.run_imported_task("sub.tasklevel")
+        self.assertEqual(result.exit_code, 0, output)

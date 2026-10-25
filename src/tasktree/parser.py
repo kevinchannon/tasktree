@@ -2428,12 +2428,11 @@ def _schema_validate(merged_data: dict, recipe_path: Path) -> None:
     import jsonschema
 
     from tasktree.recipe_schema import (
-        load_file_schema,
-        merged_tree_schema,
+        merged_tree_validator,
         schema_error_message,
     )
 
-    validator = jsonschema.Draft7Validator(merged_tree_schema(load_file_schema()))
+    validator = merged_tree_validator()
     error = jsonschema.exceptions.best_match(validator.iter_errors(merged_data))
     if error is not None:
         raise ValueError(schema_error_message(error, recipe_path))

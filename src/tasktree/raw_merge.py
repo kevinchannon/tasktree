@@ -134,7 +134,7 @@ def _merge_file(
     # absolute reference into another part of the tree and stays as-is.
     local_import_namespaces: set[str] = set()
 
-    imports = data.pop("imports", None) or []
+    imports = _import_specs(data.pop("imports", None), file_path)
     for import_spec in imports:
         child_file = import_spec["file"]
         child_namespace = import_spec["as"]
@@ -600,6 +600,52 @@ def _rewrite_dep_name(
     if "." not in name or root_segment in local_import_namespaces:
         return f"{namespace}.{name}"
     return name
+
+
+def _import_specs(imports: Any, file_path: Path) -> list[dict[str, Any]]:
+    """
+    Check one file's ``imports`` section before the merge reads from it.
+
+    The merge runs before schema validation -- deliberately, so that a
+    mistake in a part of the file nobody is invoking stays tolerated -- so
+    the shapes it reads have to be checked here. Left to the merge, a string
+    ``imports:`` was iterated one character at a time and a missing key
+    raised a bare KeyError. The rules are the schema's own: a list of
+    mappings, each with ``file`` and ``as``.
+
+    Args:
+    imports: The raw ``imports`` value, which may be anything or absent
+    file_path: The file it came from, named in every error because with
+    imports in play it may not be the file that was invoked
+
+    Returns:
+    The import specifications, or an empty list when there are none
+
+    Raises:
+    ValueError: If the section or any entry has the wrong shape
+    """
+    if not imports:
+        return []
+
+    where = f"{file_path}: imports"
+    if not isinstance(imports, list):
+        raise ValueError(
+            f"{where} must be a list of imports, each with 'file' and 'as', "
+            f"not {type(imports).__name__}"
+        )
+
+    for index, spec in enumerate(imports):
+        at = f"{file_path}: imports[{index}]"
+        if not isinstance(spec, dict):
+            raise ValueError(
+                f"{at} must be a mapping with 'file' and 'as', not "
+                f"{type(spec).__name__}"
+            )
+        for key in ("file", "as"):
+            if key not in spec:
+                raise ValueError(f"{at} is missing '{key}'")
+
+    return imports
 
 
 def _load_yaml(file_path: Path) -> dict[str, Any]:

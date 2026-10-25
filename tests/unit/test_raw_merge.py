@@ -71,6 +71,46 @@ class TestImportErrors(RawMergeTestCase):
         self.assertIn("Import file not found", str(cm.exception))
         self.assertIn("nope.yaml", str(cm.exception))
 
+    def test_malformed_imports_are_reported_in_tasktrees_words(self):
+        """
+        The merge runs before schema validation by design (decision 2), so
+        the shapes it reads have to be checked here or Python's words reach
+        the user: a string 'imports:' was iterated character by character,
+        and a missing key raised a bare KeyError (PR #212 review).
+        """
+        cases = [
+            ("imports: just-a-string\n", "list"),
+            ("imports:\n  - nope\n", "mapping"),
+            ("imports:\n  - as: ns\n", "file"),
+            ("imports:\n  - file: other.yaml\n", "as"),
+        ]
+        for body, expected in cases:
+            with self.subTest(expected=expected):
+                recipe = self.write("tt.yaml", body + "tasks:\n  t:\n    cmd: x\n")
+
+                with self.assertRaises(ValueError) as cm:
+                    merge_recipe(recipe)
+
+                message = str(cm.exception)
+                self.assertIn("tt.yaml", message)
+                self.assertIn(expected, message)
+
+    def test_a_malformed_import_entry_is_located_by_index(self):
+        """Which entry, when there is more than one, is the useful part."""
+        recipe = self.write(
+            "tt.yaml",
+            "imports:\n"
+            "  - file: good.yaml\n    as: good\n"
+            "  - as: no_file\n"
+            "tasks:\n  t:\n    cmd: x\n",
+        )
+        self.write("good.yaml", "tasks:\n  u:\n    cmd: y\n")
+
+        with self.assertRaises(ValueError) as cm:
+            merge_recipe(recipe)
+
+        self.assertIn("imports[1]", str(cm.exception))
+
     def test_a_recipe_that_is_not_a_mapping_is_reported(self):
         """
         A file whose root is a list or a scalar used to reach the merge's
