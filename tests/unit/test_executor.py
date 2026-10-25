@@ -3624,7 +3624,7 @@ class TestPatternRendering(unittest.TestCase):
         executor = self._executor(task, {"dir": "SRC"})
 
         self.assertEqual(
-            executor._render_pattern(task.inputs[0], task), "src/*.c"
+            executor.render_pattern(task.inputs[0], task), "src/*.c"
         )
 
     def test_renders_an_argument_reference(self):
@@ -3637,7 +3637,7 @@ class TestPatternRendering(unittest.TestCase):
         executor = self._executor(task)
 
         self.assertEqual(
-            executor._render_pattern(task.outputs[0], task, {"config": "release"}),
+            executor.render_pattern(task.outputs[0], task, {"config": "release"}),
             "build/release/app",
         )
 
@@ -3659,7 +3659,7 @@ class TestPatternRendering(unittest.TestCase):
         executor = self._executor(task)
 
         with self.assertRaises(ValueError) as cm:
-            executor._render_pattern(task.inputs[0], task)
+            executor.render_pattern(task.inputs[0], task)
 
         self.assertIn("generate", str(cm.exception))
 
@@ -3676,7 +3676,7 @@ class TestPatternRendering(unittest.TestCase):
         )
         executor = self._executor(task)
 
-        self.assertEqual(executor._render_pattern(task.inputs[0], task), "app.d")
+        self.assertEqual(executor.render_pattern(task.inputs[0], task), "app.d")
 
     def test_a_loop_between_patterns_is_reported(self):
         task = Task(

@@ -1405,8 +1405,12 @@ The durable fix is to parse the block rather than pattern-match it —
 Jinja's own parser can supply the AST, and rewriting on the AST cannot
 touch a literal.
 
+**A second symptom of the same cause, from the other side:** `\b` in
+`_REFERENCE` matches after a dot, so `{{ foo.var.bar }}` is rewritten as
+though `var` were the namespace prefix. Gated alongside the literals.
+
 **Gates added 2026-10-25** (from the PR #212 review's own request for a
-regression test), three `expectedFailure` tests that will report the moment
+regression test), four `expectedFailure` tests that will report the moment
 this lands: `TestStringLiteralsInsideTemplates` in
 `tests/unit/test_rendering.py` for the `self.` and `dep.` rewrites, and
 `TestStringLiteralsAreNotNamespaced` in `tests/unit/test_template_refs.py`

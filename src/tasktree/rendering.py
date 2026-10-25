@@ -45,6 +45,12 @@ def _build_environment() -> SandboxedEnvironment:
     container. The runner-field prefix check cannot cover this, since a
     payload like ``{{ ''.__class__.__mro__ }}`` names no prefix for it to
     match.
+
+    It bounds reach, not resources: ``{{ 'a' * 10**10 }}`` is still a
+    template this will happily try to render, so the sandbox is not a
+    denial-of-service boundary. A recipe that can make tt render arbitrary
+    text can make it allocate, and an imported recipe is as able to do that
+    as the root one.
     """
     return SandboxedEnvironment(
         undefined=StrictUndefined,

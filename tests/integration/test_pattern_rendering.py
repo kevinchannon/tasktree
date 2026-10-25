@@ -660,5 +660,53 @@ class TestBareDependencyArguments(PatternRenderingTestCase):
         self.assert_ran(output, result, task="generate")
 
 
+class TestStatementBlocks(PatternRenderingTestCase):
+    """
+    A variable named only inside a ``{% ... %}`` statement is still a
+    variable the task depends on. It used to be invisible to the walk that
+    decides which variables to evaluate, so a perfectly valid recipe failed
+    claiming the variable was not defined (PR #212 review).
+    """
+
+    def test_a_variable_used_only_in_a_conditional_resolves(self):
+        self.write_recipe(
+            "variables:\n  flag: yes\n"
+            "tasks:\n  build:\n"
+            "    inputs: [srcdir/a.txt]\n"
+            "    outputs: [out.txt]\n"
+            '    cmd: "{% if var.flag %}echo on{% else %}echo off{% endif %} > out.txt"\n'
+        )
+        result, output = self.run_task()
+
+        self.assert_ran(output, result)
+        self.assertEqual((self.project_root / "out.txt").read_text().strip(), "on")
+
+    def test_changing_that_variable_re_runs_the_task(self):
+        """
+        The other half of being invisible: the hash never counted it, so the
+        task would not re-run when the value behind it changed.
+        """
+        def recipe(flag: str) -> str:
+            return (
+                f"variables:\n  flag: {flag}\n"
+                "tasks:\n  build:\n"
+                "    inputs: [srcdir/a.txt]\n"
+                "    outputs: [out.txt]\n"
+                '    cmd: "{% if var.flag == \'on\' %}echo on{% else %}echo off{% endif %} > out.txt"\n'
+            )
+
+        self.write_recipe(recipe("on"))
+        result, output = self.run_task()
+        self.assert_ran(output, result)
+
+        result, output = self.run_task()
+        self.assert_skipped(output, result)
+
+        self.write_recipe(recipe("off"))
+        result, output = self.run_task()
+        self.assert_ran(output, result)
+        self.assertEqual((self.project_root / "out.txt").read_text().strip(), "off")
+
+
 if __name__ == "__main__":
     unittest.main()

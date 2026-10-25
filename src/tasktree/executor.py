@@ -755,7 +755,7 @@ class Executor:
         # Resolve dependency output references in topological order
         # This substitutes {{ dep.*.outputs.* }} templates before execution
         resolve_dependency_output_references(
-            self.recipe, execution_order, render_pattern=self._render_pattern
+            self.recipe, execution_order, render_pattern=self.render_pattern
         )
 
         # Resolve self-references in topological order
@@ -1581,16 +1581,19 @@ class Executor:
 
         return regular_args, exported_args, exported_env_vars
 
-    def _render_pattern(
+    def render_pattern(
         self, pattern: str, task: Task, args_dict: dict[str, Any] | None = None
     ) -> str:
         """
         Render one pattern belonging to a task.
 
-        Used for the patterns a task inherits from a dependency, and for a
-        dependency's output path on its way into another task's text: both
-        belong to the dependency, so they render in its context and against
-        its own set of patterns rather than the dependent's.
+        Public because the pieces that walk the dependency graph need it
+        without owning rendering: graph.py says which pattern belongs to
+        which invocation, and the CLI hands it to them. Used for the
+        patterns a task inherits from a dependency, and for a dependency's
+        output path on its way into another task's text -- both belong to
+        the dependency, so they render in its context and against its own
+        set of patterns rather than the dependent's.
 
         A pattern is matched, not executed, so a template left unrendered
         becomes a literal that matches nothing -- which looks like a task
@@ -1798,7 +1801,7 @@ class Executor:
         # path may name the arguments it was called with. Rendering them here
         # would use the wrong arguments.
         implicit_inputs = get_implicit_inputs(
-            self.recipe, task, args_dict, render_pattern=self._render_pattern
+            self.recipe, task, args_dict, render_pattern=self.render_pattern
         )
         all_inputs.extend(implicit_inputs)
         return all_inputs
@@ -1928,7 +1931,7 @@ class Executor:
         Extract all output paths from task outputs (both named and anonymous).
 
         Patterns are rendered here for the same reason input patterns are
-        (see _render_pattern): an unrendered output pattern matches nothing,
+        (see render_pattern): an unrendered output pattern matches nothing,
         which reads as "declared outputs are missing" and re-runs the task
         on every invocation.
 

@@ -127,7 +127,7 @@ def execute_dynamic_task(
         # Resolve dependency output references in topological order
         # This substitutes {{ dep.*.outputs.* }} templates before execution
         resolve_dependency_output_references(
-            recipe, execution_order, render_pattern=executor._render_pattern
+            recipe, execution_order, render_pattern=executor.render_pattern
         )
 
         # Resolve self-references in topological order

@@ -293,3 +293,52 @@ class TestStringLiteralsAreNotNamespaced(unittest.TestCase):
             rewrite_var_refs('{{ "see var.greeting" }}', "build"),
             '{{ "see var.greeting" }}',
         )
+
+    @unittest.expectedFailure
+    def test_an_attribute_path_is_not_mistaken_for_a_reference(self):
+        """
+        The same root cause from the other side: ``\b`` matches after a dot,
+        so a path that merely contains ``.var.`` is rewritten as though the
+        namespace were its own. Raised in the PR #212 review.
+        """
+        self.assertEqual(
+            rewrite_var_refs("{{ foo.var.bar }}", "build"), "{{ foo.var.bar }}"
+        )
+
+
+class TestStatementBlocksAreScanned(unittest.TestCase):
+    """
+    Jinja has two kinds of block, and a reference in either is a reference.
+    Only ``{{ ... }}`` was scanned, so a variable named solely inside
+    ``{% if ... %}`` was invisible: lazy evaluation never evaluated it, and
+    the task's hash never counted it. The recipe then failed at render with
+    "Variable 'x' is not defined" for a variable that plainly was.
+
+    Raised in the PR #212 review.
+    """
+
+    def test_a_reference_in_an_if_is_found(self):
+        refs = collect_template_refs("{% if var.flag %}on{% endif %}")
+        self.assertEqual(refs["var"], {"flag"})
+
+    def test_a_reference_in_a_set_is_found(self):
+        refs = collect_template_refs("{% set y = env.FOO %}{{ y }}")
+        self.assertEqual(refs["env"], {"FOO"})
+
+    def test_a_reference_in_a_for_is_found(self):
+        refs = collect_template_refs("{% for x in var.items %}{{ x }}{% endfor %}")
+        self.assertEqual(refs["var"], {"items"})
+
+    def test_both_kinds_of_block_are_found_together(self):
+        refs = collect_template_refs("{% if var.a %}{{ var.b }}{% endif %}")
+        self.assertEqual(refs["var"], {"a", "b"})
+
+    def test_a_statement_block_is_namespaced_on_import(self):
+        """
+        An imported file's statement block has to be namespaced too, or its
+        variable resolves against the importing file's scope instead.
+        """
+        self.assertEqual(
+            rewrite_var_refs("{% if var.flag %}on{% endif %}", "build"),
+            "{% if var.build.flag %}on{% endif %}",
+        )

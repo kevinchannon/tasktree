@@ -18,7 +18,13 @@ from typing import Any
 
 TEMPLATE_PREFIXES = ("var", "arg", "env", "tt", "dep", "self")
 
-_TEMPLATE_BLOCK = re.compile(r"\{\{.*?}}", re.DOTALL)
+# Jinja has two kinds of block and a reference in either is a reference:
+# {{ ... }} prints a value, {% ... %} is a statement, and `{% if var.flag %}`
+# names var.flag just as surely as `{{ var.flag }}` does. Scanning only the
+# first made a variable used solely in a statement invisible -- never
+# evaluated, never hashed -- so the recipe failed at render claiming the
+# variable was not defined.
+_TEMPLATE_BLOCK = re.compile(r"\{\{.*?}}|\{%.*?%}", re.DOTALL)
 # Continuation segments may be purely numeric: positional references like
 # {{ self.inputs.0 }} are documented syntax and must keep their index.
 _REFERENCE = re.compile(
