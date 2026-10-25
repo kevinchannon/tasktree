@@ -14,6 +14,19 @@ from tasktree.cli import app
 from fixture_utils import copy_fixture_files
 
 
+def error_text(output: str) -> str:
+    """
+    A CLI error, ready to assert a phrase against.
+
+    Rich wraps output to the terminal, and where it breaks depends on the
+    width the runner happens to offer -- the Windows job is narrower than
+    the others, which is enough to split a phrase mid-assertion. Collapsing
+    whitespace keeps these tests about what the message says rather than
+    where it was folded.
+    """
+    return " ".join(strip_ansi_codes(output).lower().split())
+
+
 def strip_ansi_codes(text: str) -> str:
     """
     Remove ANSI escape sequences from text.
@@ -1337,9 +1350,9 @@ class TestPositionalSelfReferences(unittest.TestCase):
                 )
 
                 # Check error message
-                output = strip_ansi_codes(result.output)
-                self.assertIn("index '5'", output.lower())
-                self.assertIn("only has 2", output.lower())
+                output = error_text(result.output)
+                self.assertIn("index '5'", output)
+                self.assertIn("only has 2", output)
             finally:
                 os.chdir(original_cwd)
 
@@ -1363,9 +1376,9 @@ class TestPositionalSelfReferences(unittest.TestCase):
                 )
 
                 # Check error message
-                output = strip_ansi_codes(result.output)
-                self.assertIn("index '3'", output.lower())
-                self.assertIn("1 outputs", output.lower())
+                output = error_text(result.output)
+                self.assertIn("index '3'", output)
+                self.assertIn("1 outputs", output)
             finally:
                 os.chdir(original_cwd)
 
@@ -1388,10 +1401,8 @@ class TestPositionalSelfReferences(unittest.TestCase):
                     result.exit_code, 0, "Task should fail when no inputs exist"
                 )
 
-                # Check error message. Collapsed whitespace: the message
-                # is wrapped to the terminal, and where it breaks is not
-                # what this test is about.
-                output = " ".join(strip_ansi_codes(result.output).lower().split())
+                # Check error message
+                output = error_text(result.output)
                 self.assertIn("inputs defined", output)
             finally:
                 os.chdir(original_cwd)
