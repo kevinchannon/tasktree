@@ -666,6 +666,11 @@ class TestStatementBlocks(PatternRenderingTestCase):
     variable the task depends on. It used to be invisible to the walk that
     decides which variables to evaluate, so a perfectly valid recipe failed
     claiming the variable was not defined (PR #212 review).
+
+    The commands echo "yes"/"no" rather than the obvious "on"/"off":
+    ``echo on`` and ``echo off`` are cmd.exe's own echo-control commands,
+    so on Windows they set the echo state and write nothing, and the test
+    fails with an empty file for a reason that has nothing to do with it.
     """
 
     def test_a_variable_used_only_in_a_conditional_resolves(self):
@@ -674,12 +679,12 @@ class TestStatementBlocks(PatternRenderingTestCase):
             "tasks:\n  build:\n"
             "    inputs: [srcdir/a.txt]\n"
             "    outputs: [out.txt]\n"
-            '    cmd: "{% if var.flag %}echo on{% else %}echo off{% endif %} > out.txt"\n'
+            '    cmd: "{% if var.flag %}echo yes{% else %}echo no{% endif %} > out.txt"\n'
         )
         result, output = self.run_task()
 
         self.assert_ran(output, result)
-        self.assertEqual((self.project_root / "out.txt").read_text().strip(), "on")
+        self.assertEqual((self.project_root / "out.txt").read_text().strip(), "yes")
 
     def test_changing_that_variable_re_runs_the_task(self):
         """
@@ -692,7 +697,7 @@ class TestStatementBlocks(PatternRenderingTestCase):
                 "tasks:\n  build:\n"
                 "    inputs: [srcdir/a.txt]\n"
                 "    outputs: [out.txt]\n"
-                '    cmd: "{% if var.flag == \'on\' %}echo on{% else %}echo off{% endif %} > out.txt"\n'
+                '    cmd: "{% if var.flag == \'on\' %}echo yes{% else %}echo no{% endif %} > out.txt"\n'
             )
 
         self.write_recipe(recipe("on"))
@@ -705,7 +710,7 @@ class TestStatementBlocks(PatternRenderingTestCase):
         self.write_recipe(recipe("off"))
         result, output = self.run_task()
         self.assert_ran(output, result)
-        self.assertEqual((self.project_root / "out.txt").read_text().strip(), "off")
+        self.assertEqual((self.project_root / "out.txt").read_text().strip(), "no")
 
 
 if __name__ == "__main__":
