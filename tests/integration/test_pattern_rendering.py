@@ -542,20 +542,18 @@ class TestSelfReferencesInArgumentDefaults(PatternRenderingTestCase):
         collapsed = " ".join(output.split())
         self.assertIn("target", collapsed)
 
-    @unittest.expectedFailure
     def test_a_dependencys_default_may_name_its_own_input(self):
         """
-        Blocked by a separate, pre-existing defect, not by the staging: a
-        dependency named as a bare string gets no argument defaults at all.
-        ``parse_dependency_spec`` returns ``args=None`` for that form and
-        nothing fills them in later, so even a plain literal default is
-        missing and the task fails with a leaked ``_ArgNamespace`` name.
-        Verified identical on c5ad5c7, before any of this branch's
-        rendering work.
+        The same thing one step down, and it needs the bare-dependency
+        defaults fix to work at all: ``deps: [generate]`` used to invoke
+        generate with no arguments, so there was no default to resolve.
 
-        Fixing it changes the arguments a simple dependency is invoked
-        with, and so its cache key, so it is Kevin's call rather than a
-        side effect of this slice. Kept as a running gate.
+        With the defaults filled, the textual self-reference pass handles
+        this case rather than ``resolve_arg_specs`` -- it rewrites the
+        default in place before the execution order is resolved the second
+        time, inside ``execute_task``. That pass is therefore live for
+        dependencies even though ``parse_task_args`` consumes the invoked
+        task's defaults too early for it to matter there.
         """
         self.write_recipe(
             "tasks:\n"
@@ -575,6 +573,91 @@ class TestSelfReferencesInArgumentDefaults(PatternRenderingTestCase):
         self.assertEqual(
             (self.project_root / "gen.txt").read_text().strip(), "srcdir/a.txt"
         )
+
+
+class TestBareDependencyArguments(PatternRenderingTestCase):
+    """
+    A dependency named on its own -- ``deps: [generate]`` -- is still an
+    invocation of that task, so it gets the task's argument defaults. The
+    positional and named forms always did; this form did not, so a command
+    referencing one of its own arguments had nothing to substitute.
+    """
+
+    def recipe(self, generate_args: str, generate_cmd: str) -> str:
+        return (
+            "tasks:\n"
+            "  generate:\n"
+            f"{generate_args}"
+            "    inputs:\n      - src: srcdir/a.txt\n"
+            "    outputs: [gen.txt]\n"
+            f"    cmd: {generate_cmd}\n"
+            "  build:\n"
+            "    deps: [generate]\n"
+            "    inputs: [gen.txt]\n"
+            "    outputs: [out.txt]\n"
+            "    cmd: cp gen.txt out.txt\n"
+        )
+
+    def test_a_default_reaches_a_bare_dependency(self):
+        self.write_recipe(
+            self.recipe(
+                "    args:\n      - mode: { default: plain-default }\n",
+                "echo {{ arg.mode }} > gen.txt",
+            )
+        )
+        result, output = self.run_task()
+
+        self.assert_ran(output, result, task="generate")
+        self.assertEqual(
+            (self.project_root / "gen.txt").read_text().strip(), "plain-default"
+        )
+
+    def test_a_typed_default_reaches_it_converted(self):
+        self.write_recipe(
+            self.recipe(
+                "    args:\n      - count: { type: int, default: 3 }\n",
+                "echo {{ arg.count }} > gen.txt",
+            )
+        )
+        result, output = self.run_task()
+
+        self.assert_ran(output, result, task="generate")
+        self.assertEqual((self.project_root / "gen.txt").read_text().strip(), "3")
+
+    def test_the_task_settles_rather_than_running_once_per_route(self):
+        """
+        The symptom behind the cache key: reached one way and then the
+        other, the task used to run twice and keep two state entries,
+        because one route supplied its defaults and the other did not.
+        """
+        self.write_recipe(
+            self.recipe(
+                "    args:\n      - mode: { default: plain-default }\n",
+                "echo generated > gen.txt",
+            )
+        )
+        result, output = self.run_task(task="generate")
+        self.assert_ran(output, result, task="generate")
+
+        result, output = self.run_task()
+        self.assert_skipped(output, result, task="generate")
+
+    def test_an_argument_with_no_default_is_left_alone(self):
+        """
+        Deliberately unchanged: a task whose required argument is never
+        supplied is a recipe error, but reading the dependency list is not
+        where that is reported, so naming such a task as a bare dependency
+        raises nothing new here.
+        """
+        self.write_recipe(
+            self.recipe(
+                "    args:\n      - needed: {}\n",
+                "echo generated > gen.txt",
+            )
+        )
+        result, output = self.run_task()
+
+        self.assert_ran(output, result, task="generate")
 
 
 if __name__ == "__main__":

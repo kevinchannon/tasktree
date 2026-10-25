@@ -3015,7 +3015,9 @@ def parse_dependency_spec(
     """
     # Simple string case
     if isinstance(dep_spec, str):
-        return DependencyInvocation(task_name=dep_spec, args=None)
+        return DependencyInvocation(
+            task_name=dep_spec, args=_bare_dependency_args(dep_spec, recipe)
+        )
 
     # Dictionary case
     if not isinstance(dep_spec, dict):
@@ -3057,6 +3059,49 @@ def parse_dependency_spec(
         f"Dependency arguments for '{task_name}' must be a list (positional) or dict (named), "
         f"got: {type(arg_spec).__name__}"
     )
+
+
+def _bare_dependency_args(task_name: str, recipe: Recipe) -> dict[str, Any] | None:
+    """
+    The arguments a dependency named on its own is invoked with.
+
+    The positional and named forms both fill in the defaults for whatever
+    the caller leaves out. Naming a task on its own leaves out all of them,
+    so all of them are filled: without this the task is invoked with no
+    arguments at all, and a command referencing one fails with nothing to
+    substitute.
+
+    Args:
+    task_name: The dependency's task name
+    recipe: Recipe containing task definitions
+
+    Returns:
+    The defaults by argument name, or None when there are none to fill.
+    None rather than an empty dict so that a dependency taking no arguments
+    keeps the invocation identity -- and so the cache key -- it always had.
+
+    An argument with no default is left out rather than reported here. A
+    task whose required argument is never supplied is a recipe error, but
+    the error for it belongs with whatever first needs the value, not with
+    reading the dependency list. A task that does not exist is left alone
+    too, so the existing "not found" reporting is still what the user sees.
+    """
+    task = recipe.get_task(task_name)
+    if task is None or not task.args:
+        return None
+
+    defaults: dict[str, Any] = {}
+    for spec in task.args:
+        parsed = parse_arg_spec(spec)
+        if parsed.default is None:
+            continue
+        # Defaults in task specs are always strings, convert them
+        click_type = get_click_type(
+            parsed.arg_type, min_val=parsed.min_val, max_val=parsed.max_val
+        )
+        defaults[parsed.name] = click_type.convert(parsed.default, None, None)
+
+    return defaults or None
 
 
 def _get_validated_task(task_name: str, recipe: Recipe) -> Task:
