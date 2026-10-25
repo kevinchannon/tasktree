@@ -566,7 +566,7 @@ class TestSelfReferencesInArgumentDefaults(PatternRenderingTestCase):
             "  build:\n"
             "    deps: [generate]\n"
             "    outputs: [out.txt]\n"
-            "    cmd: cp gen.txt out.txt\n"
+            "    cmd: echo built > out.txt\n"
         )
         result, output = self.run_task()
         self.assert_ran(output, result)
@@ -595,7 +595,7 @@ class TestBareDependencyArguments(PatternRenderingTestCase):
             "    deps: [generate]\n"
             "    inputs: [gen.txt]\n"
             "    outputs: [out.txt]\n"
-            "    cmd: cp gen.txt out.txt\n"
+            "    cmd: echo built > out.txt\n"
         )
 
     def test_a_default_reaches_a_bare_dependency(self):

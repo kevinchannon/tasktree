@@ -90,6 +90,40 @@ Your sponsor is not made of money! Try to minimise token useage, so that we can 
   - **`parser_wrapper.py`**: YAML parsing for variable/argument extraction (reuses tasktree parser)
   - **`position_utils.py`**: Cursor position detection utilities (task scoping, cmd field detection)
 
+### Parsing and rendering pipeline
+
+A recipe becomes a set of running tasks in this order. Each step has one job,
+and the order carries the guarantees:
+
+1. **Read** the YAML from disk.
+2. **Merge imports** into one raw dict (`raw_merge.py`) — namespacing, `run_in`
+   blanket overrides, pinned-runner rewrites and variable-reference rewriting,
+   all as dict transforms before any object exists.
+3. **Prune** to the tasks reachable from the invoked one, then the runners and
+   interpreters those reach. Errors in parts of the file nobody is invoking are
+   deliberately tolerated.
+4. **Schema-validate** the pruned merged tree (`recipe_schema.py`). This comes
+   before anything is evaluated, so an `eval:` variable in a recipe that is not
+   even structurally valid never runs — pinned by
+   `tests/integration/test_validation_ordering.py`.
+5. **Evaluate variables** that the surviving tasks reference, lazily, so an
+   expensive `eval:` or a sensitive `read:` only happens when it is needed.
+6. **Build** the `Task` and runner objects from the validated tree, and render
+   the fields that cannot wait for a point of use: a task's `desc`, printed by
+   `--list` with nothing running, and its argument specs, settled before the
+   task starts.
+7. **Render at the point of use** (`rendering.py`, a sandboxed Jinja
+   environment). Runners and interpreters render once, before any task. A
+   task's patterns render when they are matched against the filesystem, in an
+   order that respects any `self.*` references between them
+   (`field_order.py`); its command and working directory render when it runs.
+
+Two consequences worth knowing. A pattern left unrendered would be matched
+literally and match nothing, which reads as "no inputs changed" rather than as
+an error — so patterns render where they are used, not earlier. And a path
+injected into another field (a dependency's output, a self-reference) goes in
+*rendered*, because the text receiving it is itself about to be rendered.
+
 ### Key Dependencies
 
 - **PyYAML**: For recipe parsing

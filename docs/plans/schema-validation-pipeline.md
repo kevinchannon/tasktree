@@ -1429,6 +1429,40 @@ with 11 droppable in anywhere.
 **Sizing**: one session, concentrated in `rendering.py` and
 `template_refs.py` plus their unit tests.
 
+## 5a. User-visible behaviour changes, for release notes
+
+Collected here because the repository has no CHANGELOG to put them in, and a
+reviewer asked (rightly) where a release note would come from. Whoever cuts
+the release should lift this list; if a CHANGELOG is added, this section
+should move into it rather than be duplicated.
+
+- **Unknown or misspelled fields are now errors.** Previously ignored, so a
+  typo meant a task quietly did the wrong thing.
+- **Templates are rejected in `private`, `pin_runner` and `task_output`.**
+  They never worked; they were silently accepted.
+- **Every task that references a `var.*` or `env.*` value re-runs once** after
+  upgrade, because those values are now part of its hash. One-time.
+- **A change to a referenced environment variable now re-runs a task.** v1.3.2
+  never noticed. Only *referenced* variables count — inherited environment
+  still does not trigger a re-run.
+- **A task with a variable in an output path re-runs once** after upgrade: its
+  hash now holds the unrendered template plus the value behind it.
+- **A dependency named as a bare string now gets its argument defaults**, so
+  such a task re-runs once as its cache key gains the arguments it should
+  always have had. It also stops running twice when reached both directly and
+  as a dependency.
+- **Filters and conditionals now work everywhere a template does** — input and
+  output patterns, argument defaults, descriptions — not only in `cmd`.
+- **Task-independent `tt.*` builtins now resolve in descriptions and argument
+  defaults.** `tt.working_dir`, `tt.timestamp` and `tt.timestamp_unix` are
+  refused there with an error naming what is allowed; previously all of them
+  reached the shell as literal text.
+- **A bad `self.*` reference in a command is reported when the task renders**,
+  not when the execution order is resolved, so earlier tasks in the order run
+  first.
+- **`--show` prints templates** for `cmd`, `inputs` and `outputs` rather than
+  substituted text.
+
 ## 6. Rough sizing
 
 Slices 0–3 are each comfortably a single working session; slice 4 is several
