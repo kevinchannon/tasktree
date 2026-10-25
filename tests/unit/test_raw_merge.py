@@ -11,6 +11,7 @@ from tasktree.raw_merge import (
     merge_recipe_files,
     prune_unreferenced_interpreters,
     prune_unreferenced_runners,
+    dep_task_names,
 )
 
 
@@ -1393,3 +1394,30 @@ class TestParseRecipeMirrorsMergedTree(RawMergeTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestDepTaskNames(unittest.TestCase):
+    """
+    One rule for what a deps list mentions, so the reachability walk and the
+    import rewrite cannot disagree (raised in the PR #212 review).
+    """
+
+    def test_a_bare_string_is_normalised(self):
+        self.assertEqual(dep_task_names("build"), ["build"])
+
+    def test_strings_and_parameterised_deps_both_count(self):
+        self.assertEqual(
+            dep_task_names(["lint", {"build": ["debug"]}]), ["lint", "build"]
+        )
+
+    def test_a_multi_key_dep_contributes_nothing(self):
+        """
+        More than one key is invalid, and the schema reports it precisely on
+        the pruned tree ("has too many properties"), so following the keys
+        would add nothing and dropping them loses nothing.
+        """
+        self.assertEqual(dep_task_names([{"build": ["debug"], "lint": []}]), [])
+
+    def test_shapes_that_are_not_names_contribute_none(self):
+        self.assertEqual(dep_task_names(42), [])
+        self.assertEqual(dep_task_names([7, None, {3: []}]), [])

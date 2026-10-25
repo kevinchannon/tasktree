@@ -74,6 +74,11 @@ def load_file_schema() -> dict[str, Any]:
     Load the recipe file schema, which describes a single recipe file as the
     user authors it. Cached: it is read on every parse and never changes
     within a run.
+
+    The cache hands every caller the *same* dict, so a caller that mutates
+    it changes the schema for the whole process. Nothing does: the one
+    transform, ``merged_tree_schema``, deep-copies first. Copy before
+    mutating, or the next parse validates against your edit.
     """
     return json.loads(schema_path().read_text())
 

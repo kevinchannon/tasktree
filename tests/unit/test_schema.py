@@ -222,3 +222,33 @@ class TestFixtureCorpus(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestSchemaCopiesAgree(unittest.TestCase):
+    """
+    The schema is authored at the repository root so the raw-GitHub URL in
+    the READMEs keeps resolving, and the wheel force-includes a copy under
+    the package. Two copies can drift, and the installed one wins at
+    runtime, so a stale copy in a source tree would silently validate
+    recipes against yesterday's schema (raised in the PR #212 review).
+    """
+
+    def test_every_copy_present_is_identical(self):
+        from tasktree.recipe_schema import schema_candidates
+
+        present = [path for path in schema_candidates() if path.exists()]
+        self.assertTrue(present, "no copy of the schema was found at all")
+
+        contents = {path: json.loads(path.read_text()) for path in present}
+        first, *rest = contents.items()
+        for path, parsed in rest:
+            self.assertEqual(
+                parsed,
+                first[1],
+                f"{path} differs from {first[0]}; the installed copy is the "
+                f"one used at runtime",
+            )
+
+    def test_the_authored_copy_is_the_one_the_readmes_point_at(self):
+        """Its location is load-bearing for the editor-integration URL."""
+        self.assertTrue((Path(__file__).parents[2] / "schema" / "tasktree-schema.json").exists())

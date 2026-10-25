@@ -274,6 +274,47 @@ def _merge_file(
     return data
 
 
+def dep_task_names(deps: Any) -> list[str]:
+    """
+    The task names one ``deps`` value refers to.
+
+    The single rule the reachability walk goes by, so there is one place
+    that decides what a dependency list mentions.
+
+    A dict dep is ``{task-name: args}`` and only a **single**-key one
+    counts. More than one key is invalid, and the schema says so precisely
+    once the pruned tree is validated -- ``tasks.a.deps[0]: {'p': [], 'q':
+    []} has too many properties`` -- so following the extra keys would add
+    nothing and ignoring them loses nothing. ``_rewrite_deps`` rewrites
+    every key instead, which is not a disagreement: it has to preserve
+    whatever shape it was given for validation to report on, rather than
+    decide which names are real.
+
+    Anything else contributes no name: discovery is not validation, and the
+    schema reports the shape.
+
+    Args:
+    deps: A task's raw ``deps`` value, in any shape the YAML may hold
+
+    Returns:
+    The task names mentioned, in order
+    """
+    if isinstance(deps, str):
+        deps = [deps]
+    if not isinstance(deps, list):
+        return []
+
+    names = []
+    for dep in deps:
+        if isinstance(dep, str):
+            names.append(dep)
+        elif isinstance(dep, dict) and len(dep) == 1:
+            name = next(iter(dep))
+            if isinstance(name, str):
+                names.append(name)
+    return names
+
+
 def collect_reachable_task_names(tasks_data: dict[str, Any], root: str) -> set[str]:
     """
     Collect the task names reachable from root via deps, on the raw dict.
@@ -308,13 +349,7 @@ def collect_reachable_task_names(tasks_data: dict[str, Any], root: str) -> set[s
             deps = [deps]
         if not isinstance(deps, list):
             continue
-        for dep in deps:
-            if isinstance(dep, str):
-                queue.append(dep)
-            elif isinstance(dep, dict) and len(dep) == 1:
-                dep_name = next(iter(dep))
-                if isinstance(dep_name, str):
-                    queue.append(dep_name)
+        queue.extend(dep_task_names(deps))
 
     return reachable
 
@@ -513,7 +548,9 @@ def _rewrite_deps(
                 _rewrite_dep_name(dep, namespace, local_import_namespaces)
             )
         elif isinstance(dep, dict):
-            # Parameterized dep: {task-name: args} - rewrite the name only
+            # Parameterized dep: {task-name: args} - rewrite the name only.
+            # Every key is rewritten, which is the rule dep_task_names goes
+            # by for the reachability walk.
             rewritten.append(
                 {
                     _rewrite_dep_name(name, namespace, local_import_namespaces): args
